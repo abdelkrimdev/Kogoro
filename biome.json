@@ -1,41 +1,30 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.3.5/schema.json",
   "formatter": {
-    "enabled": true,
-    "formatWithErrors": false,
     "indentStyle": "space",
     "indentWidth": 2,
-    "lineWidth": 80,
-    "lineEnding": "lf"
+    "lineWidth": 80
   },
   "linter": {
-    "enabled": true,
     "rules": {
       "recommended": true,
-      "complexity": {
-        "noExcessiveCognitiveComplexity": "warn"
-      },
-      "correctness": {
-        "noUnusedVariables": "error"
-      },
       "style": {
+        "noDefaultExport": "off",
         "noNonNullAssertion": "off"
       },
       "suspicious": {
         "noExplicitAny": "warn",
-        "noUnknownAtRules": {
-          "level": "off"
-        }
+        "noArrayIndexKey": "warn"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "warn"
+      },
+      "performance": {
+        "noAccumulatingSpread": "warn"
       }
     }
   },
   "css": {
-    "formatter": {
-      "indentStyle": "space",
-      "indentWidth": 2,
-      "lineWidth": 80,
-      "lineEnding": "lf"
-    },
     "parser": {
       "tailwindDirectives": true
     }
@@ -49,6 +38,6 @@
     }
   },
   "files": {
-    "ignoreUnknown": false
+    "includes": ["src/**/*"]
   }
 }

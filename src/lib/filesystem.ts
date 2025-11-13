@@ -11,6 +11,15 @@ import { watch } from 'chokidar'
 import { EventEmitter } from 'node:events'
 
 /**
+ * File watcher interface for chokidar watcher instances
+ */
+interface FSWatcher {
+  on(event: string, callback: (path: string) => void): FSWatcher
+  on(event: 'error', callback: (error: Error) => void): FSWatcher
+  close(): void
+}
+
+/**
  * Supported video file extensions
  */
 export const SUPPORTED_VIDEO_EXTENSIONS = [
@@ -62,7 +71,7 @@ export interface FileWatcherEvents {
  * File system utility class
  */
 export class FileSystemManager extends EventEmitter {
-  private watchers: Map<string, any> = new Map()
+  private watchers: Map<string, FSWatcher> = new Map()
 
   /**
    * Get file information

@@ -83,6 +83,7 @@ export const Settings: Component = () => {
 
         <div class="flex space-x-3">
           <button
+            type="button"
             onClick={resetSettings}
             class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors flex items-center space-x-2"
           >
@@ -91,6 +92,7 @@ export const Settings: Component = () => {
           </button>
 
           <button
+            type="button"
             onClick={saveSettings}
             disabled={!hasChanges()}
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center space-x-2"
@@ -110,6 +112,7 @@ export const Settings: Component = () => {
                 const Icon = tab.icon
                 return (
                   <button
+                    type="button"
                     onClick={() =>
                       setActiveTab(
                         tab.id as
@@ -242,6 +245,7 @@ export const Settings: Component = () => {
                       Anime Directories
                     </span>
                     <button
+                      type="button"
                       onClick={() => addDirectory('anime')}
                       class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
                     >
@@ -258,6 +262,7 @@ export const Settings: Component = () => {
                             {dir}
                           </span>
                           <button
+                            type="button"
                             onClick={() => removeDirectory(index())}
                             class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                           >
@@ -282,6 +287,7 @@ export const Settings: Component = () => {
                       Download Directory
                     </span>
                     <button
+                      type="button"
                       onClick={() => addDirectory('download')}
                       class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
                     >
