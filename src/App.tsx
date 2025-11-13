@@ -19,13 +19,61 @@ const App: Component = () => {
     <ErrorBoundary>
       <ThemeProvider>
         <Router>
-          <Layout searchQuery={appState.searchQuery} onSearch={handleSearch}>
-            <Route path="/" component={Dashboard} />
-            <Route path="/collection" component={Collection} />
-            <Route path="/scanner" component={Scanner} />
-            <Route path="/search" component={Search} />
-            <Route path="/settings" component={Settings} />
-          </Layout>
+          <Route
+            path="/"
+            component={() => (
+              <Layout
+                searchQuery={appState.searchQuery}
+                onSearch={handleSearch}
+              >
+                <Dashboard />
+              </Layout>
+            )}
+          />
+          <Route
+            path="/collection"
+            component={() => (
+              <Layout
+                searchQuery={appState.searchQuery}
+                onSearch={handleSearch}
+              >
+                <Collection />
+              </Layout>
+            )}
+          />
+          <Route
+            path="/scanner"
+            component={() => (
+              <Layout
+                searchQuery={appState.searchQuery}
+                onSearch={handleSearch}
+              >
+                <Scanner />
+              </Layout>
+            )}
+          />
+          <Route
+            path="/search"
+            component={() => (
+              <Layout
+                searchQuery={appState.searchQuery}
+                onSearch={handleSearch}
+              >
+                <Search />
+              </Layout>
+            )}
+          />
+          <Route
+            path="/settings"
+            component={() => (
+              <Layout
+                searchQuery={appState.searchQuery}
+                onSearch={handleSearch}
+              >
+                <Settings />
+              </Layout>
+            )}
+          />
         </Router>
       </ThemeProvider>
     </ErrorBoundary>

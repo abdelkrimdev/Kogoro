@@ -138,11 +138,15 @@ export const Scanner: Component = () => {
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label
+                  for="scan-directory"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
                   Scan Directory
                 </label>
                 <div class="flex space-x-2">
                   <input
+                    id="scan-directory"
                     type="text"
                     value={selectedDirectory()}
                     onInput={(e) => setSelectedDirectory(e.currentTarget.value)}
@@ -150,6 +154,7 @@ export const Scanner: Component = () => {
                     class="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
                   />
                   <button
+                    type="button"
                     onClick={selectDirectory}
                     class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors flex items-center space-x-2"
                   >
@@ -213,6 +218,7 @@ export const Scanner: Component = () => {
                 when={!isScanning()}
                 fallback={
                   <button
+                    type="button"
                     onClick={stopScan}
                     class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center space-x-2"
                   >
@@ -222,6 +228,7 @@ export const Scanner: Component = () => {
                 }
               >
                 <button
+                  type="button"
                   onClick={startScan}
                   disabled={!selectedDirectory()}
                   class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center space-x-2"
@@ -231,7 +238,10 @@ export const Scanner: Component = () => {
                 </button>
               </Show>
 
-              <button class="px-6 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors flex items-center space-x-2">
+              <button
+                type="button"
+                class="px-6 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors flex items-center space-x-2"
+              >
                 <Settings class="w-4 h-4" />
                 <span>Settings</span>
               </button>

@@ -2,12 +2,13 @@ import {
   type Component,
   ErrorBoundary as SolidErrorBoundary,
   Show,
+  type JSX,
 } from 'solid-js'
 import { AlertTriangle, RefreshCw } from 'lucide-solid'
 
 interface ErrorBoundaryProps {
-  children: any
-  fallback?: (error: Error, reset: () => void) => any
+  children: JSX.Element
+  fallback?: (error: Error, reset: () => void) => JSX.Element
 }
 
 export const ErrorBoundary: Component<ErrorBoundaryProps> = (props) => {
@@ -41,6 +42,7 @@ export const ErrorBoundary: Component<ErrorBoundaryProps> = (props) => {
 
         <div class="flex space-x-3">
           <button
+            type="button"
             onClick={resetFn}
             class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center space-x-2"
           >
@@ -48,6 +50,7 @@ export const ErrorBoundary: Component<ErrorBoundaryProps> = (props) => {
             <span>Try Again</span>
           </button>
           <button
+            type="button"
             onClick={() => window.location.reload()}
             class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
           >

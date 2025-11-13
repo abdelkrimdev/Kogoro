@@ -1,10 +1,10 @@
-import { type Component, createSignal } from 'solid-js'
+import { type Component, createSignal, type JSX } from 'solid-js'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { UI_CONFIG } from '../../lib/config'
 
 interface LayoutProps {
-  children: any
+  children: JSX.Element
   searchQuery: string
   onSearch: (query: string) => void
 }

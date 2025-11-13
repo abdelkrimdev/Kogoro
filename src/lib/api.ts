@@ -14,10 +14,10 @@ export interface AniDBConfig {
 /**
  * AniDB API response structure
  */
-export interface AniDBResponse {
+export interface AniDBResponse<T = unknown> {
   code: number
   message?: string
-  data?: any
+  data?: T
 }
 
 /**

@@ -52,6 +52,7 @@ export const Header: Component<HeaderProps> = (props) => {
         {/* Theme Toggle */}
         <div class="relative group">
           <button
+            type="button"
             onClick={toggleTheme}
             class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             title="Toggle theme"
@@ -65,6 +66,7 @@ export const Header: Component<HeaderProps> = (props) => {
               <For each={['light', 'dark', 'auto'] as const}>
                 {(theme) => (
                   <button
+                    type="button"
                     onClick={() => handleThemeChange(theme)}
                     class={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
                       themeState.theme === theme
@@ -96,6 +98,7 @@ export const Header: Component<HeaderProps> = (props) => {
 
         {/* Notifications */}
         <button
+          type="button"
           class="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           title="Notifications"
         >
@@ -106,10 +109,11 @@ export const Header: Component<HeaderProps> = (props) => {
         {/* User Menu */}
         <div class="relative group">
           <button
+            type="button"
             class="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             title="User menu"
           >
-            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <div class="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
               <User class="w-4 h-4 text-white" />
             </div>
           </button>
@@ -118,7 +122,7 @@ export const Header: Component<HeaderProps> = (props) => {
           <div class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700">
               <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <div class="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                   <User class="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -132,14 +136,23 @@ export const Header: Component<HeaderProps> = (props) => {
               </div>
             </div>
             <div class="p-2">
-              <button class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+              <button
+                type="button"
+                class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
                 Profile
               </button>
-              <button class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+              <button
+                type="button"
+                class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
                 Preferences
               </button>
               <hr class="my-2 border-gray-200 dark:border-gray-700" />
-              <button class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400">
+              <button
+                type="button"
+                class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
+              >
                 Sign out
               </button>
             </div>

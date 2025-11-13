@@ -7,7 +7,12 @@ import {
   Globe,
   Shield,
 } from 'lucide-solid'
-import { appState, storeActions, defaultSettings } from '../../lib/store'
+import {
+  appState,
+  storeActions,
+  defaultSettings,
+  type AppSettings,
+} from '../../lib/store'
 import { FILE_NAMING_PATTERNS } from '../../lib/config'
 
 export const Settings: Component = () => {
@@ -25,7 +30,10 @@ export const Settings: Component = () => {
     { id: 'advanced', label: 'Advanced', icon: Shield },
   ]
 
-  const updateTempSetting = (key: string, value: any) => {
+  const updateTempSetting = <K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K]
+  ) => {
     setTempSettings((prev) => ({ ...prev, [key]: value }))
     setHasChanges(true)
   }
@@ -102,7 +110,16 @@ export const Settings: Component = () => {
                 const Icon = tab.icon
                 return (
                   <button
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() =>
+                      setActiveTab(
+                        tab.id as
+                          | 'general'
+                          | 'directories'
+                          | 'anidb'
+                          | 'naming'
+                          | 'advanced'
+                      )
+                    }
                     class={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
                       activeTab() === tab.id
                         ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
@@ -130,13 +147,20 @@ export const Settings: Component = () => {
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      for="theme-select"
+                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Theme
                     </label>
                     <select
+                      id="theme-select"
                       value={tempSettings().theme}
                       onChange={(e) =>
-                        updateTempSetting('theme', e.target.value)
+                        updateTempSetting(
+                          'theme',
+                          e.target.value as 'light' | 'dark' | 'auto'
+                        )
                       }
                       class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
                     >
@@ -147,10 +171,14 @@ export const Settings: Component = () => {
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      for="language-select"
+                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Language
                     </label>
                     <select
+                      id="language-select"
                       value={tempSettings().language}
                       onChange={(e) =>
                         updateTempSetting('language', e.target.value)
@@ -210,9 +238,9 @@ export const Settings: Component = () => {
                 {/* Anime Directories */}
                 <div>
                   <div class="flex items-center justify-between mb-4">
-                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Anime Directories
-                    </label>
+                    </span>
                     <button
                       onClick={() => addDirectory('anime')}
                       class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
@@ -250,9 +278,9 @@ export const Settings: Component = () => {
                 {/* Download Directory */}
                 <div>
                   <div class="flex items-center justify-between mb-4">
-                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Download Directory
-                    </label>
+                    </span>
                     <button
                       onClick={() => addDirectory('download')}
                       class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
@@ -291,10 +319,14 @@ export const Settings: Component = () => {
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      for="anidb-client"
+                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Client Name
                     </label>
                     <input
+                      id="anidb-client"
                       type="text"
                       value={tempSettings().anidbClient}
                       onChange={(e) =>
@@ -305,16 +337,20 @@ export const Settings: Component = () => {
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      for="anidb-port"
+                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Port
                     </label>
                     <input
+                      id="anidb-port"
                       type="number"
                       value={tempSettings().anidbPort}
                       onChange={(e) =>
                         updateTempSetting(
                           'anidbPort',
-                          parseInt(e.currentTarget.value)
+                          parseInt(e.currentTarget.value, 10)
                         )
                       }
                       class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
@@ -322,10 +358,14 @@ export const Settings: Component = () => {
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      for="anidb-username"
+                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Username (Optional)
                     </label>
                     <input
+                      id="anidb-username"
                       type="text"
                       value={tempSettings().anidbUsername || ''}
                       onChange={(e) =>
@@ -340,10 +380,14 @@ export const Settings: Component = () => {
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      for="anidb-password"
+                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Password (Optional)
                     </label>
                     <input
+                      id="anidb-password"
                       type="password"
                       value={tempSettings().anidbPassword || ''}
                       onChange={(e) =>
@@ -368,10 +412,14 @@ export const Settings: Component = () => {
                 </h2>
 
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label
+                    for="filename-format"
+                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
                     File Name Format
                   </label>
                   <select
+                    id="filename-format"
                     value={tempSettings().fileNameFormat}
                     onChange={(e) =>
                       updateTempSetting('fileNameFormat', e.target.value)

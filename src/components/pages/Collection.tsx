@@ -61,6 +61,7 @@ export const Collection: Component = () => {
         {/* View Controls */}
         <div class="flex items-center space-x-2">
           <button
+            type="button"
             onClick={() => setShowFilters(!showFilters())}
             class={`p-2 rounded-lg transition-colors ${
               showFilters()
@@ -74,6 +75,7 @@ export const Collection: Component = () => {
 
           <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
             <button
+              type="button"
               onClick={() => setViewMode('grid')}
               class={`p-2 rounded transition-colors ${
                 viewMode() === 'grid'
@@ -85,6 +87,7 @@ export const Collection: Component = () => {
               <Grid class="w-4 h-4" />
             </button>
             <button
+              type="button"
               onClick={() => setViewMode('list')}
               class={`p-2 rounded transition-colors ${
                 viewMode() === 'list'
@@ -104,10 +107,14 @@ export const Collection: Component = () => {
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                for="sort-by"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Sort By
               </label>
               <select
+                id="sort-by"
                 value={sortBy()}
                 onChange={(e) => handleSort(e.target.value as SortBy)}
                 class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
@@ -120,10 +127,15 @@ export const Collection: Component = () => {
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                for="sort-order"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Order
               </label>
               <button
+                id="sort-order"
+                type="button"
                 onClick={() =>
                   setSortOrder(sortOrder() === 'asc' ? 'desc' : 'asc')
                 }
@@ -139,10 +151,14 @@ export const Collection: Component = () => {
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                for="filter-type"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Type
               </label>
               <select
+                id="filter-type"
                 value={appState.filterType}
                 onChange={(e) =>
                   storeActions.setFilter(appState.filterGenre, e.target.value)

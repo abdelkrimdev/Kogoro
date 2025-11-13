@@ -1,4 +1,4 @@
-import { createContext, createEffect, useContext } from 'solid-js'
+import { createContext, createEffect, useContext, type JSX } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import { STORAGE_CONFIG } from '../lib/config'
 
@@ -18,7 +18,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType>()
 
-export function ThemeProvider(props: { children: any }) {
+export function ThemeProvider(props: { children: JSX.Element }) {
   const [state, setState] = createStore<ThemeState>({
     theme: 'auto',
     systemTheme: 'light',

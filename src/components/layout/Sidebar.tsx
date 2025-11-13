@@ -14,7 +14,7 @@ import { UI_CONFIG } from '../../lib/config'
 interface SidebarItem {
   id: string
   label: string
-  icon: any
+  icon: Component<{ class?: string }>
   path: string
   badge?: number
 }
@@ -86,13 +86,13 @@ export const Sidebar: Component<SidebarProps> = (props) => {
         <Show
           when={!props.isCollapsed}
           fallback={
-            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div class="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span class="text-white font-bold text-sm">K</span>
             </div>
           }
         >
           <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div class="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span class="text-white font-bold text-sm">K</span>
             </div>
             <span class="text-xl font-bold text-gray-900 dark:text-white">
@@ -102,6 +102,7 @@ export const Sidebar: Component<SidebarProps> = (props) => {
         </Show>
 
         <button
+          type="button"
           onClick={props.onToggleCollapse}
           class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           title={props.isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -126,6 +127,7 @@ export const Sidebar: Component<SidebarProps> = (props) => {
 
             return (
               <button
+                type="button"
                 onClick={() => handleItemClick(item)}
                 class={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors group ${
                   active
@@ -135,7 +137,7 @@ export const Sidebar: Component<SidebarProps> = (props) => {
                 title={props.isCollapsed ? item.label : undefined}
               >
                 <Icon
-                  class={`w-5 h-5 flex-shrink-0 ${
+                  class={`w-5 h-5 shrink-0 ${
                     active
                       ? 'text-blue-600 dark:text-blue-400'
                       : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
