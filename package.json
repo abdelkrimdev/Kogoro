@@ -1,0 +1,39 @@
+{
+  "name": "kogoro",
+  "version": "0.0.1",
+  "description": "Kogoro is the ultimate companion for organizing and renaming your anime collection. Instantly match your media files with the AniDB database to rename them accurately, download artwork and cover images, fetch subtitles, and write metadata — all in just seconds. It’s intelligent, fast, and effortless to use.",
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "test": "vitest",
+    "format": "biome format --write",
+    "lint": "biome lint --write"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.5",
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "^24.10.1",
+    "@types/node-fetch": "^2.6.13",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2",
+    "vite-plugin-solid": "^2.11.10",
+    "vitest": "^4.0.8"
+  },
+  "dependencies": {
+    "@kobalte/core": "^0.13.11",
+    "@solidjs/router": "^0.15.4",
+    "axios": "^1.13.2",
+    "chokidar": "^4.0.3",
+    "clsx": "^2.1.1",
+    "crypto-js": "^4.2.0",
+    "lucide-solid": "^0.553.0",
+    "node-fetch": "^3.3.2",
+    "solid-js": "^1.9.10",
+    "tailwind-merge": "^3.4.0"
+  }
+}
