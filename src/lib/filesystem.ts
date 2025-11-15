@@ -7,17 +7,8 @@ import {
   unlink,
 } from 'node:fs/promises'
 import { join, extname, basename, dirname } from 'node:path'
-import { watch } from 'chokidar'
+import { type FSWatcher, watch } from 'chokidar'
 import { EventEmitter } from 'node:events'
-
-/**
- * File watcher interface for chokidar watcher instances
- */
-interface FSWatcher {
-  on(event: string, callback: (path: string) => void): FSWatcher
-  on(event: 'error', callback: (error: Error) => void): FSWatcher
-  close(): void
-}
 
 /**
  * Supported video file extensions
@@ -304,7 +295,7 @@ export function parseEpisodeNumber(fileName: string): number | null {
 
   for (const pattern of patterns) {
     const match = fileName.match(pattern)
-    if (match) {
+    if (match?.[1]) {
       const num = parseInt(match[1], 10)
       if (!Number.isNaN(num) && num > 0 && num < 1000) {
         return num

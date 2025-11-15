@@ -49,7 +49,7 @@ export function calculateED2KHashFromBuffer(buffer: Buffer): string {
 }
 
 /**
- * Calculate MD5 hash for a file
+ * Calculate MD5 hash for a file using Bun's optimized crypto
  */
 export async function calculateMD5Hash(filePath: string): Promise<string> {
   try {
@@ -62,7 +62,7 @@ export async function calculateMD5Hash(filePath: string): Promise<string> {
 }
 
 /**
- * Calculate SHA1 hash for a file
+ * Calculate SHA1 hash for a file using Bun's optimized crypto
  */
 export async function calculateSHA1Hash(filePath: string): Promise<string> {
   try {

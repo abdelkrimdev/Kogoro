@@ -4,7 +4,7 @@ import {
   Show,
   type JSX,
 } from 'solid-js'
-import { AlertTriangle, RefreshCw } from 'lucide-solid'
+import { TriangleAlert, RefreshCw } from 'lucide-solid'
 
 interface ErrorBoundaryProps {
   children: JSX.Element
@@ -17,7 +17,7 @@ export const ErrorBoundary: Component<ErrorBoundaryProps> = (props) => {
       <div class="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-center space-x-3 mb-4">
           <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-            <AlertTriangle class="w-6 h-6 text-red-600 dark:text-red-400" />
+            <TriangleAlert class="w-6 h-6 text-red-600 dark:text-red-400" />
           </div>
           <h1 class="text-xl font-semibold text-gray-900 dark:text-white">
             Something went wrong

@@ -1,4 +1,12 @@
-import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
+/**
+ * HTTP response interface for Bun fetch
+ */
+interface HttpResponse<T = unknown> {
+  data: T
+  status: number
+  statusText: string
+  headers: Headers
+}
 
 /**
  * AniDB API client configuration
@@ -63,7 +71,6 @@ export interface FileInfo {
  * AniDB API Client
  */
 export class AniDBClient {
-  private client: AxiosInstance
   private config: AniDBConfig
 
   constructor(config: Partial<AniDBConfig> = {}) {
@@ -75,15 +82,38 @@ export class AniDBClient {
       timeout: 30000,
       ...config,
     }
+  }
 
-    this.client = axios.create({
-      baseURL: this.config.baseUrl,
-      timeout: this.config.timeout,
-      headers: {
-        'Content-Type': 'application/xml',
-        Accept: 'application/xml',
-      },
-    })
+  /**
+   * Make HTTP request using Bun's native fetch
+   */
+  private async makeRequest(url: string): Promise<HttpResponse> {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/xml',
+          Accept: 'application/xml',
+        },
+        signal: AbortSignal.timeout(this.config.timeout),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.text()
+
+      return {
+        data,
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      }
+    } catch (error) {
+      console.error('HTTP request failed:', error)
+      throw error
+    }
   }
 
   /**
@@ -101,8 +131,9 @@ export class AniDBClient {
         fmask: '0',
       })
 
-      const response: AxiosResponse = await this.client.get(`?${params}`)
-      return this.parseAnimeResponse(response.data)
+      const url = `${this.config.baseUrl}?${params}`
+      const response = await this.makeRequest(url)
+      return this.parseAnimeResponse(response.data as string)
     } catch (error) {
       console.error('Error searching by hash:', error)
       return null
@@ -123,8 +154,9 @@ export class AniDBClient {
         fmask: '0',
       })
 
-      const response: AxiosResponse = await this.client.get(`?${params}`)
-      return this.parseAnimeListResponse(response.data)
+      const url = `${this.config.baseUrl}?${params}`
+      const response = await this.makeRequest(url)
+      return this.parseAnimeListResponse(response.data as string)
     } catch (error) {
       console.error('Error searching by title:', error)
       return []
@@ -145,8 +177,9 @@ export class AniDBClient {
         fmask: '0',
       })
 
-      const response: AxiosResponse = await this.client.get(`?${params}`)
-      return this.parseAnimeResponse(response.data)
+      const url = `${this.config.baseUrl}?${params}`
+      const response = await this.makeRequest(url)
+      return this.parseAnimeResponse(response.data as string)
     } catch (error) {
       console.error('Error getting anime details:', error)
       return null
@@ -166,7 +199,7 @@ export class AniDBClient {
       const animeElement = doc.querySelector('anime')
       if (!animeElement) return null
 
-      return {
+      const anime: AniDBAnime = {
         id: parseInt(animeElement.getAttribute('id') || '0', 10),
         title: this.getElementText(animeElement, 'title') || '',
         type:
@@ -181,13 +214,28 @@ export class AniDBClient {
           this.getElementText(animeElement, 'episodecount') || '0',
           10
         ),
-        startDate: this.getElementText(animeElement, 'startdate') || undefined,
-        endDate: this.getElementText(animeElement, 'enddate') || undefined,
-        rating: parseFloat(this.getElementText(animeElement, 'rating') || '0'),
-        synopsis: this.getElementText(animeElement, 'description') || undefined,
-        genres: this.getElementText(animeElement, 'genres')?.split(', ') || [],
-        picture: this.getElementText(animeElement, 'picture') || undefined,
       }
+
+      // Add optional properties only if they exist
+      const startDate = this.getElementText(animeElement, 'startdate')
+      if (startDate) anime.startDate = startDate
+
+      const endDate = this.getElementText(animeElement, 'enddate')
+      if (endDate) anime.endDate = endDate
+
+      const ratingText = this.getElementText(animeElement, 'rating')
+      if (ratingText) anime.rating = parseFloat(ratingText)
+
+      const synopsis = this.getElementText(animeElement, 'description')
+      if (synopsis) anime.synopsis = synopsis
+
+      const genresText = this.getElementText(animeElement, 'genres')
+      if (genresText) anime.genres = genresText.split(', ')
+
+      const picture = this.getElementText(animeElement, 'picture')
+      if (picture) anime.picture = picture
+
+      return anime
     } catch (error) {
       console.error('Error parsing anime response:', error)
       return null
