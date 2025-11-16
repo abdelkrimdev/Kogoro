@@ -10,6 +10,14 @@ import {
   Library,
 } from 'lucide-solid'
 import { UI_CONFIG } from '../../lib/config'
+import {
+  cn,
+  getTextClasses,
+  getBackgroundClasses,
+  getBorderClasses,
+  getStatusClasses,
+  getThemeComponentClasses,
+} from '../../lib/utils'
 
 interface SidebarItem {
   id: string
@@ -74,28 +82,37 @@ export const Sidebar: Component<SidebarProps> = (props) => {
 
   return (
     <div
-      class={`flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
+      class={cn(
+        'flex flex-col transition-all duration-300',
+        getBackgroundClasses('primary'),
+        getBorderClasses('primary'),
+        'border-r',
         props.isCollapsed ? 'w-16' : 'w-64'
-      }`}
+      )}
       style={{
         width: `${props.isCollapsed ? UI_CONFIG.sidebarCollapsedWidth : UI_CONFIG.sidebarWidth}px`,
       }}
     >
       {/* Header */}
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div
+        class={cn(
+          'flex items-center justify-between p-4 border-b',
+          getBorderClasses('primary')
+        )}
+      >
         <Show
           when={!props.isCollapsed}
           fallback={
-            <div class="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span class="text-white font-bold text-sm">K</span>
             </div>
           }
         >
           <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span class="text-white font-bold text-sm">K</span>
             </div>
-            <span class="text-xl font-bold text-gray-900 dark:text-white">
+            <span class={cn('text-xl font-bold', getTextClasses('primary'))}>
               Kogoro
             </span>
           </div>
@@ -104,16 +121,19 @@ export const Sidebar: Component<SidebarProps> = (props) => {
         <button
           type="button"
           onClick={props.onToggleCollapse}
-          class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          class={cn(
+            'p-1 rounded-lg transition-colors',
+            getThemeComponentClasses({ variant: 'muted', interactive: true })
+          )}
           title={props.isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <Show
             when={props.isCollapsed}
             fallback={
-              <ChevronLeft class="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <ChevronLeft class={cn('w-4 h-4', getTextClasses('tertiary'))} />
             }
           >
-            <ChevronRight class="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <ChevronRight class={cn('w-4 h-4', getTextClasses('tertiary'))} />
           </Show>
         </button>
       </div>
@@ -129,25 +149,45 @@ export const Sidebar: Component<SidebarProps> = (props) => {
               <button
                 type="button"
                 onClick={() => handleItemClick(item)}
-                class={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors group ${
+                class={cn(
+                  'w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors group',
                   active
-                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                }`}
+                    ? cn(
+                        getStatusClasses('info', 'bg'),
+                        getStatusClasses('info', 'text')
+                      )
+                    : cn(
+                        getTextClasses('secondary'),
+                        getThemeComponentClasses({
+                          variant: 'muted',
+                          interactive: true,
+                        })
+                      )
+                )}
                 title={props.isCollapsed ? item.label : undefined}
               >
                 <Icon
-                  class={`w-5 h-5 shrink-0 ${
+                  class={cn(
+                    'w-5 h-5 shrink-0',
                     active
-                      ? 'text-blue-600 dark:text-blue-400'
-                      : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
-                  }`}
+                      ? getStatusClasses('info', 'text')
+                      : cn(
+                          getTextClasses('tertiary'),
+                          `group-hover:${getTextClasses('secondary')}`
+                        )
+                  )}
                 />
 
                 <Show when={!props.isCollapsed}>
                   <span class="ml-3 truncate">{item.label}</span>
                   <Show when={item.badge && item.badge > 0}>
-                    <span class="ml-auto bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 text-xs px-2 py-1 rounded-full">
+                    <span
+                      class={cn(
+                        'ml-auto text-xs px-2 py-1 rounded-full',
+                        getStatusClasses('info', 'bg'),
+                        getStatusClasses('info', 'text')
+                      )}
+                    >
                       {item.badge}
                     </span>
                   </Show>
@@ -159,9 +199,9 @@ export const Sidebar: Component<SidebarProps> = (props) => {
       </nav>
 
       {/* Footer */}
-      <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+      <div class={cn('p-4 border-t', getBorderClasses('primary'))}>
         <Show when={!props.isCollapsed}>
-          <div class="text-xs text-gray-500 dark:text-gray-400">
+          <div class={cn('text-xs', getTextClasses('tertiary'))}>
             <div class="flex items-center justify-between mb-1">
               <span>Status</span>
               <span class="w-2 h-2 bg-green-500 rounded-full"></span>

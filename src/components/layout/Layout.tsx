@@ -2,6 +2,8 @@ import { type Component, createSignal, type JSX } from 'solid-js'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { UI_CONFIG } from '../../lib/config'
+import { cn } from '../../lib/class-utils'
+import { getBackgroundClasses } from '../../lib/theme-classes'
 
 interface LayoutProps {
   children: JSX.Element
@@ -17,7 +19,7 @@ export const Layout: Component<LayoutProps> = (props) => {
   }
 
   return (
-    <div class="flex h-screen bg-gray-50 dark:bg-gray-950">
+    <div class={cn('flex h-screen', getBackgroundClasses('primary'))}>
       {/* Sidebar */}
       <Sidebar
         isCollapsed={isSidebarCollapsed()}

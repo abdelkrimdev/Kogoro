@@ -16,6 +16,7 @@ export { Settings } from './pages/Settings'
 
 // UI Components
 export { ErrorBoundary } from './ui/ErrorBoundary'
+export { ThemeErrorBoundary } from './ui/ThemeErrorBoundary'
 export { Loading } from './ui/Loading'
 
 // ============================================================================

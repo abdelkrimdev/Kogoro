@@ -13,6 +13,11 @@ export default {
           DEFAULT: 'rgb(var(--bg-secondary))',
           foreground: 'rgb(var(--text-secondary))',
         },
+        tertiary: {
+          DEFAULT: 'rgb(var(--bg-tertiary))',
+          foreground: 'rgb(var(--text-tertiary))',
+          border: 'rgb(var(--border-tertiary))',
+        },
         accent: {
           DEFAULT: 'rgb(var(--accent))',
           foreground: 'rgb(var(--bg-primary))',
@@ -65,10 +70,12 @@ export default {
       transitionDuration: {
         '400': '400ms',
         '600': '600ms',
+        'theme': '300ms',
       },
       transitionTimingFunction: {
         'bounce-in': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
         smooth: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        theme: 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
       // Container queries support
       screens: {
@@ -179,6 +186,44 @@ export default {
           '&:focus': {
             outline: 'none',
             'box-shadow': 'inset 0 0 0 2px rgb(var(--accent))',
+          },
+        },
+      })
+    },
+    // Theme transition utilities
+    ({ addUtilities }) => {
+      addUtilities({
+        '.theme-transition': {
+          transition: 'background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        },
+        '.theme-transition-bg': {
+          transition: 'background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        },
+        '.theme-transition-text': {
+          transition: 'color 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        },
+        '.theme-transition-border': {
+          transition: 'border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        },
+        '.theme-transition-all': {
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        },
+        // Respect reduced motion
+        '@media (prefers-reduced-motion: reduce)': {
+          '.theme-transition': {
+            transition: 'none',
+          },
+          '.theme-transition-bg': {
+            transition: 'none',
+          },
+          '.theme-transition-text': {
+            transition: 'none',
+          },
+          '.theme-transition-border': {
+            transition: 'none',
+          },
+          '.theme-transition-all': {
+            transition: 'none',
           },
         },
       })

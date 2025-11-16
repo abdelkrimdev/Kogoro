@@ -11,6 +11,12 @@ import {
   Clock,
 } from 'lucide-solid'
 import { appState, storeActions } from '../../lib/store'
+import {
+  cn,
+  getStatusClasses,
+  getThemeComponentClasses,
+  getTextClasses,
+} from '../../lib/utils'
 
 export const Scanner: Component = () => {
   const [isScanning, setIsScanning] = createSignal(false)
@@ -102,13 +108,13 @@ export const Scanner: Component = () => {
   const getStatusColor = () => {
     switch (scanStatus()) {
       case 'scanning':
-        return 'text-blue-600 dark:text-blue-400'
+        return getStatusClasses('info', 'text')
       case 'completed':
-        return 'text-green-600 dark:text-green-400'
+        return getStatusClasses('success', 'text')
       case 'error':
-        return 'text-red-600 dark:text-red-400'
+        return getStatusClasses('error', 'text')
       default:
-        return 'text-gray-600 dark:text-gray-400'
+        return getTextClasses('tertiary')
     }
   }
 
@@ -118,10 +124,10 @@ export const Scanner: Component = () => {
     <div class="space-y-6">
       {/* Header */}
       <div>
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 class={cn('text-3xl font-bold', getTextClasses('primary'))}>
           Scanner
         </h1>
-        <p class="text-gray-600 dark:text-gray-400 mt-2">
+        <p class={cn('mt-2', getTextClasses('tertiary'))}>
           Scan your directories for anime files and automatically add them to
           your collection
         </p>
@@ -131,8 +137,18 @@ export const Scanner: Component = () => {
         {/* Scanner Controls */}
         <div class="lg:col-span-2 space-y-6">
           {/* Directory Selection */}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div
+            class={cn(
+              'rounded-lg shadow-sm p-6',
+              getThemeComponentClasses({ variant: 'default' })
+            )}
+          >
+            <h2
+              class={cn(
+                'text-lg font-semibold mb-4',
+                getTextClasses('primary')
+              )}
+            >
               Directory Selection
             </h2>
 
@@ -140,7 +156,10 @@ export const Scanner: Component = () => {
               <div>
                 <label
                   for="scan-directory"
-                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  class={cn(
+                    'block text-sm font-medium mb-2',
+                    getTextClasses('secondary')
+                  )}
                 >
                   Scan Directory
                 </label>
@@ -151,12 +170,22 @@ export const Scanner: Component = () => {
                     value={selectedDirectory()}
                     onInput={(e) => setSelectedDirectory(e.currentTarget.value)}
                     placeholder="Select a directory containing anime files..."
-                    class="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                    class={cn(
+                      'flex-1 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 transition-colors',
+                      'bg-background text-foreground border',
+                      'focus:ring-accent focus:border-accent'
+                    )}
                   />
                   <button
                     type="button"
                     onClick={selectDirectory}
-                    class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors flex items-center space-x-2"
+                    class={cn(
+                      'px-4 py-2 rounded-lg transition-colors flex items-center space-x-2',
+                      getThemeComponentClasses({
+                        variant: 'muted',
+                        interactive: true,
+                      })
+                    )}
                   >
                     <FolderOpen class="w-4 h-4" />
                     <span>Browse</span>
@@ -170,9 +199,12 @@ export const Scanner: Component = () => {
                   <input
                     type="checkbox"
                     checked={true}
-                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    class={cn(
+                      'w-4 h-4 rounded focus:ring-2 focus:ring-accent',
+                      'bg-muted border text-accent'
+                    )}
                   />
-                  <span class="text-sm text-gray-700 dark:text-gray-300">
+                  <span class={cn('text-sm', getTextClasses('secondary'))}>
                     Include subdirectories
                   </span>
                 </label>
@@ -181,9 +213,12 @@ export const Scanner: Component = () => {
                   <input
                     type="checkbox"
                     checked={true}
-                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    class={cn(
+                      'w-4 h-4 rounded focus:ring-2 focus:ring-accent',
+                      'bg-muted border text-accent'
+                    )}
                   />
-                  <span class="text-sm text-gray-700 dark:text-gray-300">
+                  <span class={cn('text-sm', getTextClasses('secondary'))}>
                     Auto-match with AniDB
                   </span>
                 </label>
@@ -192,9 +227,12 @@ export const Scanner: Component = () => {
                   <input
                     type="checkbox"
                     checked={true}
-                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    class={cn(
+                      'w-4 h-4 rounded focus:ring-2 focus:ring-accent',
+                      'bg-muted border text-accent'
+                    )}
                   />
-                  <span class="text-sm text-gray-700 dark:text-gray-300">
+                  <span class={cn('text-sm', getTextClasses('secondary'))}>
                     Generate thumbnails
                   </span>
                 </label>
@@ -203,9 +241,12 @@ export const Scanner: Component = () => {
                   <input
                     type="checkbox"
                     checked={false}
-                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    class={cn(
+                      'w-4 h-4 rounded focus:ring-2 focus:ring-accent',
+                      'bg-muted border text-accent'
+                    )}
                   />
-                  <span class="text-sm text-gray-700 dark:text-gray-300">
+                  <span class={cn('text-sm', getTextClasses('secondary'))}>
                     Rename files automatically
                   </span>
                 </label>
@@ -220,7 +261,12 @@ export const Scanner: Component = () => {
                   <button
                     type="button"
                     onClick={stopScan}
-                    class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+                    class={cn(
+                      'px-6 py-2 rounded-lg transition-colors flex items-center space-x-2',
+                      getStatusClasses('error', 'bg'),
+                      getStatusClasses('error', 'text'),
+                      'hover:opacity-80'
+                    )}
                   >
                     <Pause class="w-4 h-4" />
                     <span>Stop Scan</span>
@@ -231,7 +277,11 @@ export const Scanner: Component = () => {
                   type="button"
                   onClick={startScan}
                   disabled={!selectedDirectory()}
-                  class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center space-x-2"
+                  class={cn(
+                    'px-6 py-2 rounded-lg transition-colors flex items-center space-x-2',
+                    'bg-accent text-accent-foreground hover:bg-accent-hover',
+                    'disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed'
+                  )}
                 >
                   <Play class="w-4 h-4" />
                   <span>Start Scan</span>
@@ -240,7 +290,13 @@ export const Scanner: Component = () => {
 
               <button
                 type="button"
-                class="px-6 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors flex items-center space-x-2"
+                class={cn(
+                  'px-6 py-2 rounded-lg transition-colors flex items-center space-x-2',
+                  getThemeComponentClasses({
+                    variant: 'muted',
+                    interactive: true,
+                  })
+                )}
               >
                 <Settings class="w-4 h-4" />
                 <span>Settings</span>
@@ -250,12 +306,24 @@ export const Scanner: Component = () => {
 
           {/* Progress */}
           <Show when={isScanning() || scanStatus() === 'completed'}>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div
+              class={cn(
+                'rounded-lg shadow-sm p-6',
+                getThemeComponentClasses({ variant: 'default' })
+              )}
+            >
               <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2
+                  class={cn(
+                    'text-lg font-semibold mb-4',
+                    getTextClasses('primary')
+                  )}
+                >
                   Scan Progress
                 </h2>
-                <div class={`flex items-center space-x-2 ${getStatusColor()}`}>
+                <div
+                  class={cn('flex items-center space-x-2', getStatusColor())}
+                >
                   <StatusIcon class="w-5 h-5" />
                   <span class="capitalize">{scanStatus()}</span>
                 </div>
@@ -264,16 +332,17 @@ export const Scanner: Component = () => {
               <div class="space-y-4">
                 <div>
                   <div class="flex justify-between text-sm mb-2">
-                    <span class="text-gray-600 dark:text-gray-400">
-                      Progress
-                    </span>
-                    <span class="text-gray-900 dark:text-white">
+                    <span class={getTextClasses('tertiary')}>Progress</span>
+                    <span class={getTextClasses('primary')}>
                       {Math.round(scanProgress())}%
                     </span>
                   </div>
-                  <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div class={cn('w-full rounded-full h-2', 'bg-muted')}>
                     <div
-                      class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      class={cn(
+                        'h-2 rounded-full transition-all duration-300',
+                        'bg-accent'
+                      )}
                       style={{ width: `${scanProgress()}%` }}
                     />
                   </div>
@@ -281,34 +350,54 @@ export const Scanner: Component = () => {
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">
+                    <p
+                      class={cn(
+                        'text-2xl font-bold',
+                        getTextClasses('primary')
+                      )}
+                    >
                       {scanResults().total}
                     </p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <p class={cn('text-sm', getTextClasses('tertiary'))}>
                       Total Files
                     </p>
                   </div>
                   <div>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">
+                    <p
+                      class={cn(
+                        'text-2xl font-bold',
+                        getTextClasses('primary')
+                      )}
+                    >
                       {scanResults().processed}
                     </p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <p class={cn('text-sm', getTextClasses('tertiary'))}>
                       Processed
                     </p>
                   </div>
                   <div>
-                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">
+                    <p
+                      class={cn(
+                        'text-2xl font-bold',
+                        getStatusClasses('success', 'text')
+                      )}
+                    >
                       {scanResults().added}
                     </p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <p class={cn('text-sm', getTextClasses('tertiary'))}>
                       Added
                     </p>
                   </div>
                   <div>
-                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    <p
+                      class={cn(
+                        'text-2xl font-bold',
+                        getStatusClasses('info', 'text')
+                      )}
+                    >
                       {scanResults().updated}
                     </p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <p class={cn('text-sm', getTextClasses('tertiary'))}>
                       Updated
                     </p>
                   </div>
@@ -321,32 +410,42 @@ export const Scanner: Component = () => {
         {/* Sidebar */}
         <div class="space-y-6">
           {/* Quick Stats */}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div
+            class={cn(
+              'rounded-lg shadow-sm p-6',
+              getThemeComponentClasses({ variant: 'default' })
+            )}
+          >
+            <h2
+              class={cn(
+                'text-lg font-semibold mb-4',
+                getTextClasses('primary')
+              )}
+            >
               Quick Stats
             </h2>
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600 dark:text-gray-400">
+                <span class={cn('text-sm', getTextClasses('tertiary'))}>
                   Anime in collection
                 </span>
-                <span class="font-medium text-gray-900 dark:text-white">
+                <span class={cn('font-medium', getTextClasses('primary'))}>
                   {appState.animeList.length}
                 </span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600 dark:text-gray-400">
+                <span class={cn('text-sm', getTextClasses('tertiary'))}>
                   Total episodes
                 </span>
-                <span class="font-medium text-gray-900 dark:text-white">
+                <span class={cn('font-medium', getTextClasses('primary'))}>
                   {appState.episodes.length}
                 </span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600 dark:text-gray-400">
+                <span class={cn('text-sm', getTextClasses('tertiary'))}>
                   Media files
                 </span>
-                <span class="font-medium text-gray-900 dark:text-white">
+                <span class={cn('font-medium', getTextClasses('primary'))}>
                   {appState.mediaFiles.length}
                 </span>
               </div>
@@ -354,19 +453,35 @@ export const Scanner: Component = () => {
           </div>
 
           {/* Supported Formats */}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div
+            class={cn(
+              'rounded-lg shadow-sm p-6',
+              getThemeComponentClasses({ variant: 'default' })
+            )}
+          >
+            <h2
+              class={cn(
+                'text-lg font-semibold mb-4',
+                getTextClasses('primary')
+              )}
+            >
               Supported Formats
             </h2>
             <div class="space-y-3">
               <div>
                 <div class="flex items-center space-x-2 mb-2">
-                  <FileVideo class="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                  <span class="text-sm font-medium text-gray-900 dark:text-white">
+                  <FileVideo
+                    class={cn('w-4 h-4', getTextClasses('tertiary'))}
+                  />
+                  <span
+                    class={cn('text-sm font-medium', getTextClasses('primary'))}
+                  >
                     Video
                   </span>
                 </div>
-                <div class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <div
+                  class={cn('text-xs space-y-1', getTextClasses('tertiary'))}
+                >
                   <div>MP4, MKV, AVI, MOV</div>
                   <div>WMV, FLV, WebM, M4V</div>
                 </div>
@@ -374,12 +489,16 @@ export const Scanner: Component = () => {
 
               <div>
                 <div class="flex items-center space-x-2 mb-2">
-                  <div class="w-4 h-4 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                  <span class="text-sm font-medium text-gray-900 dark:text-white">
+                  <div class={cn('w-4 h-4 rounded', 'bg-muted')}></div>
+                  <span
+                    class={cn('text-sm font-medium', getTextClasses('primary'))}
+                  >
                     Subtitles
                   </span>
                 </div>
-                <div class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <div
+                  class={cn('text-xs space-y-1', getTextClasses('tertiary'))}
+                >
                   <div>SRT, ASS, SSA, VTT</div>
                   <div>SUB, IDX</div>
                 </div>

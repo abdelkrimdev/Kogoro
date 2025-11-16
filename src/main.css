@@ -13,6 +13,7 @@
 
   --border-primary: 229 231 235;
   --border-secondary: 209 213 219;
+  --border-tertiary: 229 231 235;
 
   --accent: 59 130 246;
   --accent-hover: 37 99 235;
@@ -30,6 +31,7 @@
 
   --border-primary: 55 65 81;
   --border-secondary: 75 85 99;
+  --border-tertiary: 75 85 99;
 
   --accent: 59 130 246;
   --accent-hover: 96 165 250;
@@ -58,6 +60,46 @@
 
   #root {
     min-height: 100vh;
+  }
+
+  /* Theme transition animations */
+  html {
+    transition:
+      background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  body {
+    transition:
+      background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Respect reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    html,
+    body {
+      transition: none;
+    }
+  }
+
+  /* Smooth transitions for theme-aware elements */
+  * {
+    transition:
+      border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Respect reduced motion for all elements */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none;
+      animation-duration: 0.01ms;
+      animation-iteration-count: 1;
+    }
   }
 }
 

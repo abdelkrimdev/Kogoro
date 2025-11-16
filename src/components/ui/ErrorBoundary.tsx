@@ -5,6 +5,13 @@ import {
   type JSX,
 } from 'solid-js'
 import { TriangleAlert, RefreshCw } from 'lucide-solid'
+import { cn } from '../../lib/class-utils'
+import { getStatusClasses } from '../../lib/theme-helpers'
+import {
+  getBackgroundClasses,
+  getTextClasses,
+  getBorderClasses,
+} from '../../lib/theme-classes'
 
 interface ErrorBoundaryProps {
   children: JSX.Element
@@ -13,27 +20,51 @@ interface ErrorBoundaryProps {
 
 export const ErrorBoundary: Component<ErrorBoundaryProps> = (props) => {
   const defaultFallback = (err: Error, resetFn: () => void) => (
-    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-      <div class="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+    <div
+      class={cn(
+        'min-h-screen flex items-center justify-center p-4',
+        getBackgroundClasses('tertiary')
+      )}
+    >
+      <div
+        class={cn(
+          'max-w-md w-full rounded-lg shadow-lg border p-6',
+          getBackgroundClasses('primary'),
+          getBorderClasses('secondary')
+        )}
+      >
         <div class="flex items-center space-x-3 mb-4">
-          <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-            <TriangleAlert class="w-6 h-6 text-red-600 dark:text-red-400" />
+          <div class={cn('p-2 rounded-lg', getStatusClasses('error', 'bg'))}>
+            <TriangleAlert
+              class={cn('w-6 h-6', getStatusClasses('error', 'text'))}
+            />
           </div>
-          <h1 class="text-xl font-semibold text-gray-900 dark:text-white">
+          <h1 class={cn('text-xl font-semibold', getTextClasses('primary'))}>
             Something went wrong
           </h1>
         </div>
 
         <div class="mb-6">
-          <p class="text-gray-600 dark:text-gray-400 mb-2">
+          <p class={cn('mb-2', getTextClasses('secondary'))}>
             An unexpected error occurred while rendering this page.
           </p>
           <Show when={import.meta.env.DEV}>
             <details class="mt-4">
-              <summary class="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <summary
+                class={cn(
+                  'cursor-pointer text-sm font-medium mb-2',
+                  getTextClasses('tertiary')
+                )}
+              >
                 Error Details
               </summary>
-              <pre class="text-xs bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-auto text-red-600 dark:text-red-400">
+              <pre
+                class={cn(
+                  'text-xs p-3 rounded overflow-auto',
+                  getBackgroundClasses('secondary'),
+                  getStatusClasses('error', 'text')
+                )}
+              >
                 {err.stack || err.message}
               </pre>
             </details>
@@ -44,7 +75,12 @@ export const ErrorBoundary: Component<ErrorBoundaryProps> = (props) => {
           <button
             type="button"
             onClick={resetFn}
-            class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center space-x-2"
+            class={cn(
+              'flex-1 px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2',
+              getStatusClasses('info', 'bg'),
+              'hover:opacity-90',
+              getTextClasses('primary')
+            )}
           >
             <RefreshCw class="w-4 h-4" />
             <span>Try Again</span>
@@ -52,7 +88,12 @@ export const ErrorBoundary: Component<ErrorBoundaryProps> = (props) => {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+            class={cn(
+              'px-4 py-2 rounded-lg transition-colors',
+              getBackgroundClasses('secondary'),
+              'hover:opacity-80',
+              getTextClasses('secondary')
+            )}
           >
             Reload Page
           </button>

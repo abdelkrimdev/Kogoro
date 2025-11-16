@@ -1,7 +1,16 @@
 import { type Component, Show, For } from 'solid-js'
 import { Search, Bell, User, Sun, Moon, Monitor } from 'lucide-solid'
 import { useTheme } from '../../contexts/ThemeContext'
+import { ThemeErrorBoundary } from '../ui/ThemeErrorBoundary'
 import { UI_CONFIG } from '../../lib/config'
+import { getStatusClasses } from '../../lib/theme-helpers'
+import {
+  getTextClasses,
+  getBackgroundClasses,
+  getBorderClasses,
+  getFocusClasses,
+} from '../../lib/theme-classes'
+import { cn } from '../../lib/class-utils'
 
 interface HeaderProps {
   onSearch: (query: string) => void
@@ -30,19 +39,35 @@ export const Header: Component<HeaderProps> = (props) => {
 
   return (
     <header
-      class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 flex items-center justify-between"
+      class={cn(
+        'border-b px-6 flex items-center justify-between',
+        getBackgroundClasses('primary'),
+        getBorderClasses('secondary')
+      )}
       style={{ height: `${UI_CONFIG.headerHeight}px` }}
     >
       {/* Search Bar */}
       <div class="flex-1 max-w-2xl">
         <div class="relative">
-          <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search
+            class={cn(
+              'absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4',
+              getTextClasses('tertiary')
+            )}
+          />
           <input
             type="text"
             placeholder="Search anime, genres, or tags..."
             value={props.searchQuery}
             onInput={(e) => props.onSearch(e.currentTarget.value)}
-            class="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+            class={cn(
+              'w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent',
+              getFocusClasses('default'),
+              getBackgroundClasses('secondary'),
+              getBorderClasses('secondary'),
+              getTextClasses('primary'),
+              cn('placeholder:text-muted-foreground') // Using semantic muted foreground for placeholders
+            )}
           />
         </div>
       </div>
@@ -50,86 +75,131 @@ export const Header: Component<HeaderProps> = (props) => {
       {/* Right Side Actions */}
       <div class="flex items-center space-x-4 ml-6">
         {/* Theme Toggle */}
-        <div class="relative group">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            title="Toggle theme"
-          >
-            <ThemeIcon class="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          </button>
+        <ThemeErrorBoundary
+          onError={(error) => {
+            console.error('Theme switching error in header:', error)
+          }}
+        >
+          <div class="relative group">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              class={cn(
+                cn(
+                  cn(
+                    'p-2 rounded-lg transition-colors hover:bg-muted hover:bg-muted'
+                  )
+                )
+              )}
+              title="Toggle theme"
+            >
+              <ThemeIcon class={cn('w-5 h-5', getTextClasses('secondary'))} />
+            </button>
 
-          {/* Theme Dropdown */}
-          <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-            <div class="p-2">
-              <For each={['light', 'dark', 'auto'] as const}>
-                {(theme) => (
-                  <button
-                    type="button"
-                    onClick={() => handleThemeChange(theme)}
-                    class={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                      themeState.theme === theme
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    <Show when={theme === 'light'}>
-                      <Sun class="w-4 h-4" />
-                    </Show>
-                    <Show when={theme === 'dark'}>
-                      <Moon class="w-4 h-4" />
-                    </Show>
-                    <Show when={theme === 'auto'}>
-                      <Monitor class="w-4 h-4" />
-                    </Show>
-                    <span class="capitalize">{theme}</span>
-                    <Show when={themeState.theme === theme}>
-                      <span class="ml-auto text-blue-600 dark:text-blue-400">
-                        ✓
-                      </span>
-                    </Show>
-                  </button>
-                )}
-              </For>
+            {/* Theme Dropdown */}
+            <div
+              class={cn(
+                'absolute right-0 mt-2 w-48 rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50',
+                getBackgroundClasses('primary'),
+                getBorderClasses('secondary')
+              )}
+            >
+              <div class="p-2">
+                <For each={['light', 'dark', 'auto'] as const}>
+                  {(theme) => (
+                    <button
+                      type="button"
+                      onClick={() => handleThemeChange(theme)}
+                      class={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                        themeState.theme === theme
+                          ? cn(
+                              getStatusClasses('info', 'bg'),
+                              getStatusClasses('info', 'text')
+                            )
+                          : cn(
+                              cn('hover:bg-muted hover:bg-muted'),
+                              getTextClasses('secondary')
+                            )
+                      }`}
+                    >
+                      <Show when={theme === 'light'}>
+                        <Sun class="w-4 h-4" />
+                      </Show>
+                      <Show when={theme === 'dark'}>
+                        <Moon class="w-4 h-4" />
+                      </Show>
+                      <Show when={theme === 'auto'}>
+                        <Monitor class="w-4 h-4" />
+                      </Show>
+                      <span class="capitalize">{theme}</span>
+                      <Show when={themeState.theme === theme}>
+                        <span
+                          class={cn(
+                            'ml-auto',
+                            getStatusClasses('info', 'text')
+                          )}
+                        >
+                          ✓
+                        </span>
+                      </Show>
+                    </button>
+                  )}
+                </For>
+              </div>
             </div>
           </div>
-        </div>
+        </ThemeErrorBoundary>
 
         {/* Notifications */}
         <button
           type="button"
-          class="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          class={cn(
+            cn(
+              'relative p-2 rounded-lg transition-colors hover:bg-muted hover:bg-muted'
+            )
+          )}
           title="Notifications"
         >
-          <Bell class="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          <Bell class={cn('w-5 h-5', getTextClasses('secondary'))} />
+          <span
+            class={`absolute top-1 right-1 w-2 h-2 ${getStatusClasses('error', 'bg')} rounded-full`}
+          ></span>
         </button>
 
         {/* User Menu */}
         <div class="relative group">
           <button
             type="button"
-            class="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            class={cn(
+              cn(
+                'flex items-center space-x-2 p-2 rounded-lg transition-colors hover:bg-muted hover:bg-muted'
+              )
+            )}
             title="User menu"
           >
-            <div class="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
               <User class="w-4 h-4 text-white" />
             </div>
           </button>
 
           {/* User Dropdown */}
-          <div class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div
+            class={cn(
+              'absolute right-0 mt-2 w-56 rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50',
+              getBackgroundClasses('primary'),
+              getBorderClasses('secondary')
+            )}
+          >
+            <div class={cn('p-4 border-b', getBorderClasses('secondary'))}>
               <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                   <User class="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <div class="font-medium text-gray-900 dark:text-white">
                     User
                   </div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">
+                  <div class={cn('text-sm', getTextClasses('tertiary'))}>
                     user@example.com
                   </div>
                 </div>
@@ -138,20 +208,29 @@ export const Header: Component<HeaderProps> = (props) => {
             <div class="p-2">
               <button
                 type="button"
-                class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                class={cn(
+                  'w-full text-left px-3 py-2 rounded-lg hover:bg-muted hover:bg-muted',
+                  getTextClasses('secondary')
+                )}
               >
                 Profile
               </button>
               <button
                 type="button"
-                class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                class={cn(
+                  'w-full text-left px-3 py-2 rounded-lg hover:bg-muted hover:bg-muted',
+                  getTextClasses('secondary')
+                )}
               >
                 Preferences
               </button>
-              <hr class="my-2 border-gray-200 dark:border-gray-700" />
+              <hr class={cn('my-2', getBorderClasses('secondary'))} />
               <button
                 type="button"
-                class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
+                class={cn(
+                  'w-full text-left px-3 py-2 rounded-lg hover:bg-muted hover:bg-muted',
+                  getStatusClasses('error', 'text')
+                )}
               >
                 Sign out
               </button>

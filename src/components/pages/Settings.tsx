@@ -14,6 +14,14 @@ import {
   type AppSettings,
 } from '../../lib/store'
 import { FILE_NAMING_PATTERNS } from '../../lib/config'
+import {
+  cn,
+  getTextClasses,
+  getBackgroundClasses,
+  getBorderClasses,
+  getThemeComponentClasses,
+  getStatusClasses,
+} from '../../lib/utils'
 
 export const Settings: Component = () => {
   const [activeTab, setActiveTab] = createSignal<
@@ -73,10 +81,10 @@ export const Settings: Component = () => {
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 class={cn('text-3xl font-bold', getTextClasses('primary'))}>
             Settings
           </h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-2">
+          <p class={cn('mt-2', getTextClasses('secondary'))}>
             Configure your Kogoro application preferences
           </p>
         </div>
@@ -85,7 +93,13 @@ export const Settings: Component = () => {
           <button
             type="button"
             onClick={resetSettings}
-            class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors flex items-center space-x-2"
+            class={cn(
+              'flex items-center space-x-2 rounded-lg transition-colors',
+              getThemeComponentClasses({
+                variant: 'muted',
+                interactive: true,
+              })
+            )}
           >
             <RotateCcw class="w-4 h-4" />
             <span>Reset</span>
@@ -95,7 +109,11 @@ export const Settings: Component = () => {
             type="button"
             onClick={saveSettings}
             disabled={!hasChanges()}
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center space-x-2"
+            class={cn(
+              'flex items-center space-x-2 rounded-lg transition-colors',
+              'bg-accent text-accent-foreground hover:bg-accent-hover',
+              'disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed'
+            )}
           >
             <Save class="w-4 h-4" />
             <span>Save Changes</span>
@@ -106,7 +124,13 @@ export const Settings: Component = () => {
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar */}
         <div class="lg:col-span-1">
-          <nav class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-2">
+          <nav
+            class={cn(
+              'rounded-lg shadow-sm border p-2',
+              getBackgroundClasses('primary'),
+              getBorderClasses('primary')
+            )}
+          >
             <For each={tabs}>
               {(tab) => {
                 const Icon = tab.icon
@@ -123,14 +147,15 @@ export const Settings: Component = () => {
                           | 'advanced'
                       )
                     }
-                    class={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                    class={cn(
+                      'w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm font-medium',
                       activeTab() === tab.id
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
+                        ? cn('bg-accent text-accent-foreground')
+                        : cn(getTextClasses('secondary'), 'hover:bg-muted')
+                    )}
                   >
                     <Icon class="w-4 h-4" />
-                    <span class="text-sm font-medium">{tab.label}</span>
+                    <span>{tab.label}</span>
                   </button>
                 )
               }}
@@ -140,11 +165,19 @@ export const Settings: Component = () => {
 
         {/* Content */}
         <div class="lg:col-span-3">
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div
+            class={cn(
+              'rounded-lg shadow-sm border',
+              getBackgroundClasses('primary'),
+              getBorderClasses('primary')
+            )}
+          >
             {/* General Tab */}
             <Show when={activeTab() === 'general'}>
               <div class="p-6 space-y-6">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2
+                  class={cn('text-lg font-semibold', getTextClasses('primary'))}
+                >
                   General Settings
                 </h2>
 
@@ -152,7 +185,10 @@ export const Settings: Component = () => {
                   <div>
                     <label
                       for="theme-select"
-                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                      class={cn(
+                        'block text-sm font-medium mb-2',
+                        getTextClasses('secondary')
+                      )}
                     >
                       Theme
                     </label>
@@ -165,7 +201,12 @@ export const Settings: Component = () => {
                           e.target.value as 'light' | 'dark' | 'auto'
                         )
                       }
-                      class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                      class={cn(
+                        'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring',
+                        getBackgroundClasses('primary'),
+                        getBorderClasses('primary'),
+                        getTextClasses('primary')
+                      )}
                     >
                       <option value="light">Light</option>
                       <option value="dark">Dark</option>
@@ -176,7 +217,10 @@ export const Settings: Component = () => {
                   <div>
                     <label
                       for="language-select"
-                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                      class={cn(
+                        'block text-sm font-medium mb-2',
+                        getTextClasses('secondary')
+                      )}
                     >
                       Language
                     </label>
@@ -186,7 +230,12 @@ export const Settings: Component = () => {
                       onChange={(e) =>
                         updateTempSetting('language', e.target.value)
                       }
-                      class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                      class={cn(
+                        'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring',
+                        getBackgroundClasses('primary'),
+                        getBorderClasses('primary'),
+                        getTextClasses('primary')
+                      )}
                     >
                       <option value="en">English</option>
                       <option value="ja">Japanese</option>
@@ -207,9 +256,12 @@ export const Settings: Component = () => {
                           e.currentTarget.checked
                         )
                       }
-                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      class={cn(
+                        'w-4 h-4 rounded focus-ring focus-ring-inset',
+                        'accent'
+                      )}
                     />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                    <span class={cn('text-sm', getTextClasses('secondary'))}>
                       Auto-refresh collection
                     </span>
                   </label>
@@ -221,9 +273,12 @@ export const Settings: Component = () => {
                       onChange={(e) =>
                         updateTempSetting('autoScan', e.currentTarget.checked)
                       }
-                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      class={cn(
+                        'w-4 h-4 rounded focus-ring focus-ring-inset',
+                        'accent'
+                      )}
                     />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                    <span class={cn('text-sm', getTextClasses('secondary'))}>
                       Auto-scan directories
                     </span>
                   </label>
@@ -234,20 +289,30 @@ export const Settings: Component = () => {
             {/* Directories Tab */}
             <Show when={activeTab() === 'directories'}>
               <div class="p-6 space-y-6">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2
+                  class={cn('text-lg font-semibold', getTextClasses('primary'))}
+                >
                   Directory Settings
                 </h2>
 
                 {/* Anime Directories */}
                 <div>
                   <div class="flex items-center justify-between mb-4">
-                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span
+                      class={cn(
+                        'text-sm font-medium',
+                        getTextClasses('secondary')
+                      )}
+                    >
                       Anime Directories
                     </span>
                     <button
                       type="button"
                       onClick={() => addDirectory('anime')}
-                      class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                      class={cn(
+                        'px-3 py-1 text-sm rounded-lg transition-colors',
+                        'bg-accent text-accent-foreground hover:bg-accent-hover'
+                      )}
                     >
                       Add Directory
                     </button>
@@ -256,15 +321,30 @@ export const Settings: Component = () => {
                   <div class="space-y-2">
                     <For each={tempSettings().animeDirectories}>
                       {(dir, index) => (
-                        <div class="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <FolderOpen class="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                          <span class="flex-1 text-sm text-gray-900 dark:text-white">
+                        <div
+                          class={cn(
+                            'flex items-center space-x-2 p-3 rounded-lg',
+                            getBackgroundClasses('secondary')
+                          )}
+                        >
+                          <FolderOpen
+                            class={cn('w-4 h-4', getTextClasses('tertiary'))}
+                          />
+                          <span
+                            class={cn(
+                              'flex-1 text-sm',
+                              getTextClasses('primary')
+                            )}
+                          >
                             {dir}
                           </span>
                           <button
                             type="button"
                             onClick={() => removeDirectory(index())}
-                            class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            class={cn(
+                              'transition-colors',
+                              getStatusClasses('error', 'text')
+                            )}
                           >
                             Remove
                           </button>
@@ -273,7 +353,12 @@ export const Settings: Component = () => {
                     </For>
 
                     <Show when={tempSettings().animeDirectories.length === 0}>
-                      <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <div
+                        class={cn(
+                          'text-center py-8',
+                          getTextClasses('tertiary')
+                        )}
+                      >
                         No anime directories configured
                       </div>
                     </Show>
@@ -283,30 +368,45 @@ export const Settings: Component = () => {
                 {/* Download Directory */}
                 <div>
                   <div class="flex items-center justify-between mb-4">
-                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span
+                      class={cn(
+                        'text-sm font-medium',
+                        getTextClasses('secondary')
+                      )}
+                    >
                       Download Directory
                     </span>
                     <button
                       type="button"
                       onClick={() => addDirectory('download')}
-                      class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                      class={cn(
+                        'px-3 py-1 text-sm rounded-lg transition-colors',
+                        'bg-accent text-accent-foreground hover:bg-accent-hover'
+                      )}
                     >
                       Browse
                     </button>
                   </div>
 
-                  <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div
+                    class={cn(
+                      'p-3 rounded-lg',
+                      getBackgroundClasses('secondary')
+                    )}
+                  >
                     <Show
                       when={tempSettings().downloadDirectory}
                       fallback={
-                        <span class="text-gray-500 dark:text-gray-400">
+                        <span class={cn(getTextClasses('tertiary'))}>
                           No download directory set
                         </span>
                       }
                     >
                       <div class="flex items-center space-x-2">
-                        <FolderOpen class="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                        <span class="text-sm text-gray-900 dark:text-white">
+                        <FolderOpen
+                          class={cn('w-4 h-4', getTextClasses('tertiary'))}
+                        />
+                        <span class={cn('text-sm', getTextClasses('primary'))}>
                           {tempSettings().downloadDirectory}
                         </span>
                       </div>
@@ -319,7 +419,9 @@ export const Settings: Component = () => {
             {/* AniDB Tab */}
             <Show when={activeTab() === 'anidb'}>
               <div class="p-6 space-y-6">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2
+                  class={cn('text-lg font-semibold', getTextClasses('primary'))}
+                >
                   AniDB Settings
                 </h2>
 
@@ -327,7 +429,10 @@ export const Settings: Component = () => {
                   <div>
                     <label
                       for="anidb-client"
-                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                      class={cn(
+                        'block text-sm font-medium mb-2',
+                        getTextClasses('secondary')
+                      )}
                     >
                       Client Name
                     </label>
@@ -338,14 +443,22 @@ export const Settings: Component = () => {
                       onChange={(e) =>
                         updateTempSetting('anidbClient', e.currentTarget.value)
                       }
-                      class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                      class={cn(
+                        'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring',
+                        getBackgroundClasses('primary'),
+                        getBorderClasses('primary'),
+                        getTextClasses('primary')
+                      )}
                     />
                   </div>
 
                   <div>
                     <label
                       for="anidb-port"
-                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                      class={cn(
+                        'block text-sm font-medium mb-2',
+                        getTextClasses('secondary')
+                      )}
                     >
                       Port
                     </label>
@@ -359,14 +472,22 @@ export const Settings: Component = () => {
                           parseInt(e.currentTarget.value, 10)
                         )
                       }
-                      class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                      class={cn(
+                        'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring',
+                        getBackgroundClasses('primary'),
+                        getBorderClasses('primary'),
+                        getTextClasses('primary')
+                      )}
                     />
                   </div>
 
                   <div>
                     <label
                       for="anidb-username"
-                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                      class={cn(
+                        'block text-sm font-medium mb-2',
+                        getTextClasses('secondary')
+                      )}
                     >
                       Username (Optional)
                     </label>
@@ -381,14 +502,22 @@ export const Settings: Component = () => {
                         )
                       }
                       placeholder="Leave empty for anonymous access"
-                      class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                      class={cn(
+                        'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring',
+                        getBackgroundClasses('primary'),
+                        getBorderClasses('primary'),
+                        getTextClasses('primary')
+                      )}
                     />
                   </div>
 
                   <div>
                     <label
                       for="anidb-password"
-                      class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                      class={cn(
+                        'block text-sm font-medium mb-2',
+                        getTextClasses('secondary')
+                      )}
                     >
                       Password (Optional)
                     </label>
@@ -403,7 +532,12 @@ export const Settings: Component = () => {
                         )
                       }
                       placeholder="Leave empty for anonymous access"
-                      class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                      class={cn(
+                        'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring',
+                        getBackgroundClasses('primary'),
+                        getBorderClasses('primary'),
+                        getTextClasses('primary')
+                      )}
                     />
                   </div>
                 </div>
@@ -413,14 +547,19 @@ export const Settings: Component = () => {
             {/* File Naming Tab */}
             <Show when={activeTab() === 'naming'}>
               <div class="p-6 space-y-6">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2
+                  class={cn('text-lg font-semibold', getTextClasses('primary'))}
+                >
                   File Naming Settings
                 </h2>
 
                 <div>
                   <label
                     for="filename-format"
-                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    class={cn(
+                      'block text-sm font-medium mb-2',
+                      getTextClasses('secondary')
+                    )}
                   >
                     File Name Format
                   </label>
@@ -430,7 +569,12 @@ export const Settings: Component = () => {
                     onChange={(e) =>
                       updateTempSetting('fileNameFormat', e.target.value)
                     }
-                    class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white mb-3"
+                    class={cn(
+                      'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring mb-3',
+                      getBackgroundClasses('primary'),
+                      getBorderClasses('primary'),
+                      getTextClasses('primary')
+                    )}
                   >
                     <For each={Object.entries(FILE_NAMING_PATTERNS)}>
                       {([key, value]) => (
@@ -441,11 +585,21 @@ export const Settings: Component = () => {
                     </For>
                   </select>
 
-                  <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  <div
+                    class={cn(
+                      'p-3 rounded-lg',
+                      getBackgroundClasses('secondary')
+                    )}
+                  >
+                    <p class={cn('text-sm mb-2', getTextClasses('secondary'))}>
                       Available variables:
                     </p>
-                    <div class="text-xs text-gray-500 dark:text-gray-500 space-y-1 font-mono">
+                    <div
+                      class={cn(
+                        'text-xs space-y-1 font-mono',
+                        getTextClasses('tertiary')
+                      )}
+                    >
                       <div>{'{title}'} - Anime title</div>
                       <div>{'{season}'} - Season number</div>
                       <div>{'{episode}'} - Episode number</div>
@@ -466,9 +620,12 @@ export const Settings: Component = () => {
                           e.currentTarget.checked
                         )
                       }
-                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      class={cn(
+                        'w-4 h-4 rounded focus-ring focus-ring-inset',
+                        'accent'
+                      )}
                     />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                    <span class={cn('text-sm', getTextClasses('secondary'))}>
                       Create season folders
                     </span>
                   </label>
@@ -479,7 +636,9 @@ export const Settings: Component = () => {
             {/* Advanced Tab */}
             <Show when={activeTab() === 'advanced'}>
               <div class="p-6 space-y-6">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2
+                  class={cn('text-lg font-semibold', getTextClasses('primary'))}
+                >
                   Advanced Settings
                 </h2>
 
@@ -494,9 +653,12 @@ export const Settings: Component = () => {
                           e.currentTarget.checked
                         )
                       }
-                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      class={cn(
+                        'w-4 h-4 rounded focus-ring focus-ring-inset',
+                        'accent'
+                      )}
                     />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                    <span class={cn('text-sm', getTextClasses('secondary'))}>
                       Include subtitles in scans
                     </span>
                   </label>
@@ -511,9 +673,12 @@ export const Settings: Component = () => {
                           e.currentTarget.checked
                         )
                       }
-                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      class={cn(
+                        'w-4 h-4 rounded focus-ring focus-ring-inset',
+                        'accent'
+                      )}
                     />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                    <span class={cn('text-sm', getTextClasses('secondary'))}>
                       Generate video thumbnails
                     </span>
                   </label>

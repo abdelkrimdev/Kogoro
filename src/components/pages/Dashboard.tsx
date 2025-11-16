@@ -8,6 +8,14 @@ import {
   Activity,
 } from 'lucide-solid'
 import { appState } from '../../lib/store'
+import {
+  cn,
+  getThemeComponentClasses,
+  getStatusClasses,
+  getTextClasses,
+  getBackgroundClasses,
+  getBorderClasses,
+} from '../../lib/utils'
 
 export const Dashboard: Component = () => {
   // Mock data for demonstration
@@ -91,26 +99,24 @@ export const Dashboard: Component = () => {
   ]
 
   const getStatColor = (color: string) => {
-    const colors = {
-      blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
-      green:
-        'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
-      purple:
-        'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
-      yellow:
-        'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400',
+    const colorMap = {
+      blue: 'info',
+      green: 'success',
+      purple: 'info',
+      yellow: 'warning',
     }
-    return colors[color as keyof typeof colors] || colors.blue
+    const semanticColor = colorMap[color as keyof typeof colorMap] || 'info'
+    return getStatusClasses(semanticColor, 'bg')
   }
 
   return (
     <div class="space-y-6">
       {/* Header */}
       <div>
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 class={cn('text-3xl font-bold', getTextClasses('primary'))}>
           Dashboard
         </h1>
-        <p class="text-gray-600 dark:text-gray-400 mt-2">
+        <p class={cn('mt-2', getTextClasses('secondary'))}>
           Welcome back! Here's what's happening with your anime collection.
         </p>
       </div>
@@ -121,20 +127,35 @@ export const Dashboard: Component = () => {
           {(stat) => {
             const Icon = stat.icon
             return (
-              <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div
+                class={getThemeComponentClasses({
+                  variant: 'default',
+                  interactive: false,
+                })}
+              >
                 <div class="flex items-center justify-between">
                   <div>
-                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    <p
+                      class={cn(
+                        'text-sm font-medium',
+                        getTextClasses('secondary')
+                      )}
+                    >
                       {stat.label}
                     </p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                    <p
+                      class={cn(
+                        'text-2xl font-bold mt-1',
+                        getTextClasses('primary')
+                      )}
+                    >
                       {stat.value}
                     </p>
-                    <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                    <p class={cn('text-xs mt-2', getTextClasses('tertiary'))}>
                       {stat.change}
                     </p>
                   </div>
-                  <div class={`p-3 rounded-lg ${getStatColor(stat.color)}`}>
+                  <div class={cn('p-3 rounded-lg', getStatColor(stat.color))}>
                     <Icon class="w-6 h-6" />
                   </div>
                 </div>
@@ -147,9 +168,16 @@ export const Dashboard: Component = () => {
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Continue Watching */}
         <div class="lg:col-span-2">
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+          <div
+            class={getThemeComponentClasses({
+              variant: 'default',
+              interactive: false,
+            })}
+          >
+            <div class={cn('p-6 border-b', getBorderClasses('primary'))}>
+              <h2
+                class={cn('text-lg font-semibold', getTextClasses('primary'))}
+              >
                 Continue Watching
               </h2>
             </div>
@@ -158,8 +186,13 @@ export const Dashboard: Component = () => {
                 when={continueWatching.length > 0}
                 fallback={
                   <div class="text-center py-12">
-                    <PlayCircle class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p class="text-gray-500 dark:text-gray-400">
+                    <PlayCircle
+                      class={cn(
+                        'w-12 h-12 mx-auto mb-4',
+                        getTextClasses('tertiary')
+                      )}
+                    />
+                    <p class={getTextClasses('secondary')}>
                       Nothing to continue watching yet
                     </p>
                   </div>
@@ -179,18 +212,25 @@ export const Dashboard: Component = () => {
                             <PlayCircle class="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                           </div>
                           <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75">
-                            <div class="h-1 bg-gray-700">
+                            <div
+                              class={cn('h-1', getBorderClasses('secondary'))}
+                            >
                               <div
-                                class="h-full bg-blue-500 transition-all duration-300"
+                                class="h-full bg-accent transition-all duration-300"
                                 style={{ width: `${item.progress}%` }}
                               />
                             </div>
                           </div>
                         </div>
-                        <h3 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <h3
+                          class={cn(
+                            'font-medium group-hover:text-accent transition-colors',
+                            getTextClasses('primary')
+                          )}
+                        >
                           {item.title}
                         </h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                        <p class={cn('text-sm', getTextClasses('secondary'))}>
                           {item.episode}
                         </p>
                       </div>
@@ -204,9 +244,16 @@ export const Dashboard: Component = () => {
 
         {/* Recent Activity */}
         <div class="lg:col-span-1">
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+          <div
+            class={getThemeComponentClasses({
+              variant: 'default',
+              interactive: false,
+            })}
+          >
+            <div class={cn('p-6 border-b', getBorderClasses('primary'))}>
+              <h2
+                class={cn('text-lg font-semibold', getTextClasses('primary'))}
+              >
                 Recent Activity
               </h2>
             </div>
@@ -217,14 +264,26 @@ export const Dashboard: Component = () => {
                     const Icon = activity.icon
                     return (
                       <div class="flex items-start space-x-3">
-                        <div class="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                          <Icon class="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                        <div
+                          class={cn(
+                            'p-2 rounded-lg',
+                            getBackgroundClasses('secondary')
+                          )}
+                        >
+                          <Icon
+                            class={cn('w-4 h-4', getTextClasses('secondary'))}
+                          />
                         </div>
                         <div class="flex-1 min-w-0">
-                          <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          <p
+                            class={cn(
+                              'text-sm font-medium truncate',
+                              getTextClasses('primary')
+                            )}
+                          >
                             {activity.title}
                           </p>
-                          <p class="text-xs text-gray-500 dark:text-gray-400">
+                          <p class={cn('text-xs', getTextClasses('tertiary'))}>
                             {activity.time}
                           </p>
                         </div>

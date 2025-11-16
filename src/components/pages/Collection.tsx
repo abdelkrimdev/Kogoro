@@ -7,6 +7,15 @@ import {
   Search,
 } from 'lucide-solid'
 import { appState, storeUtils, storeActions } from '../../lib/store'
+import {
+  cn,
+  getStatusClasses,
+  getThemeComponentClasses,
+  getTextClasses,
+  getBackgroundClasses,
+  getBorderClasses,
+  getAccentClasses,
+} from '../../lib/utils'
 
 type ViewMode = 'grid' | 'list'
 type SortBy = 'title' | 'date' | 'rating' | 'episodes'
@@ -30,19 +39,25 @@ export const Collection: Component = () => {
   }
 
   const getAnimeTypeColor = (type: string) => {
-    const colors = {
-      'TV Series':
-        'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-      Movie:
-        'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-      OVA: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-      Special:
-        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-      ONA: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
-      Music:
-        'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+    // Use semantic colors for consistent theming
+    const typeColorMap: Record<
+      string,
+      'info' | 'warning' | 'success' | 'error'
+    > = {
+      'TV Series': 'info',
+      Movie: 'warning',
+      OVA: 'success',
+      Special: 'error',
+      ONA: 'info',
+      Music: 'warning',
     }
-    return colors[type as keyof typeof colors] || colors['TV Series']
+
+    const colorType = typeColorMap[type] || 'info'
+    return cn(
+      getStatusClasses(colorType, 'bg'),
+      getStatusClasses(colorType, 'text'),
+      'px-2 py-1 text-xs font-medium rounded'
+    )
   }
 
   return (
@@ -50,10 +65,10 @@ export const Collection: Component = () => {
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 class={cn('text-3xl font-bold', getTextClasses('primary'))}>
             Collection
           </h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-2">
+          <p class={cn('mt-2', getTextClasses('secondary'))}>
             Browse and manage your anime collection
           </p>
         </div>
@@ -63,25 +78,43 @@ export const Collection: Component = () => {
           <button
             type="button"
             onClick={() => setShowFilters(!showFilters())}
-            class={`p-2 rounded-lg transition-colors ${
+            class={cn(
+              'p-2 rounded-lg transition-colors',
               showFilters()
-                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-            }`}
+                ? cn(
+                    getStatusClasses('info', 'bg'),
+                    getStatusClasses('info', 'text')
+                  )
+                : cn(
+                    getBackgroundClasses('tertiary'),
+                    getTextClasses('secondary'),
+                    'hover:bg-muted'
+                  )
+            )}
             title="Toggle filters"
           >
             <Filter class="w-5 h-5" />
           </button>
 
-          <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+          <div
+            class={cn(
+              'flex items-center rounded-lg p-1',
+              getBackgroundClasses('secondary')
+            )}
+          >
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              class={`p-2 rounded transition-colors ${
+              class={cn(
+                'p-2 rounded transition-colors',
                 viewMode() === 'grid'
-                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
+                  ? cn(
+                      getBackgroundClasses('primary'),
+                      getAccentClasses('default'),
+                      'shadow-sm'
+                    )
+                  : cn(getTextClasses('secondary'), 'hover:text-foreground')
+              )}
               title="Grid view"
             >
               <Grid class="w-4 h-4" />
@@ -89,11 +122,16 @@ export const Collection: Component = () => {
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              class={`p-2 rounded transition-colors ${
+              class={cn(
+                'p-2 rounded transition-colors',
                 viewMode() === 'list'
-                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
+                  ? cn(
+                      getBackgroundClasses('primary'),
+                      getAccentClasses('default'),
+                      'shadow-sm'
+                    )
+                  : cn(getTextClasses('secondary'), 'hover:text-foreground')
+              )}
               title="List view"
             >
               <List class="w-4 h-4" />
@@ -104,12 +142,23 @@ export const Collection: Component = () => {
 
       {/* Filters */}
       <Show when={showFilters()}>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div
+          class={cn(
+            getThemeComponentClasses({
+              variant: 'default',
+              interactive: false,
+            }),
+            'p-4'
+          )}
+        >
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label
                 for="sort-by"
-                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                class={cn(
+                  'block text-sm font-medium mb-2',
+                  getTextClasses('secondary')
+                )}
               >
                 Sort By
               </label>
@@ -117,7 +166,12 @@ export const Collection: Component = () => {
                 id="sort-by"
                 value={sortBy()}
                 onChange={(e) => handleSort(e.target.value as SortBy)}
-                class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                class={cn(
+                  'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring',
+                  getBackgroundClasses('primary'),
+                  getBorderClasses('secondary'),
+                  getTextClasses('primary')
+                )}
               >
                 <option value="title">Title</option>
                 <option value="date">Start Date</option>
@@ -129,7 +183,10 @@ export const Collection: Component = () => {
             <div>
               <label
                 for="sort-order"
-                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                class={cn(
+                  'block text-sm font-medium mb-2',
+                  getTextClasses('secondary')
+                )}
               >
                 Order
               </label>
@@ -139,10 +196,19 @@ export const Collection: Component = () => {
                 onClick={() =>
                   setSortOrder(sortOrder() === 'asc' ? 'desc' : 'asc')
                 }
-                class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white flex items-center justify-center space-x-2"
+                class={cn(
+                  'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring flex items-center justify-center space-x-2 transition-colors',
+                  getThemeComponentClasses({
+                    variant: 'default',
+                    interactive: true,
+                  })
+                )}
               >
                 <SortAsc
-                  class={`w-4 h-4 ${sortOrder() === 'desc' ? 'rotate-180' : ''}`}
+                  class={cn(
+                    'w-4 h-4',
+                    sortOrder() === 'desc' ? 'rotate-180' : ''
+                  )}
                 />
                 <span>
                   {sortOrder() === 'asc' ? 'Ascending' : 'Descending'}
@@ -153,7 +219,10 @@ export const Collection: Component = () => {
             <div>
               <label
                 for="filter-type"
-                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                class={cn(
+                  'block text-sm font-medium mb-2',
+                  getTextClasses('secondary')
+                )}
               >
                 Type
               </label>
@@ -163,7 +232,12 @@ export const Collection: Component = () => {
                 onChange={(e) =>
                   storeActions.setFilter(appState.filterGenre, e.target.value)
                 }
-                class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                class={cn(
+                  'w-full px-3 py-2 rounded-lg focus:outline-none focus-ring',
+                  getBackgroundClasses('primary'),
+                  getBorderClasses('secondary'),
+                  getTextClasses('primary')
+                )}
               >
                 <option value="">All Types</option>
                 <option value="TV Series">TV Series</option>
@@ -180,7 +254,7 @@ export const Collection: Component = () => {
 
       {/* Results Count */}
       <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-600 dark:text-gray-400">
+        <p class={cn('text-sm', getTextClasses('secondary'))}>
           Showing {filteredAnime().length} anime
         </p>
       </div>
@@ -190,11 +264,15 @@ export const Collection: Component = () => {
         when={filteredAnime().length > 0}
         fallback={
           <div class="text-center py-12">
-            <Search class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <Search
+              class={cn('w-12 h-12 mx-auto mb-4', getTextClasses('tertiary'))}
+            />
+            <h3
+              class={cn('text-lg font-medium mb-2', getTextClasses('primary'))}
+            >
               No anime found
             </h3>
-            <p class="text-gray-600 dark:text-gray-400">
+            <p class={cn(getTextClasses('secondary'))}>
               Try adjusting your search or filters
             </p>
           </div>
@@ -206,7 +284,12 @@ export const Collection: Component = () => {
             <For each={filteredAnime()}>
               {(anime) => (
                 <div class="group cursor-pointer">
-                  <div class="relative rounded-lg overflow-hidden mb-3 aspect-[3/4] bg-gray-200 dark:bg-gray-700">
+                  <div
+                    class={cn(
+                      'relative rounded-lg overflow-hidden mb-3 aspect-[3/4]',
+                      getBackgroundClasses('tertiary')
+                    )}
+                  >
                     <img
                       src={anime.picture || '/api/placeholder/300/400'}
                       alt={anime.title}
@@ -222,24 +305,40 @@ export const Collection: Component = () => {
 
                     {/* Badges */}
                     <div class="absolute top-2 left-2">
-                      <span
-                        class={`inline-block px-2 py-1 text-xs font-medium rounded ${getAnimeTypeColor(anime.type)}`}
-                      >
+                      <span class={getAnimeTypeColor(anime.type)}>
                         {anime.type}
                       </span>
                     </div>
 
                     <Show when={anime.favorite}>
                       <div class="absolute top-2 right-2">
-                        <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                          <span class="text-white text-sm">★</span>
+                        <div
+                          class={cn(
+                            'w-8 h-8 rounded-full flex items-center justify-center',
+                            getStatusClasses('warning', 'bg')
+                          )}
+                        >
+                          <span
+                            class={cn(
+                              'text-sm',
+                              getStatusClasses('warning', 'text')
+                            )}
+                          >
+                            ★
+                          </span>
                         </div>
                       </div>
                     </Show>
 
                     <Show when={anime.watched}>
                       <div class="absolute bottom-2 right-2">
-                        <div class="bg-green-500 text-white text-xs px-2 py-1 rounded">
+                        <div
+                          class={cn(
+                            'text-xs px-2 py-1 rounded',
+                            getStatusClasses('success', 'bg'),
+                            getStatusClasses('success', 'text')
+                          )}
+                        >
                           Watched
                         </div>
                       </div>
@@ -247,16 +346,34 @@ export const Collection: Component = () => {
                   </div>
 
                   <div>
-                    <h3 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                    <h3
+                      class={cn(
+                        'font-medium truncate transition-colors',
+                        getTextClasses('primary'),
+                        'group-hover:text-accent'
+                      )}
+                    >
                       {anime.title}
                     </h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <p class={cn('text-sm', getTextClasses('secondary'))}>
                       {anime.episodes} episodes
                     </p>
                     <Show when={anime.rating}>
                       <div class="flex items-center mt-1">
-                        <span class="text-yellow-500 text-sm">★</span>
-                        <span class="text-sm text-gray-600 dark:text-gray-400 ml-1">
+                        <span
+                          class={cn(
+                            'text-sm',
+                            getStatusClasses('warning', 'text')
+                          )}
+                        >
+                          ★
+                        </span>
+                        <span
+                          class={cn(
+                            'text-sm ml-1',
+                            getTextClasses('secondary')
+                          )}
+                        >
                           {anime.rating}/10
                         </span>
                       </div>
@@ -270,11 +387,23 @@ export const Collection: Component = () => {
 
         {/* List View */}
         <Show when={viewMode() === 'list'}>
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+          <div
+            class={cn(
+              getThemeComponentClasses({
+                variant: 'default',
+                interactive: false,
+              })
+            )}
+          >
+            <div class={cn('divide-y', getBorderClasses('secondary'))}>
               <For each={filteredAnime()}>
                 {(anime) => (
-                  <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
+                  <div
+                    class={cn(
+                      'p-4 transition-colors cursor-pointer',
+                      'hover:bg-muted'
+                    )}
+                  >
                     <div class="flex items-center space-x-4">
                       <img
                         src={anime.picture || '/api/placeholder/60/80'}
@@ -284,31 +413,56 @@ export const Collection: Component = () => {
 
                       <div class="flex-1 min-w-0">
                         <div class="flex items-center space-x-2">
-                          <h3 class="font-medium text-gray-900 dark:text-white truncate">
+                          <h3
+                            class={cn(
+                              'font-medium truncate',
+                              getTextClasses('primary')
+                            )}
+                          >
                             {anime.title}
                           </h3>
-                          <span
-                            class={`inline-block px-2 py-1 text-xs font-medium rounded ${getAnimeTypeColor(anime.type)}`}
-                          >
+                          <span class={getAnimeTypeColor(anime.type)}>
                             {anime.type}
                           </span>
                           <Show when={anime.favorite}>
-                            <span class="text-yellow-500">★</span>
+                            <span
+                              class={cn(getStatusClasses('warning', 'text'))}
+                            >
+                              ★
+                            </span>
                           </Show>
                           <Show when={anime.watched}>
-                            <span class="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 text-xs px-2 py-1 rounded">
+                            <span
+                              class={cn(
+                                'text-xs px-2 py-1 rounded',
+                                getStatusClasses('success', 'bg'),
+                                getStatusClasses('success', 'text')
+                              )}
+                            >
                               Watched
                             </span>
                           </Show>
                         </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                        <p class={cn('text-sm', getTextClasses('secondary'))}>
                           {anime.episodes} episodes
                           <Show when={anime.rating}>
-                            <span class="ml-2">★ {anime.rating}/10</span>
+                            <span
+                              class={cn(
+                                'ml-2',
+                                getStatusClasses('warning', 'text')
+                              )}
+                            >
+                              ★ {anime.rating}/10
+                            </span>
                           </Show>
                         </p>
                         <Show when={anime.synopsis}>
-                          <p class="text-sm text-gray-500 dark:text-gray-500 mt-1 line-clamp-2">
+                          <p
+                            class={cn(
+                              'text-sm mt-1 line-clamp-2',
+                              getTextClasses('tertiary')
+                            )}
+                          >
                             {anime.synopsis}
                           </p>
                         </Show>
