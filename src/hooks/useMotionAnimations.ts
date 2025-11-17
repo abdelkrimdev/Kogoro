@@ -1092,7 +1092,9 @@ export function useAnimationState(
   const triggerEvent = (event: keyof AnimationEvents) => {
     const listeners = eventListeners.get(event)
     if (listeners) {
-      listeners.forEach((callback) => callback())
+      listeners.forEach((callback) => {
+        callback()
+      })
     }
   }
 

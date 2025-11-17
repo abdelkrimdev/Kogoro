@@ -397,95 +397,99 @@ export function ThemeProvider(props: { children: JSX.Element }) {
     }
   })
 
-  const setTheme = (theme: Theme) => {
-    try {
-      // Clear any previous errors
-      setError(null)
+  const handleTestEnvironmentTheme = (
+    theme: Theme,
+    effectiveTheme: 'light' | 'dark'
+  ) => {
+    setState({
+      theme,
+      effectiveTheme,
+    })
 
-      const effectiveTheme = getEffectiveTheme(theme, state.systemTheme)
+    const result = safeSetThemeToStorage(theme)
 
-      // Check if we're in test environment
-      const isTestEnvironment =
-        process.env.NODE_ENV === 'test' || import.meta.env.MODE === 'test'
+    if (!result.success && result.error) {
+      setError(result.error)
+    }
+  }
 
-      if (isTestEnvironment) {
-        // In test environment, update state synchronously
+  const handleMotionTransition = (
+    theme: Theme,
+    effectiveTheme: 'light' | 'dark'
+  ) => {
+    themeTransition
+      .startTransition(effectiveTheme)
+      .then(() => {
         setState({
           theme,
           effectiveTheme,
         })
 
-        // Save to localStorage with error handling
         const result = safeSetThemeToStorage(theme)
 
         if (!result.success && result.error) {
           setError(result.error)
         }
+      })
+      .catch((err) => {
+        const themeError = createThemeError(
+          err,
+          'Motion theme transition failed'
+        )
+
+        setError(themeError)
+
+        if (import.meta.env.DEV) {
+          console.error('Motion theme switching error:', themeError)
+        }
+
+        setState({
+          theme,
+          effectiveTheme,
+        })
+      })
+  }
+
+  const createThemeError = (
+    err: unknown,
+    message: string
+  ): ThemeStorageError => {
+    return err instanceof ThemeStorageError
+      ? err
+      : new ThemeStorageError(
+          StorageErrorType.UNKNOWN,
+          message,
+          err instanceof Error ? err : undefined
+        )
+  }
+
+  const setTheme = (theme: Theme) => {
+    try {
+      setError(null)
+
+      const effectiveTheme = getEffectiveTheme(theme, state.systemTheme)
+      const isTestEnvironment =
+        process.env.NODE_ENV === 'test' || import.meta.env.MODE === 'test'
+
+      if (isTestEnvironment) {
+        handleTestEnvironmentTheme(theme, effectiveTheme)
         return
       }
 
-      // Use Motion theme transition for smooth switching in production
       if (themeTransition.isTransitioning()) {
-        // If already transitioning, queue the change
         setTimeout(() => setTheme(theme), getDuration('fast'))
         return
       }
 
-      // Start Motion theme transition
-      themeTransition
-        .startTransition(effectiveTheme)
-        .then(() => {
-          setState({
-            theme,
-            effectiveTheme,
-          })
-
-          // Save to localStorage with error handling
-          const result = safeSetThemeToStorage(theme)
-
-          if (!result.success && result.error) {
-            // If save failed, set to error
-            setError(result.error)
-          }
-        })
-        .catch((err) => {
-          // Handle Motion transition errors
-          const themeError =
-            err instanceof ThemeStorageError
-              ? err
-              : new ThemeStorageError(
-                  StorageErrorType.UNKNOWN,
-                  'Motion theme transition failed',
-                  err instanceof Error ? err : undefined
-                )
-
-          setError(themeError)
-
-          // Log error for debugging
-          if (import.meta.env.DEV) {
-            console.error('Motion theme switching error:', themeError)
-          }
-
-          // Fallback to immediate theme change
-          setState({
-            theme,
-            effectiveTheme,
-          })
-        })
+      handleMotionTransition(theme, effectiveTheme)
     } catch (err) {
-      // Handle any unexpected errors during theme switching
-      const themeError =
-        err instanceof ThemeStorageError
-          ? err
-          : new ThemeStorageError(
-              StorageErrorType.UNKNOWN,
-              'Unexpected error during theme switching',
-              err instanceof Error ? err : undefined
-            )
+      const themeError = createThemeError(
+        err,
+        'Unexpected error during theme switching'
+      )
 
       setError(themeError)
 
-      // Log error for debugging
       if (import.meta.env.DEV) {
         console.error('Theme switching error:', themeError)
       }

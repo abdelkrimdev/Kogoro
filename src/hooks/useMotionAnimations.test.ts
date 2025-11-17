@@ -153,7 +153,10 @@ describe('useThemeTransition', () => {
             nextSibling: null,
             previousSibling: null,
           }
-          observerCallback([mutation], mockObserverInstance as any)
+          observerCallback(
+            [mutation],
+            mockObserverInstance as unknown as MutationObserver
+          )
         }
       },
     }
@@ -382,7 +385,7 @@ describe('useLayoutAnimation', () => {
         .mockReturnValueOnce({ left: 50, top: 50, width: 200, height: 200 }),
       style: {},
       offsetHeight: 100,
-    } as any
+    } as unknown as HTMLElement
 
     await animateLayout('old', 'new', mockElement)
 

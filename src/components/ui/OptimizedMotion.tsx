@@ -270,9 +270,8 @@ export const LazyHeavyMotion: Component<LazyHeavyMotionProps> = (props) => {
   })
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       class={cn('lazy-heavy-motion', props.className)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -285,7 +284,7 @@ export const LazyHeavyMotion: Component<LazyHeavyMotionProps> = (props) => {
       }}
     >
       {props.children}
-    </div>
+    </button>
   )
 }
 

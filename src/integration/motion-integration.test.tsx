@@ -192,7 +192,11 @@ describe('Motion System Integration', () => {
 
       render(() => (
         <div>
-          <button onClick={() => setIsOpen(true)} data-testid="open-modal">
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            data-testid="open-modal"
+          >
             Open Modal
           </button>
           <MotionModal
@@ -232,7 +236,11 @@ describe('Motion System Integration', () => {
 
         return (
           <div>
-            <button onClick={toggleTheme} data-testid="theme-toggle">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              data-testid="theme-toggle"
+            >
               Toggle Theme
             </button>
             <div
@@ -269,7 +277,11 @@ describe('Motion System Integration', () => {
 
         return (
           <div>
-            <button onClick={() => setTheme('dark')} data-testid="set-dark">
+            <button
+              type="button"
+              onClick={() => setTheme('dark')}
+              data-testid="set-dark"
+            >
               Set Dark Theme
             </button>
             <div
@@ -377,7 +389,7 @@ describe('Motion System Integration', () => {
     it('should not cause memory leaks', () => {
       const TestComponent = () => {
         const { animationState } = useMotionAnimations()
-        const [isAnimating, setIsAnimating] = createSignal(false)
+        const [_isAnimating, setIsAnimating] = createSignal(false)
 
         const startAnimation = () => {
           setIsAnimating(true)
@@ -386,7 +398,11 @@ describe('Motion System Integration', () => {
 
         return (
           <div>
-            <button onClick={startAnimation} data-testid="start-animation">
+            <button
+              type="button"
+              onClick={startAnimation}
+              data-testid="start-animation"
+            >
               Start Animation
             </button>
             <div data-testid="animation-state">{animationState.state()}</div>
@@ -451,6 +467,7 @@ describe('Motion System Integration', () => {
         return (
           <div>
             <button
+              type="button"
               onClick={() => setCount((c) => c + 1)}
               data-testid="rapid-change"
             >
@@ -492,7 +509,11 @@ describe('Motion System Integration', () => {
           <ErrorBoundary
             fallback={<div data-testid="error-fallback">Error</div>}
           >
-            <button onClick={startAnimation} data-testid="error-button">
+            <button
+              type="button"
+              onClick={startAnimation}
+              data-testid="error-button"
+            >
               Start Animation
             </button>
           </ErrorBoundary>
@@ -530,7 +551,8 @@ describe('Motion System Integration', () => {
   describe('Browser Compatibility', () => {
     it('should work without requestAnimationFrame', () => {
       const originalRAF = window.requestAnimationFrame
-      delete (window as any).requestAnimationFrame
+      delete (window as unknown as Record<string, unknown>)
+        .requestAnimationFrame
 
       const TestComponent = () => {
         const { animationState } = useMotionAnimations()
@@ -548,7 +570,7 @@ describe('Motion System Integration', () => {
 
     it('should work without IntersectionObserver', () => {
       const originalIO = window.IntersectionObserver
-      delete (window as any).IntersectionObserver
+      delete (window as unknown as Record<string, unknown>).IntersectionObserver
 
       const TestComponent = () => {
         const { useScroll } = useMotionAnimations()
@@ -589,7 +611,11 @@ describe('Motion System Integration', () => {
 
         return (
           <div>
-            <button onClick={startAnimation} data-testid="lifecycle-button">
+            <button
+              type="button"
+              onClick={startAnimation}
+              data-testid="lifecycle-button"
+            >
               Start Lifecycle
             </button>
             <div data-testid="events">{events().join(',')}</div>
@@ -625,10 +651,10 @@ describe('Motion System Integration', () => {
 
         return (
           <div>
-            <button onClick={startAnimation} data-testid="start">
+            <button type="button" onClick={startAnimation} data-testid="start">
               Start
             </button>
-            <button onClick={stopAnimation} data-testid="stop">
+            <button type="button" onClick={stopAnimation} data-testid="stop">
               Stop
             </button>
             <div data-testid="running">{isRunning() ? 'true' : 'false'}</div>

@@ -9,7 +9,8 @@ import {
   createSignal,
   splitProps,
   Show,
-  createEffect,
+  onMount,
+  onCleanup,
   type JSX,
 } from 'solid-js'
 import { cn } from '../../lib/utils'
@@ -88,21 +89,21 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
     }
   }
 
-  // Handle ESC key
-  createEffect(() => {
+  // Setup document-level event listeners with proper cleanup
+  onMount(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && local.isOpen) {
         local.onClose?.()
       }
     }
 
-    if (local.isOpen) {
-      document.addEventListener('keydown', handleEscape)
-    }
+    // Add event listener when component mounts
+    document.addEventListener('keydown', handleEscape)
 
-    return () => {
+    // Cleanup function to remove event listener
+    onCleanup(() => {
       document.removeEventListener('keydown', handleEscape)
-    }
+    })
   })
 
   // Get sidebar width classes

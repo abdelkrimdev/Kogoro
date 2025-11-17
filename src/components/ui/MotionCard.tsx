@@ -181,17 +181,117 @@ export const MotionCard: Component<MotionCardProps> = (props) => {
       }
     : {}
 
+  if (local.clickable) {
+    return (
+      <button
+        ref={elementRef}
+        type="button"
+        class={getBaseClasses()}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        onKeyUp={handleKeyUp}
+        style={getCombinedStyles()}
+        {...enhancedEventHandlers}
+        {...rest}
+      >
+        {/* Card image */}
+        <Show when={local.image}>
+          <div class="relative aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-700">
+            <img
+              src={local.image}
+              alt={local.title || 'Anime cover'}
+              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
+
+            {/* Overlay gradient */}
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+            {/* Status badge */}
+            <Show when={local.metadata?.status}>
+              <div
+                class={cn(
+                  'absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-full',
+                  getStatusColor(local.metadata?.status)
+                )}
+              >
+                {local.metadata?.status}
+              </div>
+            </Show>
+          </div>
+        </Show>
+
+        {/* Card content */}
+        <div class="p-4">
+          {/* Title */}
+          <Show when={local.title}>
+            <h3 class="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2">
+              {local.title}
+            </h3>
+          </Show>
+
+          {/* Description */}
+          <Show when={local.description}>
+            <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-3 mb-3">
+              {local.description}
+            </p>
+          </Show>
+
+          {/* Metadata */}
+          <Show when={local.metadata}>
+            <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+              <div class="flex items-center space-x-3">
+                {/* Year */}
+                <Show when={local.metadata?.year}>
+                  <span>{local.metadata?.year}</span>
+                </Show>
+
+                {/* Episodes */}
+                <Show when={local.metadata?.episodes}>
+                  <span>{local.metadata?.episodes} eps</span>
+                </Show>
+              </div>
+
+              {/* Rating */}
+              <Show when={local.metadata?.rating}>
+                <div class="flex items-center">
+                  <span class="text-yellow-500">★</span>
+                  <span class="ml-1">{local.metadata?.rating?.toFixed(1)}</span>
+                </div>
+              </Show>
+            </div>
+
+            {/* Genres */}
+            <Show
+              when={local.metadata?.genres && local.metadata.genres.length > 0}
+            >
+              <div class="flex flex-wrap gap-1 mt-2">
+                {local.metadata?.genres?.slice(0, 3).map((genre) => (
+                  <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
+                    {genre}
+                  </span>
+                ))}
+                <Show when={(local.metadata?.genres?.length || 0) > 3}>
+                  <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
+                    +{(local.metadata?.genres?.length || 0) - 3}
+                  </span>
+                </Show>
+              </div>
+            </Show>
+          </Show>
+
+          {/* Custom children */}
+          {local.children}
+        </div>
+      </button>
+    )
+  }
+
   return (
     <div
       ref={elementRef}
       class={getBaseClasses()}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      onKeyUp={handleKeyUp}
       style={getCombinedStyles()}
-      role={local.clickable ? 'button' : undefined}
-      tabIndex={local.clickable ? 0 : undefined}
-      {...enhancedEventHandlers}
       {...rest}
     >
       {/* Card image */}
@@ -200,64 +300,42 @@ export const MotionCard: Component<MotionCardProps> = (props) => {
           <img
             src={local.image}
             alt={local.title || 'Anime cover'}
-            class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            class="w-full h-full object-cover"
             loading="lazy"
           />
-
-          {/* Overlay gradient */}
-          <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-          {/* Status badge */}
-          <Show when={local.metadata?.status}>
-            <div
-              class={cn(
-                'absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-full',
-                getStatusColor(local.metadata?.status)
-              )}
-            >
-              {local.metadata?.status}
-            </div>
-          </Show>
         </div>
       </Show>
 
       {/* Card content */}
       <div class="p-4">
-        {/* Title */}
         <Show when={local.title}>
-          <h3 class="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2">
+          <h3 class="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">
             {local.title}
           </h3>
         </Show>
 
-        {/* Description */}
         <Show when={local.description}>
-          <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-3 mb-3">
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
             {local.description}
           </p>
         </Show>
 
         {/* Metadata */}
         <Show when={local.metadata}>
-          <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-            <div class="flex items-center space-x-3">
-              {/* Year */}
-              <Show when={local.metadata?.year}>
-                <span>{local.metadata?.year}</span>
-              </Show>
-
-              {/* Episodes */}
-              <Show when={local.metadata?.episodes}>
-                <span>{local.metadata?.episodes} eps</span>
-              </Show>
-            </div>
-
-            {/* Rating */}
+          <div class="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <Show when={local.metadata?.year}>
+              <span>{local.metadata.year}</span>
+            </Show>
+            <Show when={local.metadata?.episodes}>
+              <span>{local.metadata.episodes} eps</span>
+            </Show>
             <Show when={local.metadata?.rating}>
-              <div class="flex items-center">
-                <span class="text-yellow-500">★</span>
-                <span class="ml-1">{local.metadata?.rating?.toFixed(1)}</span>
-              </div>
+              <span>★ {local.metadata.rating}</span>
+            </Show>
+            <Show when={local.metadata?.status}>
+              <span class={getStatusColor(local.metadata.status)}>
+                {local.metadata.status}
+              </span>
             </Show>
           </div>
 
@@ -266,7 +344,7 @@ export const MotionCard: Component<MotionCardProps> = (props) => {
             when={local.metadata?.genres && local.metadata.genres.length > 0}
           >
             <div class="flex flex-wrap gap-1 mt-2">
-              {local.metadata?.genres?.slice(0, 3).map((genre) => (
+              {local.metadata.genres.slice(0, 3).map((genre) => (
                 <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
                   {genre}
                 </span>

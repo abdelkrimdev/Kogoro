@@ -5,6 +5,8 @@ import {
   onMount,
   For,
   Show,
+  createMemo,
+  onCleanup,
   type JSX,
 } from 'solid-js'
 import { cn } from '../../lib/utils'
@@ -44,6 +46,15 @@ export const MotionGrid: Component<MotionGridProps> = (props) => {
   const [items, setItems] = createSignal<JSX.Element[]>([])
   const [isAnimated, setIsAnimated] = createSignal(false)
 
+  // Memoized calculation to avoid reactive dependencies in timeouts
+  const totalDuration = createMemo(() => {
+    const itemCount = items().length
+    return (
+      (local.duration || 0.5) +
+      Math.max(0, itemCount - 1) * (local.stagger || 0.1)
+    )
+  })
+
   onMount(() => {
     // Convert children to array for staggered animation
     const childrenArray = Array.isArray(local.children)
@@ -54,21 +65,28 @@ export const MotionGrid: Component<MotionGridProps> = (props) => {
     // Trigger animation after mount
     if (local.animate !== false) {
       const delay = local.delay || 0
-      setTimeout(() => {
+      let animationTimeoutId: ReturnType<typeof setTimeout>
+      let completionTimeoutId: ReturnType<typeof setTimeout>
+
+      // Start animation after initial delay
+      animationTimeoutId = setTimeout(() => {
         local.onAnimationStart?.()
         setIsAnimated(true)
 
-        // Calculate when animation should complete
-        const totalDuration =
-          (local.duration || 0.5) +
-          (items().length - 1) * (local.stagger || 0.1)
-        setTimeout(
+        // Schedule completion callback using memoized duration
+        completionTimeoutId = setTimeout(
           () => {
             local.onAnimationComplete?.()
           },
-          totalDuration * 1000 + delay
+          totalDuration() * 1000 + delay
         )
       }, delay)
+
+      // Cleanup timeouts on unmount
+      onCleanup(() => {
+        clearTimeout(animationTimeoutId)
+        clearTimeout(completionTimeoutId)
+      })
     }
   })
 

@@ -271,7 +271,9 @@ export function applyThemeTransitionOverlay(
 export function batchThemeUpdates(updates: (() => void)[]): Promise<void> {
   return new Promise((resolve) => {
     if (prefersReducedMotion()) {
-      updates.forEach((update) => update())
+      updates.forEach((update) => {
+        update()
+      })
       resolve()
       return
     }
@@ -283,7 +285,9 @@ export function batchThemeUpdates(updates: (() => void)[]): Promise<void> {
     applyThemeTransitionOverlay(true)
 
     // Execute all updates
-    updates.forEach((update) => update())
+    updates.forEach((update) => {
+      update()
+    })
 
     // Wait for transition to complete
     const duration = getTransitionDuration()

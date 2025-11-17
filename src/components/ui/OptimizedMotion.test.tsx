@@ -256,6 +256,33 @@ describe('LazyHeavyMotion', () => {
     )
     unmount()
   })
+
+  it('should cleanup timeout when unmounted with idle strategy', async () => {
+    const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
+    const setTimeoutSpy = vi.spyOn(global, 'setTimeout')
+
+    const { unmount } = render(() => (
+      <LazyHeavyMotion preloadStrategy="idle">
+        <div data-testid="heavy-content-timeout">Timeout Test</div>
+      </LazyHeavyMotion>
+    ))
+
+    // Wait for setTimeout to be called
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    // Verify setTimeout was called for idle strategy
+    expect(setTimeoutSpy).toHaveBeenCalled()
+
+    // Unmount component
+    unmount()
+
+    // Verify clearTimeout was called during cleanup
+    expect(clearTimeoutSpy).toHaveBeenCalled()
+
+    // Restore spies
+    clearTimeoutSpy.mockRestore()
+    setTimeoutSpy.mockRestore()
+  })
 })
 
 describe('MotionErrorBoundary Integration', () => {

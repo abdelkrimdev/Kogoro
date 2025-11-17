@@ -3,6 +3,7 @@ import {
   splitProps,
   createSignal,
   onMount,
+  onCleanup,
   Show,
   For,
 } from 'solid-js'
@@ -53,10 +54,18 @@ export const MotionSearch: Component<MotionSearchProps> = (props) => {
   const [isFocused, setIsFocused] = createSignal(false)
   const [isAnimated, setIsAnimated] = createSignal(false)
   const [inputValue, setInputValue] = createSignal(local.value || '')
+  let blurTimeoutId: ReturnType<typeof setTimeout> | undefined
 
   onMount(() => {
     if (local.animate !== false) {
       setTimeout(() => setIsAnimated(true), local.delay || 0)
+    }
+  })
+
+  onCleanup(() => {
+    // Clear any pending blur timeout to prevent memory leaks
+    if (blurTimeoutId !== undefined) {
+      clearTimeout(blurTimeoutId)
     }
   })
 
@@ -136,8 +145,13 @@ export const MotionSearch: Component<MotionSearchProps> = (props) => {
   }
 
   const handleBlur = () => {
+    // Clear any existing blur timeout
+    if (blurTimeoutId !== undefined) {
+      clearTimeout(blurTimeoutId)
+    }
+
     // Delay blur to allow result selection
-    setTimeout(() => setIsFocused(false), 200)
+    blurTimeoutId = setTimeout(() => setIsFocused(false), 200)
     local.onBlur?.()
   }
 

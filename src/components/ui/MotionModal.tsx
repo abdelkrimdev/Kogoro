@@ -9,6 +9,8 @@ import {
   splitProps,
   Show,
   createEffect,
+  onMount,
+  onCleanup,
   type JSX,
 } from 'solid-js'
 import { cn } from '../../lib/utils'
@@ -89,26 +91,34 @@ export const MotionModal: Component<MotionModalProps> = (props) => {
     }
   }
 
-  // Handle ESC key
+  // Handle ESC key and body scroll
   createEffect(() => {
+    if (local.isOpen) {
+      // Prevent body scroll when modal opens
+      document.body.style.overflow = 'hidden'
+    } else {
+      // Restore body scroll when modal closes
+      document.body.style.overflow = ''
+    }
+  })
+
+  // Setup document-level event listeners with proper cleanup
+  onMount(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && local.closeOnEscape && local.isOpen) {
         local.onClose?.()
       }
     }
 
-    if (local.isOpen) {
-      document.addEventListener('keydown', handleEscape)
-      // Prevent body scroll
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
+    // Add event listener when component mounts
+    document.addEventListener('keydown', handleEscape)
 
-    return () => {
+    // Cleanup function to remove event listener
+    onCleanup(() => {
       document.removeEventListener('keydown', handleEscape)
+      // Ensure body scroll is restored on cleanup
       document.body.style.overflow = ''
-    }
+    })
   })
 
   // Get modal size classes
