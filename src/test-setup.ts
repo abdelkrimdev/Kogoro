@@ -43,3 +43,20 @@ Object.defineProperty(window, 'matchMedia', {
   writable: true,
   configurable: true,
 })
+
+// Note: IntersectionObserver and MutationObserver are mocked in individual test files
+// to avoid conflicts with vi.fn() constructor issues
+
+// Mock requestAnimationFrame globally for all tests
+Object.defineProperty(window, 'requestAnimationFrame', {
+  value: vi.fn((cb) => setTimeout(cb, 16)),
+  writable: true,
+  configurable: true,
+})
+
+// Mock cancelAnimationFrame globally for all tests
+Object.defineProperty(window, 'cancelAnimationFrame', {
+  value: vi.fn((id) => clearTimeout(id)),
+  writable: true,
+  configurable: true,
+})

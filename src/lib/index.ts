@@ -35,3 +35,25 @@ export * from './store'
 
 // Configuration
 export * from './config'
+
+// Motion and animations
+export {
+  initializeMotion,
+  getMotionState,
+  isMotionEnabled,
+  getDuration,
+  getEasing,
+  getDelay,
+  MOTION_PRESETS,
+  THEME_MOTION_VARIANTS,
+  createMotionPreset,
+  getThemeMotion,
+  MOTION_CSS,
+  MOTION_KEYFRAMES,
+  createMotion,
+  type MotionPreset,
+  type MotionDuration,
+  type MotionEasing,
+  type MotionDelay,
+  type ThemeMotionVariant,
+} from './motion'

@@ -22,6 +22,15 @@ import {
   getThemeComponentClasses,
   getStatusClasses,
 } from '../../lib/utils'
+import { MotionCard } from '../ui/MotionCard'
+import { MotionList } from '../ui/MotionList'
+import {
+  useScrollAnimation,
+  useInteractionAnimation,
+  usePageTransition,
+  useModalAnimation,
+} from '../../hooks/useMotionAnimations'
+import { MOTION_VARIANTS } from '../../lib/motion-variants'
 
 export const Settings: Component = () => {
   const [activeTab, setActiveTab] = createSignal<
@@ -29,6 +38,59 @@ export const Settings: Component = () => {
   >('general')
   const [hasChanges, setHasChanges] = createSignal(false)
   const [tempSettings, setTempSettings] = createSignal({ ...appState.settings })
+
+  // Setup page transition animation
+  const { getPageProps } = usePageTransition({
+    variant: MOTION_VARIANTS.page.fade,
+    duration: 'normal',
+  })
+
+  // Setup scroll animations
+  const { elementRef: headerRef, getAnimationStyles: getHeaderStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+    })
+
+  const { elementRef: sidebarRef, getAnimationStyles: getSidebarStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+      delay: 100,
+    })
+
+  const { elementRef: contentRef, getAnimationStyles: getContentStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+      delay: 200,
+    })
+
+  // Setup interaction animation for tabs
+  const { eventHandlers: tabHandlers, getAnimationStyles: getTabStyles } =
+    useInteractionAnimation({
+      hoverVariant: MOTION_VARIANTS.hover.lift,
+      tapVariant: MOTION_VARIANTS.tap.press,
+    })
+
+  // Setup interaction animation for buttons
+  const { eventHandlers: buttonHandlers, getAnimationStyles: getButtonStyles } =
+    useInteractionAnimation({
+      hoverVariant: MOTION_VARIANTS.hover.scale,
+      tapVariant: MOTION_VARIANTS.tap.press,
+    })
+
+  // Setup modal animation for save confirmation
+  const {
+    isOpen: showSaveModal,
+    open: openSaveModal,
+    close: closeSaveModal,
+    getModalProps,
+    getOverlayProps,
+  } = useModalAnimation({
+    closeOnOverlayClick: true,
+    closeOnEscape: true,
+  })
 
   const tabs = [
     { id: 'general', label: 'General', icon: Globe },
@@ -49,6 +111,7 @@ export const Settings: Component = () => {
   const saveSettings = () => {
     storeActions.updateSettings(tempSettings())
     setHasChanges(false)
+    openSaveModal()
   }
 
   const resetSettings = () => {
@@ -77,9 +140,12 @@ export const Settings: Component = () => {
   }
 
   return (
-    <div class="space-y-6">
+    <div {...getPageProps()} class="space-y-6">
       {/* Header */}
-      <div class="flex items-center justify-between">
+      <div
+        ref={headerRef}
+        class={cn(getHeaderStyles(), 'flex items-center justify-between')}
+      >
         <div>
           <h1 class={cn('text-3xl font-bold', getTextClasses('primary'))}>
             Settings
@@ -92,8 +158,10 @@ export const Settings: Component = () => {
         <div class="flex space-x-3">
           <button
             type="button"
+            {...buttonHandlers}
             onClick={resetSettings}
             class={cn(
+              getButtonStyles(),
               'flex items-center space-x-2 rounded-lg transition-colors',
               getThemeComponentClasses({
                 variant: 'muted',
@@ -107,9 +175,11 @@ export const Settings: Component = () => {
 
           <button
             type="button"
+            {...buttonHandlers}
             onClick={saveSettings}
             disabled={!hasChanges()}
             class={cn(
+              getButtonStyles(),
               'flex items-center space-x-2 rounded-lg transition-colors',
               'bg-accent text-accent-foreground hover:bg-accent-hover',
               'disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed'
@@ -123,20 +193,16 @@ export const Settings: Component = () => {
 
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar */}
-        <div class="lg:col-span-1">
-          <nav
-            class={cn(
-              'rounded-lg shadow-sm border p-2',
-              getBackgroundClasses('primary'),
-              getBorderClasses('primary')
-            )}
-          >
-            <For each={tabs}>
-              {(tab) => {
+        <div ref={sidebarRef} class={cn(getSidebarStyles(), 'lg:col-span-1')}>
+          <MotionCard variant="secondary" class="p-2">
+            <MotionList
+              items={tabs}
+              renderItem={(tab) => {
                 const Icon = tab.icon
                 return (
                   <button
                     type="button"
+                    {...tabHandlers}
                     onClick={() =>
                       setActiveTab(
                         tab.id as
@@ -148,7 +214,8 @@ export const Settings: Component = () => {
                       )
                     }
                     class={cn(
-                      'w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm font-medium',
+                      getTabStyles(),
+                      'w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left text-sm font-medium',
                       activeTab() === tab.id
                         ? cn('bg-accent text-accent-foreground')
                         : cn(getTextClasses('secondary'), 'hover:bg-muted')
@@ -159,22 +226,21 @@ export const Settings: Component = () => {
                   </button>
                 )
               }}
-            </For>
-          </nav>
+              staggerDelay={50}
+            />
+          </MotionCard>
         </div>
 
         {/* Content */}
-        <div class="lg:col-span-3">
-          <div
-            class={cn(
-              'rounded-lg shadow-sm border',
-              getBackgroundClasses('primary'),
-              getBorderClasses('primary')
-            )}
-          >
+        <div ref={contentRef} class={cn(getContentStyles(), 'lg:col-span-3')}>
+          <MotionCard variant="primary" class="overflow-hidden">
             {/* General Tab */}
             <Show when={activeTab() === 'general'}>
-              <div class="p-6 space-y-6">
+              <MotionCard
+                variant="content"
+                class="p-6 space-y-6"
+                animation="slideInRight"
+              >
                 <h2
                   class={cn('text-lg font-semibold', getTextClasses('primary'))}
                 >
@@ -283,12 +349,16 @@ export const Settings: Component = () => {
                     </span>
                   </label>
                 </div>
-              </div>
+              </MotionCard>
             </Show>
 
             {/* Directories Tab */}
             <Show when={activeTab() === 'directories'}>
-              <div class="p-6 space-y-6">
+              <MotionCard
+                variant="content"
+                class="p-6 space-y-6"
+                animation="slideInRight"
+              >
                 <h2
                   class={cn('text-lg font-semibold', getTextClasses('primary'))}
                 >
@@ -318,51 +388,47 @@ export const Settings: Component = () => {
                     </button>
                   </div>
 
-                  <div class="space-y-2">
-                    <For each={tempSettings().animeDirectories}>
-                      {(dir, index) => (
-                        <div
+                  <MotionList
+                    items={tempSettings().animeDirectories}
+                    renderItem={(dir, index) => (
+                      <MotionCard
+                        variant="secondary"
+                        class="flex items-center space-x-2 p-3"
+                        animation="fadeIn"
+                      >
+                        <FolderOpen
+                          class={cn('w-4 h-4', getTextClasses('tertiary'))}
+                        />
+                        <span
                           class={cn(
-                            'flex items-center space-x-2 p-3 rounded-lg',
-                            getBackgroundClasses('secondary')
+                            'flex-1 text-sm',
+                            getTextClasses('primary')
                           )}
                         >
-                          <FolderOpen
-                            class={cn('w-4 h-4', getTextClasses('tertiary'))}
-                          />
-                          <span
-                            class={cn(
-                              'flex-1 text-sm',
-                              getTextClasses('primary')
-                            )}
-                          >
-                            {dir}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeDirectory(index())}
-                            class={cn(
-                              'transition-colors',
-                              getStatusClasses('error', 'text')
-                            )}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      )}
-                    </For>
+                          {dir}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeDirectory(index())}
+                          class={cn(
+                            'transition-colors',
+                            getStatusClasses('error', 'text')
+                          )}
+                        >
+                          Remove
+                        </button>
+                      </MotionCard>
+                    )}
+                    staggerDelay={100}
+                  />
 
-                    <Show when={tempSettings().animeDirectories.length === 0}>
-                      <div
-                        class={cn(
-                          'text-center py-8',
-                          getTextClasses('tertiary')
-                        )}
-                      >
-                        No anime directories configured
-                      </div>
-                    </Show>
-                  </div>
+                  <Show when={tempSettings().animeDirectories.length === 0}>
+                    <div
+                      class={cn('text-center py-8', getTextClasses('tertiary'))}
+                    >
+                      No anime directories configured
+                    </div>
+                  </Show>
                 </div>
 
                 {/* Download Directory */}
@@ -413,12 +479,16 @@ export const Settings: Component = () => {
                     </Show>
                   </div>
                 </div>
-              </div>
+              </MotionCard>
             </Show>
 
             {/* AniDB Tab */}
             <Show when={activeTab() === 'anidb'}>
-              <div class="p-6 space-y-6">
+              <MotionCard
+                variant="content"
+                class="p-6 space-y-6"
+                animation="slideInRight"
+              >
                 <h2
                   class={cn('text-lg font-semibold', getTextClasses('primary'))}
                 >
@@ -541,12 +611,16 @@ export const Settings: Component = () => {
                     />
                   </div>
                 </div>
-              </div>
+              </MotionCard>
             </Show>
 
             {/* File Naming Tab */}
             <Show when={activeTab() === 'naming'}>
-              <div class="p-6 space-y-6">
+              <MotionCard
+                variant="content"
+                class="p-6 space-y-6"
+                animation="slideInRight"
+              >
                 <h2
                   class={cn('text-lg font-semibold', getTextClasses('primary'))}
                 >
@@ -630,12 +704,16 @@ export const Settings: Component = () => {
                     </span>
                   </label>
                 </div>
-              </div>
+              </MotionCard>
             </Show>
 
             {/* Advanced Tab */}
             <Show when={activeTab() === 'advanced'}>
-              <div class="p-6 space-y-6">
+              <MotionCard
+                variant="content"
+                class="p-6 space-y-6"
+                animation="slideInRight"
+              >
                 <h2
                   class={cn('text-lg font-semibold', getTextClasses('primary'))}
                 >
@@ -683,11 +761,53 @@ export const Settings: Component = () => {
                     </span>
                   </label>
                 </div>
-              </div>
+              </MotionCard>
             </Show>
-          </div>
+          </MotionCard>
         </div>
       </div>
+
+      {/* Save Confirmation Modal */}
+      <Show when={showSaveModal()}>
+        <div {...getOverlayProps()} class="fixed inset-0 z-50" />
+        <div
+          {...getModalProps()}
+          class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50"
+        >
+          <MotionCard
+            variant="primary"
+            class="p-6 max-w-sm w-full mx-4"
+            animation="scaleIn"
+          >
+            <div class="text-center space-y-4">
+              <div
+                class={cn(
+                  'w-12 h-12 rounded-full flex items-center justify-center mx-auto',
+                  getStatusClasses('success', 'background')
+                )}
+              >
+                <Save
+                  class={cn('w-6 h-6', getStatusClasses('success', 'text'))}
+                />
+              </div>
+              <h3 class="text-lg font-semibold">Settings Saved</h3>
+              <p class={cn('text-sm', getTextClasses('secondary'))}>
+                Your settings have been successfully saved.
+              </p>
+              <button
+                {...buttonHandlers}
+                onClick={closeSaveModal}
+                class={cn(
+                  getButtonStyles(),
+                  'w-full px-4 py-2 bg-accent text-accent-foreground rounded-lg'
+                )}
+              >
+                OK
+              </button>
+            </div>
+          </MotionCard>
+        </div>
+      </Show>
     </div>
   )
 }

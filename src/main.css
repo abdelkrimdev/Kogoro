@@ -62,77 +62,11 @@
     min-height: 100vh;
   }
 
-  /* Theme transition animations */
-  html {
-    transition:
-      background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-      color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  body {
-    transition:
-      background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-      color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  /* Respect reduced motion preference */
+  /* Respect reduced motion preference for theme changes */
   @media (prefers-reduced-motion: reduce) {
     html,
     body {
       transition: none;
-    }
-  }
-
-  /* Smooth transitions for theme-aware elements */
-  * {
-    transition:
-      border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-      background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-      color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  /* Respect reduced motion for all elements */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      transition: none;
-      animation-duration: 0.01ms;
-      animation-iteration-count: 1;
-    }
-  }
-}
-
-/* Keyframes for animations */
-@layer utilities {
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes slideUp {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
-  @keyframes scaleIn {
-    from {
-      transform: scale(0.95);
-      opacity: 0;
-    }
-    to {
-      transform: scale(1);
-      opacity: 1;
     }
   }
 }

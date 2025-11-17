@@ -10,14 +10,56 @@ import {
 import { appState } from '../../lib/store'
 import {
   cn,
-  getThemeComponentClasses,
   getStatusClasses,
   getTextClasses,
   getBackgroundClasses,
   getBorderClasses,
 } from '../../lib/utils'
+import { MotionCard } from '../ui/MotionCard'
+import { MotionGrid } from '../ui/MotionGrid'
+import { MotionList } from '../ui/MotionList'
+import {
+  useScrollAnimation,
+  useStaggerAnimation,
+  useInteractionAnimation,
+} from '../../hooks/useMotionAnimations'
+import { MOTION_VARIANTS } from '../../lib/motion-variants'
 
 export const Dashboard: Component = () => {
+  // Setup scroll animations for main sections
+  const { elementRef: headerRef, getAnimationStyles: getHeaderStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+    })
+
+  const { elementRef: statsRef, getAnimationStyles: getStatsStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+      delay: 100,
+    })
+
+  const { elementRef: contentRef, getAnimationStyles: getContentStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+      delay: 200,
+    })
+
+  // Setup stagger animation for stats
+  const { getStaggerProps } = useStaggerAnimation({
+    baseDelay: 100,
+    maxDelay: 400,
+  })
+
+  // Setup interaction animation for continue watching items
+  const { eventHandlers: cardHandlers, getAnimationStyles: getCardStyles } =
+    useInteractionAnimation({
+      hoverVariant: MOTION_VARIANTS.hover.lift,
+      tapVariant: MOTION_VARIANTS.tap.press,
+    })
+
   // Mock data for demonstration
   const stats = [
     {
@@ -112,7 +154,7 @@ export const Dashboard: Component = () => {
   return (
     <div class="space-y-6">
       {/* Header */}
-      <div>
+      <div ref={headerRef} style={getHeaderStyles()}>
         <h1 class={cn('text-3xl font-bold', getTextClasses('primary'))}>
           Dashboard
         </h1>
@@ -122,16 +164,19 @@ export const Dashboard: Component = () => {
       </div>
 
       {/* Stats Grid */}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div
+        ref={statsRef}
+        style={getStatsStyles()}
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
         <For each={stats}>
-          {(stat) => {
+          {(stat, index) => {
             const Icon = stat.icon
             return (
-              <div
-                class={getThemeComponentClasses({
-                  variant: 'default',
-                  interactive: false,
-                })}
+              <MotionCard
+                variant="compact"
+                animateOnScroll={true}
+                {...getStaggerProps(index())}
               >
                 <div class="flex items-center justify-between">
                   <div>
@@ -159,21 +204,20 @@ export const Dashboard: Component = () => {
                     <Icon class="w-6 h-6" />
                   </div>
                 </div>
-              </div>
+              </MotionCard>
             )
           }}
         </For>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div
+        ref={contentRef}
+        style={getContentStyles()}
+        class="grid grid-cols-1 lg:grid-cols-3 gap-6"
+      >
         {/* Continue Watching */}
         <div class="lg:col-span-2">
-          <div
-            class={getThemeComponentClasses({
-              variant: 'default',
-              interactive: false,
-            })}
-          >
+          <MotionCard variant="standard" animateOnScroll={true}>
             <div class={cn('p-6 border-b', getBorderClasses('primary'))}>
               <h2
                 class={cn('text-lg font-semibold', getTextClasses('primary'))}
@@ -198,15 +242,28 @@ export const Dashboard: Component = () => {
                   </div>
                 }
               >
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <MotionGrid
+                  columns="md:grid-cols-2"
+                  gap="1rem"
+                  stagger={100}
+                  variant="slide"
+                  direction="up"
+                >
                   <For each={continueWatching}>
                     {(item) => (
-                      <div class="group cursor-pointer">
+                      <MotionCard
+                        variant="compact"
+                        clickable={true}
+                        onClick={() => console.log('Play:', item.title)}
+                        animateOnScroll={true}
+                        {...cardHandlers}
+                        style={getCardStyles()}
+                      >
                         <div class="relative rounded-lg overflow-hidden mb-3">
                           <img
                             src={item.image}
                             alt={item.title}
-                            class="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300"
+                            class="w-full h-32 object-cover"
                           />
                           <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-300 flex items-center justify-center">
                             <PlayCircle class="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -233,23 +290,18 @@ export const Dashboard: Component = () => {
                         <p class={cn('text-sm', getTextClasses('secondary'))}>
                           {item.episode}
                         </p>
-                      </div>
+                      </MotionCard>
                     )}
                   </For>
-                </div>
+                </MotionGrid>
               </Show>
             </div>
-          </div>
+          </MotionCard>
         </div>
 
         {/* Recent Activity */}
         <div class="lg:col-span-1">
-          <div
-            class={getThemeComponentClasses({
-              variant: 'default',
-              interactive: false,
-            })}
-          >
+          <MotionCard variant="standard" animateOnScroll={true}>
             <div class={cn('p-6 border-b', getBorderClasses('primary'))}>
               <h2
                 class={cn('text-lg font-semibold', getTextClasses('primary'))}
@@ -258,42 +310,44 @@ export const Dashboard: Component = () => {
               </h2>
             </div>
             <div class="p-6">
-              <div class="space-y-4">
-                <For each={recentActivity}>
-                  {(activity) => {
-                    const Icon = activity.icon
-                    return (
-                      <div class="flex items-start space-x-3">
-                        <div
+              <MotionList
+                items={recentActivity}
+                animation="slide"
+                direction="up"
+                staggerDelay={150}
+                renderItem={(activity) => {
+                  const Icon = activity.icon
+                  return (
+                    <div class="flex items-start space-x-3">
+                      <div
+                        class={cn(
+                          'p-2 rounded-lg',
+                          getBackgroundClasses('secondary')
+                        )}
+                      >
+                        <Icon
+                          class={cn('w-4 h-4', getTextClasses('secondary'))}
+                        />
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <p
                           class={cn(
-                            'p-2 rounded-lg',
-                            getBackgroundClasses('secondary')
+                            'text-sm font-medium truncate',
+                            getTextClasses('primary')
                           )}
                         >
-                          <Icon
-                            class={cn('w-4 h-4', getTextClasses('secondary'))}
-                          />
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <p
-                            class={cn(
-                              'text-sm font-medium truncate',
-                              getTextClasses('primary')
-                            )}
-                          >
-                            {activity.title}
-                          </p>
-                          <p class={cn('text-xs', getTextClasses('tertiary'))}>
-                            {activity.time}
-                          </p>
-                        </div>
+                          {activity.title}
+                        </p>
+                        <p class={cn('text-xs', getTextClasses('tertiary'))}>
+                          {activity.time}
+                        </p>
                       </div>
-                    )
-                  }}
-                </For>
-              </div>
+                    </div>
+                  )
+                }}
+              />
             </div>
-          </div>
+          </MotionCard>
         </div>
       </div>
     </div>

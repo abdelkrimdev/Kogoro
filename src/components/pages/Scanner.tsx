@@ -17,6 +17,16 @@ import {
   getThemeComponentClasses,
   getTextClasses,
 } from '../../lib/utils'
+import { MotionCard } from '../ui/MotionCard'
+import { MotionGrid } from '../ui/MotionGrid'
+import {
+  useScrollAnimation,
+  useInteractionAnimation,
+  useLoadingAnimation,
+  usePageTransition,
+  useAnimationState,
+} from '../../hooks/useMotionAnimations'
+import { MOTION_VARIANTS } from '../../lib/motion-variants'
 
 export const Scanner: Component = () => {
   const [isScanning, setIsScanning] = createSignal(false)
@@ -39,6 +49,63 @@ export const Scanner: Component = () => {
     errors: [],
   })
 
+  // Setup page transition animation
+  const { getPageProps } = usePageTransition({
+    variant: MOTION_VARIANTS.page.fade,
+    duration: 'normal',
+  })
+
+  // Setup scroll animations
+  const { elementRef: headerRef, getAnimationStyles: getHeaderStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+    })
+
+  const { elementRef: controlsRef, getAnimationStyles: getControlsStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+      delay: 100,
+    })
+
+  const { elementRef: progressRef, getAnimationStyles: getProgressStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+      delay: 200,
+    })
+
+  const { elementRef: sidebarRef, getAnimationStyles: getSidebarStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+      delay: 300,
+    })
+
+  // Setup interaction animation for buttons
+  const { eventHandlers: buttonHandlers, getAnimationStyles: getButtonStyles } =
+    useInteractionAnimation({
+      hoverVariant: MOTION_VARIANTS.hover.lift,
+      tapVariant: MOTION_VARIANTS.tap.press,
+    })
+
+  // Setup loading animation for scanning
+  const { startLoading, stopLoading } = useLoadingAnimation({
+    type: 'spinner',
+    size: 'medium',
+  })
+
+  // Setup animation state for scan progress
+  const {
+    startAnimation: startScanAnimation,
+    stopAnimation: stopScanAnimation,
+  } = useAnimationState({
+    duration: 'slow',
+    onStart: () => console.log('Scan animation started'),
+    onEnd: () => console.log('Scan animation completed'),
+  })
+
   const startScan = async () => {
     if (!selectedDirectory()) {
       alert('Please select a directory to scan')
@@ -49,6 +116,8 @@ export const Scanner: Component = () => {
     setScanStatus('scanning')
     setScanProgress(0)
     storeActions.setScanning(true, 0)
+    startLoading()
+    startScanAnimation()
 
     // Simulate scanning process
     const totalFiles = 150 // Simulated total
@@ -74,6 +143,8 @@ export const Scanner: Component = () => {
         setIsScanning(false)
         setScanStatus('completed')
         storeActions.setScanning(false, 100)
+        stopLoading()
+        stopScanAnimation()
       }
     }, 200)
   }
@@ -82,6 +153,8 @@ export const Scanner: Component = () => {
     setIsScanning(false)
     setScanStatus('idle')
     storeActions.setScanning(false, 0)
+    stopLoading()
+    stopScanAnimation()
   }
 
   const selectDirectory = () => {
@@ -121,9 +194,9 @@ export const Scanner: Component = () => {
   const StatusIcon = getStatusIcon()
 
   return (
-    <div class="space-y-6">
+    <div {...getPageProps()} class="space-y-6">
       {/* Header */}
-      <div>
+      <div ref={headerRef} style={getHeaderStyles()}>
         <h1 class={cn('text-3xl font-bold', getTextClasses('primary'))}>
           Scanner
         </h1>
@@ -135,14 +208,13 @@ export const Scanner: Component = () => {
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Scanner Controls */}
-        <div class="lg:col-span-2 space-y-6">
+        <div
+          ref={controlsRef}
+          style={getControlsStyles()}
+          class="lg:col-span-2 space-y-6"
+        >
           {/* Directory Selection */}
-          <div
-            class={cn(
-              'rounded-lg shadow-sm p-6',
-              getThemeComponentClasses({ variant: 'default' })
-            )}
-          >
+          <MotionCard variant="standard" animateOnScroll={true}>
             <h2
               class={cn(
                 'text-lg font-semibold mb-4',
@@ -258,11 +330,15 @@ export const Scanner: Component = () => {
               <Show
                 when={!isScanning()}
                 fallback={
-                  <button
-                    type="button"
+                  <MotionCard
+                    variant="compact"
+                    clickable={true}
                     onClick={stopScan}
+                    animateOnScroll={false}
+                    {...buttonHandlers}
+                    style={getButtonStyles()}
                     class={cn(
-                      'px-6 py-2 rounded-lg transition-colors flex items-center space-x-2',
+                      'px-6 py-2 flex items-center space-x-2',
                       getStatusClasses('error', 'bg'),
                       getStatusClasses('error', 'text'),
                       'hover:opacity-80'
@@ -270,28 +346,37 @@ export const Scanner: Component = () => {
                   >
                     <Pause class="w-4 h-4" />
                     <span>Stop Scan</span>
-                  </button>
+                  </MotionCard>
                 }
               >
-                <button
-                  type="button"
+                <MotionCard
+                  variant="compact"
+                  clickable={true}
                   onClick={startScan}
                   disabled={!selectedDirectory()}
+                  animateOnScroll={false}
+                  {...buttonHandlers}
+                  style={getButtonStyles()}
                   class={cn(
-                    'px-6 py-2 rounded-lg transition-colors flex items-center space-x-2',
+                    'px-6 py-2 flex items-center space-x-2',
                     'bg-accent text-accent-foreground hover:bg-accent-hover',
                     'disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed'
                   )}
                 >
                   <Play class="w-4 h-4" />
                   <span>Start Scan</span>
-                </button>
+                </MotionCard>
               </Show>
 
-              <button
-                type="button"
+              <MotionCard
+                variant="compact"
+                clickable={true}
+                onClick={() => console.log('Open settings')}
+                animateOnScroll={false}
+                {...buttonHandlers}
+                style={getButtonStyles()}
                 class={cn(
-                  'px-6 py-2 rounded-lg transition-colors flex items-center space-x-2',
+                  'px-6 py-2 flex items-center space-x-2',
                   getThemeComponentClasses({
                     variant: 'muted',
                     interactive: true,
@@ -300,212 +385,202 @@ export const Scanner: Component = () => {
               >
                 <Settings class="w-4 h-4" />
                 <span>Settings</span>
-              </button>
+              </MotionCard>
             </div>
-          </div>
-
-          {/* Progress */}
-          <Show when={isScanning() || scanStatus() === 'completed'}>
-            <div
-              class={cn(
-                'rounded-lg shadow-sm p-6',
-                getThemeComponentClasses({ variant: 'default' })
-              )}
-            >
-              <div class="flex items-center justify-between mb-4">
-                <h2
-                  class={cn(
-                    'text-lg font-semibold mb-4',
-                    getTextClasses('primary')
-                  )}
-                >
-                  Scan Progress
-                </h2>
-                <div
-                  class={cn('flex items-center space-x-2', getStatusColor())}
-                >
-                  <StatusIcon class="w-5 h-5" />
-                  <span class="capitalize">{scanStatus()}</span>
-                </div>
-              </div>
-
-              <div class="space-y-4">
-                <div>
-                  <div class="flex justify-between text-sm mb-2">
-                    <span class={getTextClasses('tertiary')}>Progress</span>
-                    <span class={getTextClasses('primary')}>
-                      {Math.round(scanProgress())}%
-                    </span>
-                  </div>
-                  <div class={cn('w-full rounded-full h-2', 'bg-muted')}>
-                    <div
-                      class={cn(
-                        'h-2 rounded-full transition-all duration-300',
-                        'bg-accent'
-                      )}
-                      style={{ width: `${scanProgress()}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                  <div>
-                    <p
-                      class={cn(
-                        'text-2xl font-bold',
-                        getTextClasses('primary')
-                      )}
-                    >
-                      {scanResults().total}
-                    </p>
-                    <p class={cn('text-sm', getTextClasses('tertiary'))}>
-                      Total Files
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      class={cn(
-                        'text-2xl font-bold',
-                        getTextClasses('primary')
-                      )}
-                    >
-                      {scanResults().processed}
-                    </p>
-                    <p class={cn('text-sm', getTextClasses('tertiary'))}>
-                      Processed
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      class={cn(
-                        'text-2xl font-bold',
-                        getStatusClasses('success', 'text')
-                      )}
-                    >
-                      {scanResults().added}
-                    </p>
-                    <p class={cn('text-sm', getTextClasses('tertiary'))}>
-                      Added
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      class={cn(
-                        'text-2xl font-bold',
-                        getStatusClasses('info', 'text')
-                      )}
-                    >
-                      {scanResults().updated}
-                    </p>
-                    <p class={cn('text-sm', getTextClasses('tertiary'))}>
-                      Updated
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Show>
+          </MotionCard>
         </div>
 
-        {/* Sidebar */}
-        <div class="space-y-6">
-          {/* Quick Stats */}
-          <div
-            class={cn(
-              'rounded-lg shadow-sm p-6',
-              getThemeComponentClasses({ variant: 'default' })
-            )}
+        {/* Progress */}
+        <Show when={isScanning() || scanStatus() === 'completed'}>
+          <MotionCard
+            ref={progressRef}
+            style={getProgressStyles()}
+            variant="standard"
+            animateOnScroll={false}
           >
-            <h2
-              class={cn(
-                'text-lg font-semibold mb-4',
-                getTextClasses('primary')
-              )}
-            >
-              Quick Stats
-            </h2>
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <span class={cn('text-sm', getTextClasses('tertiary'))}>
-                  Anime in collection
-                </span>
-                <span class={cn('font-medium', getTextClasses('primary'))}>
-                  {appState.animeList.length}
-                </span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span class={cn('text-sm', getTextClasses('tertiary'))}>
-                  Total episodes
-                </span>
-                <span class={cn('font-medium', getTextClasses('primary'))}>
-                  {appState.episodes.length}
-                </span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span class={cn('text-sm', getTextClasses('tertiary'))}>
-                  Media files
-                </span>
-                <span class={cn('font-medium', getTextClasses('primary'))}>
-                  {appState.mediaFiles.length}
-                </span>
+            <div class="flex items-center justify-between mb-4">
+              <h2
+                class={cn(
+                  'text-lg font-semibold mb-4',
+                  getTextClasses('primary')
+                )}
+              >
+                Scan Progress
+              </h2>
+              <div class={cn('flex items-center space-x-2', getStatusColor())}>
+                <StatusIcon class="w-5 h-5" />
+                <span class="capitalize">{scanStatus()}</span>
               </div>
             </div>
-          </div>
 
-          {/* Supported Formats */}
-          <div
-            class={cn(
-              'rounded-lg shadow-sm p-6',
-              getThemeComponentClasses({ variant: 'default' })
-            )}
-          >
-            <h2
-              class={cn(
-                'text-lg font-semibold mb-4',
-                getTextClasses('primary')
-              )}
-            >
-              Supported Formats
-            </h2>
-            <div class="space-y-3">
+            <div class="space-y-4">
               <div>
-                <div class="flex items-center space-x-2 mb-2">
-                  <FileVideo
-                    class={cn('w-4 h-4', getTextClasses('tertiary'))}
+                <div class="flex justify-between text-sm mb-2">
+                  <span class={getTextClasses('tertiary')}>Progress</span>
+                  <span class={getTextClasses('primary')}>
+                    {Math.round(scanProgress())}%
+                  </span>
+                </div>
+                <div class={cn('w-full rounded-full h-2', 'bg-muted')}>
+                  <div
+                    class={cn(
+                      'h-2 rounded-full transition-all duration-300',
+                      'bg-accent'
+                    )}
+                    style={{ width: `${scanProgress()}%` }}
                   />
-                  <span
-                    class={cn('text-sm font-medium', getTextClasses('primary'))}
-                  >
-                    Video
-                  </span>
-                </div>
-                <div
-                  class={cn('text-xs space-y-1', getTextClasses('tertiary'))}
-                >
-                  <div>MP4, MKV, AVI, MOV</div>
-                  <div>WMV, FLV, WebM, M4V</div>
                 </div>
               </div>
 
-              <div>
-                <div class="flex items-center space-x-2 mb-2">
-                  <div class={cn('w-4 h-4 rounded', 'bg-muted')}></div>
-                  <span
-                    class={cn('text-sm font-medium', getTextClasses('primary'))}
-                  >
-                    Subtitles
-                  </span>
-                </div>
-                <div
-                  class={cn('text-xs space-y-1', getTextClasses('tertiary'))}
+              <MotionGrid
+                columns="grid-cols-2 md:grid-cols-4"
+                gap="1rem"
+                stagger={100}
+                variant="scale"
+                direction="up"
+              >
+                <MotionCard
+                  variant="compact"
+                  animateOnScroll={false}
+                  class="text-center p-4"
                 >
-                  <div>SRT, ASS, SSA, VTT</div>
-                  <div>SUB, IDX</div>
-                </div>
+                  <p
+                    class={cn('text-2xl font-bold', getTextClasses('primary'))}
+                  >
+                    {scanResults().total}
+                  </p>
+                  <p class={cn('text-sm', getTextClasses('tertiary'))}>
+                    Total Files
+                  </p>
+                </MotionCard>
+                <MotionCard
+                  variant="compact"
+                  animateOnScroll={false}
+                  class="text-center p-4"
+                >
+                  <p
+                    class={cn('text-2xl font-bold', getTextClasses('primary'))}
+                  >
+                    {scanResults().processed}
+                  </p>
+                  <p class={cn('text-sm', getTextClasses('tertiary'))}>
+                    Processed
+                  </p>
+                </MotionCard>
+                <MotionCard
+                  variant="compact"
+                  animateOnScroll={false}
+                  class="text-center p-4"
+                >
+                  <p
+                    class={cn(
+                      'text-2xl font-bold',
+                      getStatusClasses('success', 'text')
+                    )}
+                  >
+                    {scanResults().added}
+                  </p>
+                  <p class={cn('text-sm', getTextClasses('tertiary'))}>Added</p>
+                </MotionCard>
+                <MotionCard
+                  variant="compact"
+                  animateOnScroll={false}
+                  class="text-center p-4"
+                >
+                  <p
+                    class={cn(
+                      'text-2xl font-bold',
+                      getStatusClasses('info', 'text')
+                    )}
+                  >
+                    {scanResults().updated}
+                  </p>
+                  <p class={cn('text-sm', getTextClasses('tertiary'))}>
+                    Updated
+                  </p>
+                </MotionCard>
+              </MotionGrid>
+            </div>
+          </MotionCard>
+        </Show>
+      </div>
+
+      {/* Sidebar */}
+      <div ref={sidebarRef} style={getSidebarStyles()} class="space-y-6">
+        {/* Quick Stats */}
+        <MotionCard variant="standard" animateOnScroll={true}>
+          <h2
+            class={cn('text-lg font-semibold mb-4', getTextClasses('primary'))}
+          >
+            Quick Stats
+          </h2>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class={cn('text-sm', getTextClasses('tertiary'))}>
+                Anime in collection
+              </span>
+              <span class={cn('font-medium', getTextClasses('primary'))}>
+                {appState.animeList.length}
+              </span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class={cn('text-sm', getTextClasses('tertiary'))}>
+                Total episodes
+              </span>
+              <span class={cn('font-medium', getTextClasses('primary'))}>
+                {appState.episodes.length}
+              </span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class={cn('text-sm', getTextClasses('tertiary'))}>
+                Media files
+              </span>
+              <span class={cn('font-medium', getTextClasses('primary'))}>
+                {appState.mediaFiles.length}
+              </span>
+            </div>
+          </div>
+        </MotionCard>
+
+        {/* Supported Formats */}
+        <MotionCard variant="standard" animateOnScroll={true}>
+          <h2
+            class={cn('text-lg font-semibold mb-4', getTextClasses('primary'))}
+          >
+            Supported Formats
+          </h2>
+          <div class="space-y-3">
+            <div>
+              <div class="flex items-center space-x-2 mb-2">
+                <FileVideo class={cn('w-4 h-4', getTextClasses('tertiary'))} />
+                <span
+                  class={cn('text-sm font-medium', getTextClasses('primary'))}
+                >
+                  Video
+                </span>
+              </div>
+              <div class={cn('text-xs space-y-1', getTextClasses('tertiary'))}>
+                <div>MP4, MKV, AVI, MOV</div>
+                <div>WMV, FLV, WebM, M4V</div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center space-x-2 mb-2">
+                <div class={cn('w-4 h-4 rounded', 'bg-muted')}></div>
+                <span
+                  class={cn('text-sm font-medium', getTextClasses('primary'))}
+                >
+                  Subtitles
+                </span>
+              </div>
+              <div class={cn('text-xs space-y-1', getTextClasses('tertiary'))}>
+                <div>SRT, ASS, SSA, VTT</div>
+                <div>SUB, IDX</div>
               </div>
             </div>
           </div>
-        </div>
+        </MotionCard>
       </div>
     </div>
   )

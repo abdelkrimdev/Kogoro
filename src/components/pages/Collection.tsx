@@ -16,6 +16,17 @@ import {
   getBorderClasses,
   getAccentClasses,
 } from '../../lib/utils'
+import { MotionCard } from '../ui/MotionCard'
+import { MotionGrid } from '../ui/MotionGrid'
+import { MotionList } from '../ui/MotionList'
+import {
+  useScrollAnimation,
+  useStaggerAnimation,
+  useInteractionAnimation,
+  useLoadingAnimation,
+  usePageTransition,
+} from '../../hooks/useMotionAnimations'
+import { MOTION_VARIANTS } from '../../lib/motion-variants'
 
 type ViewMode = 'grid' | 'list'
 type SortBy = 'title' | 'date' | 'rating' | 'episodes'
@@ -27,15 +38,65 @@ export const Collection: Component = () => {
   const [sortOrder, setSortOrder] = createSignal<SortOrder>('asc')
   const [showFilters, setShowFilters] = createSignal(false)
 
+  // Setup page transition animation
+  const { getPageProps } = usePageTransition({
+    variant: MOTION_VARIANTS.page.fade,
+    duration: 'normal',
+  })
+
+  // Setup scroll animations
+  const { elementRef: headerRef, getAnimationStyles: getHeaderStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+    })
+
+  const { elementRef: filtersRef, getAnimationStyles: getFiltersStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+      delay: 100,
+    })
+
+  const { elementRef: contentRef, getAnimationStyles: getContentStyles } =
+    useScrollAnimation({
+      threshold: 0.1,
+      triggerOnce: true,
+      delay: 200,
+    })
+
+  // Setup stagger animation for collection items
+  const { getStaggerProps } = useStaggerAnimation({
+    baseDelay: 50,
+    maxDelay: 800,
+    direction: 'vertical',
+  })
+
+  // Setup interaction animation for view controls
+  const { eventHandlers: viewHandlers, getAnimationStyles: getViewStyles } =
+    useInteractionAnimation({
+      hoverVariant: MOTION_VARIANTS.hover.lift,
+    })
+
+  // Setup loading animation for filter changes
+  const { isLoading, startLoading, stopLoading, getSkeletonProps } =
+    useLoadingAnimation({
+      type: 'skeleton',
+      size: 'medium',
+    })
+
   const filteredAnime = () => storeUtils.getFilteredAnime()
 
   const handleSort = (newSortBy: SortBy) => {
+    startLoading()
     if (sortBy() === newSortBy) {
       setSortOrder(sortOrder() === 'asc' ? 'desc' : 'asc')
     } else {
       setSortBy(newSortBy)
       setSortOrder('asc')
     }
+    // Simulate sorting delay
+    setTimeout(stopLoading, 300)
   }
 
   const getAnimeTypeColor = (type: string) => {
@@ -61,9 +122,13 @@ export const Collection: Component = () => {
   }
 
   return (
-    <div class="space-y-6">
+    <div {...getPageProps()} class="space-y-6">
       {/* Header */}
-      <div class="flex items-center justify-between">
+      <div
+        ref={headerRef}
+        style={getHeaderStyles()}
+        class="flex items-center justify-between"
+      >
         <div>
           <h1 class={cn('text-3xl font-bold', getTextClasses('primary'))}>
             Collection
@@ -75,11 +140,13 @@ export const Collection: Component = () => {
 
         {/* View Controls */}
         <div class="flex items-center space-x-2">
-          <button
-            type="button"
+          <MotionCard
+            variant="compact"
+            clickable={true}
             onClick={() => setShowFilters(!showFilters())}
+            animateOnScroll={false}
             class={cn(
-              'p-2 rounded-lg transition-colors',
+              'p-2',
               showFilters()
                 ? cn(
                     getStatusClasses('info', 'bg'),
@@ -94,17 +161,21 @@ export const Collection: Component = () => {
             title="Toggle filters"
           >
             <Filter class="w-5 h-5" />
-          </button>
+          </MotionCard>
 
           <div
             class={cn(
               'flex items-center rounded-lg p-1',
               getBackgroundClasses('secondary')
             )}
+            {...viewHandlers}
+            style={getViewStyles()}
           >
-            <button
-              type="button"
+            <MotionCard
+              variant="compact"
+              clickable={true}
               onClick={() => setViewMode('grid')}
+              animateOnScroll={false}
               class={cn(
                 'p-2 rounded transition-colors',
                 viewMode() === 'grid'
@@ -118,10 +189,12 @@ export const Collection: Component = () => {
               title="Grid view"
             >
               <Grid class="w-4 h-4" />
-            </button>
-            <button
-              type="button"
+            </MotionCard>
+            <MotionCard
+              variant="compact"
+              clickable={true}
               onClick={() => setViewMode('list')}
+              animateOnScroll={false}
               class={cn(
                 'p-2 rounded transition-colors',
                 viewMode() === 'list'
@@ -135,21 +208,19 @@ export const Collection: Component = () => {
               title="List view"
             >
               <List class="w-4 h-4" />
-            </button>
+            </MotionCard>
           </div>
         </div>
       </div>
 
       {/* Filters */}
       <Show when={showFilters()}>
-        <div
-          class={cn(
-            getThemeComponentClasses({
-              variant: 'default',
-              interactive: false,
-            }),
-            'p-4'
-          )}
+        <MotionCard
+          ref={filtersRef}
+          style={getFiltersStyles()}
+          variant="standard"
+          animateOnScroll={false}
+          class="p-4"
         >
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -249,11 +320,15 @@ export const Collection: Component = () => {
               </select>
             </div>
           </div>
-        </div>
+        </MotionCard>
       </Show>
 
       {/* Results Count */}
-      <div class="flex items-center justify-between">
+      <div
+        ref={contentRef}
+        style={getContentStyles()}
+        class="flex items-center justify-between"
+      >
         <p class={cn('text-sm', getTextClasses('secondary'))}>
           Showing {filteredAnime().length} anime
         </p>
@@ -280,36 +355,54 @@ export const Collection: Component = () => {
       >
         {/* Grid View */}
         <Show when={viewMode() === 'grid'}>
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            <For each={filteredAnime()}>
-              {(anime) => (
-                <div class="group cursor-pointer">
-                  <div
-                    class={cn(
-                      'relative rounded-lg overflow-hidden mb-3 aspect-[3/4]',
-                      getBackgroundClasses('tertiary')
-                    )}
-                  >
-                    <img
-                      src={anime.picture || '/api/placeholder/300/400'}
-                      alt={anime.title}
-                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          <Show
+            when={!isLoading()}
+            fallback={
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                <For each={Array(10)}>
+                  {() => (
+                    <div
+                      {...getSkeletonProps()}
+                      class="aspect-[3/4] rounded-lg"
                     />
-                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-300 flex items-center justify-center">
-                      <div class="text-white text-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div class="bg-black bg-opacity-75 rounded-lg px-3 py-2">
-                          <p class="text-sm">Watch Now</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Badges */}
+                  )}
+                </For>
+              </div>
+            }
+          >
+            <MotionGrid
+              columns="grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+              gap="1.5rem"
+              stagger={50}
+              variant="scale"
+              direction="up"
+            >
+              <For each={filteredAnime()}>
+                {(anime, index) => (
+                  <MotionCard
+                    variant="standard"
+                    clickable={true}
+                    animateOnScroll={false}
+                    {...getStaggerProps(index())}
+                    metadata={{
+                      year: anime.year,
+                      episodes: anime.episodes,
+                      rating: anime.rating,
+                      status: anime.watched ? 'completed' : 'watching',
+                    }}
+                    image={anime.picture || '/api/placeholder/300/400'}
+                    title={anime.title}
+                    description={`${anime.episodes} episodes`}
+                    onClick={() => console.log('Selected anime:', anime.title)}
+                  >
+                    {/* Type Badge */}
                     <div class="absolute top-2 left-2">
                       <span class={getAnimeTypeColor(anime.type)}>
                         {anime.type}
                       </span>
                     </div>
 
+                    {/* Favorite Badge */}
                     <Show when={anime.favorite}>
                       <div class="absolute top-2 right-2">
                         <div
@@ -329,80 +422,42 @@ export const Collection: Component = () => {
                         </div>
                       </div>
                     </Show>
-
-                    <Show when={anime.watched}>
-                      <div class="absolute bottom-2 right-2">
-                        <div
-                          class={cn(
-                            'text-xs px-2 py-1 rounded',
-                            getStatusClasses('success', 'bg'),
-                            getStatusClasses('success', 'text')
-                          )}
-                        >
-                          Watched
-                        </div>
-                      </div>
-                    </Show>
-                  </div>
-
-                  <div>
-                    <h3
-                      class={cn(
-                        'font-medium truncate transition-colors',
-                        getTextClasses('primary'),
-                        'group-hover:text-accent'
-                      )}
-                    >
-                      {anime.title}
-                    </h3>
-                    <p class={cn('text-sm', getTextClasses('secondary'))}>
-                      {anime.episodes} episodes
-                    </p>
-                    <Show when={anime.rating}>
-                      <div class="flex items-center mt-1">
-                        <span
-                          class={cn(
-                            'text-sm',
-                            getStatusClasses('warning', 'text')
-                          )}
-                        >
-                          ★
-                        </span>
-                        <span
-                          class={cn(
-                            'text-sm ml-1',
-                            getTextClasses('secondary')
-                          )}
-                        >
-                          {anime.rating}/10
-                        </span>
-                      </div>
-                    </Show>
-                  </div>
-                </div>
-              )}
-            </For>
-          </div>
+                  </MotionCard>
+                )}
+              </For>
+            </MotionGrid>
+          </Show>
         </Show>
 
         {/* List View */}
         <Show when={viewMode() === 'list'}>
-          <div
-            class={cn(
-              getThemeComponentClasses({
-                variant: 'default',
-                interactive: false,
-              })
-            )}
+          <Show
+            when={!isLoading()}
+            fallback={
+              <div class="space-y-2">
+                <For each={Array(5)}>
+                  {() => (
+                    <div {...getSkeletonProps()} class="h-24 rounded-lg" />
+                  )}
+                </For>
+              </div>
+            }
           >
-            <div class={cn('divide-y', getBorderClasses('secondary'))}>
-              <For each={filteredAnime()}>
-                {(anime) => (
-                  <div
-                    class={cn(
-                      'p-4 transition-colors cursor-pointer',
-                      'hover:bg-muted'
-                    )}
+            <MotionCard variant="standard" animateOnScroll={false}>
+              <MotionList
+                items={filteredAnime()}
+                animation="slide"
+                direction="up"
+                staggerDelay={75}
+                renderItem={(anime, index) => (
+                  <MotionCard
+                    variant="compact"
+                    clickable={true}
+                    animateOnScroll={false}
+                    {...getStaggerProps(index())}
+                    class="p-4"
+                    title={anime.title}
+                    onClick={() => console.log('Selected anime:', anime.title)}
                   >
                     <div class="flex items-center space-x-4">
                       <img
@@ -468,11 +523,11 @@ export const Collection: Component = () => {
                         </Show>
                       </div>
                     </div>
-                  </div>
+                  </MotionCard>
                 )}
-              </For>
-            </div>
-          </div>
+              />
+            </MotionCard>
+          </Show>
         </Show>
       </Show>
     </div>
