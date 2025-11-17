@@ -139,4 +139,154 @@ export const OptimizedMotion: Component<OptimizedMotionProps> = (props) => {
   )
 }
 
+// ============================================================================
+// MINIMAL MOTION COMPONENTS
+// ============================================================================
+
+interface MinimalMotionProps {
+  children: JSX.Element
+  className?: string
+  disabled?: boolean
+}
+
+/**
+ * MinimalMotion - Lightweight motion component with basic fade-in animation
+ * Provides minimal bundle impact and simple API
+ */
+export const MinimalMotion: Component<MinimalMotionProps> = (props) => {
+  const shouldSkipMotion = () => {
+    if (props.disabled) return true
+    return !isMotionEnabled()
+  }
+
+  if (shouldSkipMotion()) {
+    return (
+      <div class={cn('motion-disabled', props.className)}>{props.children}</div>
+    )
+  }
+
+  return (
+    <div
+      class={cn('minimal-motion', props.className)}
+      style={{
+        opacity: 0,
+        animation: shouldSkipMotion()
+          ? 'none'
+          : 'fadeIn 0.3s ease-out forwards',
+      }}
+    >
+      {props.children}
+    </div>
+  )
+}
+
+interface OptimizedListItemProps {
+  children: JSX.Element
+  index: number
+  className?: string
+  staggerDelay?: number
+}
+
+/**
+ * OptimizedListItem - Optimized list item with staggered animation
+ * Perfect for animated lists with sequential entry
+ */
+export const OptimizedListItem: Component<OptimizedListItemProps> = (props) => {
+  const staggerDelay = () => props.staggerDelay ?? 100
+  const delay = () => props.index * staggerDelay()
+
+  return (
+    <div
+      class={cn('optimized-list-item', props.className)}
+      style={{
+        opacity: 0,
+        transform: 'translateY(20px)',
+        animation: isMotionEnabled()
+          ? `slideInUp 0.4s ease-out ${delay()}ms forwards`
+          : 'none',
+      }}
+    >
+      {props.children}
+    </div>
+  )
+}
+
+interface LazyHeavyMotionProps {
+  children: JSX.Element
+  className?: string
+  features?: MotionFeature[]
+  preloadStrategy?: 'none' | 'hover' | 'visible' | 'idle'
+}
+
+/**
+ * LazyHeavyMotion - Heavy motion components with lazy loading
+ * Loads complex animations only when needed
+ */
+export const LazyHeavyMotion: Component<LazyHeavyMotionProps> = (props) => {
+  const [isLoaded, setIsLoaded] = createSignal(false)
+  const [isHovered, setIsHovered] = createSignal(false)
+
+  const features = () =>
+    props.features ?? ['animations', 'variants', 'transitions']
+  const preloadStrategy = () => props.preloadStrategy ?? 'hover'
+
+  const lazyMotion = useLazyMotion({
+    features: features(),
+    preloadStrategy: preloadStrategy(),
+    timeout: 5000,
+    fallback: () => {
+      console.warn('Heavy motion features failed to load')
+    },
+  })
+
+  const handleMouseEnter = async () => {
+    if (!isLoaded() && preloadStrategy() === 'hover') {
+      setIsHovered(true)
+      try {
+        await lazyMotion.preload()
+        setIsLoaded(true)
+      } catch (error) {
+        console.error('Failed to load heavy motion features:', error)
+      }
+    }
+  }
+
+  const handleMouseLeave = () => {
+    setIsHovered(false)
+  }
+
+  // Load on idle if strategy is idle
+  onMount(() => {
+    if (preloadStrategy() === 'idle') {
+      setTimeout(async () => {
+        try {
+          await lazyMotion.preload()
+          setIsLoaded(true)
+        } catch (error) {
+          console.error('Failed to load heavy motion features:', error)
+        }
+      }, 100)
+    }
+  })
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      class={cn('lazy-heavy-motion', props.className)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        transition: isLoaded()
+          ? 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+          : 'none',
+        transform: isLoaded() && isHovered() ? 'scale(1.02)' : 'scale(1)',
+        opacity: isLoaded() ? 1 : 0.8,
+      }}
+    >
+      {props.children}
+    </div>
+  )
+}
+
 export default OptimizedMotion
