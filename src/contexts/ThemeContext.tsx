@@ -318,12 +318,9 @@ export function ThemeProvider(props: { children: JSX.Element }) {
     effectiveTheme,
   })
 
-  // Apply initial theme class immediately in test environment
-  const isTestEnvironment =
-    process.env.NODE_ENV === 'test' || import.meta.env.MODE === 'test'
-
-  if (isTestEnvironment && typeof document !== 'undefined') {
-    // In test environment, apply theme classes immediately
+  // Apply initial theme class immediately in all environments
+  if (typeof document !== 'undefined') {
+    // Apply theme classes immediately on initialization
     document.documentElement.classList.remove('light', 'dark')
     document.documentElement.classList.add(effectiveTheme)
   }

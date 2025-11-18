@@ -377,11 +377,13 @@ const UserDropdown: Component<{
       >
         <div class={cn('p-4 border-b', getBorderClasses('secondary'))}>
           <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <User class="w-5 h-5 text-white" />
+            <div class="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <User class={cn('w-5 h-5', getTextClasses('primary'))} />
             </div>
             <div>
-              <div class="font-medium text-gray-900 dark:text-white">User</div>
+              <div class={cn('font-medium', getTextClasses('primary'))}>
+                User
+              </div>
               <div class={cn('text-sm', getTextClasses('tertiary'))}>
                 user@example.com
               </div>
@@ -470,14 +472,14 @@ const UserMenu: Component = () => {
         title="User menu"
       >
         <div
-          class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center"
+          class="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center"
           style={{
             transition: shouldAnimate()
               ? `transform ${UI_CONFIG.animationDuration.fast}ms ease-in-out`
               : 'none',
           }}
         >
-          <User class="w-4 h-4 text-white" />
+          <User class={cn('w-4 h-4', getTextClasses('primary'))} />
         </div>
       </button>
 

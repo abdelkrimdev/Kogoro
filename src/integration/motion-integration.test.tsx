@@ -432,7 +432,7 @@ describe('Motion System Integration', () => {
           <div data-testid="staggered-list">
             {items.map((item, index) => (
               <div
-                key={index}
+                key={`item-${index}-${item}`}
                 data-testid={`item-${index}`}
                 {...stagger.getStaggerProps(index)}
               >

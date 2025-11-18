@@ -10,7 +10,11 @@ import {
   createSignal,
   type JSX,
 } from 'solid-js'
-import { TriangleAlert, RefreshCw, Play, Pause } from 'lucide-solid'
+// Tree-shake friendly icon imports
+import TriangleAlert from 'lucide-solid/icons/triangle-alert'
+import RefreshCw from 'lucide-solid/icons/refresh-cw'
+import Play from 'lucide-solid/icons/play'
+import Pause from 'lucide-solid/icons/pause'
 import { cn } from '../../lib/utils'
 import { isMotionEnabled } from '../../lib/motion'
 import { useReducedMotion } from '../../hooks/useMotionAnimations'
@@ -21,14 +25,62 @@ import {
 } from '../../lib/theme-classes'
 import { getStatusClasses } from '../../lib/theme-helpers'
 
-interface MotionErrorBoundaryProps {
+import type { BaseComponentProps, ErrorHandlingProps } from './interfaces'
+
+/**
+ * Enhanced motion error boundary interface with comprehensive options
+ */
+export interface MotionErrorBoundaryProps
+  extends BaseComponentProps,
+    ErrorHandlingProps {
+  /**
+   * Content to render that might throw errors
+   */
   children: JSX.Element
+  /**
+   * Custom error fallback renderer with retry functionality
+   * @param error - The error that was thrown
+   * @param reset - Function to reset the error boundary
+   * @param retry - Function to retry rendering with automatic retry logic
+   * @returns Custom JSX element to render as fallback
+   */
   fallback?: (error: Error, reset: () => void, retry: () => void) => JSX.Element
+  /**
+   * Error handler callback for logging or error tracking
+   * @param error - The error that was thrown
+   * @param errorInfo - Additional error information including component stack
+   */
   onError?: (error: Error, errorInfo: { componentStack: string }) => void
+  /**
+   * Whether to enable motion animations for the error boundary
+   * @default true
+   */
   enableMotion?: boolean
+  /**
+   * Whether to respect user's reduced motion preferences
+   * @default true
+   */
   respectReducedMotion?: boolean
+  /**
+   * Maximum number of automatic retry attempts
+   * @default 2
+   */
   maxRetries?: number
+  /**
+   * Delay between retry attempts in milliseconds
+   * @default 1000
+   */
   retryDelay?: number
+  /**
+   * Whether to show motion-specific error information
+   * @default true
+   */
+  showMotionInfo?: boolean
+  /**
+   * Whether to enable performance monitoring for motion errors
+   * @default false in production, true in development
+   */
+  performanceMonitoring?: boolean
 }
 
 interface MotionErrorInfo {

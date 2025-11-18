@@ -35,7 +35,7 @@ describe('MotionList Debug', () => {
     console.log('Item 1 initial:', item1Initial)
     expect(item1Initial).toBeNull()
     
-    console.log('All setTimeout calls:', (setTimeout as any).mock?.calls || 'no mock')
+    console.log('All setTimeout calls:', (setTimeout as typeof global.setTimeout & { mock?: { calls: unknown[] } }).mock?.calls || 'no mock')
     
     // Advance time for first item
     console.log('Advancing timers by 0ms')

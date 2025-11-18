@@ -6,41 +6,153 @@
 
 import {
   type Component,
-  createSignal,
   splitProps,
   Show,
   onMount,
-  onCleanup,
+  createSignal,
+  onError,
+  createMemo,
   type JSX,
 } from 'solid-js'
-import { cn } from '../../lib/utils'
+import {
+  cn,
+  getBackgroundClasses,
+  getBorderClasses,
+  getThemeTransitionClasses,
+  getStatusClasses,
+  getTextClasses,
+} from '../../lib/utils'
 import { useReducedMotion } from '../../hooks/useMotionAnimations'
+import { MotionErrorBoundary } from './MotionErrorBoundary'
+import {
+  createEventListenerManager,
+  createTimeoutManager,
+  throttle,
+  safeFn,
+} from './performance-utils'
 
-export interface MotionSidebarProps {
-  /** Whether sidebar is open */
+import type {
+  SidebarLikeProps,
+  AnimatedComponentProps,
+  SizeVariant,
+  DurationPreset,
+  ErrorHandlingProps,
+} from './interfaces'
+
+/**
+ * Enhanced motion sidebar interface with comprehensive options
+ */
+export interface MotionSidebarProps
+  extends SidebarLikeProps,
+    AnimatedComponentProps,
+    ErrorHandlingProps {
+  /**
+   * Whether sidebar is open and visible
+   * @default false
+   */
   isOpen?: boolean
-  /** Sidebar position */
+  /**
+   * Sidebar position relative to content
+   * @default 'left'
+   */
   position?: 'left' | 'right'
-  /** Sidebar variant */
+  /**
+   * Sidebar behavior variant
+   * @default 'overlay'
+   */
   variant?: 'overlay' | 'push' | 'static'
-  /** Sidebar width */
-  width?: 'sm' | 'md' | 'lg' | 'xl'
-  /** Whether to show backdrop */
+  /**
+   * Sidebar width variant
+   * @default 'md'
+   */
+  width?: SizeVariant
+  /**
+   * Whether to show backdrop overlay
+   * @default true for overlay variant
+   */
   showBackdrop?: boolean
-  /** Whether clicking backdrop closes sidebar */
+  /**
+   * Whether clicking backdrop closes sidebar
+   * @default true
+   */
   closeOnBackdropClick?: boolean
-  /** Custom close handler */
-  onClose?: () => void
-  /** Sidebar content */
+  /**
+   * Sidebar content to render
+   */
   children?: JSX.Element
-  /** Additional CSS classes */
-  class?: string
-  /** Animation duration */
-  duration?: 'fast' | 'normal' | 'slow'
-  /** Whether sidebar is collapsible */
+  /**
+   * Animation duration preset
+   * @default 'normal'
+   */
+  duration?: DurationPreset
+  /**
+   * Whether sidebar can be collapsed
+   * @default false
+   */
   collapsible?: boolean
-  /** Whether sidebar starts collapsed */
-  defaultCollapsed?: boolean
+  /**
+   * Whether sidebar is collapsed (controlled state)
+   * @default false
+   */
+  isCollapsed?: boolean
+  /**
+   * Whether to show close button in overlay mode
+   * @default true
+   */
+  showCloseButton?: boolean
+  /**
+   * Whether to trap focus within sidebar when open
+   * @default true
+   */
+  trapFocus?: boolean
+  /**
+   * Whether to prevent body scroll when overlay is open
+   * @default true
+   */
+  preventBodyScroll?: boolean
+  /**
+   * Custom z-index for sidebar
+   * @default 40
+   */
+  zIndex?: number
+  /**
+   * Whether to close on escape key
+   * @default true
+   */
+  closeOnEscape?: boolean
+  /**
+   * Custom sidebar ID for accessibility
+   */
+  id?: string
+  /**
+   * ARIA label for sidebar
+   */
+  ariaLabel?: string
+  /**
+   * Whether to animate on mount
+   * @default true
+   */
+  animateOnMount?: boolean
+  /**
+   * Custom collapsed width in pixels
+   * @default 60
+   */
+  collapsedWidth?: number
+  /**
+   * Whether to show resize handle
+   * @default false
+   */
+  resizable?: boolean
+  /**
+   * Minimum width when resizable
+   * @default 200
+   */
+  minWidth?: number
+  /**
+   * Maximum width when resizable
+   * @default 400
+   */
+  maxWidth?: number
 }
 
 /**
@@ -71,54 +183,89 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
     'class',
     'duration',
     'collapsible',
-    'defaultCollapsed',
+    'isCollapsed',
+    'onError',
+    'maxRetries',
+    'retryDelay',
   ])
 
   const { shouldAnimate } = useReducedMotion()
-  const [isCollapsed, setIsCollapsed] = createSignal(local.defaultCollapsed)
+  const [hasError, setHasError] = createSignal(false)
 
-  // Handle backdrop click
-  const handleBackdropClick = () => {
-    local.onClose?.()
-  }
+  // Performance optimization: Create managers for cleanup
+  const eventManager = createEventListenerManager()
+  const _timeoutManager = createTimeoutManager()
 
-  const handleBackdropKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      local.onClose?.()
-    }
-  }
-
-  // Setup document-level event listeners with proper cleanup
-  onMount(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && local.isOpen) {
-        local.onClose?.()
-      }
-    }
-
-    // Add event listener when component mounts
-    document.addEventListener('keydown', handleEscape)
-
-    // Cleanup function to remove event listener
-    onCleanup(() => {
-      document.removeEventListener('keydown', handleEscape)
-    })
+  // Error boundary for sidebar component
+  onError((error) => {
+    console.error('MotionSidebar component error:', error)
+    setHasError(true)
+    local.onError?.(error)
   })
 
-  // Get sidebar width classes
-  const getSidebarWidthClasses = () => {
-    const widthClasses = {
-      sm: 'w-64',
-      md: 'w-80',
-      lg: 'w-96',
-      xl: 'w-[28rem]',
-    }
-    return widthClasses[local.width || 'md']
+  // Performance optimization: Throttled backdrop click handler
+  const handleBackdropClick = throttle(() => {
+    safeFn(
+      () => local.onClose?.(),
+      (error) => {
+        console.error('Error in sidebar backdrop click handler:', error)
+        setHasError(true)
+        local.onError?.(error)
+      }
+    )
+  }, 100)
+
+  // Performance optimization: Safe keydown handler
+  const handleBackdropKeyDown = (e: KeyboardEvent) => {
+    safeFn(
+      () => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          local.onClose?.()
+        }
+      },
+      (error) => {
+        console.error('Error in sidebar backdrop key handler:', error)
+        setHasError(true)
+        local.onError?.(error)
+      }
+    )
   }
 
-  // Get animation duration in ms
-  const getDuration = () => {
+  // Performance optimization: Setup document-level event listeners with proper cleanup
+  onMount(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      safeFn(
+        () => {
+          if (e.key === 'Escape' && local.isOpen) {
+            e.preventDefault()
+            local.onClose?.()
+          }
+        },
+        (error) => {
+          console.error('Error in sidebar escape handler:', error)
+          setHasError(true)
+          local.onError?.(error)
+        }
+      )
+    }
+
+    // Use event manager for automatic cleanup
+    eventManager.addEventListener(document, 'keydown', handleEscape)
+  })
+
+  // Performance optimization: Memoized expensive computations
+  const sidebarWidthClasses = createMemo(() => {
+    const widthClasses = {
+      sm: 'w-64', // 256px
+      md: 'w-[17.5rem]', // 280px - matches UI_CONFIG.sidebarWidth
+      lg: 'w-96', // 384px
+      xl: 'w-[28rem]', // 448px
+    }
+    return widthClasses[local.width || 'md']
+  })
+
+  const animationDuration = createMemo(() => {
     switch (local.duration) {
       case 'fast':
         return '200ms'
@@ -129,29 +276,35 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
       default:
         return '300ms'
     }
-  }
+  })
 
-  // Get sidebar position and animation classes
-  // Helper function to get base sidebar classes
-  const getBaseSidebarClasses = () => {
+  // Performance optimization: Memoized class computations
+  const baseSidebarClasses = createMemo(() => {
+    const isStatic = local.variant === 'static'
     return cn(
-      'fixed top-0 h-full bg-white dark:bg-gray-800 shadow-lg z-40',
+      // Base layout classes
+      `${isStatic ? 'relative' : 'fixed'} top-0 h-full shadow-lg z-40`,
+      // Theme-aware classes
       'transform transition-transform ease-in-out',
-      getSidebarWidthClasses(),
-      local.collapsible && isCollapsed() && 'w-16',
+      getThemeTransitionClasses('all'),
+      getBackgroundClasses('primary'),
+      getBorderClasses('primary'),
+      // Size/variant classes
+      sidebarWidthClasses(),
+      // State classes
+      local.collapsible && local.isCollapsed && 'w-[3.75rem]', // 60px - matches UI_CONFIG.sidebarCollapsedWidth
+      // Props classes (always last)
       local.class
     )
-  }
+  })
 
-  // Helper function to get position classes
-  const getPositionClasses = () => {
-    const isLeft = local.position === 'left'
+  const positionClasses = createMemo(() => {
+    const isLeft = (local.position || 'left') === 'left'
     return isLeft ? 'left-0' : 'right-0'
-  }
+  })
 
-  // Helper function to get transform classes for animated sidebar
-  const getAnimatedTransformClasses = () => {
-    const isLeft = local.position === 'left'
+  const animatedTransformClasses = createMemo(() => {
+    const isLeft = (local.position || 'left') === 'left'
 
     if (local.variant === 'overlay' || local.variant === 'push') {
       return local.isOpen
@@ -162,53 +315,128 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
     }
 
     return local.isOpen ? 'translate-x-0' : 'translate-x-full'
-  }
+  })
 
-  // Helper function to get transform classes for non-animated sidebar
-  const getStaticTransformClasses = () => {
+  const staticTransformClasses = createMemo(() => {
     return local.isOpen ? 'translate-x-0' : 'translate-x-full'
-  }
+  })
 
-  // Helper function to get transform classes
-  const getTransformClasses = () => {
+  const transformClasses = createMemo(() => {
     if (shouldAnimate()) {
-      return getAnimatedTransformClasses()
+      return animatedTransformClasses()
     } else {
-      return getStaticTransformClasses()
+      return staticTransformClasses()
     }
-  }
+  })
 
-  const getSidebarClasses = () => {
-    const baseClasses = getBaseSidebarClasses()
-    const positionClasses = getPositionClasses()
-    const transformClasses = getTransformClasses()
+  const sidebarClasses = createMemo(() => {
+    return cn(baseSidebarClasses(), positionClasses(), transformClasses())
+  })
 
-    return cn(baseClasses, positionClasses, transformClasses)
-  }
-
-  // Get backdrop classes
-  const getBackdropClasses = () => {
+  const backdropClasses = createMemo(() => {
     return cn(
-      'fixed inset-0 bg-black/50 z-30 transition-opacity',
+      // Base layout classes
+      'fixed inset-0 bg-black/50 z-30',
+      // Theme-aware classes
+      'transition-opacity',
+      getThemeTransitionClasses('all'),
+      // State classes
       local.isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+    )
+  })
+
+  // Performance optimization: Memoized error state
+  const renderErrorState = () => {
+    if (!hasError()) return null
+
+    return (
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          class={cn(
+            'rounded-lg shadow-lg p-6 max-w-sm w-full',
+            getBackgroundClasses('primary'),
+            getBorderClasses('error')
+          )}
+        >
+          <div class="text-center">
+            <svg
+              class="w-8 h-8 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <title>Sidebar Error</title>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <h3
+              class={cn(
+                'text-lg font-semibold mb-2',
+                getTextClasses('primary')
+              )}
+            >
+              Sidebar Error
+            </h3>
+            <p class={cn('text-sm mb-4', getTextClasses('secondary'))}>
+              An error occurred while displaying the sidebar.
+            </p>
+            <div class="flex space-x-3 justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setHasError(false)
+                }}
+                class={cn(
+                  'px-4 py-2 text-sm rounded transition-colors',
+                  getStatusClasses('info', 'bg'),
+                  'hover:opacity-90',
+                  getTextClasses('primary')
+                )}
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  safeFn(
+                    () => local.onClose?.(),
+                    (error) => console.error('Error closing sidebar:', error)
+                  )
+                }}
+                class={cn(
+                  'px-4 py-2 text-sm rounded transition-colors',
+                  getBackgroundClasses('secondary'),
+                  'hover:opacity-80',
+                  getTextClasses('secondary')
+                )}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     )
   }
 
-  // Toggle collapse state
-  const toggleCollapse = () => {
-    if (local.collapsible) {
-      setIsCollapsed(!isCollapsed())
-    }
-  }
-
   return (
-    <>
+    <MotionErrorBoundary
+      onError={(error) => {
+        setHasError(true)
+        local.onError?.(error)
+      }}
+    >
       {/* Backdrop for overlay variant */}
       <Show when={local.variant === 'overlay' && local.showBackdrop}>
         <button
           type="button"
           tabIndex={0}
-          class={getBackdropClasses()}
+          class={backdropClasses()}
           onClick={handleBackdropClick}
           onKeyDown={handleBackdropKeyDown}
           aria-label="Close sidebar"
@@ -218,51 +446,37 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
       {/* Sidebar */}
       <Show when={local.isOpen || local.variant === 'static'}>
         <aside
-          class={getSidebarClasses()}
+          class={cn(sidebarClasses(), hasError() && 'border-red-500')}
           style={{
-            'transition-duration': getDuration(),
+            'transition-duration': animationDuration(),
           }}
+          tabIndex={local.isOpen ? 0 : -1}
           {...rest}
         >
-          {/* Collapse toggle button */}
-          <Show when={local.collapsible}>
-            <button
-              type="button"
-              class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md transition-colors"
-              onClick={toggleCollapse}
-              aria-label={isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              <svg
-                class="w-4 h-4 transition-transform"
-                classList={{
-                  'rotate-180':
-                    (local.position === 'left' && !isCollapsed()) ||
-                    (local.position === 'right' && isCollapsed()),
-                }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <title>
-                  {isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'}
-                </title>
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-          </Show>
-
           {/* Close button for overlay variant */}
           <Show when={local.variant === 'overlay' && !local.collapsible}>
             <button
               type="button"
-              class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md transition-colors"
-              onClick={() => local.onClose?.()}
+              class={cn(
+                // Base layout classes
+                'absolute top-4 right-4 p-2 rounded-md',
+                // Theme-aware classes
+                'transition-colors',
+                getThemeTransitionClasses('text'),
+                // Size/variant classes
+                getBackgroundClasses('secondary'),
+                getBorderClasses('secondary')
+              )}
+              onClick={() => {
+                safeFn(
+                  () => local.onClose?.(),
+                  (error) => {
+                    console.error('Error closing sidebar:', error)
+                    setHasError(true)
+                    local.onError?.(error)
+                  }
+                )
+              }}
               aria-label="Close sidebar"
             >
               <svg
@@ -285,20 +499,24 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
 
           {/* Sidebar Content */}
           <div class="h-full overflow-y-auto">
-            <Show
-              when={!isCollapsed()}
-              fallback={
-                <div class="flex flex-col items-center py-4 space-y-4">
-                  {/* Collapsed state icons can go here */}
-                </div>
-              }
-            >
-              <div class="p-4">{local.children}</div>
-            </Show>
+            {/* Always render children to ensure collapse button is accessible */}
+            <div class="p-4">
+              <MotionErrorBoundary
+                onError={(error) => {
+                  setHasError(true)
+                  local.onError?.(error)
+                }}
+              >
+                {local.children}
+              </MotionErrorBoundary>
+            </div>
           </div>
         </aside>
       </Show>
-    </>
+
+      {/* Error state */}
+      {renderErrorState()}
+    </MotionErrorBoundary>
   )
 }
 

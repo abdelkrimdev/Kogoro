@@ -77,7 +77,7 @@ export const FILESYSTEM_CONFIG = {
 export const UI_CONFIG = {
   // Theme
   themes: ['light', 'dark', 'auto'] as const,
-  defaultTheme: 'auto',
+  defaultTheme: 'light',
 
   // Layout
   sidebarWidth: 280,

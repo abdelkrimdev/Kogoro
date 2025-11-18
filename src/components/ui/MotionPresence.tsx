@@ -10,27 +10,104 @@ import {
   splitProps,
   Show,
   createEffect,
+  onError,
 } from 'solid-js'
 import { cn } from '../../lib/utils'
 import { useReducedMotion } from '../../hooks/useMotionAnimations'
+import { MotionErrorBoundary } from './MotionErrorBoundary'
 
-export interface MotionPresenceProps {
-  /** Whether component should be visible */
+import type {
+  AnimatedComponentProps,
+  AnimationVariant,
+  DurationPreset,
+  ErrorHandlingProps,
+} from './interfaces'
+
+/**
+ * Enhanced motion presence interface with comprehensive options
+ */
+export interface MotionPresenceProps
+  extends AnimatedComponentProps,
+    ErrorHandlingProps {
+  /**
+   * Whether component should be visible
+   * @default false
+   */
   show?: boolean
-  /** Animation variant for enter/exit */
-  variant?: 'fade' | 'slide' | 'scale'
-  /** Custom animation classes */
+  /**
+   * Animation variant for enter/exit transitions
+   * @default 'fade'
+   */
+  variant?: AnimationVariant
+  /**
+   * Custom CSS classes for enter animation
+   */
   enterClass?: string
-  /** Custom animation classes for exit */
+  /**
+   * Custom CSS classes for exit animation
+   */
   exitClass?: string
-  /** Animation duration preset */
-  duration?: 'fast' | 'normal' | 'slow'
-  /** Whether animation should happen only once */
+  /**
+   * Animation duration preset
+   * @default 'normal'
+   */
+  duration?: DurationPreset
+  /**
+   * Whether animation should happen only on initial appearance
+   * @default false
+   */
   appear?: boolean
-  /** Children content */
+  /**
+   * Children content to animate
+   */
   children?: JSX.Element
-  /** Custom on complete callback */
+  /**
+   * Callback when animation completes (both enter and exit)
+   */
   onComplete?: () => void
+  /**
+   * Callback when enter animation starts
+   */
+  onEnterStart?: () => void
+  /**
+   * Callback when enter animation completes
+   */
+  onEnterComplete?: () => void
+  /**
+   * Callback when exit animation starts
+   */
+  onExitStart?: () => void
+  /**
+   * Callback when exit animation completes
+   */
+  onExitComplete?: () => void
+  /**
+   * Custom enter animation duration in milliseconds
+   */
+  enterDuration?: number
+  /**
+   * Custom exit animation duration in milliseconds
+   */
+  exitDuration?: number
+  /**
+   * Easing function for animations
+   * @default 'ease-out'
+   */
+  easing?: string
+  /**
+   * Whether to unmount children when hidden
+   * @default true
+   */
+  unmountOnExit?: boolean
+  /**
+   * Whether to mount children when shown
+   * @default true
+   */
+  mountOnShow?: boolean
+  /**
+   * Minimum height to maintain during animations
+   */
+  minHeight?: string
 }
 
 /**
@@ -53,6 +130,9 @@ export const MotionPresence: Component<MotionPresenceProps> = (props) => {
     'appear',
     'children',
     'onComplete',
+    'onError',
+    'maxRetries',
+    'retryDelay',
   ])
 
   const { shouldAnimate } = useReducedMotion()
@@ -60,6 +140,7 @@ export const MotionPresence: Component<MotionPresenceProps> = (props) => {
   // Animation states
   const [isPresent, setIsPresent] = createSignal(false)
   const [isExiting, setIsExiting] = createSignal(false)
+  const [hasError, setHasError] = createSignal(false)
 
   // Get animation duration in ms
   const getDuration = () => {
@@ -101,49 +182,83 @@ export const MotionPresence: Component<MotionPresenceProps> = (props) => {
     }
   }
 
-  // Handle animation completion
+  // Error boundary for presence component
+  onError((error) => {
+    console.error('MotionPresence component error:', error)
+    setHasError(true)
+    local.onError?.(error)
+  })
+
+  // Handle animation completion with error handling
   const handleAnimationEnd = () => {
-    if (isExiting()) {
-      setIsExiting(false)
-      setIsPresent(false)
+    try {
+      if (isExiting()) {
+        setIsExiting(false)
+        setIsPresent(false)
+      }
+      local.onComplete?.()
+    } catch (error) {
+      console.error('Error in MotionPresence animation end handler:', error)
+      setHasError(true)
+      local.onError?.(error as Error)
     }
-    local.onComplete?.()
   }
 
-  // Handle show prop changes
+  // Handle show prop changes with error handling
   createEffect(() => {
-    const showValue = local.show
-    if (showValue && !isPresent()) {
-      // Entering
-      setIsPresent(true)
-      setIsExiting(false)
-    } else if (!showValue && isPresent()) {
-      // Exiting
-      setIsExiting(true)
+    try {
+      const showValue = local.show
+      if (showValue && !isPresent()) {
+        // Entering
+        setIsPresent(true)
+        setIsExiting(false)
+      } else if (!showValue && isPresent()) {
+        // Exiting
+        setIsExiting(true)
+      }
+    } catch (error) {
+      console.error('Error in MotionPresence effect:', error)
+      setHasError(true)
+      local.onError?.(error as Error)
     }
   })
 
   return (
-    <Show when={local.show || isPresent()}>
-      <div
-        class={cn(
-          'motion-presence-content',
-          shouldAnimate() &&
-            (isExiting()
-              ? getAnimationClasses().exit
-              : getAnimationClasses().enter),
-          !shouldAnimate() && 'no-motion'
-        )}
-        onAnimationEnd={handleAnimationEnd}
-        style={{
-          'animation-duration': `${getDuration()}ms`,
-          'animation-fill-mode': 'both',
-        }}
-        {...rest}
-      >
-        {local.children}
-      </div>
-    </Show>
+    <MotionErrorBoundary
+      onError={(error) => {
+        setHasError(true)
+        local.onError?.(error)
+      }}
+    >
+      <Show when={local.show || isPresent()}>
+        <div
+          class={cn(
+            'motion-presence-content',
+            shouldAnimate() &&
+              (isExiting()
+                ? getAnimationClasses().exit
+                : getAnimationClasses().enter),
+            !shouldAnimate() && 'no-motion',
+            hasError() && 'opacity-50'
+          )}
+          onAnimationEnd={handleAnimationEnd}
+          style={{
+            'animation-duration': `${getDuration()}ms`,
+            'animation-fill-mode': 'both',
+          }}
+          {...rest}
+        >
+          <MotionErrorBoundary
+            onError={(error) => {
+              setHasError(true)
+              local.onError?.(error)
+            }}
+          >
+            {local.children}
+          </MotionErrorBoundary>
+        </div>
+      </Show>
+    </MotionErrorBoundary>
   )
 }
 

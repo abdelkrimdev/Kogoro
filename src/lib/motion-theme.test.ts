@@ -21,7 +21,7 @@ import {
   ANIME_COLLECTION_MOTION_PRESETS,
 } from './motion-theme'
 import type { MotionPreset } from '../types/motion'
-import { getCurrentTheme } from './theme-helpers'
+
 import { prefersReducedMotion } from './theme-transitions'
 
 // Mock dependencies
@@ -217,7 +217,16 @@ describe('motion-theme utilities', () => {
           setProperty: vi.fn(),
           removeProperty: vi.fn(),
         },
-      } as any
+      } as HTMLElement & {
+        classList: {
+          add: ReturnType<typeof vi.fn>
+          remove: ReturnType<typeof vi.fn>
+        }
+        style: {
+          setProperty: ReturnType<typeof vi.fn>
+          removeProperty: ReturnType<typeof vi.fn>
+        }
+      }
 
       applyThemeMotionClasses(element)
       expect(element.classList.add).toHaveBeenCalledWith('theme-motion-subtle')
@@ -234,7 +243,16 @@ describe('motion-theme utilities', () => {
           setProperty: vi.fn(),
           removeProperty: vi.fn(),
         },
-      } as any
+      } as HTMLElement & {
+        classList: {
+          add: ReturnType<typeof vi.fn>
+          remove: ReturnType<typeof vi.fn>
+        }
+        style: {
+          setProperty: ReturnType<typeof vi.fn>
+          removeProperty: ReturnType<typeof vi.fn>
+        }
+      }
 
       removeThemeMotionClasses(element)
       expect(element.classList.remove).toHaveBeenCalledWith(

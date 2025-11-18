@@ -16,7 +16,6 @@ import {
   optimizeVariant,
 } from './optimized-variants'
 import { createOptimizedMotion } from './motion-optimized'
-import { getDuration, getEasing, getDelay, isMotionEnabled } from './motion'
 
 describe('Performance Benchmarks', () => {
   let container: HTMLElement
@@ -30,8 +29,8 @@ describe('Performance Benchmarks', () => {
     global.performance = {
       ...global.performance,
       now: () => Date.now(),
-      mark: () => undefined as any,
-      measure: () => undefined as any,
+      mark: () => undefined,
+      measure: () => undefined,
       getEntriesByType: () => [],
     } as Performance
   })

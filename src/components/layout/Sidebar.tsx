@@ -176,7 +176,8 @@ const SidebarHeader: Component<{
   return (
     <div
       class={cn(
-        'flex items-center justify-between p-4 border-b',
+        'flex items-center justify-between border-b',
+        props.isCollapsed ? 'p-2' : 'p-4',
         getBorderClasses('primary')
       )}
     >
@@ -263,7 +264,9 @@ const SidebarNavItem: Component<{
 
   const buttonClasses = () =>
     cn(
-      'w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg group',
+      props.isCollapsed
+        ? 'w-12 h-12 flex items-center justify-center p-0 text-sm font-medium rounded-lg group'
+        : 'w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg group',
       props.isActive
         ? cn(getStatusClasses('info', 'bg'), getStatusClasses('info', 'text'))
         : cn(
@@ -278,6 +281,7 @@ const SidebarNavItem: Component<{
   const iconClasses = () =>
     cn(
       'w-5 h-5 shrink-0',
+      props.isCollapsed ? '' : 'mr-0',
       props.isActive
         ? getStatusClasses('info', 'text')
         : cn(
@@ -359,7 +363,13 @@ const SidebarNavigation: Component<{
 // Sidebar Footer Component
 const SidebarFooter: Component<{ isCollapsed: boolean }> = (props) => {
   return (
-    <div class={cn('p-4 border-t', getBorderClasses('primary'))}>
+    <div
+      class={cn(
+        'border-t',
+        props.isCollapsed ? 'p-2' : 'p-4',
+        getBorderClasses('primary')
+      )}
+    >
       <Show when={!props.isCollapsed}>
         <div class={cn('text-xs', getTextClasses('tertiary'))}>
           <div class="flex items-center justify-between mb-1">
@@ -383,12 +393,12 @@ export const Sidebar: Component<SidebarProps> = (props) => {
 
   return (
     <MotionSidebar
-      isOpen={!props.isCollapsed}
+      isOpen={true} // Static sidebar is always open
       position="left"
       variant="static"
       width="md"
       collapsible={true}
-      defaultCollapsed={props.isCollapsed}
+      isCollapsed={props.isCollapsed}
       duration="normal"
       class={cn(getBorderClasses('primary'), 'border-r')}
     >

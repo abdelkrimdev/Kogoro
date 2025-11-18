@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Theme Test - Kogoro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Copy the exact theme variables from main.css */
+        :root {
+            /* Light theme */
+            --bg-primary: 255 255 255;
+            --bg-secondary: 249 250 251;
+            --bg-tertiary: 243 244 246;
+
+            --text-primary: 17 24 39;
+            --text-secondary: 75 85 99;
+            --text-tertiary: 156 163 175;
+
+            --border-primary: 229 231 235;
+            --border-secondary: 209 213 219;
+            --border-tertiary: 229 231 235;
+
+            --accent: 59 130 246;
+            --accent-hover: 37 99 235;
+        }
+
+        .dark {
+            /* Dark theme */
+            --bg-primary: 17 24 39;
+            --bg-secondary: 31 41 55;
+            --bg-tertiary: 55 65 81;
+
+            --text-primary: 243 244 246;
+            --text-secondary: 156 163 175;
+            --text-tertiary: 107 114 128;
+
+            --border-primary: 55 65 81;
+            --border-secondary: 75 85 99;
+            --border-tertiary: 75 85 99;
+
+            --accent: 59 130 246;
+            --accent-hover: 96 165 250;
+        }
+
+        /* Apply theme variables */
+        body {
+            background-color: rgb(var(--bg-primary));
+            color: rgb(var(--text-primary));
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .bg-primary { background-color: rgb(var(--bg-primary)); }
+        .bg-secondary { background-color: rgb(var(--bg-secondary)); }
+        .bg-tertiary { background-color: rgb(var(--bg-tertiary)); }
+        
+        .text-primary { color: rgb(var(--text-primary)); }
+        .text-secondary { color: rgb(var(--text-secondary)); }
+        .text-tertiary { color: rgb(var(--text-tertiary)); }
+        
+        .border-primary { border-color: rgb(var(--border-primary)); }
+        .border-secondary { border-color: rgb(var(--border-secondary)); }
+        .border-tertiary { border-color: rgb(var(--border-tertiary)); }
+        
+        .accent { color: rgb(var(--accent)); }
+        .accent-hover { color: rgb(var(--accent-hover)); }
+        .bg-accent { background-color: rgb(var(--accent)); }
+        
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 1000;
+        }
+        
+        .theme-transition {
+            transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                        color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                        border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="theme-transition">
+    <div class="debug-panel">
+        <h3 style="margin-top: 0;">Theme Debug Panel</h3>
+        <div id="debug-info"></div>
+        <div style="margin-top: 10px;">
+            <button onclick="setTheme('light')" style="margin: 2px; padding: 4px 8px; background: #f3f4f6; color: #1f2937; border: 1px solid #d1d5db; border-radius: 4px;">Light</button>
+            <button onclick="setTheme('dark')" style="margin: 2px; padding: 4px 8px; background: #374151; color: #f3f4f6; border: 1px solid #4b5563; border-radius: 4px;">Dark</button>
+            <button onclick="toggleTheme()" style="margin: 2px; padding: 4px 8px; background: #3b82f6; color: white; border: 1px solid #2563eb; border-radius: 4px;">Toggle</button>
+        </div>
+    </div>
+
+    <div class="min-h-screen p-8">
+        <!-- Header Simulation -->
+        <header class="bg-secondary border-b border-secondary px-6 py-4 mb-8">
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-bold text-primary">Kogoro Dashboard</h1>
+                <div class="flex items-center space-x-4">
+                    <input type="text" placeholder="Search..." class="px-4 py-2 bg-primary border border-secondary rounded text-primary">
+                    <button onclick="toggleTheme()" class="p-2 bg-secondary border border-secondary rounded hover:bg-tertiary">
+                        <span id="theme-icon">🌙</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="space-y-8">
+            <!-- Stats Grid -->
+            <section>
+                <h2 class="text-xl font-semibold text-primary mb-4">Statistics</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-secondary border border-secondary rounded-lg p-6">
+                        <h3 class="text-secondary text-sm font-medium">Total Anime</h3>
+                        <p class="text-3xl font-bold text-primary mt-2">42</p>
+                        <p class="text-tertiary text-sm mt-1">+2 this week</p>
+                    </div>
+                    <div class="bg-secondary border border-secondary rounded-lg p-6">
+                        <h3 class="text-secondary text-sm font-medium">Episodes</h3>
+                        <p class="text-3xl font-bold text-primary mt-2">156</p>
+                        <p class="text-tertiary text-sm mt-1">+12 this week</p>
+                    </div>
+                    <div class="bg-secondary border border-secondary rounded-lg p-6">
+                        <h3 class="text-secondary text-sm font-medium">Watched</h3>
+                        <p class="text-3xl font-bold text-primary mt-2">89</p>
+                        <p class="text-tertiary text-sm mt-1">+5 this week</p>
+                    </div>
+                    <div class="bg-secondary border border-secondary rounded-lg p-6">
+                        <h3 class="text-secondary text-sm font-medium">Favorites</h3>
+                        <p class="text-3xl font-bold text-primary mt-2">12</p>
+                        <p class="text-tertiary text-sm mt-1">+1 this week</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Continue Watching -->
+            <section>
+                <h2 class="text-xl font-semibold text-primary mb-4">Continue Watching</h2>
+                <div class="bg-secondary border border-secondary rounded-lg">
+                    <div class="p-6 border-b border-secondary">
+                        <h3 class="text-lg font-medium text-primary">Recent Episodes</h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="bg-tertiary border border-tertiary rounded-lg p-4 hover:bg-primary transition-colors">
+                                <div class="w-full h-32 bg-gray-300 dark:bg-gray-600 rounded mb-3"></div>
+                                <h4 class="font-medium text-primary">Attack on Titan</h4>
+                                <p class="text-secondary text-sm">Episode 87</p>
+                                <div class="mt-2 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div class="bg-accent h-2 rounded-full" style="width: 85%"></div>
+                                </div>
+                            </div>
+                            <div class="bg-tertiary border border-tertiary rounded-lg p-4 hover:bg-primary transition-colors">
+                                <div class="w-full h-32 bg-gray-300 dark:bg-gray-600 rounded mb-3"></div>
+                                <h4 class="font-medium text-primary">Demon Slayer</h4>
+                                <p class="text-secondary text-sm">Episode 11</p>
+                                <div class="mt-2 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div class="bg-accent h-2 rounded-full" style="width: 60%"></div>
+                                </div>
+                            </div>
+                            <div class="bg-tertiary border border-tertiary rounded-lg p-4 hover:bg-primary transition-colors">
+                                <div class="w-full h-32 bg-gray-300 dark:bg-gray-600 rounded mb-3"></div>
+                                <h4 class="font-medium text-primary">My Hero Academia</h4>
+                                <p class="text-secondary text-sm">Episode 24</p>
+                                <div class="mt-2 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div class="bg-accent h-2 rounded-full" style="width: 30%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Activity -->
+            <section>
+                <h2 class="text-xl font-semibold text-primary mb-4">Recent Activity</h2>
+                <div class="bg-secondary border border-secondary rounded-lg p-6">
+                    <div class="space-y-4">
+                        <div class="flex items-start space-x-3">
+                            <div class="p-2 bg-tertiary rounded-lg">
+                                <span>▶️</span>
+                            </div>
+                            <div>
+                                <p class="text-primary font-medium">Attack on Titan - Episode 87</p>
+                                <p class="text-tertiary text-sm">2 hours ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <div class="p-2 bg-tertiary rounded-lg">
+                                <span>⬇️</span>
+                            </div>
+                            <div>
+                                <p class="text-primary font-medium">Demon Slayer Season 3</p>
+                                <p class="text-tertiary text-sm">5 hours ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <div class="p-2 bg-tertiary rounded-lg">
+                                <span>📡</span>
+                            </div>
+                            <div>
+                                <p class="text-primary font-medium">My Hero Academia</p>
+                                <p class="text-tertiary text-sm">1 day ago</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        function getComputedThemeInfo() {
+            const html = document.documentElement;
+            const body = document.body;
+            const computedStyle = getComputedStyle(document.documentElement);
+            
+            return {
+                htmlClasses: html.className,
+                hasLightClass: html.classList.contains('light'),
+                hasDarkClass: html.classList.contains('dark'),
+                bodyBgColor: getComputedStyle(body).backgroundColor,
+                bodyTextColor: getComputedStyle(body).color,
+                cssVars: {
+                    bgPrimary: computedStyle.getPropertyValue('--bg-primary').trim(),
+                    bgSecondary: computedStyle.getPropertyValue('--bg-secondary').trim(),
+                    textPrimary: computedStyle.getPropertyValue('--text-primary').trim(),
+                    textSecondary: computedStyle.getPropertyValue('--text-secondary').trim(),
+                    borderPrimary: computedStyle.getPropertyValue('--border-primary').trim(),
+                    accent: computedStyle.getPropertyValue('--accent').trim()
+                },
+                systemPreference: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+            };
+        }
+
+        function updateDebugInfo() {
+            const info = getComputedThemeInfo();
+            const debugDiv = document.getElementById('debug-info');
+            
+            debugDiv.innerHTML = `
+                <div><strong>Theme:</strong> ${info.hasDarkClass ? 'dark' : 'light'}</div>
+                <div><strong>HTML Classes:</strong> "${info.htmlClasses}"</div>
+                <div><strong>Body BG:</strong> ${info.bodyBgColor}</div>
+                <div><strong>Body Text:</strong> ${info.bodyTextColor}</div>
+                <div><strong>System Pref:</strong> ${info.systemPreference}</div>
+                <div style="margin-top: 8px; font-size: 10px;">
+                    <strong>CSS Vars:</strong><br>
+                    bg-primary: ${info.cssVars.bgPrimary}<br>
+                    text-primary: ${info.cssVars.textPrimary}<br>
+                    accent: ${info.cssVars.accent}
+                </div>
+            `;
+            
+            // Update theme icon
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = info.hasDarkClass ? '☀️' : '🌙';
+        }
+
+        function setTheme(theme) {
+            const html = document.documentElement;
+            html.classList.remove('light', 'dark');
+            if (theme === 'dark') {
+                html.classList.add('dark');
+            }
+            localStorage.setItem('theme', theme);
+            updateDebugInfo();
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.classList.contains('dark') ? 'dark' : 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            setTheme(newTheme);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load saved theme or detect system preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                setTheme(savedTheme);
+            } else {
+                const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                setTheme(systemPrefersDark ? 'dark' : 'light');
+            }
+            
+            // Update debug info every second
+            setInterval(updateDebugInfo, 1000);
+            updateDebugInfo();
+            
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                console.log('System theme changed to:', e.matches ? 'dark' : 'light');
+                updateDebugInfo();
+            });
+        });
+
+        // Log theme changes
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    console.log('Theme changed:', mutation.target.className);
+                }
+            });
+        });
+
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    </script>
+</body>
+</html>

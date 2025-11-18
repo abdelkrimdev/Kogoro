@@ -10,7 +10,6 @@ import {
   getTransitionDuration,
   getTransitionEasing,
   createComponentThemeTransition,
-  batchThemeUpdates,
 } from './theme-transitions'
 import { createThemeMotion, getAnimeCollectionPreset } from './motion-theme'
 import {
@@ -208,7 +207,7 @@ export function applyMotionThemeClasses(
 
   if (!element || (respectReducedMotion && prefersReducedMotion())) return
 
-  const themeMotion = createThemeMotion()
+  const _themeMotion = createThemeMotion()
   const durationMs = getDuration(duration)
   const easingFn = getEasing(easing)
 

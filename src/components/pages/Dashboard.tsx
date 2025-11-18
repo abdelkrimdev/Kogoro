@@ -37,14 +37,12 @@ export const Dashboard: Component = () => {
     useScrollAnimation({
       threshold: 0.1,
       triggerOnce: true,
-      delay: 100,
     })
 
   const { elementRef: contentRef, getAnimationStyles: getContentStyles } =
     useScrollAnimation({
       threshold: 0.1,
       triggerOnce: true,
-      delay: 200,
     })
 
   // Setup stagger animation for stats

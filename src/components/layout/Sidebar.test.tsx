@@ -154,7 +154,10 @@ describe('Sidebar Component', () => {
         .getAllByRole('button')
         .filter(
           (button) =>
-            !(button.getAttribute('title')?.includes('Collapse') ||button.getAttribute('title')?.includes('Expand'))
+            !(
+              button.getAttribute('title')?.includes('Collapse') ||
+              button.getAttribute('title')?.includes('Expand')
+            )
         )
 
       expect(navItems).toHaveLength(5) // Dashboard, Collection, Scanner, Search, Settings

@@ -46,9 +46,9 @@ export function getBackgroundClasses(
   variant: 'primary' | 'secondary' | 'tertiary' = 'primary'
 ): string {
   const bgMap = {
-    primary: 'background',
-    secondary: 'muted',
-    tertiary: 'tertiary',
+    primary: 'bg-background',
+    secondary: 'bg-muted',
+    tertiary: 'bg-tertiary',
   }
   return bgMap[variant]
 }
@@ -60,8 +60,8 @@ export function getBorderClasses(
   variant: 'primary' | 'secondary' | 'tertiary' = 'primary'
 ): string {
   const borderMap = {
-    primary: 'border',
-    secondary: 'border',
+    primary: 'border-border',
+    secondary: 'border-border',
     tertiary: 'border-tertiary',
   }
   return borderMap[variant]

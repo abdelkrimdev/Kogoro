@@ -91,7 +91,7 @@ describe('ThemeContext', () => {
     cleanup()
   })
 
-  it('should initialize with auto theme and light system theme', async () => {
+  it('should initialize with light theme and light system theme', async () => {
     render(() => (
       <ThemeProvider>
         <TestComponent />
@@ -100,14 +100,14 @@ describe('ThemeContext', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('current-theme')).toHaveTextContent('light')
-      expect(screen.getByTestId('user-theme')).toHaveTextContent('auto')
+      expect(screen.getByTestId('user-theme')).toHaveTextContent('light')
       expect(screen.getByTestId('system-theme')).toHaveTextContent('light')
       expect(document.documentElement).toHaveClass('light')
     })
     // Note: theme-transition class may also be present during transitions
   })
 
-  it('should initialize with dark system theme when prefers-color-scheme is dark', () => {
+  it('should initialize with light theme even when system prefers dark', () => {
     // Mock dark mode preference
     window.matchMedia = vi.fn().mockImplementation((query) => ({
       matches: query === '(prefers-color-scheme: dark)',
@@ -126,10 +126,10 @@ describe('ThemeContext', () => {
       </ThemeProvider>
     ))
 
-    expect(screen.getByTestId('current-theme')).toHaveTextContent('dark')
-    expect(screen.getByTestId('user-theme')).toHaveTextContent('auto')
+    expect(screen.getByTestId('current-theme')).toHaveTextContent('light')
+    expect(screen.getByTestId('user-theme')).toHaveTextContent('light')
     expect(screen.getByTestId('system-theme')).toHaveTextContent('dark')
-    expect(document.documentElement).toHaveClass('dark')
+    expect(document.documentElement).toHaveClass('light')
     // Note: theme-transition class may also be present during transitions
   })
 
@@ -285,10 +285,21 @@ describe('ThemeContext', () => {
       </ThemeProvider>
     ))
 
-    // Should start in light mode
+    // Should start in light mode (new default)
     expect(screen.getByTestId('current-theme')).toHaveTextContent('light')
+    expect(screen.getByTestId('user-theme')).toHaveTextContent('light')
     expect(document.documentElement).toHaveClass('light')
     // Note: theme-transition class may also be present during transitions
+
+    // Switch to auto mode first
+    const autoBtn = screen.getByTestId('auto-btn')
+    fireEvent.click(autoBtn)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-theme')).toHaveTextContent('auto')
+      expect(screen.getByTestId('current-theme')).toHaveTextContent('light') // system is light
+      expect(document.documentElement).toHaveClass('light')
+    })
 
     // Simulate system theme change to dark
     if (mediaQueryCallback && mediaQueryInstance) {

@@ -147,7 +147,7 @@ registry.register({
 // LAZY MOTION HOOK
 // ============================================================================
 
-export function useLazyMotion(_config: LazyMotionConfig) {
+export function useLazyMotion(config: LazyMotionConfig) {
   const [state, setState] = createSignal<LazyMotionState>({
     isLoading: false,
     isLoaded: false,

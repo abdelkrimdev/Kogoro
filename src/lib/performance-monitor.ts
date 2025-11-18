@@ -143,11 +143,15 @@ class MotionPerformanceMonitor {
     if (!('memory' in performance)) return
 
     const checkMemory = () => {
-      const memory = (performance as any).memory as {
-        usedJSHeapSize: number
-        jsHeapSizeLimit: number
-        totalJSHeapSize: number
-      }
+      const memory = (
+        performance as Performance & {
+          memory?: {
+            usedJSHeapSize: number
+            jsHeapSizeLimit: number
+            totalJSHeapSize: number
+          }
+        }
+      ).memory
       if (memory) {
         const usage = memory.usedJSHeapSize
         const limit = memory.jsHeapSizeLimit
@@ -306,7 +310,7 @@ class MotionPerformanceMonitor {
   }
 
   private getMetric(name: string): number {
-    if (!(('performance' in window) && ('getEntriesByType' in performance)))
+    if (!('performance' in window && 'getEntriesByType' in performance))
       return 0
 
     const entries = performance.getEntriesByType(

@@ -215,7 +215,7 @@ describe('Reduced Motion Integration', () => {
         const [callbackCount, setCallbackCount] = createSignal(0)
 
         createEffect(() => {
-          const unwatch = reducedMotion.watch((prefersReduced) => {
+          const unwatch = reducedMotion.watch((_prefersReduced) => {
             setCallbackCount((c) => c + 1)
           })
 
@@ -459,7 +459,9 @@ describe('Reduced Motion Integration', () => {
           onchange: null,
           addEventListener: vi.fn((event, callback) => {
             if (event === 'change') {
-              mediaQueryCallback = callback as any
+              mediaQueryCallback = callback as (
+                event: MediaQueryListEvent
+              ) => void
             }
           }),
           removeEventListener: vi.fn(),
@@ -507,7 +509,9 @@ describe('Reduced Motion Integration', () => {
           onchange: null,
           addEventListener: vi.fn((event, callback) => {
             if (event === 'change') {
-              mediaQueryCallback = callback as any
+              mediaQueryCallback = callback as (
+                event: MediaQueryListEvent
+              ) => void
             }
           }),
           removeEventListener: vi.fn(),
@@ -648,15 +652,18 @@ describe('Reduced Motion Integration', () => {
 
         return (
           <div data-testid="performance-reduced-motion">
-            {Array.from({ length: 100 }, (_, i) => (
-              <div
-                key={i}
-                data-testid={`item-${i}`}
-                {...stagger.getStaggerProps(i)}
-              >
-                Item {i}
-              </div>
-            ))}
+            {Array.from({ length: 100 }, (_, i) => {
+              const uniqueId = `perf-item-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`
+              return (
+                <div
+                  key={uniqueId}
+                  data-testid={`item-${i}`}
+                  {...stagger.getStaggerProps(i)}
+                >
+                  Item {i}
+                </div>
+              )
+            })}
           </div>
         )
       }
@@ -714,7 +721,9 @@ describe('Reduced Motion Integration', () => {
   describe('Error Handling', () => {
     it('should handle missing matchMedia gracefully', () => {
       // Remove matchMedia
-      delete (window as any).matchMedia
+      delete (
+        window as Window & { matchMedia?: (query: string) => MediaQueryList }
+      ).matchMedia
 
       expect(() => {
         const TestComponent = () => {

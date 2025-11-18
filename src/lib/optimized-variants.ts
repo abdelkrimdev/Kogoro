@@ -439,30 +439,53 @@ export function getAccessibleVariant(
 // ============================================================================
 
 /**
+ * Check if a property key is GPU accelerated
+ */
+function isGPUAcceleratedKey(key: string): boolean {
+  const gpuKeys = [
+    'transform',
+    'opacity',
+    'filter',
+    'transition',
+    'duration',
+    'easing',
+  ]
+  return gpuKeys.includes(key)
+}
+
+/**
+ * Check if a property value is valid for GPU acceleration
+ */
+function isValidGPUValue(key: string, value: unknown): boolean {
+  if (typeof value === 'object' && value !== null) {
+    return checkPropertiesRecursive(value as Record<string, unknown>)
+  }
+  return isGPUAcceleratedKey(key)
+}
+
+/**
+ * Recursively check properties for GPU acceleration
+ */
+function checkPropertiesRecursive(obj: Record<string, unknown>): boolean {
+  if (!obj || typeof obj !== 'object') return true
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (['transform', 'opacity', 'filter'].includes(key)) {
+      continue // These are GPU accelerated
+    }
+
+    if (!isValidGPUValue(key, value)) {
+      return false
+    }
+  }
+  return true
+}
+
+/**
  * Check if animation will use GPU acceleration
  */
 export function isGPUAccelerated(variant: MotionPreset): boolean {
-  const checkProperties = (obj: Record<string, unknown>): boolean => {
-    if (!obj || typeof obj !== 'object') return true
-
-    for (const [key, value] of Object.entries(obj)) {
-      if (key === 'transform' || key === 'opacity' || key === 'filter') {
-        continue // These are GPU accelerated
-      }
-      if (typeof value === 'object' && value !== null) {
-        if (!checkProperties(value as Record<string, unknown>)) return false
-      } else if (
-        key !== 'transition' &&
-        key !== 'duration' &&
-        key !== 'easing'
-      ) {
-        return false // Non-GPU property found
-      }
-    }
-    return true
-  }
-
-  return checkProperties(variant as Record<string, unknown>)
+  return checkPropertiesRecursive(variant as Record<string, unknown>)
 }
 
 /**
@@ -497,19 +520,26 @@ export function batchAnimations(variants: MotionPreset[]): MotionPreset {
     easing: 'ease-out' as const,
   }
 
+  const initial = {} as Partial<AnimatableProperties & TransformProperties>
+  const animate = {} as Partial<AnimatableProperties & TransformProperties>
+  const exit = {} as Partial<AnimatableProperties & TransformProperties>
+
+  for (const variant of variants) {
+    if (variant.initial) {
+      Object.assign(initial, variant.initial)
+    }
+    if (variant.animate) {
+      Object.assign(animate, variant.animate)
+    }
+    if (variant.exit) {
+      Object.assign(exit, variant.exit)
+    }
+  }
+
   return {
-    initial: variants.reduce(
-      (acc, variant) => ({ ...acc, ...(variant.initial || {}) }),
-      {} as Partial<AnimatableProperties & TransformProperties>
-    ),
-    animate: variants.reduce(
-      (acc, variant) => ({ ...acc, ...(variant.animate || {}) }),
-      {} as Partial<AnimatableProperties & TransformProperties>
-    ),
-    exit: variants.reduce(
-      (acc, variant) => ({ ...acc, ...(variant.exit || {}) }),
-      {} as Partial<AnimatableProperties & TransformProperties>
-    ),
+    initial,
+    animate,
+    exit,
     transition: baseTransition,
   }
 }

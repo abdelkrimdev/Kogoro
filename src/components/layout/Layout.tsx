@@ -74,9 +74,8 @@ export const Layout: Component<LayoutProps> = (props) => {
     const baseStyles: Record<string, string | number> = {
       ...getLayoutStyles(),
       transition: shouldAnimate()
-        ? `padding-left ${UI_CONFIG.animationDuration.normal}ms ease-in-out, background-color ${UI_CONFIG.animationDuration.normal}ms ease-in-out`
+        ? `background-color ${UI_CONFIG.animationDuration.normal}ms ease-in-out`
         : 'none',
-      'padding-left': `${isSidebarCollapsed() ? UI_CONFIG.sidebarCollapsedWidth : UI_CONFIG.sidebarWidth}px`,
     }
 
     // Apply theme-aware motion styles

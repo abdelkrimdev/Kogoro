@@ -302,7 +302,13 @@ export const Search: Component = () => {
 
                     {/* Year Badge */}
                     <div class="absolute top-2 right-2">
-                      <span class="bg-black/75 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+                      <span
+                        class={cn(
+                          'text-xs px-2 py-1 rounded backdrop-blur-sm',
+                          getBackgroundClasses('tertiary'),
+                          getTextClasses('primary')
+                        )}
+                      >
                         {result.year}
                       </span>
                     </div>
