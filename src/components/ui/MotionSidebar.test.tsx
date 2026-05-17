@@ -192,7 +192,7 @@ describe('MotionSidebar', () => {
       render(() => <MotionSidebar isOpen>Content</MotionSidebar>)
 
       const sidebar = screen.getByRole('complementary')
-      expect(sidebar).toHaveClass('w-\\[17\\.5rem\\]')
+      expect(sidebar).toHaveClass('w-[17.5rem]')
     })
 
     it('should render medium width explicitly', () => {
@@ -203,7 +203,7 @@ describe('MotionSidebar', () => {
       ))
 
       const sidebar = screen.getByRole('complementary')
-      expect(sidebar).toHaveClass('w-\\[17\\.5rem\\]')
+      expect(sidebar).toHaveClass('w-[17.5rem]')
     })
 
     it('should render large width', () => {
@@ -225,7 +225,7 @@ describe('MotionSidebar', () => {
       ))
 
       const sidebar = screen.getByRole('complementary')
-      expect(sidebar).toHaveClass('w-\\[28rem\\]')
+      expect(sidebar).toHaveClass('w-[28rem]')
     })
   })
 
@@ -237,9 +237,15 @@ describe('MotionSidebar', () => {
         </MotionSidebar>
       ))
 
-      const backdrop = screen.getByRole('button', { name: /close sidebar/i })
-      expect(backdrop).toBeInTheDocument()
-      expect(backdrop).toHaveClass('fixed', 'inset-0', 'bg-black/50')
+      // Find the backdrop (should be the one with fixed inset-0 classes)
+      const backdropElement = Array.from(
+        screen.getAllByRole('button', { name: /close sidebar/i })
+      ).find(
+        (btn) =>
+          btn.classList.contains('fixed') && btn.classList.contains('inset-0')
+      )
+      expect(backdropElement).toBeInTheDocument()
+      expect(backdropElement).toHaveClass('fixed', 'inset-0', 'bg-black/50')
     })
 
     it('should render overlay variant without backdrop when showBackdrop is false', () => {
@@ -249,9 +255,14 @@ describe('MotionSidebar', () => {
         </MotionSidebar>
       ))
 
-      expect(
-        screen.queryByRole('button', { name: /close sidebar/i })
-      ).not.toBeInTheDocument()
+      // Check that no backdrop exists (but close button might still exist)
+      const backdropElements = Array.from(
+        screen.queryAllByRole('button', { name: /close sidebar/i })
+      ).filter(
+        (btn) =>
+          btn.classList.contains('fixed') && btn.classList.contains('inset-0')
+      )
+      expect(backdropElements).toHaveLength(0)
     })
 
     it('should render push variant', () => {
@@ -341,8 +352,14 @@ describe('MotionSidebar', () => {
         </MotionSidebar>
       ))
 
-      const backdrop = screen.getByRole('button', { name: /close sidebar/i })
-      fireEvent.click(backdrop)
+      // Find the backdrop (not the close button)
+      const backdrop = Array.from(
+        screen.getAllByRole('button', { name: /close sidebar/i })
+      ).find(
+        (btn) =>
+          btn.classList.contains('fixed') && btn.classList.contains('inset-0')
+      )
+      fireEvent.click(backdrop!)
 
       expect(onClose).toHaveBeenCalled()
     })
@@ -361,8 +378,14 @@ describe('MotionSidebar', () => {
         </MotionSidebar>
       ))
 
-      const backdrop = screen.getByRole('button', { name: /close sidebar/i })
-      fireEvent.click(backdrop)
+      // Find the backdrop (not the close button)
+      const backdrop = Array.from(
+        screen.getAllByRole('button', { name: /close sidebar/i })
+      ).find(
+        (btn) =>
+          btn.classList.contains('fixed') && btn.classList.contains('inset-0')
+      )
+      fireEvent.click(backdrop!)
 
       expect(onClose).not.toHaveBeenCalled()
     })
@@ -381,8 +404,14 @@ describe('MotionSidebar', () => {
         </MotionSidebar>
       ))
 
-      const backdrop = screen.getByRole('button', { name: /close sidebar/i })
-      fireEvent.keyDown(backdrop, { key: 'Enter' })
+      // Find the backdrop (not the close button)
+      const backdrop = Array.from(
+        screen.getAllByRole('button', { name: /close sidebar/i })
+      ).find(
+        (btn) =>
+          btn.classList.contains('fixed') && btn.classList.contains('inset-0')
+      )
+      fireEvent.keyDown(backdrop!, { key: 'Enter' })
 
       expect(onClose).toHaveBeenCalled()
     })
@@ -401,8 +430,14 @@ describe('MotionSidebar', () => {
         </MotionSidebar>
       ))
 
-      const backdrop = screen.getByRole('button', { name: /close sidebar/i })
-      fireEvent.keyDown(backdrop, { key: ' ' })
+      // Find the backdrop (not the close button)
+      const backdrop = Array.from(
+        screen.getAllByRole('button', { name: /close sidebar/i })
+      ).find(
+        (btn) =>
+          btn.classList.contains('fixed') && btn.classList.contains('inset-0')
+      )
+      fireEvent.keyDown(backdrop!, { key: ' ' })
 
       expect(onClose).toHaveBeenCalled()
     })
@@ -499,7 +534,7 @@ describe('MotionSidebar', () => {
 
     it('should apply correct transform classes for closed left sidebar', () => {
       render(() => (
-        <MotionSidebar isOpen={false} position="left">
+        <MotionSidebar isOpen={false} position="left" variant="static">
           Content
         </MotionSidebar>
       ))
@@ -510,7 +545,7 @@ describe('MotionSidebar', () => {
 
     it('should apply correct transform classes for closed right sidebar', () => {
       render(() => (
-        <MotionSidebar isOpen={false} position="right">
+        <MotionSidebar isOpen={false} position="right" variant="static">
           Content
         </MotionSidebar>
       ))
@@ -529,7 +564,7 @@ describe('MotionSidebar', () => {
       ))
 
       const sidebar = screen.getByRole('complementary')
-      expect(sidebar).toHaveClass('w-\\[3\\.75rem\\]')
+      expect(sidebar).toHaveClass('w-[3.75rem]')
     })
 
     it('should not apply collapsed width when not collapsible', () => {
@@ -563,10 +598,14 @@ describe('MotionSidebar', () => {
         }),
       }))
 
-      render(() => <MotionSidebar isOpen={false}>Content</MotionSidebar>)
+      render(() => (
+        <MotionSidebar isOpen={false} variant="static">
+          Content
+        </MotionSidebar>
+      ))
 
       const sidebar = screen.getByRole('complementary')
-      expect(sidebar).toHaveClass('translate-x-full')
+      expect(sidebar).toHaveClass('-translate-x-full')
     })
   })
 
@@ -586,7 +625,11 @@ describe('MotionSidebar', () => {
     })
 
     it('should have proper tabindex when closed', () => {
-      render(() => <MotionSidebar isOpen={false}>Content</MotionSidebar>)
+      render(() => (
+        <MotionSidebar isOpen={false} variant="static">
+          Content
+        </MotionSidebar>
+      ))
 
       const sidebar = screen.getByRole('complementary')
       expect(sidebar).toHaveAttribute('tabIndex', '-1')
@@ -599,10 +642,20 @@ describe('MotionSidebar', () => {
         </MotionSidebar>
       ))
 
-      const backdrop = screen.getByRole('button', { name: /close sidebar/i })
-      expect(backdrop).toHaveAttribute('aria-label', 'Close sidebar')
+      // Find backdrop and close button separately
+      const allButtons = screen.getAllByRole('button', {
+        name: /close sidebar/i,
+      })
+      const backdrop = allButtons.find(
+        (btn) =>
+          btn.classList.contains('fixed') && btn.classList.contains('inset-0')
+      )
+      const closeButton = allButtons.find(
+        (btn) =>
+          !btn.classList.contains('fixed') || !btn.classList.contains('inset-0')
+      )
 
-      const closeButton = screen.getByRole('button', { name: /close sidebar/i })
+      expect(backdrop).toHaveAttribute('aria-label', 'Close sidebar')
       expect(closeButton).toHaveAttribute('aria-label', 'Close sidebar')
     })
 
@@ -700,9 +753,15 @@ describe('MotionSidebar', () => {
         </MotionSidebar>
       ))
 
-      const backdrop = screen.getByRole('button', { name: /close sidebar/i })
+      // Find backdrop specifically
+      const backdrop = Array.from(
+        screen.getAllByRole('button', { name: /close sidebar/i })
+      ).find(
+        (btn) =>
+          btn.classList.contains('fixed') && btn.classList.contains('inset-0')
+      )
       expect(() => {
-        fireEvent.click(backdrop)
+        fireEvent.click(backdrop!)
       }).not.toThrow()
     })
 
@@ -744,19 +803,17 @@ describe('MotionSidebar', () => {
     it('should handle dynamic isOpen changes', () => {
       const [isOpen, setIsOpen] = createSignal(false)
 
-      const { rerender } = render(() => (
-        <MotionSidebar isOpen={isOpen()}>Content</MotionSidebar>
-      ))
+      render(() => <MotionSidebar isOpen={isOpen()}>Content</MotionSidebar>)
 
       expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
 
       setIsOpen(true)
-      rerender()
+      // Component should re-render automatically when signal changes
 
       expect(screen.getByRole('complementary')).toBeInTheDocument()
 
       setIsOpen(false)
-      rerender()
+      // Component should re-render automatically when signal changes
 
       expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
     })

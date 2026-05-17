@@ -190,17 +190,17 @@ describe('Color Contrast Validation', () => {
     })
 
     it('should provide consistent background classes', () => {
-      expect(getBackgroundClasses('primary')).toBe('background')
-      expect(getBackgroundClasses('secondary')).toBe('muted')
-      expect(getBackgroundClasses('tertiary')).toBe('tertiary')
-      expect(getBackgroundClasses()).toBe('background') // default
+      expect(getBackgroundClasses('primary')).toBe('bg-background')
+      expect(getBackgroundClasses('secondary')).toBe('bg-muted')
+      expect(getBackgroundClasses('tertiary')).toBe('bg-tertiary')
+      expect(getBackgroundClasses()).toBe('bg-background') // default
     })
 
     it('should provide consistent border classes', () => {
-      expect(getBorderClasses('primary')).toBe('border')
-      expect(getBorderClasses('secondary')).toBe('border')
+      expect(getBorderClasses('primary')).toBe('border-border')
+      expect(getBorderClasses('secondary')).toBe('border-border')
       expect(getBorderClasses('tertiary')).toBe('border-tertiary')
-      expect(getBorderClasses()).toBe('border') // default
+      expect(getBorderClasses()).toBe('border-border') // default
     })
   })
 

@@ -10,7 +10,13 @@ import {
   onError,
   type JSX,
 } from 'solid-js'
-import { cn } from '../../lib/utils'
+import {
+  cn,
+  getBackgroundClasses,
+  getBorderClasses,
+  getStatusClasses,
+  getTextClasses,
+} from '../../lib/utils'
 import { isMotionEnabled, getEasing } from '../../lib/motion'
 import { MotionErrorBoundary } from './MotionErrorBoundary'
 import type {
@@ -118,6 +124,7 @@ export const MotionGrid: Component<MotionGridProps> = (props) => {
     'onError',
     'maxRetries',
     'retryDelay',
+    'easing',
   ])
 
   const [items, setItems] = createSignal<JSX.Element[]>([])
@@ -220,7 +227,7 @@ export const MotionGrid: Component<MotionGridProps> = (props) => {
     const staggerDelay = index * (local.stagger || 0.1)
     const totalDelay = baseDelay + staggerDelay
     const duration = local.duration || 0.5
-    const easing = getEasing('easeOut')
+    const easing = getEasing(local.easing || 'easeOut')
 
     return { totalDelay, duration, easing }
   }

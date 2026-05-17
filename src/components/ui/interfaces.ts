@@ -91,8 +91,8 @@ export interface ErrorHandlingProps {
   onError?: (error: Error, errorInfo?: { componentStack: string }) => void
   /** Maximum number of retry attempts */
   maxRetries?: number
-  /** Delay between retry attempts in milliseconds */
-  retryDelay?: number
+  /** Base delay before automatic retry in milliseconds (used for exponential backoff) */
+  autoRetryDelay?: number
 }
 
 /**

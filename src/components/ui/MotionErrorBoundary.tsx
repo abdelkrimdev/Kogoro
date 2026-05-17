@@ -24,6 +24,7 @@ import {
   getBorderClasses,
 } from '../../lib/theme-classes'
 import { getStatusClasses } from '../../lib/theme-helpers'
+import { normalizeError } from '../../lib/error-utils'
 
 import type { BaseComponentProps, ErrorHandlingProps } from './interfaces'
 
@@ -68,6 +69,7 @@ export interface MotionErrorBoundaryProps
   maxRetries?: number
   /**
    * Delay between retry attempts in milliseconds
+   * @deprecated Use autoRetryDelay instead for consistency with ErrorBoundary
    * @default 1000
    */
   retryDelay?: number
@@ -113,9 +115,37 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
   const reducedMotion = useReducedMotion()
   const [errorInfo, setErrorInfo] = createSignal<MotionErrorInfo | null>(null)
   const [isRetrying, setIsRetrying] = createSignal(false)
+  const [solidResetFn, setSolidResetFn] = createSignal<(() => void) | null>(
+    null
+  )
+  const [retryCount, setRetryCount] = createSignal(0)
 
   const maxRetries = () => props.maxRetries ?? 2
-  const retryDelay = () => props.retryDelay ?? 1000
+
+  // Show deprecation warning for retryDelay in development
+  if (
+    props.retryDelay !== undefined &&
+    props.autoRetryDelay === undefined &&
+    import.meta.env.DEV
+  ) {
+    console.warn(
+      'MotionErrorBoundary: retryDelay is deprecated. Use autoRetryDelay instead for consistency with ErrorBoundary.'
+    )
+  }
+
+  // Handle backward compatibility for retry delay
+  const getRetryDelay = () => {
+    if (props.autoRetryDelay !== undefined) {
+      return props.autoRetryDelay
+    }
+
+    if (props.retryDelay !== undefined) {
+      return props.retryDelay
+    }
+
+    return 1000
+  }
+
   const enableMotion = () => props.enableMotion ?? true
   const respectReducedMotion = () => props.respectReducedMotion ?? true
 
@@ -130,7 +160,7 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
       error,
       componentStack: errorInfo.componentStack,
       timestamp: Date.now(),
-      retryCount: 0,
+      retryCount: retryCount(), // Use persistent retry count
       motionState: {
         enabled: isMotionEnabled(),
         reducedMotion: reducedMotion.prefersReduced(),
@@ -158,29 +188,44 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
   const reset = () => {
     setErrorInfo(null)
     setIsRetrying(false)
+    setRetryCount(0)
+  }
+
+  const solidReset = () => {
+    const resetFn = solidResetFn()
+    if (resetFn) {
+      resetFn()
+    }
   }
 
   const retry = async () => {
-    const currentInfo = errorInfo()
-    if (!currentInfo || currentInfo.retryCount >= maxRetries()) {
+    const currentRetryCount = retryCount()
+    if (currentRetryCount >= maxRetries()) {
       return
     }
 
     setIsRetrying(true)
 
     // Wait before retrying
-    await new Promise((resolve) => setTimeout(resolve, retryDelay()))
+    await new Promise((resolve) => setTimeout(resolve, getRetryDelay()))
 
-    // Update retry count
-    setErrorInfo({
-      ...currentInfo,
-      retryCount: currentInfo.retryCount + 1,
-    })
+    // Increment retry count right before reset (like ErrorBoundary does)
+    setRetryCount((prev) => prev + 1)
 
-    // Reset after a brief delay to allow retry
-    setTimeout(() => {
-      reset()
-    }, 100)
+    // Update error info with new retry count
+    const currentInfo = errorInfo()
+    if (currentInfo) {
+      setErrorInfo({
+        ...currentInfo,
+        retryCount: retryCount(),
+      })
+    }
+
+    // Reset retrying state but keep error info for display
+    setIsRetrying(false)
+
+    // Trigger SolidJS reset to attempt re-render
+    solidReset()
   }
 
   // Helper function to determine error type
@@ -248,12 +293,13 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
 
   // Helper function to render retry info
   const renderRetryInfo = (info: MotionErrorInfo | null) => {
-    if (!info || info.retryCount <= 0) return null
+    const currentRetryCount = retryCount()
+    if (currentRetryCount <= 0) return null
 
     return (
       <div class="mb-3">
         <p class={cn('text-xs', getStatusClasses('warning', 'text'))}>
-          Retry attempt {info.retryCount} of {maxRetries()}
+          Retry attempt {currentRetryCount} of {maxRetries()}
         </p>
       </div>
     )
@@ -262,17 +308,22 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
   // Helper function to render action buttons
   const renderActionButtons = (
     canRetry: boolean,
+    showRetryButton: boolean,
     isMotionError: boolean,
     resetFn: () => void,
     retryFn: () => void
   ) => {
+    const currentRetryCount = retryCount()
+    const hasReachedMaxRetries =
+      currentRetryCount >= maxRetries() && currentRetryCount > 0
+
     return (
       <div class="flex flex-col sm:flex-row gap-2 justify-center">
-        {canRetry && (
+        {showRetryButton && (
           <button
             type="button"
             onClick={retryFn}
-            disabled={isRetrying()}
+            disabled={!canRetry || isRetrying()}
             class={cn(
               'px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center justify-center space-x-1',
               getStatusClasses('info', 'bg'),
@@ -281,7 +332,13 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
             )}
           >
             <RefreshCw class={cn('w-3 h-3', isRetrying() && 'animate-spin')} />
-            <span>{isRetrying() ? 'Retrying...' : 'Retry'}</span>
+            <span>
+              {isRetrying()
+                ? 'Retrying...'
+                : hasReachedMaxRetries
+                  ? 'Max Retries Reached'
+                  : 'Retry'}
+            </span>
           </button>
         )}
 
@@ -322,6 +379,7 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
 
   // Helper function to render error details
   const renderErrorDetails = (error: Error, info: MotionErrorInfo | null) => {
+    // Check both DEV and NODE_ENV for comprehensive production detection
     if (!import.meta.env.DEV) return null
 
     return (
@@ -387,7 +445,9 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
     retryFn: () => void
   ) => {
     const info = errorInfo()
-    const canRetry = info ? info.retryCount < maxRetries() : false
+    const currentRetryCount = retryCount()
+    const canRetry = currentRetryCount < maxRetries() && !isRetrying()
+    const showRetryButton = currentRetryCount < maxRetries()
     const isMotionError = getErrorType(error)
 
     return (
@@ -414,7 +474,13 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
           {renderRetryInfo(info)}
 
           {/* Action Buttons */}
-          {renderActionButtons(canRetry, isMotionError, resetFn, retryFn)}
+          {renderActionButtons(
+            canRetry,
+            showRetryButton,
+            isMotionError,
+            resetFn,
+            retryFn
+          )}
 
           {/* Error Details (Dev Only) */}
           {renderErrorDetails(error, info)}
@@ -425,7 +491,12 @@ export const MotionErrorBoundary: Component<MotionErrorBoundaryProps> = (
 
   return (
     <SolidErrorBoundary
-      fallback={(err: Error, resetFn: () => void) => {
+      fallback={(rawError: unknown, resetFn: () => void) => {
+        // Store the SolidJS reset function for use in retry
+        setSolidResetFn(() => resetFn)
+
+        // Normalize the error to handle all error types consistently
+        const err = normalizeError(rawError)
         handleError(err, { componentStack: '' })
 
         if (props.fallback) {

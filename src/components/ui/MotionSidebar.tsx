@@ -206,7 +206,11 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
   // Performance optimization: Throttled backdrop click handler
   const handleBackdropClick = throttle(() => {
     safeFn(
-      () => local.onClose?.(),
+      () => {
+        if (local.closeOnBackdropClick !== false) {
+          local.onClose?.()
+        }
+      },
       (error) => {
         console.error('Error in sidebar backdrop click handler:', error)
         setHasError(true)
@@ -221,7 +225,9 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
       () => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          local.onClose?.()
+          if (local.closeOnBackdropClick !== false) {
+            local.onClose?.()
+          }
         }
       },
       (error) => {
@@ -306,7 +312,11 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
   const animatedTransformClasses = createMemo(() => {
     const isLeft = (local.position || 'left') === 'left'
 
-    if (local.variant === 'overlay' || local.variant === 'push') {
+    if (
+      local.variant === 'overlay' ||
+      local.variant === 'push' ||
+      local.variant === 'static'
+    ) {
       return local.isOpen
         ? 'translate-x-0'
         : isLeft
@@ -318,7 +328,12 @@ export const MotionSidebar: Component<MotionSidebarProps> = (props) => {
   })
 
   const staticTransformClasses = createMemo(() => {
-    return local.isOpen ? 'translate-x-0' : 'translate-x-full'
+    const isLeft = (local.position || 'left') === 'left'
+    return local.isOpen
+      ? 'translate-x-0'
+      : isLeft
+        ? '-translate-x-full'
+        : 'translate-x-full'
   })
 
   const transformClasses = createMemo(() => {

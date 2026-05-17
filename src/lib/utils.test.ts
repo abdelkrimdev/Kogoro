@@ -60,25 +60,25 @@ describe('Theme Utilities', () => {
 
   describe('getBackgroundClasses', () => {
     it('should return correct background classes', () => {
-      expect(getBackgroundClasses('primary')).toBe('background')
-      expect(getBackgroundClasses('secondary')).toBe('muted')
-      expect(getBackgroundClasses('tertiary')).toBe('tertiary')
+      expect(getBackgroundClasses('primary')).toBe('bg-background')
+      expect(getBackgroundClasses('secondary')).toBe('bg-muted')
+      expect(getBackgroundClasses('tertiary')).toBe('bg-tertiary')
     })
 
     it('should default to primary', () => {
-      expect(getBackgroundClasses()).toBe('background')
+      expect(getBackgroundClasses()).toBe('bg-background')
     })
   })
 
   describe('getBorderClasses', () => {
     it('should return correct border classes', () => {
-      expect(getBorderClasses('primary')).toBe('border')
-      expect(getBorderClasses('secondary')).toBe('border')
+      expect(getBorderClasses('primary')).toBe('border-border')
+      expect(getBorderClasses('secondary')).toBe('border-border')
       expect(getBorderClasses('tertiary')).toBe('border-tertiary')
     })
 
     it('should default to primary', () => {
-      expect(getBorderClasses()).toBe('border')
+      expect(getBorderClasses()).toBe('border-border')
     })
   })
 
