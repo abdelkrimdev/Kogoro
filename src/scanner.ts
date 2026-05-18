@@ -4,6 +4,7 @@ import type { DatabasePlugin } from "./db/database-plugin.ts";
 import type { EntryType } from "./db/types.ts";
 import { MatchCache } from "./match-cache.ts";
 import { Matcher, type MatchResult } from "./matcher.ts";
+import type { OverrideStore } from "./override-store.ts";
 import { createEmptyResult, type ParsedResult, parse } from "./parser.ts";
 import type { FileAction, RenamePlan, Renamer } from "./renamer.ts";
 
@@ -25,6 +26,7 @@ export interface ScannerOptions {
   database: DatabasePlugin;
   cache?: MatchCache;
   renamer?: Renamer;
+  overrideStore?: OverrideStore;
 }
 
 export interface ScanFileOptions {
@@ -57,6 +59,10 @@ function buildManualMatch(manual: {
   };
 }
 
+function computeFileHash(input: string): string {
+  return Bun.hash(input).toString(16);
+}
+
 export class Scanner {
   private db: DatabasePlugin;
   private matcher: Matcher;
@@ -65,7 +71,7 @@ export class Scanner {
 
   constructor(options: ScannerOptions) {
     this.db = options.database;
-    this.matcher = new Matcher({ database: this.db });
+    this.matcher = new Matcher({ database: this.db, overrideStore: options.overrideStore });
     this.cache = options.cache;
     this.renamer = options.renamer;
   }
@@ -73,6 +79,8 @@ export class Scanner {
   async scanFile(filePath: string, options?: ScanFileOptions): Promise<ScanResult> {
     const force = options?.force ?? false;
     let hash = "";
+
+    const fileHash = computeFileHash(basename(filePath));
 
     if (this.cache) {
       hash = await MatchCache.hashFile(filePath);
@@ -115,7 +123,7 @@ export class Scanner {
     }
 
     const parsed = parse(basename(filePath));
-    const matches = await this.matcher.match(parsed);
+    const matches = await this.matcher.match(parsed, fileHash);
 
     if (!parsed.title || matches.length === 0 || matches[0]?.failureReason) {
       const failureReason = matches[0]?.failureReason ?? "No title parsed";

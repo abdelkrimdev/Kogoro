@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { Matcher } from "../src/matcher.ts";
+import { OverrideStore } from "../src/override-store.ts";
 import type { ParsedResult } from "../src/parser.ts";
 
 interface MockAnime {
@@ -241,5 +245,173 @@ describe("Matcher", () => {
     expect(results).toHaveLength(1);
     expect(results[0]?.failureReason).toBe("No title parsed");
     expect(results[0]?.score).toBe(0);
+  });
+
+  describe("with OverrideStore", () => {
+    function setupTempDir(): string {
+      return mkdtempSync(join(tmpdir(), "kogoro-matcher-override-"));
+    }
+
+    function cleanupTempDir(dir: string) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+
+    test("returns override match when override exists for file hash", async () => {
+      const dir = setupTempDir();
+      try {
+        const overrideStore = new OverrideStore(dir);
+        overrideStore.set("abc123", {
+          animeId: "tvdb-99",
+          episodeId: "ep-5",
+          entryType: "special",
+        });
+
+        const db = createMockDb([
+          {
+            animeId: "1",
+            title: "Jujutsu Kaisen",
+            episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+          },
+        ]);
+
+        const matcher = new Matcher({ database: db, overrideStore });
+        const parsed: ParsedResult = {
+          title: "Jujutsu Kaisen",
+          season: null,
+          episode: null,
+          tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+        };
+        const results = await matcher.match(parsed, "abc123");
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.anime.id).toBe("tvdb-99");
+        expect(results[0]?.anime.title).toBeTruthy();
+        expect(results[0]?.episode?.id).toBe("ep-5");
+        expect(results[0]?.score).toBe(1);
+        expect(results[0]?.failureReason).toBeUndefined();
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("falls through to DB when no override exists for hash", async () => {
+      const dir = setupTempDir();
+      try {
+        const overrideStore = new OverrideStore(dir);
+        overrideStore.set("other-hash", { animeId: "tvdb-99" });
+
+        const db = createMockDb([
+          {
+            animeId: "1",
+            title: "Jujutsu Kaisen",
+            episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+          },
+        ]);
+
+        const matcher = new Matcher({ database: db, overrideStore });
+        const parsed: ParsedResult = {
+          title: "Jujutsu Kaisen",
+          season: 1,
+          episode: 1,
+          tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+        };
+        const results = await matcher.match(parsed, "nonexistent-hash");
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.anime.id).toBe("1");
+        expect(results[0]?.anime.title).toBe("Jujutsu Kaisen");
+        expect(results[0]?.episode?.id).toBe("101");
+        expect(results[0]?.score).toBeGreaterThan(0);
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("falls through to DB when no OverrideStore provided", async () => {
+      const db = createMockDb([
+        {
+          animeId: "1",
+          title: "Jujutsu Kaisen",
+          episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+        },
+      ]);
+
+      const matcher = new Matcher({ database: db });
+      const parsed: ParsedResult = {
+        title: "Jujutsu Kaisen",
+        season: 1,
+        episode: 1,
+        tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+      };
+      const results = await matcher.match(parsed, "abc123");
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.anime.id).toBe("1");
+    });
+
+    test("override with animeId only returns anime match without episode", async () => {
+      const dir = setupTempDir();
+      try {
+        const overrideStore = new OverrideStore(dir);
+        overrideStore.set("abc123", { animeId: "tvdb-99" });
+
+        const db = createMockDb([
+          {
+            animeId: "1",
+            title: "Jujutsu Kaisen",
+            episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+          },
+        ]);
+
+        const matcher = new Matcher({ database: db, overrideStore });
+        const parsed: ParsedResult = {
+          title: "Jujutsu Kaisen",
+          season: 1,
+          episode: 1,
+          tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+        };
+        const results = await matcher.match(parsed, "abc123");
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.anime.id).toBe("tvdb-99");
+        expect(results[0]?.episode).toBeUndefined();
+        expect(results[0]?.score).toBe(1);
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("entryType-only override queries DB then overrides entryType in results", async () => {
+      const dir = setupTempDir();
+      try {
+        const overrideStore = new OverrideStore(dir);
+        overrideStore.set("abc123", { entryType: "special" });
+
+        const db = createMockDb([
+          {
+            animeId: "1",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+          },
+        ]);
+
+        const matcher = new Matcher({ database: db, overrideStore });
+        const parsed: ParsedResult = {
+          title: "Jujutsu Kaisen",
+          season: 1,
+          episode: 1,
+          tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+        };
+        const results = await matcher.match(parsed, "abc123");
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.anime.id).toBe("1");
+        expect(results[0]?.anime.entryType).toBe("special");
+        expect(results[0]?.episode?.entryType).toBe("special");
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
   });
 });
