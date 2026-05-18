@@ -1,12 +1,12 @@
 import { lstatSync, readdirSync } from "node:fs";
-import { extname, join } from "node:path";
+import { extname, join, sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../config/config-manager.ts";
 import type { DatabasePlugin } from "../db/database-plugin.ts";
 import type { MatchCache } from "../match-cache.ts";
 import type { MatchResult } from "../matcher.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
-import type { ParsedResult } from "../parser.ts";
+import { createEmptyResult, type ParsedResult } from "../parser.ts";
 import { type FileAction, Renamer } from "../renamer.ts";
 import { Scanner } from "../scanner.ts";
 
@@ -36,6 +36,15 @@ const DEFAULT_FILENAME_TEMPLATE = "{anime} - {season}x{episode:02} - {title}.{ex
 const DEFAULT_DIRECTORY_TEMPLATE = "{anime}/{type}";
 
 const DEFAULT_EXCLUDE_PATTERNS = [".part", ".crdownload", "!qb"];
+const ORGANIZED_DIRS = new Set(["TV", "Movies", "OVA", "Specials"]);
+
+export function isAlreadyOrganized(filePath: string): boolean {
+  const parts = filePath.split(sep);
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (ORGANIZED_DIRS.has(parts[i] ?? "")) return true;
+  }
+  return false;
+}
 
 function walkDir(dir: string, extensions: string[], excludePatterns: string[]): string[] {
   const results: string[] = [];
@@ -177,11 +186,25 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         return JSON.stringify([]);
       }
 
-      if (!quiet && !verbose) {
-        console.log(`Scanning ${filePaths.length} file(s)...`);
+      const organizedFiles: string[] = [];
+      const unorganizedFiles: string[] = [];
+      for (const fp of filePaths) {
+        if (isAlreadyOrganized(fp)) {
+          organizedFiles.push(fp);
+        } else {
+          unorganizedFiles.push(fp);
+        }
       }
 
-      const allResults = await scanner.scanBatch(filePaths, {
+      if (!quiet && !verbose) {
+        const msg =
+          organizedFiles.length > 0
+            ? `Scanning ${filePaths.length} file(s)... (${organizedFiles.length} already organized, skipped)`
+            : `Scanning ${filePaths.length} file(s)...`;
+        console.log(msg);
+      }
+
+      const scanResults = await scanner.scanBatch(unorganizedFiles, {
         force,
         dryRun,
         action,
@@ -198,6 +221,19 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           }
         },
       });
+
+      const skippedResults = organizedFiles.map((file) => ({
+        file,
+        hash: "",
+        parsed: createEmptyResult(),
+        match: null,
+        plan: null,
+        cached: false,
+        skipped: true,
+        status: "skipped" as const,
+      }));
+
+      const allResults = [...skippedResults, ...scanResults];
 
       const pendingIndices = allResults.reduce<number[]>((acc, r, i) => {
         if (r.status === "ambiguous" || r.status === "failed") acc.push(i);

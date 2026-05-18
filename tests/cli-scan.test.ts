@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createScanHandlers, discoverFiles } from "../src/cli/scan-commands.ts";
+import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../src/cli/scan-commands.ts";
 import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { MatchCache } from "../src/match-cache.ts";
 
@@ -246,6 +246,37 @@ describe("scan CLI commands", () => {
       expect(files.every((f) => f.endsWith(".mkv"))).toBe(true);
       expect(files.some((f) => f.endsWith(".part"))).toBe(false);
       expect(files.some((f) => f.endsWith("link.mkv"))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("isAlreadyOrganized detects files in organized directory structure", () => {
+    expect(isAlreadyOrganized("/media/Jujutsu Kaisen/TV/Jujutsu Kaisen - 1x01.mkv")).toBe(true);
+    expect(isAlreadyOrganized("/media/One Piece/Movies/One Piece - Movie 01.mkv")).toBe(true);
+    expect(isAlreadyOrganized("/media/Naruto/OVA/Naruto - OVA 01.mkv")).toBe(true);
+    expect(isAlreadyOrganized("/media/Attack on Titan/Specials/AOT - 01.mkv")).toBe(true);
+    expect(isAlreadyOrganized("/media/unorganized/[Group] Anime - 01.mkv")).toBe(false);
+    expect(isAlreadyOrganized("/media/Anime/TV")).toBe(false);
+  });
+
+  test("scan skips already-organized files without hashing or DB lookup", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-organized-skip-"));
+    try {
+      const tvDir = join(dir, "Jujutsu Kaisen", "TV");
+      mkdirSync(tvDir, { recursive: true });
+      writeFileSync(join(tvDir, "Jujutsu Kaisen - 1x01.mkv"), "content");
+      writeFileSync(join(dir, "[Group] Unorganized - 01.mkv"), "content");
+
+      const handlers = createScanHandlers({ database: createMockDb() });
+      const output = await handlers.scan(dir, { yes: true, dryRun: true });
+      const results = JSON.parse(output) as Array<{ status: string; file: string }>;
+
+      const organized = results.find((r) => r.file.includes("TV/"));
+      const unorganized = results.find((r) => r.file.includes("Unorganized"));
+
+      expect(organized?.status).toBe("skipped");
+      expect(unorganized?.status).toBe("matched");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

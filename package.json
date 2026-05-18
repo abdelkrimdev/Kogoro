@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "build": "bun build src/cli/index.ts --outdir dist --target bun",
+    "build:binary": "bun build --compile src/cli/index.ts --outfile dist/kogoro",
     "check": "bun x tsc --noEmit",
     "test": "bun test",
     "lint": "biome lint .",

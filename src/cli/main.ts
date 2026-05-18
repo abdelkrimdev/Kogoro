@@ -10,6 +10,7 @@ import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { MatchCache } from "../match-cache.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
 import { parse } from "../parser.ts";
+import { PluginRegistry } from "../plugin-registry.ts";
 import type { FileAction } from "../renamer.ts";
 import { OpenSubtitlesAdapter } from "../subtitle/opensubtitles-adapter.ts";
 import { render } from "../template-engine.ts";
@@ -222,6 +223,11 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Show per-anime status messages",
+          })
+          .option("concurrency", {
+            type: "number",
+            default: 1,
+            describe: "Number of anime to process concurrently",
           }),
       async (argv) => {
         const handlers = await createArtworkWithCredentials();
@@ -253,6 +259,11 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing subtitle files",
+          })
+          .option("concurrency", {
+            type: "number",
+            default: 1,
+            describe: "Number of files to process concurrently",
           }),
       async (argv) => {
         const handlers = await createSubtitleWithCredentials();
@@ -279,6 +290,11 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing .nfo files",
+          })
+          .option("concurrency", {
+            type: "number",
+            default: 1,
+            describe: "Number of files to process concurrently",
           }),
       async (argv) => {
         const handlers = createMetadataHandlers();
@@ -616,6 +632,24 @@ export function run(argv: string[]): string | undefined {
         }
         result = render(argv.pattern, ctx);
       },
+    )
+    .command(
+      "plugins",
+      "List all discovered plugins (built-in + external)",
+      (yargs) =>
+        yargs
+          .command(
+            "list",
+            "List all plugins",
+            () => {},
+            () => {
+              const registry = new PluginRegistry();
+              const plugins = registry.list();
+              console.log(JSON.stringify(plugins, null, 2));
+            },
+          )
+          .demandCommand(1, "Please specify a plugins action"),
+      () => {},
     )
     .demandCommand(1, "Please specify a command")
     .help()
