@@ -1,9 +1,12 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { parse } from "../parser.ts";
+import { render } from "../template-engine.ts";
 
-export function run(argv: string[]) {
-  return yargs(hideBin(argv))
+export function run(argv: string[]): string | undefined {
+  let result: string | undefined;
+
+  const parser = yargs(hideBin(argv))
     .scriptName("kogoro")
     .usage("$0 <command> [options]")
     .command(
@@ -85,11 +88,41 @@ export function run(argv: string[]) {
         console.log("config command — not yet implemented");
       },
     )
+    .command(
+      "template <pattern>",
+      "Test a rename pattern with {placeholder} variables",
+      (yargs) =>
+        yargs
+          // Allow arbitrary --key value pairs to be passed as template variables
+          .strict(false)
+          .positional("pattern", {
+            type: "string",
+            demandOption: true,
+            describe: "Template pattern with {placeholder} variables",
+          })
+          .option("anime", { type: "string", describe: "Anime title" })
+          .option("season", { type: "number", describe: "Season number" })
+          .option("episode", { type: "number", describe: "Episode number" })
+          .option("title", { type: "string", describe: "Episode title" }),
+      (argv) => {
+        const ctx: Record<string, string | number> = {};
+        const reservedKeys = new Set(["_", "$0", "pattern", "help", "version"]);
+        for (const [key, value] of Object.entries(argv)) {
+          if (!reservedKeys.has(key) && value !== undefined) {
+            ctx[key] = value as string | number;
+          }
+        }
+        result = render(argv.pattern, ctx);
+      },
+    )
     .demandCommand(1, "Please specify a command")
     .help()
     .alias("h", "help")
     .version("0.1.0")
     .alias("v", "version")
-    .strict()
-    .parse();
+    .strict();
+
+  parser.parse();
+
+  return result;
 }
