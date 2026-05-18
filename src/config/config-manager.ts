@@ -71,6 +71,7 @@ export class ConfigManager {
       extensions: ".mkv,.mp4",
       "exclude-patterns": ".part,.crdownload",
       concurrency: "4",
+      "episode-numbering": "relative",
     };
   }
 

@@ -8,6 +8,7 @@ import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import type { DatabasePlugin } from "../db/database-plugin.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { MatchCache } from "../match-cache.ts";
+import type { NumberingScheme } from "../numbering-converter.ts";
 import { parse } from "../parser.ts";
 import type { FileAction } from "../renamer.ts";
 import { OpenSubtitlesAdapter } from "../subtitle/opensubtitles-adapter.ts";
@@ -48,7 +49,7 @@ async function createAniDBCommandsWithCredentials() {
   return createDBCommands(adapter);
 }
 
-async function createScanWithCredentials() {
+async function createScanWithCredentials(episodeNumbering?: NumberingScheme) {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
@@ -58,7 +59,12 @@ async function createScanWithCredentials() {
   const adapter = new TVDBAdapter({ apiKey });
   const cache = new MatchCache();
   const config = new ConfigManager();
-  return createScanHandlers({ database: adapter, cache, config });
+  return createScanHandlers({
+    database: adapter,
+    cache,
+    config,
+    episodeNumbering,
+  });
 }
 
 async function createMatchWithCredentials() {
@@ -142,9 +148,16 @@ export function run(argv: string[]): string | undefined {
             choices: ["move", "copy", "symlink", "hardlink"] as const,
             default: "move",
             describe: "File operation to perform",
+          })
+          .option("episode-numbering", {
+            type: "string",
+            choices: ["absolute", "relative"] as const,
+            describe: "Override preferred episode numbering scheme",
           }),
       async (argv) => {
-        const handlers = await createScanWithCredentials();
+        const handlers = await createScanWithCredentials(
+          argv["episode-numbering"] as NumberingScheme | undefined,
+        );
         if (!handlers) return;
         try {
           const output = await handlers.scan(argv.path, {

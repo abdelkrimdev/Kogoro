@@ -5,6 +5,7 @@ import type { ConfigManager } from "../config/config-manager.ts";
 import type { DatabasePlugin } from "../db/database-plugin.ts";
 import type { MatchCache } from "../match-cache.ts";
 import type { MatchResult } from "../matcher.ts";
+import type { NumberingScheme } from "../numbering-converter.ts";
 import type { ParsedResult } from "../parser.ts";
 import { type FileAction, Renamer } from "../renamer.ts";
 import { Scanner, type ScanResult } from "../scanner.ts";
@@ -15,6 +16,7 @@ export interface ScanHandlerOptions {
   renamer?: Renamer;
   config?: ConfigManager;
   extensions?: string[];
+  episodeNumbering?: NumberingScheme;
 }
 
 export interface ScanOptions {

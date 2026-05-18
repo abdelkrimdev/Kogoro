@@ -46,6 +46,20 @@ describe("Renamer", () => {
     expect(plan.action).toBe("move");
   });
 
+  test("uses numberingOverride when provided", () => {
+    const renamer = new Renamer({
+      filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
+      directoryTemplate: "{anime}/{type}",
+    });
+
+    const plan = renamer.plan("/source/Jujutsu Kaisen - 01.mkv", makeTvMatch(), "mkv", undefined, {
+      season: 2,
+      episode: 5,
+    });
+
+    expect(plan.targetFilename).toBe("Jujutsu Kaisen - 2x05 - Tomorrow.mkv");
+  });
+
   test("plans rename for Movie entry type", () => {
     const renamer = new Renamer({
       filenameTemplate: "{anime} - {title}.{ext}",
