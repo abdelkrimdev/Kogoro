@@ -1,7 +1,9 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import { getDefaultPrompts } from "../config/config-wizard.ts";
 import { parse } from "../parser.ts";
 import { render } from "../template-engine.ts";
+import { createConfigHandlers } from "./config-commands.ts";
 
 export function run(argv: string[]): string | undefined {
   let result: string | undefined;
@@ -76,17 +78,56 @@ export function run(argv: string[]): string | undefined {
       },
     )
     .command(
-      "config <action>",
-      "Manage Kogoro configuration and Overrides",
+      "config",
+      "Manage Kogoro configuration",
       (yargs) =>
-        yargs.positional("action", {
-          type: "string",
-          demandOption: true,
-          describe: "Config action: init, get, set",
-        }),
-      () => {
-        console.log("config command — not yet implemented");
-      },
+        yargs
+          .command(
+            "get <key>",
+            "Get a config value",
+            (yargs) =>
+              yargs.positional("key", {
+                type: "string",
+                demandOption: true,
+                describe: "Config key to get",
+              }),
+            async (argv) => {
+              const handlers = createConfigHandlers();
+              await handlers.get(argv.key, console.log, console.error);
+            },
+          )
+          .command(
+            "set <key> <value>",
+            "Set a config value",
+            (yargs) =>
+              yargs
+                .positional("key", {
+                  type: "string",
+                  demandOption: true,
+                  describe: "Config key to set",
+                })
+                .positional("value", {
+                  type: "string",
+                  demandOption: true,
+                  describe: "Value to set",
+                }),
+            async (argv) => {
+              const handlers = createConfigHandlers();
+              await handlers.set(argv.key, argv.value, console.log);
+            },
+          )
+          .command(
+            "init",
+            "Run the first-time setup wizard",
+            () => {},
+            async () => {
+              const prompts = getDefaultPrompts();
+              const handlers = createConfigHandlers();
+              await handlers.init(prompts, console.log);
+            },
+          )
+          .demandCommand(1, "Please specify a config action: get, set, or init"),
+      () => {},
     )
     .command(
       "template <pattern>",
