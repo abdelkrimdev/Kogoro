@@ -41,7 +41,7 @@ async function createAniDBCommandsWithCredentials() {
   return createDBCommands(adapter);
 }
 
-async function createScanWithCredentials() {
+async function createScanWithCredentials(episodeNumbering?: string) {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
@@ -49,7 +49,11 @@ async function createScanWithCredentials() {
     return undefined;
   }
   const adapter = new TVDBAdapter({ apiKey });
-  return createScanHandlers({ database: adapter });
+  const normalized = episodeNumbering as "absolute" | "relative" | undefined;
+  return createScanHandlers({
+    database: adapter,
+    episodeNumbering: normalized,
+  });
 }
 
 async function createMatchWithCredentials() {
@@ -73,13 +77,19 @@ export function run(argv: string[]): string | undefined {
       "scan <path>",
       "Scan a directory for MediaFiles, match against Databases, and organize",
       (yargs) =>
-        yargs.positional("path", {
-          type: "string",
-          demandOption: true,
-          describe: "Path to a directory or MediaFile to scan",
-        }),
+        yargs
+          .positional("path", {
+            type: "string",
+            demandOption: true,
+            describe: "Path to a directory or MediaFile to scan",
+          })
+          .option("episode-numbering", {
+            type: "string",
+            choices: ["absolute", "relative"] as const,
+            describe: "Override preferred episode numbering scheme",
+          }),
       async (argv) => {
-        const handlers = await createScanWithCredentials();
+        const handlers = await createScanWithCredentials(argv["episode-numbering"]);
         if (!handlers) return;
         try {
           const output = await handlers.scan(argv.path);

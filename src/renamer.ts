@@ -52,7 +52,13 @@ export class Renamer {
     this.usedTargets = new Set();
   }
 
-  plan(sourcePath: string, match: MatchResult, extension: string, tags?: ParsedTags): RenamePlan {
+  plan(
+    sourcePath: string,
+    match: MatchResult,
+    extension: string,
+    tags?: ParsedTags,
+    numberingOverride?: { season: number; episode: number },
+  ): RenamePlan {
     const { anime, episode } = match;
 
     const dirContext: Record<string, string | number> = {
@@ -62,11 +68,14 @@ export class Renamer {
 
     const targetDir = render(this.directoryTemplate, dirContext);
 
+    const seasonVal = numberingOverride?.season ?? episode?.season;
+    const episodeVal = numberingOverride?.episode ?? episode?.episode;
+
     const filenameContext = {
       anime: anime.title,
       ext: extension,
-      ...(episode?.season !== undefined ? { season: episode.season } : {}),
-      ...(episode?.episode !== undefined ? { episode: episode.episode } : {}),
+      ...(seasonVal !== undefined ? { season: seasonVal } : {}),
+      ...(episodeVal !== undefined ? { episode: episodeVal } : {}),
       ...(episode?.title ? { title: episode.title } : {}),
     } as Record<string, string | number>;
 

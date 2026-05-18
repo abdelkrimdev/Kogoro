@@ -1,10 +1,12 @@
 import { statSync } from "node:fs";
 import type { DatabasePlugin } from "../db/database-plugin.ts";
+import type { NumberingScheme } from "../numbering-converter.ts";
 import { Scanner } from "../scanner.ts";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
   extensions?: string[];
+  episodeNumbering?: NumberingScheme;
 }
 
 const DEFAULT_EXTENSIONS = [".mkv", ".mp4", ".avi", ".mov"];
@@ -14,6 +16,8 @@ export function createScanHandlers(options: ScanHandlerOptions) {
   const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
 
   return {
+    episodeNumbering: options.episodeNumbering,
+
     async scan(path: string): Promise<string> {
       const isDir = statSync(path).isDirectory();
       const results = isDir
