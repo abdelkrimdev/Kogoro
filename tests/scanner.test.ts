@@ -15,6 +15,8 @@ function createMockDb(): DatabasePlugin {
     async getEpisodes(_animeId: string) {
       return [
         { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
+        { id: "102", animeId: "1", season: 1, episode: 2, title: "Ep 2", entryType: "tv" as const },
+        { id: "103", animeId: "1", season: 1, episode: 3, title: "Ep 3", entryType: "tv" as const },
       ];
     },
     async getArtwork() {
@@ -177,6 +179,43 @@ describe("Scanner", () => {
       expect(results).toHaveLength(2);
       expect(results[0]?.parsed.title).toBeTruthy();
       expect(results[1]?.parsed.title).toBeTruthy();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("scanBatch processes multiple files with concurrency and reports progress", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-scanner-batch-"));
+    try {
+      writeFileSync(join(dir, "[Group] Anime - 01.mkv"), "a");
+      writeFileSync(join(dir, "[Group] Anime - 02.mkv"), "b");
+      writeFileSync(join(dir, "[Group] Anime - 03.mkv"), "c");
+
+      const scanner = new Scanner({ database: createMockDb() });
+      const filePaths = [
+        join(dir, "[Group] Anime - 01.mkv"),
+        join(dir, "[Group] Anime - 02.mkv"),
+        join(dir, "[Group] Anime - 03.mkv"),
+      ];
+
+      const progressReports: Array<{
+        completed: number;
+        total: number;
+        file: string;
+        status: string;
+      }> = [];
+      const results = await scanner.scanBatch(filePaths, {
+        concurrency: 2,
+        onProgress: (p) => progressReports.push(p),
+      });
+
+      expect(results).toHaveLength(3);
+      for (const r of results) {
+        expect(r.status).toBe("matched");
+      }
+      expect(progressReports).toHaveLength(3);
+      expect(progressReports[0]?.total).toBe(3);
+      expect(progressReports[2]?.completed).toBe(3);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

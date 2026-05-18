@@ -29,6 +29,18 @@ export interface ScannerOptions {
   overrideStore?: OverrideStore;
 }
 
+export interface ScanProgress {
+  completed: number;
+  total: number;
+  file: string;
+  status: ScanStatus;
+}
+
+export interface ScanBatchOptions extends ScanFileOptions {
+  concurrency?: number;
+  onProgress?: (progress: ScanProgress) => void;
+}
+
 export interface ScanFileOptions {
   force?: boolean;
   dryRun?: boolean;
@@ -243,6 +255,32 @@ export class Scanner {
       skipped: false,
       status: "matched",
     };
+  }
+
+  async scanBatch(filePaths: string[], options?: ScanBatchOptions): Promise<ScanResult[]> {
+    const results: ScanResult[] = [];
+    const concurrency = Math.max(1, options?.concurrency ?? 1);
+
+    let completed = 0;
+    for (let i = 0; i < filePaths.length; i += concurrency) {
+      const chunk = filePaths.slice(i, i + concurrency);
+      const chunkResults = await Promise.all(
+        chunk.map(async (filePath) => {
+          const result = await this.scanFile(filePath, options);
+          completed++;
+          options?.onProgress?.({
+            completed,
+            total: filePaths.length,
+            file: filePath,
+            status: result.status,
+          });
+          return result;
+        }),
+      );
+      results.push(...chunkResults);
+    }
+
+    return results;
   }
 
   async scanDir(dir: string, extensions: string[]): Promise<ScanResult[]> {

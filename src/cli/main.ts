@@ -153,6 +153,32 @@ export function run(argv: string[]): string | undefined {
             type: "string",
             choices: ["absolute", "relative"] as const,
             describe: "Override preferred episode numbering scheme",
+          })
+          .option("verbose", {
+            type: "boolean",
+            default: false,
+            describe: "Show per-file status lines during scan",
+          })
+          .option("quiet", {
+            type: "boolean",
+            alias: "q",
+            default: false,
+            describe: "Suppress progress and summary; only errors and prompts",
+          })
+          .option("debug", {
+            type: "boolean",
+            default: false,
+            describe: "Dump API requests and responses",
+          })
+          .option("json", {
+            type: "boolean",
+            default: false,
+            describe: "Output final scan report as JSON",
+          })
+          .option("concurrency", {
+            type: "number",
+            default: 1,
+            describe: "Number of files to process concurrently",
           }),
       async (argv) => {
         const handlers = await createScanWithCredentials(
@@ -165,6 +191,11 @@ export function run(argv: string[]): string | undefined {
             yes: argv.yes ?? false,
             force: argv.force ?? false,
             action: argv.action as FileAction,
+            verbose: argv.verbose ?? false,
+            quiet: argv.quiet ?? false,
+            debug: argv.debug ?? false,
+            json: argv.json ?? false,
+            concurrency: argv.concurrency ?? 1,
           });
           console.log(output);
         } catch (err) {

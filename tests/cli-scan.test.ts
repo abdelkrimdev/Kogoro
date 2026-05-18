@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createScanHandlers } from "../src/cli/scan-commands.ts";
+import { createScanHandlers, discoverFiles } from "../src/cli/scan-commands.ts";
 import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { MatchCache } from "../src/match-cache.ts";
 
@@ -167,6 +167,85 @@ describe("scan CLI commands", () => {
 
       const parsed = JSON.parse(output);
       expect(parsed[0]?.status).toBe("ambiguous");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("scan directory with mixed outcomes returns correct statuses", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-mixed-"));
+    try {
+      writeFileSync(join(dir, "[Group] One Piece - 01.mkv"), "");
+      writeFileSync(join(dir, "[Group] One Piece - 02.mkv"), "");
+      writeFileSync(join(dir, "Some Anime - 01.mkv"), "");
+      writeFileSync(join(dir, "randomfile.mkv"), "");
+
+      const mixedDb: DatabasePlugin = {
+        async searchAnime(title: string) {
+          if (title.toLowerCase().includes("some")) {
+            return [
+              { id: "1", title: "Anime One", entryType: "tv" as const },
+              { id: "2", title: "Anime Two", entryType: "tv" as const },
+            ];
+          }
+          return [{ id: "1", title, entryType: "tv" as const }];
+        },
+        async getEpisodes(_animeId: string) {
+          return [
+            {
+              id: "101",
+              animeId: "1",
+              season: 1,
+              episode: 1,
+              title: "Ep 1",
+              entryType: "tv" as const,
+            },
+            {
+              id: "102",
+              animeId: "1",
+              season: 1,
+              episode: 2,
+              title: "Ep 2",
+              entryType: "tv" as const,
+            },
+          ];
+        },
+        async getArtwork() {
+          return [];
+        },
+      };
+
+      const handlers = createScanHandlers({ database: mixedDb });
+      const output = await handlers.scan(dir, { yes: true, dryRun: true });
+      const results = JSON.parse(output) as Array<{ status: string }>;
+
+      expect(results).toHaveLength(4);
+      const matched = results.filter((r) => r.status === "matched");
+      const ambiguous = results.filter((r) => r.status === "ambiguous");
+      const failed = results.filter((r) => r.status === "failed");
+      expect(matched).toHaveLength(2);
+      expect(ambiguous).toHaveLength(1);
+      expect(failed).toHaveLength(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("discoverFiles filters excluded patterns and skips symlinks", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-discover-"));
+    try {
+      writeFileSync(join(dir, "Anime - 01.mkv"), "");
+      writeFileSync(join(dir, "Anime - 02.mkv"), "");
+      writeFileSync(join(dir, "Anime - 03.part"), "");
+      writeFileSync(join(dir, "readme.txt"), "");
+      symlinkSync(join(dir, "Anime - 01.mkv"), join(dir, "link.mkv"));
+
+      const files = discoverFiles(dir, [".mkv"], [".part"]);
+
+      expect(files).toHaveLength(2);
+      expect(files.every((f) => f.endsWith(".mkv"))).toBe(true);
+      expect(files.some((f) => f.endsWith(".part"))).toBe(false);
+      expect(files.some((f) => f.endsWith("link.mkv"))).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

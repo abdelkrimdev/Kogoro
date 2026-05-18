@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from "node:fs";
+import { lstatSync, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../config/config-manager.ts";
@@ -8,7 +8,7 @@ import type { MatchResult } from "../matcher.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
 import type { ParsedResult } from "../parser.ts";
 import { type FileAction, Renamer } from "../renamer.ts";
-import { Scanner, type ScanResult } from "../scanner.ts";
+import { Scanner } from "../scanner.ts";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
@@ -24,11 +24,53 @@ export interface ScanOptions {
   yes?: boolean;
   force?: boolean;
   action?: FileAction;
+  verbose?: boolean;
+  quiet?: boolean;
+  debug?: boolean;
+  json?: boolean;
+  concurrency?: number;
 }
 
 const DEFAULT_EXTENSIONS = [".mkv", ".mp4", ".avi", ".mov"];
 const DEFAULT_FILENAME_TEMPLATE = "{anime} - {season}x{episode:02} - {title}.{ext}";
 const DEFAULT_DIRECTORY_TEMPLATE = "{anime}/{type}";
+
+const DEFAULT_EXCLUDE_PATTERNS = [".part", ".crdownload", "!qb"];
+
+function walkDir(
+  dir: string,
+  extensions: string[],
+  excludePatterns: string[],
+  results: string[],
+): void {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) {
+      walkDir(fullPath, extensions, excludePatterns, results);
+    } else if (entry.isFile()) {
+      const ext = extname(entry.name).toLowerCase();
+      if (!extensions.includes(ext)) continue;
+      if (excludePatterns.some((p) => entry.name.includes(p))) continue;
+      results.push(fullPath);
+    }
+  }
+}
+
+export function discoverFiles(
+  path: string,
+  extensions: string[],
+  excludePatterns?: string[],
+): string[] {
+  if (lstatSync(path).isDirectory()) {
+    const results: string[] = [];
+    const patterns = excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS;
+    walkDir(path, extensions, patterns, results);
+    return results;
+  }
+  return [path];
+}
 
 function getFilenameTemplate(config?: ConfigManager): string {
   return config?.get("template.string") ?? DEFAULT_FILENAME_TEMPLATE;
@@ -128,33 +170,83 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const yes = scanOptions?.yes ?? false;
       const force = scanOptions?.force ?? false;
       const action = scanOptions?.action;
+      const verbose = scanOptions?.verbose ?? false;
+      const quiet = scanOptions?.quiet ?? false;
+      const outputJson = scanOptions?.json ?? false;
+      const configConcurrency = options.config ? Number(options.config.get("concurrency")) : NaN;
+      const concurrency =
+        scanOptions?.concurrency ?? (Number.isNaN(configConcurrency) ? 1 : configConcurrency);
 
-      const isDir = statSync(path).isDirectory();
-      const filePaths = isDir
-        ? readdirSync(path)
-            .filter((f) => {
-              const fullPath = join(path, f);
-              return statSync(fullPath).isFile() && extensions.includes(extname(f).toLowerCase());
-            })
-            .map((f) => join(path, f))
-        : [path];
+      const filePaths = discoverFiles(path, extensions);
 
-      const results: ScanResult[] = [];
-
-      for (const filePath of filePaths) {
-        const scanFileOptions = {
-          force,
-          dryRun,
-          action,
-          onAmbiguous: yes ? undefined : resolveAmbiguous,
-          onFailed: yes ? undefined : resolveFailed,
-        };
-
-        const result = await scanner.scanFile(filePath, scanFileOptions);
-        results.push(result);
+      if (filePaths.length === 0) {
+        return JSON.stringify([]);
       }
 
-      return JSON.stringify(results, null, 2);
+      // Pass 1: scan all files without interactive prompts
+      if (!quiet && !verbose) {
+        console.log(`Scanning ${filePaths.length} file(s)...`);
+      }
+
+      const allResults = await scanner.scanBatch(filePaths, {
+        force,
+        dryRun,
+        action,
+        concurrency,
+        onProgress: (p) => {
+          if (verbose && !quiet) {
+            console.log(`[${p.status.toUpperCase()}] ${p.file}`);
+          } else if (!quiet) {
+            const pct = ((p.completed / p.total) * 100).toFixed(0);
+            process.stdout.write(`\r[${p.completed}/${p.total}] Processing... (${pct}%)`);
+            if (p.completed === p.total) {
+              process.stdout.write("\n");
+            }
+          }
+        },
+      });
+
+      // Pass 2: resolve pending (ambiguous/failed) files interactively if not -y
+      const pendingIndices = allResults.reduce<number[]>((acc, r, i) => {
+        if (r.status === "ambiguous" || r.status === "failed") acc.push(i);
+        return acc;
+      }, []);
+
+      if (!yes && pendingIndices.length > 0) {
+        if (!quiet) {
+          console.log(`\nResolving ${pendingIndices.length} pending file(s)...`);
+        }
+        for (const idx of pendingIndices) {
+          const result = allResults[idx];
+          if (!result) continue;
+          const updated = await scanner.scanFile(result.file, {
+            force,
+            dryRun,
+            action,
+            onAmbiguous: resolveAmbiguous,
+            onFailed: resolveFailed,
+          });
+          allResults[idx] = updated;
+        }
+      }
+
+      // Summary
+      if (!quiet) {
+        const matched = allResults.filter((r) => r.status === "matched").length;
+        const cached = allResults.filter((r) => r.status === "cached").length;
+        const skipped = allResults.filter((r) => r.status === "skipped").length;
+        const ambiguous = allResults.filter((r) => r.status === "ambiguous").length;
+        const failed = allResults.filter((r) => r.status === "failed").length;
+        console.log(
+          `Summary: ${matched} matched, ${ambiguous} unresolved, ${failed} failed, ${cached + skipped} skipped (already organized)`,
+        );
+      }
+
+      if (outputJson) {
+        return JSON.stringify(allResults, null, 2);
+      }
+
+      return JSON.stringify(allResults, null, 2);
     },
   };
 }
