@@ -1,0 +1,343 @@
+import { describe, expect, test } from "bun:test";
+import { AniDBAdapter } from "../src/db/anidb-adapter.ts";
+import type { DatabasePlugin } from "../src/db/database-plugin.ts";
+
+function mockFetch(
+  data: string,
+  status = 200,
+): (url: string | URL, init?: RequestInit) => Promise<Response> {
+  return async (_url: string | URL, _init?: RequestInit) => {
+    return new Response(data, {
+      status,
+      headers: { "Content-Type": "application/xml" },
+    });
+  };
+}
+
+const animetitlesXml = `<?xml version="1.0" encoding="UTF-8"?>
+<animetitles>
+  <anime aid="12345" year="2020">
+    <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
+    <title type="official" lang="ja" xml:lang="ja">呪術廻戦</title>
+  </anime>
+  <anime aid="67890" year="2013">
+    <title type="main" lang="en" xml:lang="en">Attack on Titan</title>
+    <title type="official" lang="ja" xml:lang="ja">進撃の巨人</title>
+  </anime>
+</animetitles>`;
+
+describe("AniDBAdapter", () => {
+  describe("searchAnime", () => {
+    test("returns AnimeResult array from animetitles XML", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(animetitlesXml),
+      });
+      const results = await adapter.searchAnime("Jujutsu Kaisen");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.id).toBe("12345");
+      expect(results[0]?.title).toBe("Jujutsu Kaisen");
+      expect(results[0]?.originalTitle).toBe("呪術廻戦");
+      expect(results[0]?.year).toBe(2020);
+    });
+
+    test("returns empty array for no matching title", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(animetitlesXml),
+      });
+      const results = await adapter.searchAnime("Nonexistent Anime");
+      expect(results).toEqual([]);
+    });
+
+    test("matches case-insensitively", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(animetitlesXml),
+      });
+      const results = await adapter.searchAnime("attack on titan");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.id).toBe("67890");
+    });
+
+    test("matches partial titles", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(animetitlesXml),
+      });
+      const results = await adapter.searchAnime("Titan");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.id).toBe("67890");
+    });
+
+    test("skips anime with no English title", async () => {
+      const xmlWithNoEnglishTitle = `<?xml version="1.0" encoding="UTF-8"?>
+<animetitles>
+  <anime aid="99999" year="2021">
+    <title type="main" lang="ja" xml:lang="ja">日本語のみ</title>
+  </anime>
+  <anime aid="12345" year="2020">
+    <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
+  </anime>
+</animetitles>`;
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(xmlWithNoEnglishTitle),
+      });
+      const results = await adapter.searchAnime("Jujutsu");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.id).toBe("12345");
+    });
+  });
+
+  describe("getEpisodes", () => {
+    const animeXml = `<?xml version="1.0" encoding="UTF-8"?>
+<anime>
+  <id>12345</id>
+  <type>TV Series</type>
+  <episodecount>2</episodecount>
+  <startdate>2020-10-03</startdate>
+  <enddate>2020-10-10</enddate>
+  <titles>
+    <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
+    <title type="official" lang="ja" xml:lang="ja">呪術廻戦</title>
+  </titles>
+  <picture>12345.jpg</picture>
+  <description>A boy fights curses.</description>
+  <episodes>
+    <episode id="1001">
+      <epno>1</epno>
+      <length>24</length>
+      <airdate>2020-10-03</airdate>
+      <rating>8.5</rating>
+      <title>Ryomen Sukuna</title>
+    </episode>
+    <episode id="1002">
+      <epno>2</epno>
+      <length>24</length>
+      <airdate>2020-10-10</airdate>
+      <rating>8.7</rating>
+      <title>For Myself</title>
+    </episode>
+  </episodes>
+</anime>`;
+
+    test("returns EpisodeResult array from anime XML", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(animeXml),
+      });
+      const results = await adapter.getEpisodes("12345");
+      expect(results).toHaveLength(2);
+      expect(results[0]?.id).toBe("1001");
+      expect(results[0]?.episode).toBe(1);
+      expect(results[0]?.title).toBe("Ryomen Sukuna");
+      expect(results[0]?.airDate).toBe("2020-10-03");
+      expect(results[0]?.entryType).toBe("tv");
+      expect(results[1]?.id).toBe("1002");
+      expect(results[1]?.episode).toBe(2);
+      expect(results[1]?.title).toBe("For Myself");
+    });
+
+    test("returns empty array on API failure", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch("", 404),
+      });
+      const results = await adapter.getEpisodes("99999");
+      expect(results).toEqual([]);
+    });
+
+    test("returns empty array when no episodes element", async () => {
+      const xmlWithoutEpisodes = `<?xml version="1.0"?>
+<anime>
+  <id>12345</id>
+  <type>Movie</type>
+  <titles>
+    <title type="main" lang="en" xml:lang="en">Some Movie</title>
+  </titles>
+</anime>`;
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(xmlWithoutEpisodes),
+      });
+      const results = await adapter.getEpisodes("12345");
+      expect(results).toEqual([]);
+    });
+
+    test("maps anime type to entry type", async () => {
+      const movieXml = `<?xml version="1.0"?>
+<anime>
+  <id>111</id>
+  <type>Movie</type>
+  <episodes>
+    <episode id="1"><epno>1</epno><title>Movie Title</title></episode>
+  </episodes>
+</anime>`;
+      const ovaXml = `<?xml version="1.0"?>
+<anime>
+  <id>222</id>
+  <type>OVA</type>
+  <episodes>
+    <episode id="2"><epno>1</epno><title>OVA Title</title></episode>
+  </episodes>
+</anime>`;
+      const specialXml = `<?xml version="1.0"?>
+<anime>
+  <id>333</id>
+  <type>Special</type>
+  <episodes>
+    <episode id="3"><epno>1</epno><title>Special Title</title></episode>
+  </episodes>
+</anime>`;
+      const tvSpecialXml = `<?xml version="1.0"?>
+<anime>
+  <id>444</id>
+  <type>TV Special</type>
+  <episodes>
+    <episode id="4"><epno>1</epno><title>TV Special Title</title></episode>
+  </episodes>
+</anime>`;
+
+      const movieAdapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(movieXml),
+      });
+      const ovaAdapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(ovaXml),
+      });
+      const specialAdapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(specialXml),
+      });
+      const tvSpecialAdapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(tvSpecialXml),
+      });
+
+      expect((await movieAdapter.getEpisodes("111"))[0]?.entryType).toBe("movie");
+      expect((await ovaAdapter.getEpisodes("222"))[0]?.entryType).toBe("ova");
+      expect((await specialAdapter.getEpisodes("333"))[0]?.entryType).toBe("special");
+      expect((await tvSpecialAdapter.getEpisodes("444"))[0]?.entryType).toBe("special");
+    });
+
+    test("uses absolute episode number from epno", async () => {
+      const multiSeasonXml = `<?xml version="1.0"?>
+<anime>
+  <id>12345</id>
+  <type>TV Series</type>
+  <episodes>
+    <episode id="1"><epno>25</epno><title>Episode 25</title></episode>
+    <episode id="2"><epno>26</epno><title>Episode 26</title></episode>
+  </episodes>
+</anime>`;
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(multiSeasonXml),
+      });
+      const results = await adapter.getEpisodes("12345");
+      expect(results).toHaveLength(2);
+      expect(results[0]?.episode).toBe(25);
+      expect(results[1]?.episode).toBe(26);
+    });
+  });
+
+  describe("getArtwork", () => {
+    const animeWithPictureXml = `<?xml version="1.0" encoding="UTF-8"?>
+<anime>
+  <id>12345</id>
+  <type>TV Series</type>
+  <picture>12345.jpg</picture>
+  <description>A boy fights curses.</description>
+</anime>`;
+
+    const animeWithoutPictureXml = `<?xml version="1.0" encoding="UTF-8"?>
+<anime>
+  <id>67890</id>
+  <type>TV Series</type>
+  <description>No picture.</description>
+</anime>`;
+
+    test("returns poster artwork from anime picture", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(animeWithPictureXml),
+      });
+      const results = await adapter.getArtwork("12345", "poster");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.type).toBe("poster");
+      expect(results[0]?.url).toBe("https://cdn.anidb.net/images/main/12345.jpg");
+    });
+
+    test("returns empty array when no picture element", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(animeWithoutPictureXml),
+      });
+      const results = await adapter.getArtwork("67890", "poster");
+      expect(results).toEqual([]);
+    });
+
+    test("returns empty array for non-poster artwork types", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(animeWithPictureXml),
+      });
+      const fanartResults = await adapter.getArtwork("12345", "fanart");
+      expect(fanartResults).toEqual([]);
+      const bannerResults = await adapter.getArtwork("12345", "banner");
+      expect(bannerResults).toEqual([]);
+    });
+
+    test("returns empty array on API failure", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch("", 404),
+      });
+      const results = await adapter.getArtwork("99999", "poster");
+      expect(results).toEqual([]);
+    });
+  });
+
+  describe("error handling", () => {
+    test("returns empty array on API failure for searchAnime", async () => {
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch("", 500),
+      });
+      const results = await adapter.searchAnime("Jujutsu Kaisen");
+      expect(results).toEqual([]);
+    });
+  });
+});
+
+describe("DatabasePlugin interface", () => {
+  test("interface is defined", () => {
+    const adapter: DatabasePlugin = new AniDBAdapter({
+      client: "kogoro",
+      clientver: "1",
+    });
+    expect(adapter.searchAnime).toBeInstanceOf(Function);
+    expect(adapter.getEpisodes).toBeInstanceOf(Function);
+    expect(adapter.getArtwork).toBeInstanceOf(Function);
+  });
+});

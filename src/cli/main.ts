@@ -2,6 +2,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { getDefaultPrompts } from "../config/config-wizard.ts";
 import { CredentialStore } from "../config/credential-store.ts";
+import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { parse } from "../parser.ts";
 import { render } from "../template-engine.ts";
@@ -10,9 +11,7 @@ import { createDBCommands } from "./db-commands.ts";
 import { createMatchHandlers } from "./match-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 
-async function withTVDBCredentials<T>(
-  factory: (adapter: TVDBAdapter) => T,
-): Promise<T | undefined> {
+async function createTVDBCommandsWithCredentials() {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
@@ -20,7 +19,44 @@ async function withTVDBCredentials<T>(
     return undefined;
   }
   const adapter = new TVDBAdapter({ apiKey });
-  return factory(adapter);
+  return createDBCommands(adapter);
+}
+
+async function createAniDBCommandsWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const credential = await credentialStore.getCredential("anidb");
+  if (!credential) {
+    console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const [client, clientver] = credential.split(":", 2);
+  const adapter = new AniDBAdapter({
+    client: client ?? credential,
+    clientver: clientver ?? "1",
+  });
+  return createDBCommands(adapter);
+}
+
+async function createScanWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const apiKey = await credentialStore.getCredential("tvdb");
+  if (!apiKey) {
+    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const adapter = new TVDBAdapter({ apiKey });
+  return createScanHandlers({ database: adapter });
+}
+
+async function createMatchWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const apiKey = await credentialStore.getCredential("tvdb");
+  if (!apiKey) {
+    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const adapter = new TVDBAdapter({ apiKey });
+  return createMatchHandlers({ database: adapter });
 }
 
 export function run(argv: string[]): string | undefined {
@@ -39,9 +75,7 @@ export function run(argv: string[]): string | undefined {
           describe: "Path to a directory or MediaFile to scan",
         }),
       async (argv) => {
-        const handlers = await withTVDBCredentials((adapter) =>
-          createScanHandlers({ database: adapter }),
-        );
+        const handlers = await createScanWithCredentials();
         if (!handlers) return;
         try {
           const output = await handlers.scan(argv.path);
@@ -158,12 +192,12 @@ export function run(argv: string[]): string | undefined {
     )
     .command(
       "db",
-      "Query TVDB database for Anime and Episode data",
+      "Query databases for Anime and Episode data",
       (yargs) =>
         yargs
           .command(
             "search <title>",
-            "Search for Anime by title and print results as JSON",
+            "Search for Anime by title on TVDB and print results as JSON",
             (yargs) =>
               yargs.positional("title", {
                 type: "string",
@@ -171,7 +205,7 @@ export function run(argv: string[]): string | undefined {
                 describe: "Anime title to search for",
               }),
             async (argv) => {
-              const commands = await withTVDBCredentials((adapter) => createDBCommands(adapter));
+              const commands = await createTVDBCommandsWithCredentials();
               if (!commands) return;
               await commands.search(argv.title, console.log, console.error);
             },
@@ -186,12 +220,50 @@ export function run(argv: string[]): string | undefined {
                 describe: "TVDB Anime ID",
               }),
             async (argv) => {
-              const commands = await withTVDBCredentials((adapter) => createDBCommands(adapter));
+              const commands = await createTVDBCommandsWithCredentials();
               if (!commands) return;
               await commands.episodes(argv.animeId, console.log, console.error);
             },
           )
-          .demandCommand(1, "Please specify a db action: search or episodes"),
+          .command(
+            "anidb",
+            "Query AniDB database for Anime and Episode data",
+            (yargs) =>
+              yargs
+                .command(
+                  "search <title>",
+                  "Search for Anime by title on AniDB and print results as JSON",
+                  (yargs) =>
+                    yargs.positional("title", {
+                      type: "string",
+                      demandOption: true,
+                      describe: "Anime title to search for",
+                    }),
+                  async (argv) => {
+                    const commands = await createAniDBCommandsWithCredentials();
+                    if (!commands) return;
+                    await commands.search(argv.title, console.log, console.error);
+                  },
+                )
+                .command(
+                  "episodes <animeId>",
+                  "Get episodes for an Anime by AniDB AID and print as JSON",
+                  (yargs) =>
+                    yargs.positional("animeId", {
+                      type: "string",
+                      demandOption: true,
+                      describe: "AniDB Anime ID",
+                    }),
+                  async (argv) => {
+                    const commands = await createAniDBCommandsWithCredentials();
+                    if (!commands) return;
+                    await commands.episodes(argv.animeId, console.log, console.error);
+                  },
+                )
+                .demandCommand(1, "Please specify an anidb action: search or episodes"),
+            () => {},
+          )
+          .demandCommand(1, "Please specify a db action: search, episodes, or anidb"),
       () => {},
     )
     .command(
@@ -204,9 +276,7 @@ export function run(argv: string[]): string | undefined {
           describe: "The filename to parse and match",
         }),
       async (argv) => {
-        const handlers = await withTVDBCredentials((adapter) =>
-          createMatchHandlers({ database: adapter }),
-        );
+        const handlers = await createMatchWithCredentials();
         if (!handlers) return;
         await handlers.match(argv.filename, console.log, console.error);
       },
