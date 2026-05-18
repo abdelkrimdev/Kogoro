@@ -10,7 +10,9 @@ import { createDBCommands } from "./db-commands.ts";
 import { createMatchHandlers } from "./match-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 
-async function createDBCommandsWithCredentials() {
+async function withTVDBCredentials<T>(
+  factory: (adapter: TVDBAdapter) => T,
+): Promise<T | undefined> {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
@@ -18,29 +20,7 @@ async function createDBCommandsWithCredentials() {
     return undefined;
   }
   const adapter = new TVDBAdapter({ apiKey });
-  return createDBCommands(adapter);
-}
-
-async function createScanWithCredentials() {
-  const credentialStore = new CredentialStore();
-  const apiKey = await credentialStore.getCredential("tvdb");
-  if (!apiKey) {
-    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-    return undefined;
-  }
-  const adapter = new TVDBAdapter({ apiKey });
-  return createScanHandlers({ database: adapter });
-}
-
-async function createMatchWithCredentials() {
-  const credentialStore = new CredentialStore();
-  const apiKey = await credentialStore.getCredential("tvdb");
-  if (!apiKey) {
-    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-    return undefined;
-  }
-  const adapter = new TVDBAdapter({ apiKey });
-  return createMatchHandlers({ database: adapter });
+  return factory(adapter);
 }
 
 export function run(argv: string[]): string | undefined {
@@ -59,7 +39,9 @@ export function run(argv: string[]): string | undefined {
           describe: "Path to a directory or MediaFile to scan",
         }),
       async (argv) => {
-        const handlers = await createScanWithCredentials();
+        const handlers = await withTVDBCredentials((adapter) =>
+          createScanHandlers({ database: adapter }),
+        );
         if (!handlers) return;
         try {
           const output = await handlers.scan(argv.path);
@@ -189,7 +171,7 @@ export function run(argv: string[]): string | undefined {
                 describe: "Anime title to search for",
               }),
             async (argv) => {
-              const commands = await createDBCommandsWithCredentials();
+              const commands = await withTVDBCredentials((adapter) => createDBCommands(adapter));
               if (!commands) return;
               await commands.search(argv.title, console.log, console.error);
             },
@@ -204,7 +186,7 @@ export function run(argv: string[]): string | undefined {
                 describe: "TVDB Anime ID",
               }),
             async (argv) => {
-              const commands = await createDBCommandsWithCredentials();
+              const commands = await withTVDBCredentials((adapter) => createDBCommands(adapter));
               if (!commands) return;
               await commands.episodes(argv.animeId, console.log, console.error);
             },
@@ -222,7 +204,9 @@ export function run(argv: string[]): string | undefined {
           describe: "The filename to parse and match",
         }),
       async (argv) => {
-        const handlers = await createMatchWithCredentials();
+        const handlers = await withTVDBCredentials((adapter) =>
+          createMatchHandlers({ database: adapter }),
+        );
         if (!handlers) return;
         await handlers.match(argv.filename, console.log, console.error);
       },

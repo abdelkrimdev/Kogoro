@@ -32,6 +32,14 @@ function diceSimilarity(a: string, b: string): number {
   return (2 * intersection) / (bigramsA.size + bigramsB.size);
 }
 
+function emptyAnimeResult(): AnimeResult {
+  return { id: "", title: "", entryType: "tv" };
+}
+
+function noMatch(failureReason: string): MatchResult[] {
+  return [{ anime: emptyAnimeResult(), score: 0, failureReason }];
+}
+
 export class Matcher {
   private db: DatabasePlugin;
 
@@ -40,12 +48,14 @@ export class Matcher {
   }
 
   async match(parsed: ParsedResult): Promise<MatchResult[]> {
-    if (!parsed.title)
-      return [{ anime: {} as AnimeResult, score: 0, failureReason: "No title parsed" }];
+    if (!parsed.title) {
+      return noMatch("No title parsed");
+    }
 
     const animeList = await this.db.searchAnime(parsed.title);
-    if (animeList.length === 0)
-      return [{ anime: {} as AnimeResult, score: 0, failureReason: "No anime found" }];
+    if (animeList.length === 0) {
+      return noMatch("No anime found");
+    }
 
     const results: MatchResult[] = [];
 
