@@ -1,0 +1,91 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import type { EntryType } from "./db/types.ts";
+
+export interface OverrideData {
+  animeId?: string;
+  episodeId?: string;
+  entryType?: EntryType;
+}
+
+function tomlValue(value: unknown): string {
+  if (typeof value === "string") {
+    if (value.includes('"') || value.includes("\n")) return JSON.stringify(value);
+    return `"${value}"`;
+  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+export class OverrideStore {
+  private dir: string;
+  private path: string;
+  private overrides: Map<string, OverrideData> = new Map();
+
+  constructor(dir: string) {
+    this.dir = dir;
+    this.path = join(dir, "kogoro.toml");
+    this.load();
+  }
+
+  private load(): void {
+    if (!existsSync(this.path)) return;
+    const raw = readFileSync(this.path, "utf-8");
+    const parsed = Bun.TOML.parse(raw) as Record<string, unknown>;
+    // biome-ignore lint/complexity/useLiteralKeys: tsc requires bracket notation for index signatures
+    const overridesSection = parsed["overrides"] as
+      | Record<string, Record<string, unknown>>
+      | undefined;
+    if (!overridesSection) return;
+    for (const [hash, data] of Object.entries(overridesSection)) {
+      this.overrides.set(hash, {
+        animeId: data["anime-id"] as string | undefined,
+        episodeId: data["episode-id"] as string | undefined,
+        entryType: data["entry-type"] as EntryType | undefined,
+      });
+    }
+  }
+
+  private save(): void {
+    if (!existsSync(this.dir)) {
+      mkdirSync(this.dir, { recursive: true });
+    }
+    const lines: string[] = [];
+    const entries = Array.from(this.overrides.entries());
+    if (entries.length > 0) lines.push("[overrides]");
+    for (const [hash, override] of entries) {
+      const quotedHash = JSON.stringify(hash);
+      if (override.animeId !== undefined) {
+        lines.push(`${quotedHash}.anime-id = ${tomlValue(override.animeId)}`);
+      }
+      if (override.episodeId !== undefined) {
+        lines.push(`${quotedHash}.episode-id = ${tomlValue(override.episodeId)}`);
+      }
+      if (override.entryType !== undefined) {
+        lines.push(`${quotedHash}.entry-type = ${tomlValue(override.entryType)}`);
+      }
+    }
+    const content = lines.length > 0 ? `${lines.join("\n")}\n` : "";
+    writeFileSync(this.path, content);
+  }
+
+  get(hash: string): OverrideData | undefined {
+    return this.overrides.get(hash);
+  }
+
+  set(hash: string, override: OverrideData): void {
+    this.overrides.set(hash, override);
+    this.save();
+  }
+
+  remove(hash: string): boolean {
+    const existed = this.overrides.has(hash);
+    this.overrides.delete(hash);
+    if (existed) this.save();
+    return existed;
+  }
+
+  list(): Array<{ hash: string; data: OverrideData }> {
+    return Array.from(this.overrides.entries()).map(([hash, data]) => ({ hash, data }));
+  }
+}

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createConfigHandlers } from "../src/cli/config-commands.ts";
 import { ConfigManager } from "../src/config/config-manager.ts";
+import { OverrideStore } from "../src/override-store.ts";
 
 describe("Config CLI commands", () => {
   function setupTempDir(): string {
@@ -79,5 +80,144 @@ describe("Config CLI commands", () => {
     } finally {
       cleanupTempDir(dir);
     }
+  });
+
+  describe("config override", () => {
+    function setupTempDir(): string {
+      return mkdtempSync(join(tmpdir(), "kogoro-override-cli-"));
+    }
+
+    function cleanupTempDir(dir: string) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+
+    test("override set stores an override in kogoro.toml", async () => {
+      const dir = setupTempDir();
+      try {
+        const handlers = createConfigHandlers({ overrideDir: dir });
+        let output = "";
+        await handlers.overrideSet(
+          "hash1",
+          { animeId: "tvdb-42", episodeId: "ep-5", entryType: "tv" },
+          (msg) => {
+            output = msg;
+          },
+          () => {},
+        );
+        expect(output).toContain("hash1");
+
+        const store = new OverrideStore(dir);
+        expect(store.get("hash1")).toEqual({
+          animeId: "tvdb-42",
+          episodeId: "ep-5",
+          entryType: "tv",
+        });
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("override list returns all overrides as JSON", async () => {
+      const dir = setupTempDir();
+      try {
+        const store = new OverrideStore(dir);
+        store.set("hash1", { animeId: "tvdb-1", entryType: "movie" });
+        store.set("hash2", { animeId: "tvdb-2" });
+
+        const handlers = createConfigHandlers({ overrideDir: dir });
+        let output = "";
+        await handlers.overrideList(
+          (msg) => {
+            output = msg;
+          },
+          () => {},
+        );
+        const parsed = JSON.parse(output);
+        expect(parsed).toHaveLength(2);
+        expect(parsed.find((i: { hash: string }) => i.hash === "hash1")?.data.animeId).toBe(
+          "tvdb-1",
+        );
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("override remove deletes an existing override", async () => {
+      const dir = setupTempDir();
+      try {
+        const store1 = new OverrideStore(dir);
+        store1.set("hash1", { animeId: "tvdb-42" });
+
+        const handlers = createConfigHandlers({ overrideDir: dir });
+        let output = "";
+        await handlers.overrideRemove(
+          "hash1",
+          (msg) => {
+            output = msg;
+          },
+          () => {},
+        );
+        expect(output).toContain("Removed");
+
+        const store2 = new OverrideStore(dir);
+        expect(store2.get("hash1")).toBeUndefined();
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("override remove returns error for non-existent hash", async () => {
+      const dir = setupTempDir();
+      try {
+        const handlers = createConfigHandlers({ overrideDir: dir });
+        let errOutput = "";
+        await handlers.overrideRemove(
+          "nonexistent",
+          () => {},
+          (msg) => {
+            errOutput = msg;
+          },
+        );
+        expect(errOutput).toContain("not found");
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("override set with minimal fields (animeId only)", async () => {
+      const dir = setupTempDir();
+      try {
+        const handlers = createConfigHandlers({ overrideDir: dir });
+        await handlers.overrideSet(
+          "hash1",
+          { animeId: "tvdb-99" },
+          () => {},
+          () => {},
+        );
+
+        const store = new OverrideStore(dir);
+        expect(store.get("hash1")).toEqual({ animeId: "tvdb-99" });
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("override set with entryType only", async () => {
+      const dir = setupTempDir();
+      try {
+        const handlers = createConfigHandlers({ overrideDir: dir });
+        await handlers.overrideSet(
+          "hash1",
+          { entryType: "special" },
+          () => {},
+          () => {},
+        );
+
+        const store = new OverrideStore(dir);
+        expect(store.get("hash1")).toEqual({ entryType: "special" });
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
   });
 });

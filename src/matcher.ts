@@ -1,5 +1,6 @@
 import type { DatabasePlugin } from "./db/database-plugin.ts";
 import type { AnimeResult, EpisodeResult } from "./db/types.ts";
+import type { OverrideStore } from "./override-store.ts";
 import type { ParsedResult } from "./parser.ts";
 
 export interface MatchResult {
@@ -11,6 +12,7 @@ export interface MatchResult {
 
 export interface MatcherOptions {
   database: DatabasePlugin;
+  overrideStore?: OverrideStore;
 }
 
 function createBigrams(s: string): Set<string> {
@@ -42,12 +44,36 @@ function noMatch(failureReason: string): MatchResult[] {
 
 export class Matcher {
   private db: DatabasePlugin;
+  private overrideStore?: OverrideStore;
 
   constructor(options: MatcherOptions) {
     this.db = options.database;
+    this.overrideStore = options.overrideStore;
   }
 
-  async match(parsed: ParsedResult): Promise<MatchResult[]> {
+  async match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]> {
+    if (fileHash !== undefined) {
+      const override = this.overrideStore?.get(fileHash);
+      if (override?.animeId) {
+        const anime: AnimeResult = {
+          id: override.animeId,
+          title: "(overridden)",
+          entryType: override.entryType ?? "tv",
+        };
+        const episode: EpisodeResult | undefined = override.episodeId
+          ? {
+              id: override.episodeId,
+              animeId: override.animeId,
+              season: 0,
+              episode: 0,
+              title: "(overridden)",
+              entryType: override.entryType ?? "tv",
+            }
+          : undefined;
+        return [{ anime, episode, score: 1 }];
+      }
+    }
+
     if (!parsed.title) {
       return noMatch("No title parsed");
     }
@@ -75,6 +101,18 @@ export class Matcher {
 
     results.sort((a, b) => b.score - a.score);
 
-    return results;
+    return this.applyOverrideEntryType(results, fileHash);
+  }
+
+  private applyOverrideEntryType(results: MatchResult[], fileHash?: string): MatchResult[] {
+    if (fileHash === undefined) return results;
+    const override = this.overrideStore?.get(fileHash);
+    if (!override?.entryType) return results;
+    const entryType = override.entryType;
+    return results.map((r) => ({
+      ...r,
+      anime: { ...r.anime, entryType },
+      episode: r.episode ? { ...r.episode, entryType } : undefined,
+    }));
   }
 }
