@@ -9,6 +9,7 @@ import { render } from "../template-engine.ts";
 import { createConfigHandlers } from "./config-commands.ts";
 import { createDBCommands } from "./db-commands.ts";
 import { createMatchHandlers } from "./match-commands.ts";
+import { createRenameHandlers } from "./rename-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 
 async function createTVDBCommandsWithCredentials() {
@@ -279,6 +280,48 @@ export function run(argv: string[]): string | undefined {
         const handlers = await createMatchWithCredentials();
         if (!handlers) return;
         await handlers.match(argv.filename, console.log, console.error);
+      },
+    )
+    .command(
+      "rename <source-file>",
+      "Plan and execute a rename for a single MediaFile (debugging CLI)",
+      (yargs) =>
+        yargs
+          .positional("source-file", {
+            type: "string",
+            demandOption: true,
+            describe: "Path to the source MediaFile",
+          })
+          .option("anime", { type: "string", demandOption: true, describe: "Anime title" })
+          .option("type", {
+            type: "string",
+            demandOption: true,
+            describe: "Entry type (tv, movie, ova, special)",
+          })
+          .option("season", { type: "number", describe: "Season number" })
+          .option("episode", { type: "number", describe: "Episode number" })
+          .option("title", { type: "string", describe: "Episode title" })
+          .option("action", {
+            type: "string",
+            choices: ["move", "copy", "symlink", "hardlink"] as const,
+            default: "move",
+            describe: "File operation to perform",
+          }),
+      async (argv) => {
+        const handlers = createRenameHandlers();
+        await handlers.rename(
+          argv["source-file"],
+          {
+            anime: argv.anime,
+            entryType: argv.type,
+            season: argv.season,
+            episode: argv.episode,
+            title: argv.title,
+            action: argv.action as "move" | "copy" | "symlink" | "hardlink",
+          },
+          console.log,
+          console.error,
+        );
       },
     )
     .command(
