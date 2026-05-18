@@ -8,7 +8,7 @@ import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { MatchCache } from "../match-cache.ts";
 import { parse } from "../parser.ts";
-import { type FileAction, Renamer } from "../renamer.ts";
+import type { FileAction } from "../renamer.ts";
 import { render } from "../template-engine.ts";
 import { createCacheHandlers } from "./cache-commands.ts";
 import { createConfigHandlers } from "./config-commands.ts";
@@ -53,11 +53,7 @@ async function createScanWithCredentials() {
   const adapter = new TVDBAdapter({ apiKey });
   const cache = new MatchCache();
   const config = new ConfigManager();
-  const filenameTemplate =
-    config.get("template.string") ?? "{anime} - {season}x{episode:02} - {title}.{ext}";
-  const directoryTemplate = config.get("template.dir") ?? "{anime}/{type}";
-  const renamer = new Renamer({ filenameTemplate, directoryTemplate });
-  return createScanHandlers({ database: adapter, cache, renamer, config });
+  return createScanHandlers({ database: adapter, cache, config });
 }
 
 async function createMatchWithCredentials() {

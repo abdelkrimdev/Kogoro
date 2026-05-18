@@ -66,7 +66,6 @@ describe("Scanner", () => {
       expect(result.plan).not.toBeNull();
       expect(result.plan?.targetFilename).toContain("My Anime");
       expect(result.plan?.action).toBe("move");
-      expect(result.plan?.action).toBe("move");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

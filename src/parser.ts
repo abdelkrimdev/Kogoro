@@ -69,7 +69,7 @@ function tryPatterns(name: string, patterns?: RegExp[]): ParsedResult | null {
   return null;
 }
 
-function createEmptyResult(): ParsedResult {
+export function createEmptyResult(): ParsedResult {
   return {
     title: null,
     season: null,

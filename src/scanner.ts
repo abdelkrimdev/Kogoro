@@ -4,7 +4,7 @@ import type { DatabasePlugin } from "./db/database-plugin.ts";
 import type { EntryType } from "./db/types.ts";
 import { MatchCache } from "./match-cache.ts";
 import { Matcher, type MatchResult } from "./matcher.ts";
-import { type ParsedResult, parse } from "./parser.ts";
+import { createEmptyResult, type ParsedResult, parse } from "./parser.ts";
 import type { FileAction, RenamePlan, Renamer } from "./renamer.ts";
 
 export type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
@@ -37,6 +37,26 @@ export interface ScanFileOptions {
   ) => Promise<{ animeId: string; episode: number; entryType: string } | null>;
 }
 
+function buildManualMatch(manual: {
+  animeId: string;
+  episode: number;
+  entryType: string;
+}): MatchResult {
+  const entryType = manual.entryType as EntryType;
+  return {
+    anime: { id: manual.animeId, title: "", entryType },
+    episode: {
+      id: "",
+      animeId: manual.animeId,
+      season: 1,
+      episode: manual.episode,
+      title: "",
+      entryType,
+    },
+    score: 1,
+  };
+}
+
 export class Scanner {
   private db: DatabasePlugin;
   private matcher: Matcher;
@@ -60,34 +80,31 @@ export class Scanner {
       if (!force) {
         const cached = this.cache.get(hash);
         if (cached) {
+          const match: MatchResult = {
+            anime: {
+              id: cached.animeId,
+              title: cached.title ?? "",
+              entryType: cached.entryType as EntryType,
+            },
+            episode:
+              cached.episodeId && cached.episode !== null
+                ? {
+                    id: cached.episodeId,
+                    animeId: cached.animeId,
+                    season: cached.season ?? 1,
+                    episode: cached.episode,
+                    title: cached.title ?? "",
+                    entryType: cached.entryType as EntryType,
+                  }
+                : undefined,
+            score: 1,
+          };
+
           return {
             file: filePath,
             hash,
-            parsed: {
-              title: null,
-              season: null,
-              episode: null,
-              tags: { group: null, resolution: null, source: null, codec: null, audio: null },
-            },
-            match: {
-              anime: {
-                id: cached.animeId,
-                title: cached.title ?? "",
-                entryType: cached.entryType as EntryType,
-              },
-              episode:
-                cached.episodeId && cached.episode !== null
-                  ? {
-                      id: cached.episodeId,
-                      animeId: cached.animeId,
-                      season: cached.season ?? 1,
-                      episode: cached.episode,
-                      title: cached.title ?? "",
-                      entryType: cached.entryType as EntryType,
-                    }
-                  : undefined,
-              score: 1,
-            },
+            parsed: createEmptyResult(),
+            match,
             plan: null,
             cached: true,
             skipped: true,
@@ -102,24 +119,9 @@ export class Scanner {
 
     if (!parsed.title || matches.length === 0 || matches[0]?.failureReason) {
       const failureReason = matches[0]?.failureReason ?? "No title parsed";
-      if (options?.onFailed) {
-        const manual = await options.onFailed(parsed);
-        if (manual) {
-          const manualMatch: MatchResult = {
-            anime: { id: manual.animeId, title: "", entryType: manual.entryType as EntryType },
-            episode: {
-              id: "",
-              animeId: manual.animeId,
-              season: 1,
-              episode: manual.episode,
-              title: "",
-              entryType: manual.entryType as EntryType,
-            },
-            score: 1,
-          };
-          const result = await this.cacheAndPlan(filePath, hash, parsed, manualMatch, options);
-          return result;
-        }
+      const manual = await this.tryResolveFailed(parsed, options);
+      if (manual) {
+        return this.cacheAndPlan(filePath, hash, parsed, buildManualMatch(manual), options);
       }
       return {
         file: filePath,
@@ -139,24 +141,9 @@ export class Scanner {
     const goodMatches = scoredMatches.filter((m) => (hasEpisode ? m.episode !== undefined : true));
 
     if (goodMatches.length === 0) {
-      if (options?.onFailed) {
-        const manual = await options.onFailed(parsed);
-        if (manual) {
-          const manualMatch: MatchResult = {
-            anime: { id: manual.animeId, title: "", entryType: manual.entryType as EntryType },
-            episode: {
-              id: "",
-              animeId: manual.animeId,
-              season: 1,
-              episode: manual.episode,
-              title: "",
-              entryType: manual.entryType as EntryType,
-            },
-            score: 1,
-          };
-          const result = await this.cacheAndPlan(filePath, hash, parsed, manualMatch, options);
-          return result;
-        }
+      const manual = await this.tryResolveFailed(parsed, options);
+      if (manual) {
+        return this.cacheAndPlan(filePath, hash, parsed, buildManualMatch(manual), options);
       }
       return {
         file: filePath,
@@ -172,15 +159,13 @@ export class Scanner {
     }
 
     if (goodMatches.length === 1 && goodMatches[0]) {
-      const result = await this.cacheAndPlan(filePath, hash, parsed, goodMatches[0], options);
-      return result;
+      return this.cacheAndPlan(filePath, hash, parsed, goodMatches[0], options);
     }
 
     if (options?.onAmbiguous) {
       const resolved = await options.onAmbiguous(goodMatches, parsed);
       if (resolved) {
-        const result = await this.cacheAndPlan(filePath, hash, parsed, resolved, options);
-        return result;
+        return this.cacheAndPlan(filePath, hash, parsed, resolved, options);
       }
     }
 
@@ -196,6 +181,14 @@ export class Scanner {
     };
   }
 
+  private async tryResolveFailed(
+    parsed: ParsedResult,
+    options?: ScanFileOptions,
+  ): Promise<{ animeId: string; episode: number; entryType: string } | null> {
+    if (!options?.onFailed) return null;
+    return await options.onFailed(parsed);
+  }
+
   private async cacheAndPlan(
     filePath: string,
     hash: string,
@@ -203,9 +196,13 @@ export class Scanner {
     match: MatchResult,
     options?: ScanFileOptions,
   ): Promise<ScanResult> {
+    let fileHash = hash;
+
     if (this.cache) {
-      if (!hash) hash = await MatchCache.hashFile(filePath);
-      this.cache.set(hash, {
+      if (!fileHash) {
+        fileHash = await MatchCache.hashFile(filePath);
+      }
+      this.cache.set(fileHash, {
         animeId: match.anime.id,
         episodeId: match.episode?.id ?? null,
         entryType: match.anime.entryType,
@@ -230,7 +227,7 @@ export class Scanner {
 
     return {
       file: filePath,
-      hash,
+      hash: fileHash,
       parsed,
       match,
       plan,

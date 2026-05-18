@@ -149,24 +149,6 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         };
 
         const result = await scanner.scanFile(filePath, scanFileOptions);
-
-        if (result.status === "cached" || result.skipped) {
-          results.push(result);
-          continue;
-        }
-
-        if (result.status === "ambiguous") {
-          if (yes) {
-            results.push(result);
-            continue;
-          }
-        }
-
-        if (result.status === "failed") {
-          results.push(result);
-          continue;
-        }
-
         results.push(result);
       }
 

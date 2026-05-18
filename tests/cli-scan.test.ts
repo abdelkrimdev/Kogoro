@@ -166,8 +166,6 @@ describe("scan CLI commands", () => {
       const output = await handlers.scan(filePath, { yes: true, dryRun: true });
 
       const parsed = JSON.parse(output);
-      // In -y mode, ambiguous should return matched (auto picks first)
-      // Actually, Scanner returns 'ambiguous' when no onAmbiguous callback and multiple matches
       expect(parsed[0]?.status).toBe("ambiguous");
     } finally {
       rmSync(dir, { recursive: true, force: true });
