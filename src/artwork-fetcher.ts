@@ -72,24 +72,14 @@ export class ArtworkFetcher {
         continue;
       }
 
-      let artworks = await this.primaryDb.getArtwork(animeId, "poster");
-
-      if (artworks.length === 0) {
-        for (const db of this.secondaryDbs) {
-          artworks = await db.getArtwork(animeId, "poster");
-          if (artworks.length > 0) break;
-        }
-      }
-
-      if (artworks.length === 0) {
+      const posterUrl = await this.findPosterUrl(animeId);
+      if (!posterUrl) {
         noArtwork++;
         if (onLog) onLog(`[no artwork] ${animeId} — no poster found`);
         continue;
       }
 
-      const artwork = artworks[0];
-      if (!artwork) continue;
-      await this.downloadImage(artwork.url, coverPath);
+      await this.downloadImage(posterUrl, coverPath);
       downloaded++;
       if (onLog) onLog(`[download] ${animeId} → ${coverPath}`);
     }
@@ -109,6 +99,24 @@ export class ArtworkFetcher {
       }
     }
     return files;
+  }
+
+  private async findPosterUrl(animeId: string): Promise<string | undefined> {
+    const primary = await this.primaryDb.getArtwork(animeId, "poster");
+    const [primaryArtwork] = primary;
+    if (primaryArtwork) {
+      return primaryArtwork.url;
+    }
+
+    for (const db of this.secondaryDbs) {
+      const artworks = await db.getArtwork(animeId, "poster");
+      const [artwork] = artworks;
+      if (artwork) {
+        return artwork.url;
+      }
+    }
+
+    return undefined;
   }
 
   private findCommonParent(paths: string[]): string {

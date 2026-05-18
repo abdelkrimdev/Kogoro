@@ -4,6 +4,7 @@ import { hideBin } from "yargs/helpers";
 import { getDefaultPrompts } from "../config/config-wizard.ts";
 import { CredentialStore } from "../config/credential-store.ts";
 import { AniDBAdapter } from "../db/anidb-adapter.ts";
+import type { DatabasePlugin } from "../db/database-plugin.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { parse } from "../parser.ts";
 import type { FileAction } from "../renamer.ts";
@@ -71,11 +72,9 @@ async function createArtworkWithCredentials() {
     console.error("No TVDB API key configured. Run 'kogoro config init' first.");
     return undefined;
   }
-  const primaryDb: import("../db/database-plugin.ts").DatabasePlugin = new TVDBAdapter({
-    apiKey: tvdbKey,
-  });
+  const primaryDb: DatabasePlugin = new TVDBAdapter({ apiKey: tvdbKey });
 
-  const secondaryDbs: import("../db/database-plugin.ts").DatabasePlugin[] = [];
+  const secondaryDbs: DatabasePlugin[] = [];
   const anidbCred = await credentialStore.getCredential("anidb");
   if (anidbCred) {
     const [client, clientver] = anidbCred.split(":", 2);
@@ -131,7 +130,6 @@ export function run(argv: string[]): string | undefined {
           .option("verbose", {
             type: "boolean",
             default: false,
-            alias: "v",
             describe: "Show per-anime status messages",
           }),
       async (argv) => {

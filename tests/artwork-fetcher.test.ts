@@ -3,37 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ArtworkFetcher } from "../src/artwork-fetcher.ts";
-import type { DatabasePlugin } from "../src/db/database-plugin.ts";
-import type { ArtworkResult } from "../src/db/types.ts";
 import { MatchCache } from "../src/match-cache.ts";
-
-function mockFetch(
-  data: string,
-  status = 200,
-): (url: string | URL, init?: RequestInit) => Promise<Response> {
-  return async (_url: string | URL, _init?: RequestInit) => {
-    return new Response(data, {
-      status,
-      headers: { "Content-Type": "image/jpeg" },
-    });
-  };
-}
-
-const testImageBytes = "\xff\xd8\xff\xe0\u0000\u0010JFIF\u0000\u0001";
-
-function createMockDb(artworks: ArtworkResult[]): DatabasePlugin {
-  return {
-    async searchAnime() {
-      return [];
-    },
-    async getEpisodes() {
-      return [];
-    },
-    async getArtwork() {
-      return artworks;
-    },
-  };
-}
+import { createMockDb, mockFetch, testImageBytes } from "./helpers.ts";
 
 describe("ArtworkFetcher", () => {
   function setup() {
