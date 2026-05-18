@@ -4,6 +4,7 @@ import { getDefaultPrompts } from "../config/config-wizard.ts";
 import { parse } from "../parser.ts";
 import { render } from "../template-engine.ts";
 import { createConfigHandlers } from "./config-commands.ts";
+import { createDbHandlers } from "./db-commands.ts";
 
 export function run(argv: string[]): string | undefined {
   let result: string | undefined;
@@ -155,6 +156,56 @@ export function run(argv: string[]): string | undefined {
         }
         result = render(argv.pattern, ctx);
       },
+    )
+    .command(
+      "db",
+      "Query a Database (TVDB) for Anime, Episodes, and Artwork",
+      (yargs) =>
+        yargs
+          .command(
+            "search <title>",
+            "Search for an Anime by title",
+            (yargs) =>
+              yargs.positional("title", {
+                type: "string",
+                demandOption: true,
+                describe: "Anime title to search for",
+              }),
+            async (argv) => {
+              // biome-ignore lint/complexity/useLiteralKeys: env var name requires bracket notation
+              const apiKey = process.env["KOGORO_TVDB_KEY"];
+              const db = createDbHandlers({ apiKey });
+              try {
+                const output = await db.search(argv.title);
+                console.log(output);
+              } catch (err) {
+                console.error(String(err));
+              }
+            },
+          )
+          .command(
+            "episodes <animeId>",
+            "Get episodes for an Anime by TVDB ID",
+            (yargs) =>
+              yargs.positional("animeId", {
+                type: "string",
+                demandOption: true,
+                describe: "TVDB Anime ID",
+              }),
+            async (argv) => {
+              // biome-ignore lint/complexity/useLiteralKeys: env var name requires bracket notation
+              const apiKey = process.env["KOGORO_TVDB_KEY"];
+              const db = createDbHandlers({ apiKey });
+              try {
+                const output = await db.episodes(argv.animeId);
+                console.log(output);
+              } catch (err) {
+                console.error(String(err));
+              }
+            },
+          )
+          .demandCommand(1, "Please specify a db action: search or episodes"),
+      () => {},
     )
     .demandCommand(1, "Please specify a command")
     .help()
