@@ -64,6 +64,7 @@ export class Renamer {
   private directoryTemplate: string;
   private action: FileAction;
   private usedTargets: Set<string>;
+  private executedPlans: Array<RenamePlan & { absTargetPath: string }> = [];
 
   constructor(options: RenamerOptions) {
     this.filenameTemplate = options.filenameTemplate;
@@ -172,22 +173,19 @@ export class Renamer {
       switch (plan.action) {
         case "move":
           renameSync(plan.sourcePath, targetPath);
-          this.executedPlans.push({ ...plan, absTargetPath: targetPath });
           break;
         case "copy":
           copyFileSync(plan.sourcePath, targetPath);
-          this.executedPlans.push({ ...plan, absTargetPath: targetPath });
           break;
         case "symlink":
           symlinkSync(plan.sourcePath, targetPath);
-          this.executedPlans.push({ ...plan, absTargetPath: targetPath });
           break;
         case "hardlink":
           linkSync(plan.sourcePath, targetPath);
-          this.executedPlans.push({ ...plan, absTargetPath: targetPath });
           break;
       }
 
+      this.executedPlans.push({ ...plan, absTargetPath: targetPath });
       return { success: true };
     } catch (err) {
       const error = err as NodeJS.ErrnoException;
@@ -213,27 +211,12 @@ export class Renamer {
     const results: RenameResult[] = [];
     for (const entry of this.executedPlans.reverse()) {
       try {
-        switch (entry.action) {
-          case "move":
-            if (existsSync(entry.absTargetPath)) {
-              renameSync(entry.absTargetPath, entry.sourcePath);
-            }
-            break;
-          case "copy":
-            if (existsSync(entry.absTargetPath)) {
-              unlinkSync(entry.absTargetPath);
-            }
-            break;
-          case "symlink":
-            if (existsSync(entry.absTargetPath)) {
-              unlinkSync(entry.absTargetPath);
-            }
-            break;
-          case "hardlink":
-            if (existsSync(entry.absTargetPath)) {
-              unlinkSync(entry.absTargetPath);
-            }
-            break;
+        if (existsSync(entry.absTargetPath)) {
+          if (entry.action === "move") {
+            renameSync(entry.absTargetPath, entry.sourcePath);
+          } else {
+            unlinkSync(entry.absTargetPath);
+          }
         }
         results.push({ success: true });
       } catch {
@@ -246,6 +229,4 @@ export class Renamer {
     this.executedPlans = [];
     return results;
   }
-
-  private executedPlans: Array<RenamePlan & { absTargetPath: string }> = [];
 }

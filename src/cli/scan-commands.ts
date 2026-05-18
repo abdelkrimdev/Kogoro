@@ -8,7 +8,7 @@ import type { MatchResult } from "../matcher.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
 import { createEmptyResult, type ParsedResult } from "../parser.ts";
 import { type FileAction, Renamer } from "../renamer.ts";
-import { Scanner, type ScanResult } from "../scanner.ts";
+import { Scanner, type ScanProgress, type ScanResult } from "../scanner.ts";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
@@ -215,27 +215,35 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       };
       process.on("SIGINT", onSigint);
 
+      function buildOnProgress(signal: AbortSignal) {
+        return (p: ScanProgress) => {
+          if (verbose && !quiet) {
+            console.log(`[${p.status.toUpperCase()}] ${p.file}`);
+          } else if (!quiet && !signal.aborted) {
+            const pct = ((p.completed / p.total) * 100).toFixed(0);
+            process.stdout.write(`\r[${p.completed}/${p.total}] Processing... (${pct}%)`);
+            if (p.completed === p.total) {
+              process.stdout.write("\n");
+            }
+          }
+        };
+      }
+
+      async function runBatch(dbScanner: Scanner): Promise<ScanResult[]> {
+        return dbScanner.scanBatch(unorganizedFiles, {
+          force,
+          dryRun,
+          action,
+          concurrency,
+          abortSignal: abortController.signal,
+          onProgress: buildOnProgress(abortController.signal),
+        });
+      }
+
       let scanResults: ScanResult[];
       try {
         try {
-          scanResults = await scanner.scanBatch(unorganizedFiles, {
-            force,
-            dryRun,
-            action,
-            concurrency,
-            abortSignal: abortController.signal,
-            onProgress: (p) => {
-              if (verbose && !quiet) {
-                console.log(`[${p.status.toUpperCase()}] ${p.file}`);
-              } else if (!quiet && !abortController.signal.aborted) {
-                const pct = ((p.completed / p.total) * 100).toFixed(0);
-                process.stdout.write(`\r[${p.completed}/${p.total}] Processing... (${pct}%)`);
-                if (p.completed === p.total) {
-                  process.stdout.write("\n");
-                }
-              }
-            },
-          });
+          scanResults = await runBatch(scanner);
         } catch (dbError) {
           if (options.fallbackDatabase && !yes && !interrupted) {
             if (!quiet) {
@@ -250,24 +258,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
                 cache: options.cache,
                 renamer,
               });
-              scanResults = await fallbackScanner.scanBatch(unorganizedFiles, {
-                force,
-                dryRun,
-                action,
-                concurrency,
-                abortSignal: abortController.signal,
-                onProgress: (p) => {
-                  if (verbose && !quiet) {
-                    console.log(`[${p.status.toUpperCase()}] ${p.file}`);
-                  } else if (!quiet && !abortController.signal.aborted) {
-                    const pct = ((p.completed / p.total) * 100).toFixed(0);
-                    process.stdout.write(`\r[${p.completed}/${p.total}] Processing... (${pct}%)`);
-                    if (p.completed === p.total) {
-                      process.stdout.write("\n");
-                    }
-                  }
-                },
-              });
+              scanResults = await runBatch(fallbackScanner);
             } else {
               throw dbError;
             }
