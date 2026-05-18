@@ -5,8 +5,10 @@ import { getDefaultPrompts } from "../config/config-wizard.ts";
 import { CredentialStore } from "../config/credential-store.ts";
 import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
+import { MatchCache } from "../match-cache.ts";
 import { parse } from "../parser.ts";
 import type { FileAction } from "../renamer.ts";
+import { OpenSubtitlesAdapter } from "../subtitle/opensubtitles-adapter.ts";
 import { render } from "../template-engine.ts";
 import { createCacheHandlers } from "./cache-commands.ts";
 import { createConfigHandlers } from "./config-commands.ts";
@@ -14,6 +16,7 @@ import { createDBCommands } from "./db-commands.ts";
 import { createMatchHandlers } from "./match-commands.ts";
 import { createRenameHandlers } from "./rename-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
+import { createSubtitleHandlers } from "./subtitle-commands.ts";
 
 async function createTVDBCommandsWithCredentials() {
   const credentialStore = new CredentialStore();
@@ -63,6 +66,18 @@ async function createMatchWithCredentials() {
   return createMatchHandlers({ database: adapter });
 }
 
+async function createSubtitleWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const apiKey = await credentialStore.getCredential("opensubtitles");
+  if (!apiKey) {
+    console.error("No OpenSubtitles API key configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const adapter = new OpenSubtitlesAdapter({ apiKey });
+  const cache = new MatchCache();
+  return createSubtitleHandlers({ subtitlePlugin: adapter, cache });
+}
+
 export function run(argv: string[]): string | undefined {
   let result: string | undefined;
 
@@ -106,13 +121,31 @@ export function run(argv: string[]): string | undefined {
       "subtitle <path>",
       "Fetch missing subtitles for matched Episodes",
       (yargs) =>
-        yargs.positional("path", {
-          type: "string",
-          demandOption: true,
-          describe: "Path to the organized anime directory",
-        }),
-      () => {
-        console.log("subtitle command — not yet implemented");
+        yargs
+          .positional("path", {
+            type: "string",
+            demandOption: true,
+            describe: "Path to the organized anime directory",
+          })
+          .option("lang", {
+            type: "string",
+            default: "en",
+            describe: "Subtitle language code (e.g. en, ja, fr)",
+          })
+          .option("force", {
+            type: "boolean",
+            default: false,
+            describe: "Overwrite existing subtitle files",
+          }),
+      async (argv) => {
+        const handlers = await createSubtitleWithCredentials();
+        if (!handlers) return;
+        await handlers.fetch(
+          argv.path,
+          { language: argv.lang, force: argv.force },
+          console.log,
+          console.error,
+        );
       },
     )
     .command(
