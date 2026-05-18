@@ -11,5 +11,8 @@
     "rules": {
       "recommended": true
     }
+  },
+  "files": {
+    "includes": ["src/**/*.ts", "tests/**/*.ts"]
   }
 }
