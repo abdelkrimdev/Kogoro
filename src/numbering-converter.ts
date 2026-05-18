@@ -31,13 +31,8 @@ export function absoluteToRelative(
 ): { season: number; episode: number } | null {
   if (allEpisodes.length === 0) return null;
 
-  const sorted = [...allEpisodes].sort((a, b) => {
-    if (a.season !== b.season) return a.season - b.season;
-    return a.episode - b.episode;
-  });
-
   const seasonCounts = new Map<number, number>();
-  for (const ep of sorted) {
+  for (const ep of allEpisodes) {
     seasonCounts.set(ep.season, (seasonCounts.get(ep.season) ?? 0) + 1);
   }
 
@@ -68,13 +63,8 @@ export function convertEpisodeNumbering(
 
   if (sourceScheme === "relative" && preferredScheme === "absolute") {
     const absolute = relativeToAbsolute(season, episode, allEpisodes);
-    if (absolute === null) return null;
-    return { season, episode: absolute };
+    return absolute === null ? null : { season, episode: absolute };
   }
 
-  if (sourceScheme === "absolute" && preferredScheme === "relative") {
-    return absoluteToRelative(episode, allEpisodes);
-  }
-
-  return { season, episode };
+  return absoluteToRelative(episode, allEpisodes);
 }

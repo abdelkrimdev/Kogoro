@@ -16,8 +16,6 @@ export function createScanHandlers(options: ScanHandlerOptions) {
   const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
 
   return {
-    episodeNumbering: options.episodeNumbering,
-
     async scan(path: string): Promise<string> {
       const isDir = statSync(path).isDirectory();
       const results = isDir

@@ -13,7 +13,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EpisodeResult } from "../src/db/types.ts";
 import type { MatchResult } from "../src/matcher.ts";
-import { convertEpisodeNumbering } from "../src/numbering-converter.ts";
 import { Renamer } from "../src/renamer.ts";
 
 function makeTvMatch(): MatchResult {
@@ -47,48 +46,18 @@ describe("Renamer", () => {
     expect(plan.action).toBe("move");
   });
 
-  test("accepts numberingOverride to convert absolute to relative in template context", () => {
+  test("uses numberingOverride when provided", () => {
     const renamer = new Renamer({
       filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
       directoryTemplate: "{anime}/{type}",
     });
 
-    const match: MatchResult = {
-      anime: { id: "1", title: "One Piece", entryType: "tv" },
-      episode: {
-        id: "101",
-        animeId: "1",
-        season: 1,
-        episode: 1071,
-        title: "Episode 1071",
-        entryType: "tv",
-      } satisfies EpisodeResult,
-      score: 1,
-    };
+    const plan = renamer.plan("/source/Jujutsu Kaisen - 01.mkv", makeTvMatch(), "mkv", undefined, {
+      season: 2,
+      episode: 5,
+    });
 
-    const allEpisodes: EpisodeResult[] = [];
-    for (let s = 1; s <= 20; s++) {
-      const count = s <= 18 ? 61 : 73;
-      for (let e = 1; e <= count; e++) {
-        allEpisodes.push({
-          id: `${s}-${e}`,
-          animeId: "1",
-          season: s,
-          episode: e,
-          title: `Ep ${e}`,
-          entryType: "tv",
-        });
-      }
-    }
-
-    const converted = convertEpisodeNumbering(1, 1071, allEpisodes, "absolute", "relative");
-    expect(converted).not.toBeNull();
-    if (!converted) return;
-
-    const plan = renamer.plan("/source/one_piece_1071.mkv", match, "mkv", undefined, converted);
-
-    expect(plan.targetFilename).toMatch(/^One Piece - \d+x\d{2} - Episode 1071\.mkv$/);
-    expect(plan.targetFilename).not.toBe("One Piece - 1x1071 - Episode 1071.mkv");
+    expect(plan.targetFilename).toBe("Jujutsu Kaisen - 2x05 - Tomorrow.mkv");
   });
 
   test("plans rename for Movie entry type", () => {

@@ -5,6 +5,7 @@ import { getDefaultPrompts } from "../config/config-wizard.ts";
 import { CredentialStore } from "../config/credential-store.ts";
 import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
+import type { NumberingScheme } from "../numbering-converter.ts";
 import { parse } from "../parser.ts";
 import type { FileAction } from "../renamer.ts";
 import { render } from "../template-engine.ts";
@@ -41,7 +42,7 @@ async function createAniDBCommandsWithCredentials() {
   return createDBCommands(adapter);
 }
 
-async function createScanWithCredentials(episodeNumbering?: string) {
+async function createScanWithCredentials(episodeNumbering?: NumberingScheme) {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
@@ -49,10 +50,9 @@ async function createScanWithCredentials(episodeNumbering?: string) {
     return undefined;
   }
   const adapter = new TVDBAdapter({ apiKey });
-  const normalized = episodeNumbering as "absolute" | "relative" | undefined;
   return createScanHandlers({
     database: adapter,
-    episodeNumbering: normalized,
+    episodeNumbering,
   });
 }
 
