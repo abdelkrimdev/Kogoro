@@ -8,6 +8,7 @@ import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { parse } from "../parser.ts";
 import type { FileAction } from "../renamer.ts";
 import { render } from "../template-engine.ts";
+import { createArtworkHandlers } from "./artwork-commands.ts";
 import { createCacheHandlers } from "./cache-commands.ts";
 import { createConfigHandlers } from "./config-commands.ts";
 import { createDBCommands } from "./db-commands.ts";
@@ -63,6 +64,29 @@ async function createMatchWithCredentials() {
   return createMatchHandlers({ database: adapter });
 }
 
+async function createArtworkWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const tvdbKey = await credentialStore.getCredential("tvdb");
+  if (!tvdbKey) {
+    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const primaryDb: import("../db/database-plugin.ts").DatabasePlugin = new TVDBAdapter({
+    apiKey: tvdbKey,
+  });
+
+  const secondaryDbs: import("../db/database-plugin.ts").DatabasePlugin[] = [];
+  const anidbCred = await credentialStore.getCredential("anidb");
+  if (anidbCred) {
+    const [client, clientver] = anidbCred.split(":", 2);
+    secondaryDbs.push(
+      new AniDBAdapter({ client: client ?? anidbCred, clientver: clientver ?? "1" }),
+    );
+  }
+
+  return createArtworkHandlers({ primaryDb, secondaryDbs });
+}
+
 export function run(argv: string[]): string | undefined {
   let result: string | undefined;
 
@@ -93,13 +117,32 @@ export function run(argv: string[]): string | undefined {
       "artwork <path>",
       "Fetch missing artwork for matched Anime",
       (yargs) =>
-        yargs.positional("path", {
-          type: "string",
-          demandOption: true,
-          describe: "Path to the organized anime directory",
-        }),
-      () => {
-        console.log("artwork command — not yet implemented");
+        yargs
+          .positional("path", {
+            type: "string",
+            demandOption: true,
+            describe: "Path to the organized anime directory",
+          })
+          .option("force", {
+            type: "boolean",
+            default: false,
+            describe: "Overwrite existing cover.jpg files",
+          })
+          .option("verbose", {
+            type: "boolean",
+            default: false,
+            alias: "v",
+            describe: "Show per-anime status messages",
+          }),
+      async (argv) => {
+        const handlers = await createArtworkWithCredentials();
+        if (!handlers) return;
+        await handlers.process(
+          argv.path,
+          { force: argv.force, verbose: argv.verbose },
+          console.log,
+          console.error,
+        );
       },
     )
     .command(
