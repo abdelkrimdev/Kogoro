@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
 export interface PluginInfo {
@@ -24,24 +24,20 @@ const BUILT_IN_SUBTITLE_PLUGINS: PluginInfo[] = [
 
 export class PluginRegistry {
   private plugins: Map<string, PluginInfo> = new Map();
+  private externalDiscovered = false;
 
   constructor() {
     this.registerBuiltIn();
   }
 
   private registerBuiltIn(): void {
-    for (const plugin of BUILT_IN_DATABASE_PLUGINS) {
-      this.plugins.set(plugin.name, plugin);
-    }
-    for (const plugin of BUILT_IN_SUBTITLE_PLUGINS) {
+    for (const plugin of [...BUILT_IN_DATABASE_PLUGINS, ...BUILT_IN_SUBTITLE_PLUGINS]) {
       this.plugins.set(plugin.name, plugin);
     }
   }
 
   private discoverExternal(): void {
-    const nodeModulesPaths = this.getNodeModulesPaths();
-    for (const nmPath of nodeModulesPaths) {
-      if (!existsSync(nmPath)) continue;
+    for (const nmPath of this.getNodeModulesPaths()) {
       let entries: string[];
       try {
         entries = readdirSync(nmPath);
@@ -62,9 +58,8 @@ export class PluginRegistry {
   private getNodeModulesPaths(): string[] {
     const paths: string[] = [];
     let current = process.cwd();
-    for (let i = 0; i < 10; i++) {
-      const candidate = join(current, "node_modules");
-      paths.push(candidate);
+    while (true) {
+      paths.push(join(current, "node_modules"));
       const parent = join(current, "..");
       if (parent === current) break;
       current = parent;
@@ -74,17 +69,20 @@ export class PluginRegistry {
 
   private inferPluginInfo(packageName: string): PluginInfo | null {
     const name = packageName.replace("kogoro-plugin-", "");
-    const typeSegment = name.includes("subtitle") ? "subtitle" : "database";
+    const type: PluginInfo["type"] = name.includes("subtitle") ? "subtitle" : "database";
     return {
       name,
-      type: typeSegment as "database" | "subtitle",
+      type,
       source: "external",
       description: `External plugin: ${packageName}`,
     };
   }
 
   list(): PluginInfo[] {
-    this.discoverExternal();
+    if (!this.externalDiscovered) {
+      this.discoverExternal();
+      this.externalDiscovered = true;
+    }
     return Array.from(this.plugins.values());
   }
 

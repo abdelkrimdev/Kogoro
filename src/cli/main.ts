@@ -223,11 +223,6 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Show per-anime status messages",
-          })
-          .option("concurrency", {
-            type: "number",
-            default: 1,
-            describe: "Number of anime to process concurrently",
           }),
       async (argv) => {
         const handlers = await createArtworkWithCredentials();
@@ -259,11 +254,6 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing subtitle files",
-          })
-          .option("concurrency", {
-            type: "number",
-            default: 1,
-            describe: "Number of files to process concurrently",
           }),
       async (argv) => {
         const handlers = await createSubtitleWithCredentials();
@@ -290,11 +280,6 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing .nfo files",
-          })
-          .option("concurrency", {
-            type: "number",
-            default: 1,
-            describe: "Number of files to process concurrently",
           }),
       async (argv) => {
         const handlers = createMetadataHandlers();

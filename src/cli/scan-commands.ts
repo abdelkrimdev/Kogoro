@@ -8,7 +8,7 @@ import type { MatchResult } from "../matcher.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
 import { createEmptyResult, type ParsedResult } from "../parser.ts";
 import { type FileAction, Renamer } from "../renamer.ts";
-import { Scanner } from "../scanner.ts";
+import { Scanner, type ScanResult } from "../scanner.ts";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
@@ -39,9 +39,8 @@ const DEFAULT_EXCLUDE_PATTERNS = [".part", ".crdownload", "!qb"];
 const ORGANIZED_DIRS = new Set(["TV", "Movies", "OVA", "Specials"]);
 
 export function isAlreadyOrganized(filePath: string): boolean {
-  const parts = filePath.split(sep);
-  for (let i = 0; i < parts.length - 1; i++) {
-    if (ORGANIZED_DIRS.has(parts[i] ?? "")) return true;
+  for (const part of filePath.split(sep).slice(0, -1)) {
+    if (ORGANIZED_DIRS.has(part)) return true;
   }
   return false;
 }
@@ -222,7 +221,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         },
       });
 
-      const skippedResults = organizedFiles.map((file) => ({
+      const skippedResults: ScanResult[] = organizedFiles.map((file) => ({
         file,
         hash: "",
         parsed: createEmptyResult(),
@@ -230,7 +229,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         plan: null,
         cached: false,
         skipped: true,
-        status: "skipped" as const,
+        status: "skipped",
       }));
 
       const allResults = [...skippedResults, ...scanResults];

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { run } from "../src/cli/main.ts";
+import type { PluginInfo } from "../src/plugin-registry.ts";
 
 describe("kogoro CLI", () => {
   test("project bootstrap is set up", () => {
@@ -46,11 +47,11 @@ describe("kogoro CLI", () => {
     try {
       run(["node", "kogoro", "plugins", "list"]);
       expect(logs.length).toBeGreaterThan(0);
-      const parsed = JSON.parse(logs[0] ?? "[]") as Array<Record<string, unknown>>;
-      const tvdb = parsed.find((p) => p["name"] === "tvdb");
+      const parsed = JSON.parse(logs[0] ?? "[]") as Array<PluginInfo>;
+      const tvdb = parsed.find((p) => p.name === "tvdb");
       expect(tvdb).toBeDefined();
-      expect(tvdb?.["type"]).toBe("database");
-      expect(tvdb?.["source"]).toBe("built-in");
+      expect(tvdb?.type).toBe("database");
+      expect(tvdb?.source).toBe("built-in");
     } finally {
       console.log = origLog;
     }

@@ -73,10 +73,10 @@ describe("subtitle CLI commands", () => {
         tmpDir,
         {},
         (msg: string) => {
-          logOutput += msg + "\n";
+          logOutput += `${msg}\n`;
         },
         (msg: string) => {
-          errOutput += msg + "\n";
+          errOutput += `${msg}\n`;
         },
       );
 
@@ -123,7 +123,7 @@ describe("subtitle CLI commands", () => {
         tmpDir,
         {},
         (msg: string) => {
-          logOutput += msg + "\n";
+          logOutput += `${msg}\n`;
         },
         () => {},
       );
@@ -168,7 +168,7 @@ describe("subtitle CLI commands", () => {
         tmpDir,
         { force: true },
         (msg: string) => {
-          logOutput += msg + "\n";
+          logOutput += `${msg}\n`;
         },
         () => {},
       );
@@ -199,7 +199,7 @@ describe("subtitle CLI commands", () => {
         tmpDir,
         {},
         (msg: string) => {
-          logOutput += msg + "\n";
+          logOutput += `${msg}\n`;
         },
         () => {},
       );
@@ -257,7 +257,7 @@ describe("subtitle CLI commands", () => {
         tmpDir,
         {},
         (msg: string) => {
-          logOutput += msg + "\n";
+          logOutput += `${msg}\n`;
         },
         () => {},
       );
