@@ -78,6 +78,7 @@ export function run(argv: string[]): string | undefined {
       "Test a rename pattern with {placeholder} variables",
       (yargs) =>
         yargs
+          // Allow arbitrary --key value pairs to be passed as template variables
           .strict(false)
           .positional("pattern", {
             type: "string",
@@ -90,9 +91,9 @@ export function run(argv: string[]): string | undefined {
           .option("title", { type: "string", describe: "Episode title" }),
       (argv) => {
         const ctx: Record<string, string | number> = {};
-        const known = new Set(["_", "$0", "pattern", "help", "version"]);
+        const reservedKeys = new Set(["_", "$0", "pattern", "help", "version"]);
         for (const [key, value] of Object.entries(argv)) {
-          if (!known.has(key) && value !== undefined) {
+          if (!reservedKeys.has(key) && value !== undefined) {
             ctx[key] = value as string | number;
           }
         }
@@ -108,7 +109,5 @@ export function run(argv: string[]): string | undefined {
 
   parser.parse();
 
-  if (result !== undefined) {
-    return result;
-  }
+  return result;
 }

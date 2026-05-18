@@ -6,8 +6,8 @@ describe("kogoro CLI", () => {
     expect(true).toBe(true);
   });
 
-  test("template command renders pattern with variables", async () => {
-    const result = await run([
+  test("template command renders pattern with variables", () => {
+    const result = run([
       "node",
       "kogoro",
       "template",
@@ -24,8 +24,8 @@ describe("kogoro CLI", () => {
     expect(result).toBe("JJK - 1x13 - Tomorrow");
   });
 
-  test("template command handles missing variables", async () => {
-    const result = await run(["node", "kogoro", "template", "Hello {name}", "--name", "World"]);
+  test("template command handles missing variables", () => {
+    const result = run(["node", "kogoro", "template", "Hello {name}", "--name", "World"]);
     expect(result).toBe("Hello World");
   });
 });
