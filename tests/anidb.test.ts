@@ -73,6 +73,26 @@ describe("AniDBAdapter", () => {
       expect(results).toHaveLength(1);
       expect(results[0]?.id).toBe("67890");
     });
+
+    test("skips anime with no English title", async () => {
+      const xmlWithNoEnglishTitle = `<?xml version="1.0" encoding="UTF-8"?>
+<animetitles>
+  <anime aid="99999" year="2021">
+    <title type="main" lang="ja" xml:lang="ja">日本語のみ</title>
+  </anime>
+  <anime aid="12345" year="2020">
+    <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
+  </anime>
+</animetitles>`;
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(xmlWithNoEnglishTitle),
+      });
+      const results = await adapter.searchAnime("Jujutsu");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.id).toBe("12345");
+    });
   });
 
   describe("getEpisodes", () => {
@@ -178,6 +198,14 @@ describe("AniDBAdapter", () => {
     <episode id="3"><epno>1</epno><title>Special Title</title></episode>
   </episodes>
 </anime>`;
+      const tvSpecialXml = `<?xml version="1.0"?>
+<anime>
+  <id>444</id>
+  <type>TV Special</type>
+  <episodes>
+    <episode id="4"><epno>1</epno><title>TV Special Title</title></episode>
+  </episodes>
+</anime>`;
 
       const movieAdapter = new AniDBAdapter({
         client: "kogoro",
@@ -194,10 +222,16 @@ describe("AniDBAdapter", () => {
         clientver: "1",
         fetch: mockFetch(specialXml),
       });
+      const tvSpecialAdapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        fetch: mockFetch(tvSpecialXml),
+      });
 
       expect((await movieAdapter.getEpisodes("111"))[0]?.entryType).toBe("movie");
       expect((await ovaAdapter.getEpisodes("222"))[0]?.entryType).toBe("ova");
       expect((await specialAdapter.getEpisodes("333"))[0]?.entryType).toBe("special");
+      expect((await tvSpecialAdapter.getEpisodes("444"))[0]?.entryType).toBe("special");
     });
 
     test("uses absolute episode number from epno", async () => {

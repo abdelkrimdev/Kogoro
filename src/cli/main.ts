@@ -10,7 +10,7 @@ import { createConfigHandlers } from "./config-commands.ts";
 import { createDBCommands } from "./db-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 
-async function createDBCommandsWithCredentials() {
+async function createTVDBCommandsWithCredentials() {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
@@ -193,7 +193,7 @@ export function run(argv: string[]): string | undefined {
                 describe: "Anime title to search for",
               }),
             async (argv) => {
-              const commands = await createDBCommandsWithCredentials();
+              const commands = await createTVDBCommandsWithCredentials();
               if (!commands) return;
               await commands.search(argv.title, console.log, console.error);
             },
@@ -208,7 +208,7 @@ export function run(argv: string[]): string | undefined {
                 describe: "TVDB Anime ID",
               }),
             async (argv) => {
-              const commands = await createDBCommandsWithCredentials();
+              const commands = await createTVDBCommandsWithCredentials();
               if (!commands) return;
               await commands.episodes(argv.animeId, console.log, console.error);
             },

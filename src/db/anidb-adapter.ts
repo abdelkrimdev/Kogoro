@@ -50,31 +50,45 @@ export class AniDBAdapter implements DatabasePlugin {
     if (!response.ok) return [];
     const xml = await response.text();
     const results: AnimeResult[] = [];
+    const lowerTitle = title.toLowerCase();
     const animeRegex = /<anime\s+([^>]*)>([\s\S]*?)<\/anime>/g;
-    for (;;) {
-      const match = animeRegex.exec(xml);
-      if (match === null) break;
+    let match = animeRegex.exec(xml);
+    while (match !== null) {
       const attrs = match[1] ?? "";
       const content = match[2];
-      if (!content) continue;
-      const aid = attrs.match(/aid="(\d+)"/)?.[1];
-      if (!aid) continue;
-      const titles: Array<{ type: string; lang: string; value: string }> = [];
-      const titleRegex = /<title[^>]*type="([^"]*)"[^>]*lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
-      for (;;) {
-        const titleMatch = titleRegex.exec(content);
-        if (titleMatch === null) break;
-        titles.push({
-          type: titleMatch[1] ?? "",
-          lang: titleMatch[2] ?? "",
-          value: titleMatch[3] ?? "",
-        });
+      if (!content) {
+        match = animeRegex.exec(xml);
+        continue;
       }
-      const mainTitle = titles.find((t) => t.lang === "en")?.value;
-      if (!mainTitle) continue;
-      const lowerTitle = title.toLowerCase();
-      if (!mainTitle.toLowerCase().includes(lowerTitle)) continue;
-      const originalTitle = titles.find((t) => t.lang === "ja")?.value;
+      const aid = attrs.match(/aid="(\d+)"/)?.[1];
+      if (!aid) {
+        match = animeRegex.exec(xml);
+        continue;
+      }
+
+      let mainTitle: string | undefined;
+      let originalTitle: string | undefined;
+      const titleRegex = /<title[^>]*type="([^"]*)"[^>]*lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
+      let titleMatch = titleRegex.exec(content);
+      while (titleMatch !== null) {
+        const lang = titleMatch[2];
+        const value = titleMatch[3];
+        if (lang === "en" && mainTitle === undefined) {
+          mainTitle = value;
+        }
+        if (lang === "ja" && originalTitle === undefined) {
+          originalTitle = value;
+        }
+        if (mainTitle !== undefined && originalTitle !== undefined) {
+          break;
+        }
+        titleMatch = titleRegex.exec(content);
+      }
+      if (!mainTitle || !mainTitle.toLowerCase().includes(lowerTitle)) {
+        match = animeRegex.exec(xml);
+        continue;
+      }
+
       const yearAttr = attrs.match(/year="(\d+)"/);
       results.push({
         id: aid,
@@ -83,6 +97,7 @@ export class AniDBAdapter implements DatabasePlugin {
         year: yearAttr ? Number.parseInt(yearAttr[1] ?? "0", 10) : undefined,
         entryType: "tv",
       });
+      match = animeRegex.exec(xml);
     }
     return results;
   }
@@ -97,15 +112,20 @@ export class AniDBAdapter implements DatabasePlugin {
     const entryType = toEntryType(animeType);
     const episodes: EpisodeResult[] = [];
     const episodeRegex = /<episode\s+id="(\d+)">([\s\S]*?)<\/episode>/g;
-    for (;;) {
-      const match = episodeRegex.exec(xml);
-      if (match === null) break;
+    let match = episodeRegex.exec(xml);
+    while (match !== null) {
       const epId = match[1];
       const content = match[2];
-      if (!epId || !content) continue;
+      if (!epId || !content) {
+        match = episodeRegex.exec(xml);
+        continue;
+      }
       const epnoText = extractTag(content, "epno") ?? "";
       const episodeNum = Number.parseInt(epnoText, 10);
-      if (Number.isNaN(episodeNum)) continue;
+      if (Number.isNaN(episodeNum)) {
+        match = episodeRegex.exec(xml);
+        continue;
+      }
       const epTitle = extractTag(content, "title") ?? "";
       const epAirdate = extractTag(content, "airdate");
       episodes.push({
@@ -117,6 +137,7 @@ export class AniDBAdapter implements DatabasePlugin {
         airDate: epAirdate,
         entryType,
       });
+      match = episodeRegex.exec(xml);
     }
     return episodes;
   }
@@ -133,7 +154,7 @@ export class AniDBAdapter implements DatabasePlugin {
     return [
       {
         id: `poster-${animeId}`,
-        type: "poster" as ArtworkType,
+        type: "poster",
         url: `https://cdn.anidb.net/images/main/${picture}`,
       },
     ];
