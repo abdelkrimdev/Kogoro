@@ -7,6 +7,7 @@ import { parse } from "../parser.ts";
 import { render } from "../template-engine.ts";
 import { createConfigHandlers } from "./config-commands.ts";
 import { createDBCommands } from "./db-commands.ts";
+import { createMatchHandlers } from "./match-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 
 async function createDBCommandsWithCredentials() {
@@ -29,6 +30,17 @@ async function createScanWithCredentials() {
   }
   const adapter = new TVDBAdapter({ apiKey });
   return createScanHandlers({ database: adapter });
+}
+
+async function createMatchWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const apiKey = await credentialStore.getCredential("tvdb");
+  if (!apiKey) {
+    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const adapter = new TVDBAdapter({ apiKey });
+  return createMatchHandlers({ database: adapter });
 }
 
 export function run(argv: string[]): string | undefined {
@@ -199,6 +211,21 @@ export function run(argv: string[]): string | undefined {
           )
           .demandCommand(1, "Please specify a db action: search or episodes"),
       () => {},
+    )
+    .command(
+      "match <filename>",
+      "Parse a MediaFile filename and resolve Match candidates via the Database",
+      (yargs) =>
+        yargs.positional("filename", {
+          type: "string",
+          demandOption: true,
+          describe: "The filename to parse and match",
+        }),
+      async (argv) => {
+        const handlers = await createMatchWithCredentials();
+        if (!handlers) return;
+        await handlers.match(argv.filename, console.log, console.error);
+      },
     )
     .command(
       "template <pattern>",
