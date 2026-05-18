@@ -21,30 +21,39 @@ function stripExtension(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
 
-const DEFAULT_PATTERNS: RegExp[] = [
+const defaultPatterns: RegExp[] = [
   /^\[(?<group>[^\]]+)\]\s*(?<title>.+?)\s*-\s*(?<episode>\d+)\s*(?:\((?<resolution>[^)]*?)\))?\s*(?:\[(?<codec>[^\]]+)\])?$/,
   /^(?<title>.+?)\s*-\s*S(?<season>\d+)E(?<episode>\d+)$/,
-  /^(?<title>.+?)\s*-\s*(?<episode>\d+)\s*(?:\[(?<tag>[^\]]+)\])?$/,
+  /^(?<title>.+?)\s*-\s*(?<episode>\d+)(?:\s*\[[^\]]+\])?$/,
   /^\[(?<group>[^\]]+)\]\s*(?<title>.+)$/,
 ];
 
-function matchPattern(name: string, patterns?: RegExp[]): Partial<ParsedResult> | null {
-  const activePatterns = patterns ?? DEFAULT_PATTERNS;
+function tryPatterns(name: string, patterns?: RegExp[]): ParsedResult | null {
+  const activePatterns = patterns ?? defaultPatterns;
   for (const pattern of activePatterns) {
     const match = name.match(pattern);
-    if (!match?.groups) continue;
-    const { title, episode, season, group, resolution, codec } = match.groups;
+    if (!match?.groups) {
+      continue;
+    }
 
-    if (!title?.trim()) continue;
+    const { title, episode, season, group, resolution, codec } = match.groups;
+    const trimmedTitle = title?.trim();
+    if (!trimmedTitle) {
+      continue;
+    }
 
     const episodeNum = episode ? Number(episode) : null;
-    if (episodeNum !== null && (Number.isNaN(episodeNum) || episodeNum < 0)) continue;
+    if (episodeNum !== null && (Number.isNaN(episodeNum) || episodeNum < 0)) {
+      continue;
+    }
 
     const seasonNum = season ? Number(season) : null;
-    if (seasonNum !== null && (Number.isNaN(seasonNum) || seasonNum < 0)) continue;
+    if (seasonNum !== null && (Number.isNaN(seasonNum) || seasonNum < 0)) {
+      continue;
+    }
 
     return {
-      title: title.trim(),
+      title: trimmedTitle,
       season: seasonNum,
       episode: episodeNum,
       tags: {
@@ -60,35 +69,22 @@ function matchPattern(name: string, patterns?: RegExp[]): Partial<ParsedResult> 
   return null;
 }
 
-export function parse(filename: string, options?: ParserOptions): ParsedResult {
-  const name = stripExtension(filename);
-  const result = matchPattern(name, options?.patterns);
-
-  if (!result) {
-    return {
-      title: null,
-      season: null,
-      episode: null,
-      tags: {
-        group: null,
-        resolution: null,
-        source: null,
-        codec: null,
-        audio: null,
-      },
-    };
-  }
-
+function createEmptyResult(): ParsedResult {
   return {
-    title: result.title ?? null,
-    season: result.season ?? null,
-    episode: result.episode ?? null,
+    title: null,
+    season: null,
+    episode: null,
     tags: {
-      group: result.tags?.group ?? null,
-      resolution: result.tags?.resolution ?? null,
-      source: result.tags?.source ?? null,
-      codec: result.tags?.codec ?? null,
-      audio: result.tags?.audio ?? null,
+      group: null,
+      resolution: null,
+      source: null,
+      codec: null,
+      audio: null,
     },
   };
+}
+
+export function parse(filename: string, options?: ParserOptions): ParsedResult {
+  const name = stripExtension(filename);
+  return tryPatterns(name, options?.patterns) ?? createEmptyResult();
 }
