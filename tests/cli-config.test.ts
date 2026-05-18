@@ -83,14 +83,6 @@ describe("Config CLI commands", () => {
   });
 
   describe("config override", () => {
-    function setupTempDir(): string {
-      return mkdtempSync(join(tmpdir(), "kogoro-override-cli-"));
-    }
-
-    function cleanupTempDir(dir: string) {
-      rmSync(dir, { recursive: true, force: true });
-    }
-
     test("override set stores an override in kogoro.toml", async () => {
       const dir = setupTempDir();
       try {

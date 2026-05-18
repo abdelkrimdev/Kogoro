@@ -52,11 +52,9 @@ export class Matcher {
   }
 
   async match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]> {
-    if (fileHash !== undefined) {
-      const override = this.overrideStore?.get(fileHash);
-      if (override?.animeId) {
-        return this.buildOverrideMatch(override);
-      }
+    const override = fileHash !== undefined ? this.overrideStore?.get(fileHash) : undefined;
+    if (override?.animeId) {
+      return this.buildOverrideMatch(override);
     }
 
     if (!parsed.title) {
@@ -86,34 +84,31 @@ export class Matcher {
 
     results.sort((a, b) => b.score - a.score);
 
-    return this.applyOverrideEntryType(results, fileHash);
+    return this.applyOverrideEntryType(results, override);
   }
 
   private buildOverrideMatch(override: OverrideData): MatchResult[] {
-    const animeId = override.animeId;
     const entryType = override.entryType ?? "tv";
     const anime: AnimeResult = {
-      id: animeId ?? "",
+      id: override.animeId ?? "",
       title: "(overridden)",
       entryType,
     };
-    const episode: EpisodeResult | undefined =
-      override.episodeId && animeId
-        ? {
-            id: override.episodeId,
-            animeId,
-            season: 0,
-            episode: 0,
-            title: "(overridden)",
-            entryType,
-          }
-        : undefined;
+    let episode: EpisodeResult | undefined;
+    if (override.episodeId && override.animeId) {
+      episode = {
+        id: override.episodeId,
+        animeId: override.animeId,
+        season: 0,
+        episode: 0,
+        title: "(overridden)",
+        entryType,
+      };
+    }
     return [{ anime, episode, score: 1 }];
   }
 
-  private applyOverrideEntryType(results: MatchResult[], fileHash?: string): MatchResult[] {
-    if (fileHash === undefined) return results;
-    const override = this.overrideStore?.get(fileHash);
+  private applyOverrideEntryType(results: MatchResult[], override?: OverrideData): MatchResult[] {
     if (!override?.entryType) return results;
     const entryType = override.entryType;
     return results.map((result) => ({

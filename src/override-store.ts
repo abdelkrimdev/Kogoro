@@ -8,13 +8,7 @@ export interface OverrideData {
   entryType?: EntryType;
 }
 
-function tomlValue(value: unknown): string {
-  if (typeof value === "string") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
+function tomlValue(value: string): string {
   return JSON.stringify(value);
 }
 
@@ -35,9 +29,8 @@ export class OverrideStore {
     const parsed = Bun.TOML.parse(raw) as {
       overrides?: Record<string, Record<string, unknown>>;
     };
-    const overridesSection = parsed.overrides;
-    if (!overridesSection) return;
-    for (const [hash, data] of Object.entries(overridesSection)) {
+    if (!parsed.overrides) return;
+    for (const [hash, data] of Object.entries(parsed.overrides)) {
       this.overrides.set(hash, {
         animeId: data["anime-id"] as string | undefined,
         episodeId: data["episode-id"] as string | undefined,
