@@ -1,12 +1,14 @@
 import { confirm, isCancel } from "@clack/prompts";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import { ConfigManager } from "../config/config-manager.ts";
 import { getDefaultPrompts } from "../config/config-wizard.ts";
 import { CredentialStore } from "../config/credential-store.ts";
 import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
+import { MatchCache } from "../match-cache.ts";
 import { parse } from "../parser.ts";
-import type { FileAction } from "../renamer.ts";
+import { type FileAction, Renamer } from "../renamer.ts";
 import { render } from "../template-engine.ts";
 import { createCacheHandlers } from "./cache-commands.ts";
 import { createConfigHandlers } from "./config-commands.ts";
@@ -49,7 +51,13 @@ async function createScanWithCredentials() {
     return undefined;
   }
   const adapter = new TVDBAdapter({ apiKey });
-  return createScanHandlers({ database: adapter });
+  const cache = new MatchCache();
+  const config = new ConfigManager();
+  const filenameTemplate =
+    config.get("template.string") ?? "{anime} - {season}x{episode:02} - {title}.{ext}";
+  const directoryTemplate = config.get("template.dir") ?? "{anime}/{type}";
+  const renamer = new Renamer({ filenameTemplate, directoryTemplate });
+  return createScanHandlers({ database: adapter, cache, renamer, config });
 }
 
 async function createMatchWithCredentials() {
@@ -73,16 +81,44 @@ export function run(argv: string[]): string | undefined {
       "scan <path>",
       "Scan a directory for MediaFiles, match against Databases, and organize",
       (yargs) =>
-        yargs.positional("path", {
-          type: "string",
-          demandOption: true,
-          describe: "Path to a directory or MediaFile to scan",
-        }),
+        yargs
+          .positional("path", {
+            type: "string",
+            demandOption: true,
+            describe: "Path to a directory or MediaFile to scan",
+          })
+          .option("dry-run", {
+            type: "boolean",
+            default: false,
+            describe: "Print planned operations without executing",
+          })
+          .option("yes", {
+            type: "boolean",
+            alias: "y",
+            default: false,
+            describe: "Skip interactive prompts, auto-accept best match",
+          })
+          .option("force", {
+            type: "boolean",
+            default: false,
+            describe: "Ignore cache and re-match from scratch",
+          })
+          .option("action", {
+            type: "string",
+            choices: ["move", "copy", "symlink", "hardlink"] as const,
+            default: "move",
+            describe: "File operation to perform",
+          }),
       async (argv) => {
         const handlers = await createScanWithCredentials();
         if (!handlers) return;
         try {
-          const output = await handlers.scan(argv.path);
+          const output = await handlers.scan(argv.path, {
+            dryRun: argv["dry-run"] ?? false,
+            yes: argv.yes ?? false,
+            force: argv.force ?? false,
+            action: argv.action as FileAction,
+          });
           console.log(output);
         } catch (err) {
           console.error(String(err));
