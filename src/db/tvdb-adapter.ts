@@ -199,16 +199,18 @@ export class TVDBAdapter implements DatabasePlugin {
 
     if (!data) return [];
 
-    return data
-      .filter((item) => toArtworkType(item.type) === type)
-      .map(
-        (item): ArtworkResult => ({
-          id: String(item.id),
-          type: toArtworkType(item.type),
-          url: item.image,
-          language: item.language ?? undefined,
-          season: item.season ?? undefined,
-        }),
-      );
+    const results: ArtworkResult[] = [];
+    for (const item of data) {
+      const artworkType = toArtworkType(item.type);
+      if (artworkType !== type) continue;
+      results.push({
+        id: String(item.id),
+        type: artworkType,
+        url: item.image,
+        language: item.language ?? undefined,
+        season: item.season ?? undefined,
+      });
+    }
+    return results;
   }
 }

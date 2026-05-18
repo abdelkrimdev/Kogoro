@@ -3,13 +3,17 @@ import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { TVDBAdapter } from "../src/db/tvdb-adapter.ts";
 import type { AnimeResult } from "../src/db/types.ts";
 
+function toUrlString(url: string | URL): string {
+  return typeof url === "string" ? url : url.toString();
+}
+
 function mockFetch(
   data: unknown,
   status = 200,
   loginToken = "mock-token",
 ): (url: string | URL, init?: RequestInit) => Promise<Response> {
   return async (url: string | URL, _init?: RequestInit) => {
-    const urlStr = typeof url === "string" ? url : url.toString();
+    const urlStr = toUrlString(url);
     if (urlStr.includes("/login")) {
       return new Response(JSON.stringify({ data: { token: loginToken } }), {
         status: 200,
@@ -239,7 +243,7 @@ describe("TVDBAdapter", () => {
     test("returns empty array on API failure after login", async () => {
       let callCount = 0;
       const fetch = async (url: string | URL, _init?: RequestInit) => {
-        const urlStr = typeof url === "string" ? url : url.toString();
+        const urlStr = toUrlString(url);
         callCount++;
         if (urlStr.includes("/login")) {
           return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
@@ -262,7 +266,7 @@ describe("TVDBAdapter", () => {
     test("caches login token across multiple API calls", async () => {
       let loginCount = 0;
       const fetch = async (url: string | URL, _init?: RequestInit) => {
-        const urlStr = typeof url === "string" ? url : url.toString();
+        const urlStr = toUrlString(url);
         if (urlStr.includes("/login")) {
           loginCount++;
           return new Response(JSON.stringify({ data: { token: "cached-token" } }), {

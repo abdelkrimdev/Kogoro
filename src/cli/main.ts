@@ -8,6 +8,17 @@ import { render } from "../template-engine.ts";
 import { createConfigHandlers } from "./config-commands.ts";
 import { createDBCommands } from "./db-commands.ts";
 
+async function createDBCommandsWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const apiKey = await credentialStore.getCredential("tvdb");
+  if (!apiKey) {
+    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const adapter = new TVDBAdapter({ apiKey });
+  return createDBCommands(adapter);
+}
+
 export function run(argv: string[]): string | undefined {
   let result: string | undefined;
 
@@ -147,14 +158,8 @@ export function run(argv: string[]): string | undefined {
                 describe: "Anime title to search for",
               }),
             async (argv) => {
-              const credentialStore = new CredentialStore();
-              const apiKey = await credentialStore.getCredential("tvdb");
-              if (!apiKey) {
-                console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-                return;
-              }
-              const adapter = new TVDBAdapter({ apiKey });
-              const commands = createDBCommands(adapter);
+              const commands = await createDBCommandsWithCredentials();
+              if (!commands) return;
               await commands.search(argv.title, console.log, console.error);
             },
           )
@@ -168,14 +173,8 @@ export function run(argv: string[]): string | undefined {
                 describe: "TVDB Anime ID",
               }),
             async (argv) => {
-              const credentialStore = new CredentialStore();
-              const apiKey = await credentialStore.getCredential("tvdb");
-              if (!apiKey) {
-                console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-                return;
-              }
-              const adapter = new TVDBAdapter({ apiKey });
-              const commands = createDBCommands(adapter);
+              const commands = await createDBCommandsWithCredentials();
+              if (!commands) return;
               await commands.episodes(argv.animeId, console.log, console.error);
             },
           )
