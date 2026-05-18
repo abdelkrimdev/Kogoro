@@ -321,7 +321,7 @@ export function run(argv: string[]): string | undefined {
                 message: "Are you sure you want to clear the entire Match cache?",
               });
               const confirmed = !isCancel(response) && response === true;
-              await handlers.clear(() => confirmed, console.log, console.error);
+              await handlers.clear(confirmed, console.log, console.error);
             },
           )
           .demandCommand(1, "Please specify a cache action: list, lookup, or clear"),

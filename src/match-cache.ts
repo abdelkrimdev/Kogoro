@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 export interface CachedMatch {
   animeId: string;
@@ -27,16 +27,12 @@ interface MatchRow {
   timestamp: string;
 }
 
-interface MatchRowWithHash extends MatchRow {
-  hash: string;
-}
-
 export class MatchCache {
   private db: Database;
 
   constructor(options: MatchCacheOptions = {}) {
     const dbPath = options.dbPath ?? join(homedir(), ".config", "kogoro", "cache.db");
-    const dir = join(dbPath, "..");
+    const dir = dirname(dbPath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
@@ -78,16 +74,7 @@ export class MatchCache {
       FROM matches WHERE hash = $hash
     `);
     const row = stmt.get({ $hash: hash }) as MatchRow | null;
-    if (!row) return null;
-    return {
-      animeId: row.anime_id,
-      episodeId: row.episode_id,
-      entryType: row.entry_type,
-      season: row.season,
-      episode: row.episode,
-      title: row.title,
-      timestamp: row.timestamp,
-    };
+    return row ? this.rowToMatch(row) : null;
   }
 
   has(hash: string): boolean {
@@ -101,19 +88,23 @@ export class MatchCache {
       SELECT hash, anime_id, episode_id, entry_type, season, episode, title, timestamp
       FROM matches ORDER BY timestamp
     `);
-    const rows = stmt.all() as MatchRowWithHash[];
+    const rows = stmt.all() as Array<MatchRow & { hash: string }>;
     return rows.map((row) => ({
       hash: row.hash,
-      match: {
-        animeId: row.anime_id,
-        episodeId: row.episode_id,
-        entryType: row.entry_type,
-        season: row.season,
-        episode: row.episode,
-        title: row.title,
-        timestamp: row.timestamp,
-      },
+      match: this.rowToMatch(row),
     }));
+  }
+
+  private rowToMatch(row: MatchRow): CachedMatch {
+    return {
+      animeId: row.anime_id,
+      episodeId: row.episode_id,
+      entryType: row.entry_type,
+      season: row.season,
+      episode: row.episode,
+      title: row.title,
+      timestamp: row.timestamp,
+    };
   }
 
   clear(): void {

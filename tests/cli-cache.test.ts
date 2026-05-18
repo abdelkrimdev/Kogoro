@@ -126,7 +126,7 @@ describe("cache CLI commands", () => {
       const handlers = createCacheHandlers({ dbPath });
       let logOutput = "";
       await handlers.clear(
-        () => true,
+        true,
         (msg: string) => {
           logOutput = msg;
         },
@@ -156,7 +156,7 @@ describe("cache CLI commands", () => {
       const handlers = createCacheHandlers({ dbPath });
       let logOutput = "";
       await handlers.clear(
-        () => false,
+        false,
         (msg: string) => {
           logOutput = msg;
         },

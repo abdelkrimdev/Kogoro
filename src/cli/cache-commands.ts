@@ -35,12 +35,12 @@ export function createCacheHandlers(options: CacheHandlerOptions = {}) {
     },
 
     async clear(
-      confirm: () => boolean,
+      confirmed: boolean,
       onLog: (msg: string) => void,
       onError: (msg: string) => void,
     ): Promise<void> {
       try {
-        if (confirm()) {
+        if (confirmed) {
           cache.clear();
           onLog("Cache cleared");
         } else {

@@ -30,14 +30,7 @@ describe("MatchCache", () => {
       };
       cache.set("abc123", match);
       const result = cache.get("abc123");
-      expect(result).not.toBeNull();
-      expect(result?.animeId).toBe("1");
-      expect(result?.episodeId).toBe("101");
-      expect(result?.entryType).toBe("tv");
-      expect(result?.season).toBe(1);
-      expect(result?.episode).toBe(5);
-      expect(result?.title).toBe("Test Episode");
-      expect(result?.timestamp).toBe("2026-01-01T00:00:00.000Z");
+      expect(result).toEqual(match);
     } finally {
       cleanupTempDb(dbPath);
     }
