@@ -17,8 +17,8 @@ export interface ScannerOptions {
   overrideStore?: OverrideStore;
 }
 
-function computeFileHash(filePath: string): string {
-  return Bun.hash(filePath).toString(16);
+function computeFileHash(input: string): string {
+  return Bun.hash(input).toString(16);
 }
 
 export class Scanner {

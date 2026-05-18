@@ -1,6 +1,6 @@
 import type { DatabasePlugin } from "./db/database-plugin.ts";
 import type { AnimeResult, EpisodeResult } from "./db/types.ts";
-import type { OverrideStore } from "./override-store.ts";
+import type { OverrideData, OverrideStore } from "./override-store.ts";
 import type { ParsedResult } from "./parser.ts";
 
 export interface MatchResult {
@@ -55,22 +55,7 @@ export class Matcher {
     if (fileHash !== undefined) {
       const override = this.overrideStore?.get(fileHash);
       if (override?.animeId) {
-        const anime: AnimeResult = {
-          id: override.animeId,
-          title: "(overridden)",
-          entryType: override.entryType ?? "tv",
-        };
-        const episode: EpisodeResult | undefined = override.episodeId
-          ? {
-              id: override.episodeId,
-              animeId: override.animeId,
-              season: 0,
-              episode: 0,
-              title: "(overridden)",
-              entryType: override.entryType ?? "tv",
-            }
-          : undefined;
-        return [{ anime, episode, score: 1 }];
+        return this.buildOverrideMatch(override);
       }
     }
 
@@ -104,15 +89,37 @@ export class Matcher {
     return this.applyOverrideEntryType(results, fileHash);
   }
 
+  private buildOverrideMatch(override: OverrideData): MatchResult[] {
+    const animeId = override.animeId;
+    const entryType = override.entryType ?? "tv";
+    const anime: AnimeResult = {
+      id: animeId ?? "",
+      title: "(overridden)",
+      entryType,
+    };
+    const episode: EpisodeResult | undefined =
+      override.episodeId && animeId
+        ? {
+            id: override.episodeId,
+            animeId,
+            season: 0,
+            episode: 0,
+            title: "(overridden)",
+            entryType,
+          }
+        : undefined;
+    return [{ anime, episode, score: 1 }];
+  }
+
   private applyOverrideEntryType(results: MatchResult[], fileHash?: string): MatchResult[] {
     if (fileHash === undefined) return results;
     const override = this.overrideStore?.get(fileHash);
     if (!override?.entryType) return results;
     const entryType = override.entryType;
-    return results.map((r) => ({
-      ...r,
-      anime: { ...r.anime, entryType },
-      episode: r.episode ? { ...r.episode, entryType } : undefined,
+    return results.map((result) => ({
+      ...result,
+      anime: { ...result.anime, entryType },
+      episode: result.episode ? { ...result.episode, entryType } : undefined,
     }));
   }
 }

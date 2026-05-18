@@ -10,32 +10,32 @@ export interface OverrideData {
 
 function tomlValue(value: unknown): string {
   if (typeof value === "string") {
-    if (value.includes('"') || value.includes("\n")) return JSON.stringify(value);
-    return `"${value}"`;
+    return JSON.stringify(value);
   }
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
   return JSON.stringify(value);
 }
 
 export class OverrideStore {
   private dir: string;
-  private path: string;
+  private filePath: string;
   private overrides: Map<string, OverrideData> = new Map();
 
   constructor(dir: string) {
     this.dir = dir;
-    this.path = join(dir, "kogoro.toml");
+    this.filePath = join(dir, "kogoro.toml");
     this.load();
   }
 
   private load(): void {
-    if (!existsSync(this.path)) return;
-    const raw = readFileSync(this.path, "utf-8");
-    const parsed = Bun.TOML.parse(raw) as Record<string, unknown>;
-    // biome-ignore lint/complexity/useLiteralKeys: tsc requires bracket notation for index signatures
-    const overridesSection = parsed["overrides"] as
-      | Record<string, Record<string, unknown>>
-      | undefined;
+    if (!existsSync(this.filePath)) return;
+    const raw = readFileSync(this.filePath, "utf-8");
+    const parsed = Bun.TOML.parse(raw) as {
+      overrides?: Record<string, Record<string, unknown>>;
+    };
+    const overridesSection = parsed.overrides;
     if (!overridesSection) return;
     for (const [hash, data] of Object.entries(overridesSection)) {
       this.overrides.set(hash, {
@@ -66,7 +66,7 @@ export class OverrideStore {
       }
     }
     const content = lines.length > 0 ? `${lines.join("\n")}\n` : "";
-    writeFileSync(this.path, content);
+    writeFileSync(this.filePath, content);
   }
 
   get(hash: string): OverrideData | undefined {
