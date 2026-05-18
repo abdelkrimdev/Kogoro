@@ -17,7 +17,7 @@ export interface ParserOptions {
   patterns?: RegExp[];
 }
 
-function stripExtension(name: string): string {
+export function stripExtension(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
 
