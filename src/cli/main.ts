@@ -12,6 +12,7 @@ import { createCacheHandlers } from "./cache-commands.ts";
 import { createConfigHandlers } from "./config-commands.ts";
 import { createDBCommands } from "./db-commands.ts";
 import { createMatchHandlers } from "./match-commands.ts";
+import { createMetadataHandlers } from "./metadata-commands.ts";
 import { createRenameHandlers } from "./rename-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 
@@ -119,13 +120,20 @@ export function run(argv: string[]): string | undefined {
       "metadata <path>",
       "Write missing .nfo metadata sidecar files",
       (yargs) =>
-        yargs.positional("path", {
-          type: "string",
-          demandOption: true,
-          describe: "Path to the organized anime directory",
-        }),
-      () => {
-        console.log("metadata command — not yet implemented");
+        yargs
+          .positional("path", {
+            type: "string",
+            demandOption: true,
+            describe: "Path to the organized anime directory",
+          })
+          .option("force", {
+            type: "boolean",
+            default: false,
+            describe: "Overwrite existing .nfo files",
+          }),
+      async (argv) => {
+        const handlers = createMetadataHandlers();
+        await handlers.write(argv.path, argv.force, console.log, console.error);
       },
     )
     .command(
