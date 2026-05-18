@@ -1,0 +1,29 @@
+{
+  "name": "kogoro",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bun build src/cli/index.ts --outdir dist --target bun",
+    "check": "bunx tsc --noEmit",
+    "test": "bun test",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check-all": "biome check . && bun run check && bun test",
+    "start": "bun run src/cli/index.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "@types/bun": "latest",
+    "lefthook": "^2.1.6"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.4.0",
+    "@types/yargs": "^17.0.35",
+    "clack": "^0.1.0",
+    "yargs": "^18.0.0"
+  }
+}
