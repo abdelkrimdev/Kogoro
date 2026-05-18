@@ -109,9 +109,7 @@ export function run(argv: string[]) {
             },
           )
           .demandCommand(1, "Please specify a config action: get, set, or init"),
-      () => {
-        console.log("Please specify a config action: get, set, or init");
-      },
+      () => {},
     )
     .demandCommand(1, "Please specify a command")
     .help()

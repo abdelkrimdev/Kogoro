@@ -8,30 +8,30 @@ export interface ConfigHandlerOptions {
 
 export function createConfigHandlers(options: ConfigHandlerOptions = {}) {
   const config = new ConfigManager({ configDir: options.configDir });
-  const creds = new CredentialStore();
+  const credentialStore = new CredentialStore();
 
   return {
     async get(
       key: string,
-      log: (msg: string) => void,
-      error: (msg: string) => void,
+      onLog: (msg: string) => void,
+      onError: (msg: string) => void,
     ): Promise<void> {
-      const val = await config.get(key);
+      const val = config.get(key);
       if (val === undefined) {
-        error(`Config key '${key}' is not set`);
+        onError(`Config key '${key}' is not set`);
       } else {
-        log(val);
+        onLog(val);
       }
     },
 
-    async set(key: string, value: string, log: (msg: string) => void): Promise<void> {
-      await config.set(key, value);
-      log(`Set config '${key}' to '${value}'`);
+    async set(key: string, value: string, onLog: (msg: string) => void): Promise<void> {
+      config.set(key, value);
+      onLog(`Set config '${key}' to '${value}'`);
     },
 
-    async init(prompts: PromptsAPI, log: (msg: string) => void): Promise<void> {
-      await runConfigWizard({ config, creds, prompts });
-      log("Configuration complete");
+    async init(prompts: PromptsAPI, onLog: (msg: string) => void): Promise<void> {
+      await runConfigWizard({ config, credentialStore, prompts });
+      onLog("Configuration complete");
     },
   };
 }

@@ -20,9 +20,9 @@ describe("ConfigWizard", () => {
     return {
       intro: () => {},
       outro: () => {},
-      select: async () => "tvdb" as string,
-      text: async () => "" as string,
-      confirm: async () => true as boolean,
+      select: async () => "tvdb",
+      text: async () => "",
+      confirm: async () => true,
       isCancel: () => false,
       ...overrides,
     };
@@ -32,12 +32,12 @@ describe("ConfigWizard", () => {
     const dir = setupTempDir();
     try {
       const config = new ConfigManager({ configDir: dir });
-      const creds = new CredentialStore({ keytar: null });
+      const credentialStore = new CredentialStore({ keytar: null });
       const prompts = makePrompts({
         select: async () => "anidb",
       });
 
-      await runConfigWizard({ config, creds, prompts });
+      await runConfigWizard({ config, credentialStore, prompts });
       expect(await config.get("primary-db")).toBe("anidb");
     } finally {
       cleanupTempDir(dir);
@@ -48,10 +48,10 @@ describe("ConfigWizard", () => {
     const dir = setupTempDir();
     try {
       const config = new ConfigManager({ configDir: dir });
-      const creds = new CredentialStore({ keytar: null });
+      const credentialStore = new CredentialStore({ keytar: null });
       const prompts = makePrompts();
 
-      await runConfigWizard({ config, creds, prompts });
+      await runConfigWizard({ config, credentialStore, prompts });
       expect(existsSync(join(dir, "config.toml"))).toBe(true);
     } finally {
       cleanupTempDir(dir);
@@ -75,10 +75,10 @@ describe("ConfigWizard", () => {
           return Promise.resolve(this.store.delete(`${_s}:${_a}`));
         },
       };
-      const creds = new CredentialStore({ keytar: mockKeytar as never });
+      const credentialStore = new CredentialStore({ keytar: mockKeytar });
       let textCalls = 0;
       const prompts = makePrompts({
-        select: async () => "anidb" as string,
+        select: async () => "anidb",
         text: async () => {
           textCalls++;
           if (textCalls === 1) return "my-api-key-123";
@@ -86,8 +86,8 @@ describe("ConfigWizard", () => {
         },
       });
 
-      await runConfigWizard({ config, creds, prompts });
-      const stored = await creds.getCredential("anidb");
+      await runConfigWizard({ config, credentialStore, prompts });
+      const stored = await credentialStore.getCredential("anidb");
       expect(stored).toBe("my-api-key-123");
     } finally {
       cleanupTempDir(dir);
@@ -98,10 +98,10 @@ describe("ConfigWizard", () => {
     const dir = setupTempDir();
     try {
       const config = new ConfigManager({ configDir: dir });
-      const creds = new CredentialStore({ keytar: null });
+      const credentialStore = new CredentialStore({ keytar: null });
       const prompts = makePrompts();
 
-      await runConfigWizard({ config, creds, prompts });
+      await runConfigWizard({ config, credentialStore, prompts });
       const tmpl = await config.get("template.string");
       expect(tmpl).toBeTruthy();
     } finally {
@@ -113,10 +113,10 @@ describe("ConfigWizard", () => {
     const dir = setupTempDir();
     try {
       const config = new ConfigManager({ configDir: dir });
-      const creds = new CredentialStore({ keytar: null });
+      const credentialStore = new CredentialStore({ keytar: null });
       const prompts = makePrompts();
 
-      await runConfigWizard({ config, creds, prompts });
+      await runConfigWizard({ config, credentialStore, prompts });
       expect(await config.get("primary-db")).toBe("tvdb");
       expect(await config.get("concurrency")).toBe("4");
       expect(await config.get("extensions")).toBe(".mkv,.mp4");

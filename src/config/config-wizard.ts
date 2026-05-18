@@ -35,99 +35,96 @@ export function getDefaultPrompts(): PromptsAPI {
     outro,
     select,
     text,
-    confirm: (opts: { message: string; initialValue: boolean }) => confirm(opts),
+    confirm,
     isCancel,
   };
 }
 
 export interface WizardDeps {
   config: ConfigManager;
-  creds: CredentialStore;
+  credentialStore: CredentialStore;
   prompts?: PromptsAPI;
 }
 
 export async function runConfigWizard(deps: WizardDeps): Promise<void> {
-  const { config, creds } = deps;
+  const { config, credentialStore } = deps;
   const p = deps.prompts ?? getDefaultPrompts();
 
   p.intro("Kogoro Setup");
 
-  const primaryDb = await p.select({
-    message: "Select your primary Database",
-    options: [
-      { value: "tvdb", label: "TVDB (default, no API key required)" },
-      { value: "anidb", label: "AniDB (requires API key)" },
-    ],
-  });
-  if (p.isCancel(primaryDb)) {
-    cancel("Setup cancelled.");
-    return;
-  }
-
-  await config.set("primary-db", primaryDb as string);
-
-  let apiKey: string | symbol = "";
-
-  if (primaryDb === "anidb") {
-    apiKey = await p.text({
-      message: "Enter your AniDB API key",
-      placeholder: "Optional, set later with 'kogoro config set'",
-    });
-    if (p.isCancel(apiKey)) {
+  async function prompt<T>(promise: Promise<T | symbol>): Promise<T | undefined> {
+    const result = await promise;
+    if (p.isCancel(result)) {
       cancel("Setup cancelled.");
-      return;
+      return undefined;
     }
-  } else {
-    apiKey = await p.text({
-      message: "Enter API key (optional)",
-      placeholder: "Leave empty if none",
-    });
-    if (p.isCancel(apiKey)) {
-      cancel("Setup cancelled.");
-      return;
-    }
+    return result as T;
   }
 
-  if (apiKey && typeof apiKey === "string" && apiKey.length > 0) {
-    await creds.setCredential(primaryDb as string, apiKey);
+  const primaryDb = await prompt(
+    p.select({
+      message: "Select your primary Database",
+      options: [
+        { value: "tvdb", label: "TVDB (default, no API key required)" },
+        { value: "anidb", label: "AniDB (requires API key)" },
+      ],
+    }),
+  );
+  if (primaryDb === undefined) return;
+
+  config.set("primary-db", primaryDb);
+
+  const apiKeyPrompt =
+    primaryDb === "anidb"
+      ? {
+          message: "Enter your AniDB API key",
+          placeholder: "Optional, set later with 'kogoro config set'",
+        }
+      : { message: "Enter API key (optional)", placeholder: "Leave empty if none" };
+
+  const apiKey = await prompt(p.text(apiKeyPrompt));
+  if (apiKey === undefined) return;
+
+  if (apiKey.length > 0) {
+    await credentialStore.setCredential(primaryDb, apiKey);
   }
 
-  const templateChoice = await p.select({
-    message: "Pick a rename template preset",
-    options: [
-      ...TEMPLATE_PRESETS.map((t) => ({ value: t.value, label: t.label })),
-      { value: "__custom__", label: "Custom template" },
-    ],
-  });
-  if (p.isCancel(templateChoice)) {
-    cancel("Setup cancelled.");
-    return;
-  }
+  const templateChoice = await prompt(
+    p.select({
+      message: "Pick a rename template preset",
+      options: [
+        ...TEMPLATE_PRESETS.map((t) => ({ value: t.value, label: t.label })),
+        { value: "__custom__", label: "Custom template" },
+      ],
+    }),
+  );
+  if (templateChoice === undefined) return;
 
+  let templateValue: string;
   if (templateChoice === "__custom__") {
-    const custom = await p.text({
-      message: "Enter your custom template string",
-      defaultValue: TEMPLATE_PRESETS[0]?.value ?? "{anime} - {season}x{episode:02} - {title}",
-    });
-    if (p.isCancel(custom)) {
-      cancel("Setup cancelled.");
-      return;
-    }
-    await config.set("template.string", custom as string);
+    const custom = await prompt(
+      p.text({
+        message: "Enter your custom template string",
+        defaultValue: TEMPLATE_PRESETS[0]?.value ?? "{anime} - {season}x{episode:02} - {title}",
+      }),
+    );
+    if (custom === undefined) return;
+    templateValue = custom;
   } else {
-    await config.set("template.string", templateChoice as string);
+    templateValue = templateChoice;
   }
 
-  const useDirStructure = await p.confirm({
-    message: "Use default directory structure ({anime}/{EntryType}/)?",
-    initialValue: true,
-  });
-  if (p.isCancel(useDirStructure)) {
-    cancel("Setup cancelled.");
-    return;
-  }
+  config.set("template.string", templateValue);
 
-  await config.init();
+  const useDirStructure = await prompt(
+    p.confirm({
+      message: "Use default directory structure ({anime}/{EntryType}/)?",
+      initialValue: true,
+    }),
+  );
+  if (useDirStructure === undefined) return;
+
+  config.init();
 
   p.outro("Kogoro is configured and ready!");
 }

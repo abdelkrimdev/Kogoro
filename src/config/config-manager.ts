@@ -53,13 +53,13 @@ export class ConfigManager {
     writeFileSync(this.configPath, raw);
   }
 
-  async get(key: string): Promise<string | undefined> {
+  get(key: string): string | undefined {
     const val = this.data[key];
     if (val === undefined) return undefined;
     return String(val);
   }
 
-  async set(key: string, value: string): Promise<void> {
+  set(key: string, value: string): void {
     this.data[key] = value;
     this.save();
   }
@@ -74,7 +74,7 @@ export class ConfigManager {
     };
   }
 
-  async init(): Promise<void> {
+  init(): void {
     const defaults = this.getDefaults();
     for (const [key, value] of Object.entries(defaults)) {
       if (this.data[key] === undefined) {

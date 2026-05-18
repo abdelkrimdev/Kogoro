@@ -28,20 +28,20 @@ describe("CredentialStore", () => {
   });
 
   test("setCredential stores and getCredential retrieves", async () => {
-    const store = new CredentialStore({ keytar: mockKeytar as never });
+    const store = new CredentialStore({ keytar: mockKeytar });
     await store.setCredential("anidb", "key123");
     const val = await store.getCredential("anidb");
     expect(val).toBe("key123");
   });
 
   test("getCredential returns undefined for unset credential", async () => {
-    const store = new CredentialStore({ keytar: mockKeytar as never });
+    const store = new CredentialStore({ keytar: mockKeytar });
     const val = await store.getCredential("nonexistent");
     expect(val).toBeUndefined();
   });
 
   test("deleteCredential removes a stored credential", async () => {
-    const store = new CredentialStore({ keytar: mockKeytar as never });
+    const store = new CredentialStore({ keytar: mockKeytar });
     await store.setCredential("anidb", "key123");
     await store.deleteCredential("anidb");
     const val = await store.getCredential("anidb");
@@ -67,7 +67,7 @@ describe("CredentialStore", () => {
   test("keytar takes priority over env var", async () => {
     // biome-ignore lint/complexity/useLiteralKeys: TS noPropertyAccessFromIndexSignature
     process.env["KOGORO_ANIDB_KEY"] = "env-key";
-    const store = new CredentialStore({ keytar: mockKeytar as never });
+    const store = new CredentialStore({ keytar: mockKeytar });
     await store.setCredential("anidb", "keytar-key");
     const val = await store.getCredential("anidb");
     expect(val).toBe("keytar-key");
@@ -76,7 +76,7 @@ describe("CredentialStore", () => {
   test("returns env var when keytar returns null", async () => {
     // biome-ignore lint/complexity/useLiteralKeys: TS noPropertyAccessFromIndexSignature
     process.env["KOGORO_ANIDB_KEY"] = "fallback-key";
-    const store = new CredentialStore({ keytar: mockKeytar as never });
+    const store = new CredentialStore({ keytar: mockKeytar });
     const val = await store.getCredential("anidb");
     expect(val).toBe("fallback-key");
   });

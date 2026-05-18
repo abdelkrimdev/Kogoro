@@ -66,9 +66,9 @@ describe("Config CLI commands", () => {
       const prompts = {
         intro: () => {},
         outro: () => {},
-        select: async () => "tvdb" as string,
-        text: async () => "" as string,
-        confirm: async () => true as boolean,
+        select: async () => "tvdb",
+        text: async () => "",
+        confirm: async () => true,
         isCancel: () => false,
       };
       await handlers.init(prompts, () => {});
