@@ -1,10 +1,12 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { getDefaultPrompts } from "../config/config-wizard.ts";
+import { TVDBAdapter } from "../database/tvdb-adapter.ts";
 import { parse } from "../parser.ts";
 import { render } from "../template-engine.ts";
 import { createConfigHandlers } from "./config-commands.ts";
 import { createDbHandlers } from "./db-commands.ts";
+import { createScanHandlers } from "./scan-commands.ts";
 
 export function run(argv: string[]): string | undefined {
   let result: string | undefined;
@@ -21,8 +23,17 @@ export function run(argv: string[]): string | undefined {
           demandOption: true,
           describe: "Path to a directory or MediaFile to scan",
         }),
-      () => {
-        console.log("scan command — not yet implemented");
+      async (argv) => {
+        // biome-ignore lint/complexity/useLiteralKeys: env var name requires bracket notation
+        const apiKey = process.env["KOGORO_TVDB_KEY"];
+        const adapter = new TVDBAdapter({ apiKey });
+        const handlers = createScanHandlers({ database: adapter });
+        try {
+          const output = await handlers.scan(argv.path);
+          console.log(output);
+        } catch (err) {
+          console.error(String(err));
+        }
       },
     )
     .command(
