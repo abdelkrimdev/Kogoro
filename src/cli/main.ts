@@ -7,6 +7,7 @@ import { CredentialStore } from "../config/credential-store.ts";
 import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import type { DatabasePlugin } from "../db/database-plugin.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
+import { HttpClient } from "../http-client.ts";
 import { MatchCache } from "../match-cache.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
 import { parse } from "../parser.ts";
@@ -57,9 +58,11 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme) {
     console.error("No TVDB API key configured. Run 'kogoro config init' first.");
     return undefined;
   }
-  const adapter = new TVDBAdapter({ apiKey });
-  const cache = new MatchCache();
   const config = new ConfigManager();
+  const apiDelay = Number(config.get("api-delay")) || 200;
+  const httpClient = new HttpClient({ minDelay: apiDelay });
+  const adapter = new TVDBAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+  const cache = new MatchCache();
   return createScanHandlers({
     database: adapter,
     cache,

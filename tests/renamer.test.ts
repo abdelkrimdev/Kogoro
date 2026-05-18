@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   existsSync,
   lstatSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readlinkSync,
@@ -210,8 +211,9 @@ describe("Renamer", () => {
 
         const plan = renamer.plan(sourcePath, match, "mkv");
         plan.action = "move";
-        renamer.execute(plan, dir);
+        const result = renamer.execute(plan, dir);
 
+        expect(result.success).toBe(true);
         const expectedPath = join(dir, plan.targetPath);
         expect(existsSync(sourcePath)).toBe(false);
         expect(existsSync(expectedPath)).toBe(true);
@@ -229,8 +231,9 @@ describe("Renamer", () => {
 
         const plan = renamer.plan(sourcePath, match, "mkv");
         plan.action = "copy";
-        renamer.execute(plan, dir);
+        const result = renamer.execute(plan, dir);
 
+        expect(result.success).toBe(true);
         const expectedPath = join(dir, plan.targetPath);
         expect(existsSync(sourcePath)).toBe(true);
         expect(existsSync(expectedPath)).toBe(true);
@@ -248,8 +251,9 @@ describe("Renamer", () => {
 
         const plan = renamer.plan(sourcePath, match, "mkv");
         plan.action = "symlink";
-        renamer.execute(plan, dir);
+        const result = renamer.execute(plan, dir);
 
+        expect(result.success).toBe(true);
         const expectedPath = join(dir, plan.targetPath);
         expect(existsSync(expectedPath)).toBe(true);
         const stat = lstatSync(expectedPath);
@@ -269,14 +273,139 @@ describe("Renamer", () => {
 
         const plan = renamer.plan(sourcePath, match, "mkv");
         plan.action = "hardlink";
-        renamer.execute(plan, dir);
+        const result = renamer.execute(plan, dir);
 
+        expect(result.success).toBe(true);
         const expectedPath = join(dir, plan.targetPath);
         expect(existsSync(expectedPath)).toBe(true);
         expect(readFileSync(expectedPath, "utf-8")).toBe("hello");
         expect(statSync(expectedPath).ino).toBe(statSync(sourcePath).ino);
       } finally {
         cleanup(dir);
+      }
+    });
+
+    test("returns collision error when target already exists", () => {
+      const { renamer, match, dir } = setupTest();
+      try {
+        const sourcePath = join(dir, "source.mkv");
+        writeFileSync(sourcePath, "new content");
+
+        const plan = renamer.plan(sourcePath, match, "mkv");
+        plan.action = "copy";
+
+        mkdirSync(join(dir, plan.targetDir), { recursive: true });
+        writeFileSync(join(dir, plan.targetPath), "already here");
+        const result = renamer.execute(plan, dir);
+
+        expect(result.success).toBe(false);
+        expect(result.error?.type).toBe("collision");
+      } finally {
+        cleanup(dir);
+      }
+    });
+  });
+
+  describe("rollback", () => {
+    test("canRollback returns false when no executions", () => {
+      const renamer = new Renamer({
+        filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
+        directoryTemplate: "{anime}/{type}",
+      });
+      expect(renamer.canRollback()).toBe(false);
+    });
+
+    test("canRollback returns true after successful execute", () => {
+      const dir = mkdtempSync(join(tmpdir(), "kogoro-rollback-"));
+      try {
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+        });
+        const sourcePath = join(dir, "source.mkv");
+        writeFileSync(sourcePath, "hello");
+        const plan = renamer.plan(sourcePath, makeTvMatch(), "mkv");
+        plan.action = "move";
+        renamer.execute(plan, dir);
+
+        expect(renamer.canRollback()).toBe(true);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    test("rollback restores source file after move", () => {
+      const dir = mkdtempSync(join(tmpdir(), "kogoro-rollback-"));
+      try {
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+        });
+        const sourcePath = join(dir, "source.mkv");
+        writeFileSync(sourcePath, "hello");
+        const plan = renamer.plan(sourcePath, makeTvMatch(), "mkv");
+        plan.action = "move";
+        renamer.execute(plan, dir);
+
+        const targetPath = join(dir, plan.targetPath);
+        expect(existsSync(sourcePath)).toBe(false);
+        expect(existsSync(targetPath)).toBe(true);
+
+        const results = renamer.rollback();
+        expect(results).toHaveLength(1);
+        expect(results[0]?.success).toBe(true);
+        expect(existsSync(sourcePath)).toBe(true);
+        expect(existsSync(targetPath)).toBe(false);
+        expect(readFileSync(sourcePath, "utf-8")).toBe("hello");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    test("rollback removes copied file", () => {
+      const dir = mkdtempSync(join(tmpdir(), "kogoro-rollback-"));
+      try {
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+        });
+        const sourcePath = join(dir, "source.mkv");
+        writeFileSync(sourcePath, "hello");
+        const plan = renamer.plan(sourcePath, makeTvMatch(), "mkv");
+        plan.action = "copy";
+        renamer.execute(plan, dir);
+
+        const targetPath = join(dir, plan.targetPath);
+        expect(existsSync(sourcePath)).toBe(true);
+        expect(existsSync(targetPath)).toBe(true);
+
+        const results = renamer.rollback();
+        expect(results[0]?.success).toBe(true);
+        expect(existsSync(sourcePath)).toBe(true);
+        expect(existsSync(targetPath)).toBe(false);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    test("rollback after successful execute clears canRollback", () => {
+      const dir = mkdtempSync(join(tmpdir(), "kogoro-rollback-"));
+      try {
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+        });
+        const sourcePath = join(dir, "source.mkv");
+        writeFileSync(sourcePath, "hello");
+        const plan = renamer.plan(sourcePath, makeTvMatch(), "mkv");
+        plan.action = "move";
+        renamer.execute(plan, dir);
+
+        expect(renamer.canRollback()).toBe(true);
+        renamer.rollback();
+        expect(renamer.canRollback()).toBe(false);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
       }
     });
   });

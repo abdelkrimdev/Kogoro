@@ -6,7 +6,7 @@ import { MatchCache } from "./match-cache.ts";
 import { Matcher, type MatchResult } from "./matcher.ts";
 import type { OverrideStore } from "./override-store.ts";
 import { createEmptyResult, type ParsedResult, parse } from "./parser.ts";
-import type { FileAction, RenamePlan, Renamer } from "./renamer.ts";
+import type { FileAction, RenamePlan, RenameResult, Renamer } from "./renamer.ts";
 
 export type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
 
@@ -39,6 +39,7 @@ export interface ScanProgress {
 export interface ScanBatchOptions extends ScanFileOptions {
   concurrency?: number;
   onProgress?: (progress: ScanProgress) => void;
+  abortSignal?: AbortSignal;
 }
 
 export interface ScanFileOptions {
@@ -86,6 +87,15 @@ export class Scanner {
     this.matcher = new Matcher({ database: this.db, overrideStore: options.overrideStore });
     this.cache = options.cache;
     this.renamer = options.renamer;
+  }
+
+  hasRollback(): boolean {
+    return this.renamer?.canRollback() ?? false;
+  }
+
+  rollback(): RenameResult[] {
+    if (!this.renamer) return [];
+    return this.renamer.rollback();
   }
 
   async scanFile(filePath: string, options?: ScanFileOptions): Promise<ScanResult> {
@@ -241,7 +251,20 @@ export class Scanner {
 
       if (!options?.dryRun) {
         const baseDir = dirname(filePath);
-        this.renamer.execute(plan, baseDir);
+        const result = this.renamer.execute(plan, baseDir);
+        if (!result.success) {
+          return {
+            file: filePath,
+            hash: fileHash,
+            parsed,
+            match,
+            plan: null,
+            cached: false,
+            skipped: false,
+            status: "failed",
+            failureReason: result.error?.message ?? "Rename failed",
+          };
+        }
       }
     }
 
@@ -262,7 +285,7 @@ export class Scanner {
     const concurrency = Math.max(1, options?.concurrency ?? 1);
 
     let completed = 0;
-    for (let i = 0; i < filePaths.length; i += concurrency) {
+    for (let i = 0; i < filePaths.length && !options?.abortSignal?.aborted; i += concurrency) {
       const chunk = filePaths.slice(i, i + concurrency);
       const chunkResults = await Promise.all(
         chunk.map(async (filePath) => {

@@ -220,4 +220,41 @@ describe("Scanner", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("scanBatch aborts mid-way with abortSignal and returns partial results", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-scanner-abort-"));
+    try {
+      writeFileSync(join(dir, "[Group] Anime - 01.mkv"), "a");
+      writeFileSync(join(dir, "[Group] Anime - 02.mkv"), "b");
+      writeFileSync(join(dir, "[Group] Anime - 03.mkv"), "c");
+      writeFileSync(join(dir, "[Group] Anime - 04.mkv"), "d");
+
+      const scanner = new Scanner({ database: createMockDb() });
+      const filePaths = [
+        join(dir, "[Group] Anime - 01.mkv"),
+        join(dir, "[Group] Anime - 02.mkv"),
+        join(dir, "[Group] Anime - 03.mkv"),
+        join(dir, "[Group] Anime - 04.mkv"),
+      ];
+
+      const abortController = new AbortController();
+      const results = await scanner.scanBatch(filePaths, {
+        concurrency: 2,
+        abortSignal: abortController.signal,
+        onProgress: (p) => {
+          if (p.completed >= 2) {
+            abortController.abort();
+          }
+        },
+      });
+
+      expect(results.length).toBeGreaterThanOrEqual(2);
+      expect(results.length).toBeLessThan(4);
+      for (const r of results) {
+        expect(r.status).toBe("matched");
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

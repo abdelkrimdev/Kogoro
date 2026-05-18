@@ -1,4 +1,12 @@
-import { copyFileSync, linkSync, mkdirSync, renameSync, symlinkSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  linkSync,
+  mkdirSync,
+  renameSync,
+  symlinkSync,
+  unlinkSync,
+} from "node:fs";
 import { join } from "node:path";
 import type { EntryType } from "./db/types.ts";
 import type { MatchResult } from "./matcher.ts";
@@ -7,6 +15,18 @@ import { stripExtension } from "./parser.ts";
 import { render } from "./template-engine.ts";
 
 export type FileAction = "move" | "copy" | "symlink" | "hardlink";
+
+export type RenameErrorType = "permission" | "disk-full" | "collision" | "other";
+
+export interface RenameError {
+  type: RenameErrorType;
+  message: string;
+}
+
+export interface RenameResult {
+  success: boolean;
+  error?: RenameError;
+}
 
 export interface RenamePlan {
   sourcePath: string;
@@ -130,25 +150,102 @@ export class Renamer {
     }
   }
 
-  execute(plan: RenamePlan, baseDir?: string): void {
+  execute(plan: RenamePlan, baseDir?: string): RenameResult {
     const targetDir = baseDir ? join(baseDir, plan.targetDir) : plan.targetDir;
     const targetPath = baseDir ? join(baseDir, plan.targetPath) : plan.targetPath;
 
-    mkdirSync(targetDir, { recursive: true });
+    if (existsSync(targetPath) && plan.sourcePath !== targetPath) {
+      const sourceName = plan.sourcePath.split("/").pop() ?? plan.sourcePath;
+      const targetName = targetPath.split("/").pop() ?? targetPath;
+      return {
+        success: false,
+        error: {
+          type: "collision",
+          message: `"${targetName}" already exists and is not a Kogoro file (source: "${sourceName}")`,
+        },
+      };
+    }
 
-    switch (plan.action) {
-      case "move":
-        renameSync(plan.sourcePath, targetPath);
-        break;
-      case "copy":
-        copyFileSync(plan.sourcePath, targetPath);
-        break;
-      case "symlink":
-        symlinkSync(plan.sourcePath, targetPath);
-        break;
-      case "hardlink":
-        linkSync(plan.sourcePath, targetPath);
-        break;
+    try {
+      mkdirSync(targetDir, { recursive: true });
+
+      switch (plan.action) {
+        case "move":
+          renameSync(plan.sourcePath, targetPath);
+          this.executedPlans.push({ ...plan, absTargetPath: targetPath });
+          break;
+        case "copy":
+          copyFileSync(plan.sourcePath, targetPath);
+          this.executedPlans.push({ ...plan, absTargetPath: targetPath });
+          break;
+        case "symlink":
+          symlinkSync(plan.sourcePath, targetPath);
+          this.executedPlans.push({ ...plan, absTargetPath: targetPath });
+          break;
+        case "hardlink":
+          linkSync(plan.sourcePath, targetPath);
+          this.executedPlans.push({ ...plan, absTargetPath: targetPath });
+          break;
+      }
+
+      return { success: true };
+    } catch (err) {
+      const error = err as NodeJS.ErrnoException;
+      if (error.code === "EACCES" || error.code === "EPERM") {
+        return { success: false, error: { type: "permission", message: error.message } };
+      }
+      if (error.code === "ENOSPC") {
+        return { success: false, error: { type: "disk-full", message: error.message } };
+      }
+      return { success: false, error: { type: "other", message: error.message } };
     }
   }
+
+  executedSourcePaths(): string[] {
+    return this.executedPlans.map((p) => p.sourcePath);
+  }
+
+  canRollback(): boolean {
+    return this.executedPlans.length > 0;
+  }
+
+  rollback(): RenameResult[] {
+    const results: RenameResult[] = [];
+    for (const entry of this.executedPlans.reverse()) {
+      try {
+        switch (entry.action) {
+          case "move":
+            if (existsSync(entry.absTargetPath)) {
+              renameSync(entry.absTargetPath, entry.sourcePath);
+            }
+            break;
+          case "copy":
+            if (existsSync(entry.absTargetPath)) {
+              unlinkSync(entry.absTargetPath);
+            }
+            break;
+          case "symlink":
+            if (existsSync(entry.absTargetPath)) {
+              unlinkSync(entry.absTargetPath);
+            }
+            break;
+          case "hardlink":
+            if (existsSync(entry.absTargetPath)) {
+              unlinkSync(entry.absTargetPath);
+            }
+            break;
+        }
+        results.push({ success: true });
+      } catch {
+        results.push({
+          success: false,
+          error: { type: "other", message: `Failed to rollback: ${entry.absTargetPath}` },
+        });
+      }
+    }
+    this.executedPlans = [];
+    return results;
+  }
+
+  private executedPlans: Array<RenamePlan & { absTargetPath: string }> = [];
 }

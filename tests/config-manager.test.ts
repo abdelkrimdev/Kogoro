@@ -62,6 +62,7 @@ describe("ConfigManager", () => {
       expect(await mgr.get("extensions")).toBe(".mkv,.mp4");
       expect(await mgr.get("exclude-patterns")).toBe(".part,.crdownload");
       expect(await mgr.get("concurrency")).toBe("4");
+      expect(await mgr.get("api-delay")).toBe("200");
       expect(await mgr.get("episode-numbering")).toBe("relative");
     } finally {
       cleanupTempDir(dir);

@@ -12,6 +12,7 @@ import { Scanner, type ScanResult } from "../scanner.ts";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
+  fallbackDatabase?: DatabasePlugin;
   cache?: MatchCache;
   renamer?: Renamer;
   config?: ConfigManager;
@@ -203,72 +204,162 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         console.log(msg);
       }
 
-      const scanResults = await scanner.scanBatch(unorganizedFiles, {
-        force,
-        dryRun,
-        action,
-        concurrency,
-        onProgress: (p) => {
-          if (verbose && !quiet) {
-            console.log(`[${p.status.toUpperCase()}] ${p.file}`);
-          } else if (!quiet) {
-            const pct = ((p.completed / p.total) * 100).toFixed(0);
-            process.stdout.write(`\r[${p.completed}/${p.total}] Processing... (${pct}%)`);
-            if (p.completed === p.total) {
-              process.stdout.write("\n");
-            }
-          }
-        },
-      });
-
-      const skippedResults: ScanResult[] = organizedFiles.map((file) => ({
-        file,
-        hash: "",
-        parsed: createEmptyResult(),
-        match: null,
-        plan: null,
-        cached: false,
-        skipped: true,
-        status: "skipped",
-      }));
-
-      const allResults = [...skippedResults, ...scanResults];
-
-      const pendingIndices = allResults.reduce<number[]>((acc, r, i) => {
-        if (r.status === "ambiguous" || r.status === "failed") acc.push(i);
-        return acc;
-      }, []);
-
-      if (!yes && pendingIndices.length > 0) {
+      const abortController = new AbortController();
+      let interrupted = false;
+      const onSigint = () => {
+        interrupted = true;
+        abortController.abort();
         if (!quiet) {
-          console.log(`\nResolving ${pendingIndices.length} pending file(s)...`);
+          console.log("\nInterrupt received. Finishing current operations...");
         }
-        for (const idx of pendingIndices) {
-          const result = allResults[idx];
-          if (!result) continue;
-          const updated = await scanner.scanFile(result.file, {
+      };
+      process.on("SIGINT", onSigint);
+
+      let scanResults: ScanResult[];
+      try {
+        try {
+          scanResults = await scanner.scanBatch(unorganizedFiles, {
             force,
             dryRun,
             action,
-            onAmbiguous: resolveAmbiguous,
-            onFailed: resolveFailed,
+            concurrency,
+            abortSignal: abortController.signal,
+            onProgress: (p) => {
+              if (verbose && !quiet) {
+                console.log(`[${p.status.toUpperCase()}] ${p.file}`);
+              } else if (!quiet && !abortController.signal.aborted) {
+                const pct = ((p.completed / p.total) * 100).toFixed(0);
+                process.stdout.write(`\r[${p.completed}/${p.total}] Processing... (${pct}%)`);
+                if (p.completed === p.total) {
+                  process.stdout.write("\n");
+                }
+              }
+            },
           });
-          allResults[idx] = updated;
+        } catch (dbError) {
+          if (options.fallbackDatabase && !yes && !interrupted) {
+            if (!quiet) {
+              console.log("\nPrimary Database unreachable.");
+            }
+            const useFallback = await confirm({
+              message: "Fall back to secondary Database?",
+            });
+            if (!isCancel(useFallback) && useFallback) {
+              const fallbackScanner = new Scanner({
+                database: options.fallbackDatabase,
+                cache: options.cache,
+                renamer,
+              });
+              scanResults = await fallbackScanner.scanBatch(unorganizedFiles, {
+                force,
+                dryRun,
+                action,
+                concurrency,
+                abortSignal: abortController.signal,
+                onProgress: (p) => {
+                  if (verbose && !quiet) {
+                    console.log(`[${p.status.toUpperCase()}] ${p.file}`);
+                  } else if (!quiet && !abortController.signal.aborted) {
+                    const pct = ((p.completed / p.total) * 100).toFixed(0);
+                    process.stdout.write(`\r[${p.completed}/${p.total}] Processing... (${pct}%)`);
+                    if (p.completed === p.total) {
+                      process.stdout.write("\n");
+                    }
+                  }
+                },
+              });
+            } else {
+              throw dbError;
+            }
+          } else {
+            throw dbError;
+          }
         }
-      }
 
-      if (!quiet) {
-        const matched = allResults.filter((r) => r.status === "matched").length;
-        const cached = allResults.filter((r) => r.status === "cached").length;
-        const skipped = allResults.filter((r) => r.status === "skipped").length;
-        const ambiguous = allResults.filter((r) => r.status === "ambiguous").length;
-        const failed = allResults.filter((r) => r.status === "failed").length;
-        console.log(
-          `Summary: ${matched} matched, ${ambiguous} unresolved, ${failed} failed, ${cached + skipped} skipped (already organized)`,
-        );
-      }
+        const skippedResults: ScanResult[] = organizedFiles.map((file) => ({
+          file,
+          hash: "",
+          parsed: createEmptyResult(),
+          match: null,
+          plan: null,
+          cached: false,
+          skipped: true,
+          status: "skipped",
+        }));
 
-      return JSON.stringify(allResults, null, 2);
+        const allResults = [...skippedResults, ...scanResults];
+
+        if (interrupted && !quiet) {
+          const matchedCount = allResults.filter((r) => r.status === "matched").length;
+          const failedCount = allResults.filter((r) => r.status === "failed").length;
+          const remaining = filePaths.length - allResults.length;
+          console.log(
+            `Interrupted: ${matchedCount} completed, ${remaining} pending, ${failedCount} failed.`,
+          );
+        }
+
+        const pendingIndices = allResults.reduce<number[]>((acc, r, i) => {
+          if (r.status === "ambiguous" || r.status === "failed") acc.push(i);
+          return acc;
+        }, []);
+
+        if (!yes && !interrupted && pendingIndices.length > 0) {
+          if (!quiet) {
+            console.log(`\nResolving ${pendingIndices.length} pending file(s)...`);
+          }
+          for (const idx of pendingIndices) {
+            const result = allResults[idx];
+            if (!result) continue;
+            const updated = await scanner.scanFile(result.file, {
+              force,
+              dryRun,
+              action,
+              onAmbiguous: resolveAmbiguous,
+              onFailed: resolveFailed,
+            });
+            allResults[idx] = updated;
+          }
+        }
+
+        if (!quiet) {
+          const matched = allResults.filter((r) => r.status === "matched").length;
+          const cached = allResults.filter((r) => r.status === "cached").length;
+          const skipped = allResults.filter((r) => r.status === "skipped").length;
+          const ambiguous = allResults.filter((r) => r.status === "ambiguous").length;
+          const failedResults = allResults.filter((r) => r.status === "failed" && r.failureReason);
+          console.log(
+            `Summary: ${matched} matched, ${ambiguous} unresolved, ${failedResults.length} failed, ${cached + skipped} skipped (already organized)`,
+          );
+
+          if (failedResults.length > 0) {
+            console.log(
+              `${failedResults.length} file(s) failed:\n${failedResults.map((r) => `  - ${r.file} (${r.failureReason})`).join("\n")}`,
+            );
+          }
+        }
+
+        if (
+          !dryRun &&
+          !yes &&
+          (scanner.hasRollback() || allResults.some((r) => r.status === "failed"))
+        ) {
+          const rollbackResponse = await confirm({
+            message: "Rollback all changes?",
+          });
+          if (!isCancel(rollbackResponse) && rollbackResponse) {
+            const rollbackResults = scanner.rollback();
+            const rollbackSuccess = rollbackResults.filter((r) => r.success).length;
+            const rollbackFailed = rollbackResults.filter((r) => !r.success).length;
+            if (!quiet) {
+              console.log(`Rollback: ${rollbackSuccess} reverted, ${rollbackFailed} errors`);
+            }
+          }
+        }
+
+        return JSON.stringify(allResults, null, 2);
+      } finally {
+        process.off("SIGINT", onSigint);
+      }
     },
   };
 }
