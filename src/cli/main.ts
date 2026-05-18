@@ -8,6 +8,11 @@ import { createConfigHandlers } from "./config-commands.ts";
 import { createDbHandlers } from "./db-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 
+function getTvdbApiKey(): string | undefined {
+  // biome-ignore lint/complexity/useLiteralKeys: env var name requires bracket notation
+  return process.env["KOGORO_TVDB_KEY"];
+}
+
 export function run(argv: string[]): string | undefined {
   let result: string | undefined;
 
@@ -24,8 +29,7 @@ export function run(argv: string[]): string | undefined {
           describe: "Path to a directory or MediaFile to scan",
         }),
       async (argv) => {
-        // biome-ignore lint/complexity/useLiteralKeys: env var name requires bracket notation
-        const apiKey = process.env["KOGORO_TVDB_KEY"];
+        const apiKey = getTvdbApiKey();
         const adapter = new TVDBAdapter({ apiKey });
         const handlers = createScanHandlers({ database: adapter });
         try {
@@ -183,8 +187,7 @@ export function run(argv: string[]): string | undefined {
                 describe: "Anime title to search for",
               }),
             async (argv) => {
-              // biome-ignore lint/complexity/useLiteralKeys: env var name requires bracket notation
-              const apiKey = process.env["KOGORO_TVDB_KEY"];
+              const apiKey = getTvdbApiKey();
               const db = createDbHandlers({ apiKey });
               try {
                 const output = await db.search(argv.title);
@@ -204,8 +207,7 @@ export function run(argv: string[]): string | undefined {
                 describe: "TVDB Anime ID",
               }),
             async (argv) => {
-              // biome-ignore lint/complexity/useLiteralKeys: env var name requires bracket notation
-              const apiKey = process.env["KOGORO_TVDB_KEY"];
+              const apiKey = getTvdbApiKey();
               const db = createDbHandlers({ apiKey });
               try {
                 const output = await db.episodes(argv.animeId);

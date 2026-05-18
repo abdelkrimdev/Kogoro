@@ -7,9 +7,11 @@ export interface ScanHandlerOptions {
   extensions?: string[];
 }
 
+const DEFAULT_EXTENSIONS = [".mkv", ".mp4", ".avi", ".mov"];
+
 export function createScanHandlers(options: ScanHandlerOptions) {
   const scanner = new Scanner({ database: options.database });
-  const extensions = options.extensions ?? [".mkv", ".mp4", ".avi", ".mov"];
+  const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
 
   return {
     async scan(path: string): Promise<string> {

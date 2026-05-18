@@ -16,15 +16,16 @@ export interface ScannerOptions {
 
 export class Scanner {
   private db: DatabasePlugin;
+  private matcher: Matcher;
 
   constructor(options: ScannerOptions) {
     this.db = options.database;
+    this.matcher = new Matcher({ database: this.db });
   }
 
   async scanFile(filename: string): Promise<ScanResult> {
     const parsed = parse(filename);
-    const matcher = new Matcher({ database: this.db });
-    const matches = await matcher.match(parsed);
+    const matches = await this.matcher.match(parsed);
     return { file: filename, parsed, matches };
   }
 
