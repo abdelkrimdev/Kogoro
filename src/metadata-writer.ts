@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import { type CachedMatch, MatchCache } from "./match-cache.ts";
 import { stripExtension } from "./parser.ts";
@@ -62,10 +62,14 @@ export class MetadataWriter {
           continue;
         }
 
-        const xml =
-          match.entryType === "movie"
-            ? this.generateMovieNfo(match)
-            : this.generateEpisodeNfo(match);
+        let xml: string;
+        switch (match.entryType) {
+          case "movie":
+            xml = this.generateMovieNfo(match);
+            break;
+          default:
+            xml = this.generateEpisodeNfo(match);
+        }
 
         writeFileSync(nfoPath, xml, "utf-8");
         written++;
@@ -79,13 +83,12 @@ export class MetadataWriter {
 
   private walkDir(dirPath: string): string[] {
     const files: string[] = [];
-    const entries = readdirSync(dirPath);
+    const entries = readdirSync(dirPath, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = join(dirPath, entry);
-      const stat = statSync(fullPath);
-      if (stat.isDirectory()) {
+      const fullPath = join(dirPath, entry.name);
+      if (entry.isDirectory()) {
         files.push(...this.walkDir(fullPath));
-      } else if (stat.isFile() && this.extensions.includes(extname(fullPath).toLowerCase())) {
+      } else if (entry.isFile() && this.extensions.includes(extname(fullPath).toLowerCase())) {
         files.push(fullPath);
       }
     }
@@ -93,7 +96,7 @@ export class MetadataWriter {
   }
 
   generateEpisodeNfo(match: CachedMatch): string {
-    const title = match.title ? escapeXml(match.title) : "";
+    const title = escapeXml(match.title ?? "");
     const season = match.season ?? 1;
     const episode = match.episode ?? 1;
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -110,7 +113,7 @@ export class MetadataWriter {
   }
 
   generateMovieNfo(match: CachedMatch): string {
-    const title = match.title ? escapeXml(match.title) : "";
+    const title = escapeXml(match.title ?? "");
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <movie>
   <title>${title}</title>

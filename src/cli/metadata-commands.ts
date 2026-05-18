@@ -7,6 +7,7 @@ export interface MetadataHandlerOptions {
 
 export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
   const cache = new MatchCache({ dbPath: options.dbPath });
+  const writer = new MetadataWriter({ cache });
 
   return {
     async write(
@@ -16,7 +17,6 @@ export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
       onError: (msg: string) => void,
     ): Promise<void> {
       try {
-        const writer = new MetadataWriter({ cache });
         const summary = await writer.write(path, { force });
         onLog(JSON.stringify(summary, null, 2));
       } catch (err) {
