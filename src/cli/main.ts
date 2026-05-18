@@ -1,5 +1,6 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import { parse } from "../parser.ts";
 
 export function run(argv: string[]) {
   return yargs(hideBin(argv))
@@ -55,6 +56,20 @@ export function run(argv: string[]) {
         }),
       () => {
         console.log("metadata command — not yet implemented");
+      },
+    )
+    .command(
+      "parse <filename>",
+      "Parse a MediaFile filename and print the ParsedResult as JSON",
+      (yargs) =>
+        yargs.positional("filename", {
+          type: "string",
+          demandOption: true,
+          describe: "The filename to parse",
+        }),
+      (argv) => {
+        const result = parse(argv.filename);
+        console.log(JSON.stringify(result, null, 2));
       },
     )
     .command(
