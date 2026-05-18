@@ -37,18 +37,14 @@ const DEFAULT_DIRECTORY_TEMPLATE = "{anime}/{type}";
 
 const DEFAULT_EXCLUDE_PATTERNS = [".part", ".crdownload", "!qb"];
 
-function walkDir(
-  dir: string,
-  extensions: string[],
-  excludePatterns: string[],
-  results: string[],
-): void {
+function walkDir(dir: string, extensions: string[], excludePatterns: string[]): string[] {
+  const results: string[] = [];
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = join(dir, entry.name);
     if (entry.isSymbolicLink()) continue;
     if (entry.isDirectory()) {
-      walkDir(fullPath, extensions, excludePatterns, results);
+      results.push(...walkDir(fullPath, extensions, excludePatterns));
     } else if (entry.isFile()) {
       const ext = extname(entry.name).toLowerCase();
       if (!extensions.includes(ext)) continue;
@@ -56,20 +52,19 @@ function walkDir(
       results.push(fullPath);
     }
   }
+  return results;
 }
 
 export function discoverFiles(
-  path: string,
+  rootPath: string,
   extensions: string[],
   excludePatterns?: string[],
 ): string[] {
-  if (lstatSync(path).isDirectory()) {
-    const results: string[] = [];
+  if (lstatSync(rootPath).isDirectory()) {
     const patterns = excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS;
-    walkDir(path, extensions, patterns, results);
-    return results;
+    return walkDir(rootPath, extensions, patterns);
   }
-  return [path];
+  return [rootPath];
 }
 
 function getFilenameTemplate(config?: ConfigManager): string {
@@ -172,7 +167,6 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const action = scanOptions?.action;
       const verbose = scanOptions?.verbose ?? false;
       const quiet = scanOptions?.quiet ?? false;
-      const outputJson = scanOptions?.json ?? false;
       const configConcurrency = options.config ? Number(options.config.get("concurrency")) : NaN;
       const concurrency =
         scanOptions?.concurrency ?? (Number.isNaN(configConcurrency) ? 1 : configConcurrency);
@@ -183,7 +177,6 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         return JSON.stringify([]);
       }
 
-      // Pass 1: scan all files without interactive prompts
       if (!quiet && !verbose) {
         console.log(`Scanning ${filePaths.length} file(s)...`);
       }
@@ -206,7 +199,6 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         },
       });
 
-      // Pass 2: resolve pending (ambiguous/failed) files interactively if not -y
       const pendingIndices = allResults.reduce<number[]>((acc, r, i) => {
         if (r.status === "ambiguous" || r.status === "failed") acc.push(i);
         return acc;
@@ -230,7 +222,6 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         }
       }
 
-      // Summary
       if (!quiet) {
         const matched = allResults.filter((r) => r.status === "matched").length;
         const cached = allResults.filter((r) => r.status === "cached").length;
@@ -240,10 +231,6 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         console.log(
           `Summary: ${matched} matched, ${ambiguous} unresolved, ${failed} failed, ${cached + skipped} skipped (already organized)`,
         );
-      }
-
-      if (outputJson) {
-        return JSON.stringify(allResults, null, 2);
       }
 
       return JSON.stringify(allResults, null, 2);
