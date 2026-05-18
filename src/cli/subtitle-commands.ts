@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { extname, join } from "node:path";
+import { extname, join, relative, sep } from "node:path";
 import { MatchCache } from "../match-cache.ts";
 import type { SubtitlePlugin } from "../subtitle/subtitle-plugin.ts";
 
@@ -65,7 +65,11 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
           continue;
         }
 
-        const best = results[0] as NonNullable<(typeof results)[0]>;
+        const best = results[0];
+        if (best === undefined) {
+          failed++;
+          continue;
+        }
         const content = await subtitlePlugin.download(best.fileId);
 
         if (!content) {
@@ -73,7 +77,7 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
           continue;
         }
 
-        Bun.write(subtitlePath, content);
+        await Bun.write(subtitlePath, content);
         downloaded++;
         onLog(`Downloaded: ${filePath} -> ${subtitlePath}`);
       }
@@ -108,8 +112,8 @@ function findVideoFiles(dirPath: string): string[] {
 }
 
 function extractAnimeTitle(basePath: string, filePath: string): string | undefined {
-  const relative = filePath.startsWith(basePath) ? filePath.slice(basePath.length + 1) : filePath;
-  const parts = relative.split("/");
+  const relativePath = relative(basePath, filePath);
+  const parts = relativePath.split(sep);
   if (parts.length < 2) return undefined;
   return parts[0];
 }

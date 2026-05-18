@@ -8,5 +8,5 @@ export interface SubtitlePlugin {
     language?: string,
   ): Promise<SubtitleResult[]>;
 
-  download(subtitleId: number): Promise<string>;
+  download(fileId: number): Promise<string>;
 }

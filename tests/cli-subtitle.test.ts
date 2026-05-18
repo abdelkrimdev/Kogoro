@@ -34,7 +34,7 @@ function createMockSubtitlePlugin(): SubtitlePlugin {
         },
       ];
     },
-    async download(_subtitleId: number): Promise<string> {
+    async download(_fileId: number): Promise<string> {
       return "1\n00:00:01,000 --> 00:00:05,000\nHello world\n";
     },
   };
@@ -80,7 +80,6 @@ describe("subtitle CLI commands", () => {
         },
       );
 
-      if (errOutput) console.log("ERROR:", errOutput);
       expect(errOutput).toBe("");
       expect(logOutput).toContain("Downloaded:");
       expect(logOutput).toContain("downloaded");

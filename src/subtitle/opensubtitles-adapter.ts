@@ -72,7 +72,7 @@ export class OpenSubtitlesAdapter implements SubtitlePlugin {
     );
   }
 
-  async download(subtitleId: number): Promise<string> {
+  async download(fileId: number): Promise<string> {
     const response = await this.fetchFn(`${BASE_URL}/download`, {
       method: "POST",
       headers: {
@@ -80,7 +80,7 @@ export class OpenSubtitlesAdapter implements SubtitlePlugin {
         "User-Agent": "Kogoro/0.1.0",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ file_id: subtitleId }),
+      body: JSON.stringify({ file_id: fileId }),
     });
 
     if (!response.ok) return "";
