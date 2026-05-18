@@ -1,9 +1,12 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { getDefaultPrompts } from "../config/config-wizard.ts";
+import { CredentialStore } from "../config/credential-store.ts";
+import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { parse } from "../parser.ts";
 import { render } from "../template-engine.ts";
 import { createConfigHandlers } from "./config-commands.ts";
+import { createDBCommands } from "./db-commands.ts";
 
 export function run(argv: string[]): string | undefined {
   let result: string | undefined;
@@ -127,6 +130,56 @@ export function run(argv: string[]): string | undefined {
             },
           )
           .demandCommand(1, "Please specify a config action: get, set, or init"),
+      () => {},
+    )
+    .command(
+      "db",
+      "Query TVDB database for Anime and Episode data",
+      (yargs) =>
+        yargs
+          .command(
+            "search <title>",
+            "Search for Anime by title and print results as JSON",
+            (yargs) =>
+              yargs.positional("title", {
+                type: "string",
+                demandOption: true,
+                describe: "Anime title to search for",
+              }),
+            async (argv) => {
+              const credentialStore = new CredentialStore();
+              const apiKey = await credentialStore.getCredential("tvdb");
+              if (!apiKey) {
+                console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+                return;
+              }
+              const adapter = new TVDBAdapter({ apiKey });
+              const commands = createDBCommands(adapter);
+              await commands.search(argv.title, console.log, console.error);
+            },
+          )
+          .command(
+            "episodes <animeId>",
+            "Get episodes for an Anime by TVDB ID and print as JSON",
+            (yargs) =>
+              yargs.positional("animeId", {
+                type: "string",
+                demandOption: true,
+                describe: "TVDB Anime ID",
+              }),
+            async (argv) => {
+              const credentialStore = new CredentialStore();
+              const apiKey = await credentialStore.getCredential("tvdb");
+              if (!apiKey) {
+                console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+                return;
+              }
+              const adapter = new TVDBAdapter({ apiKey });
+              const commands = createDBCommands(adapter);
+              await commands.episodes(argv.animeId, console.log, console.error);
+            },
+          )
+          .demandCommand(1, "Please specify a db action: search or episodes"),
       () => {},
     )
     .command(
