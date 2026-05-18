@@ -1,4 +1,6 @@
 import { extname } from "node:path";
+import type { EntryType } from "../db/types.ts";
+import type { MatchResult } from "../matcher.ts";
 import { parse } from "../parser.ts";
 import { type FileAction, Renamer } from "../renamer.ts";
 
@@ -9,6 +11,19 @@ export interface RenameHandlerOptions {
 
 const DEFAULT_FILENAME_TEMPLATE = "{anime} - {season}x{episode:02} - {title}.{ext}";
 const DEFAULT_DIRECTORY_TEMPLATE = "{anime}/{type}";
+
+function normalizeEntryType(input: string): EntryType {
+  const normalized = input.toLowerCase();
+  switch (normalized) {
+    case "tv":
+    case "movie":
+    case "ova":
+    case "special":
+      return normalized;
+    default:
+      return "tv";
+  }
+}
 
 export function createRenameHandlers(options?: RenameHandlerOptions) {
   const renamer = new Renamer({
@@ -34,15 +49,13 @@ export function createRenameHandlers(options?: RenameHandlerOptions) {
         const extension = extname(sourcePath).replace(".", "") || "mkv";
         const parsed = parse(sourcePath);
 
-        const entryTypeNormalized = params.entryType.toLowerCase();
-        const validTypes = ["tv", "movie", "ova", "special"];
-        const entryType = validTypes.includes(entryTypeNormalized) ? entryTypeNormalized : "tv";
+        const entryType = normalizeEntryType(params.entryType);
 
-        const match = {
+        const match: MatchResult = {
           anime: {
             id: "",
             title: params.anime,
-            entryType: entryType as "tv" | "movie" | "ova" | "special",
+            entryType,
           },
           episode: {
             id: "",
@@ -50,13 +63,13 @@ export function createRenameHandlers(options?: RenameHandlerOptions) {
             season: params.season ?? 1,
             episode: params.episode ?? 1,
             title: params.title ?? "",
-            entryType: entryType as "tv" | "movie" | "ova" | "special",
+            entryType,
           },
           score: 1,
         };
 
         const plan = renamer.plan(sourcePath, match, extension, parsed.tags);
-        plan.action = (params.action ?? "move") as FileAction;
+        plan.action = params.action ?? "move";
 
         onLog(JSON.stringify(plan, null, 2));
       } catch (err) {

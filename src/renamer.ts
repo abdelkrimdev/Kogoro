@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { EntryType } from "./db/types.ts";
 import type { MatchResult } from "./matcher.ts";
 import type { ParsedTags } from "./parser.ts";
+import { stripExtension } from "./parser.ts";
 import { render } from "./template-engine.ts";
 
 export type FileAction = "move" | "copy" | "symlink" | "hardlink";
@@ -28,11 +29,6 @@ const ENTRY_TYPE_DIR_MAP: Record<EntryType, string> = {
   special: "Specials",
 };
 
-function stripExtension(name: string): string {
-  const dotIndex = name.lastIndexOf(".");
-  return dotIndex === -1 ? name : name.slice(0, dotIndex);
-}
-
 function buildDisambiguator(tags: ParsedTags): string {
   const parts: string[] = [];
   for (const key of ["resolution", "group", "source", "codec", "audio"] as const) {
@@ -41,26 +37,6 @@ function buildDisambiguator(tags: ParsedTags): string {
   }
   if (parts.length === 0) return "";
   return ` - [${parts.join("] [")}]`;
-}
-
-function buildFilenameContext(
-  animeTitle: string,
-  extension: string,
-  season?: number,
-  episode?: number,
-  episodeTitle?: string,
-): Record<string, string | number> {
-  const ctx: Record<string, string | number> = {
-    anime: animeTitle,
-    ext: extension,
-  };
-  // biome-ignore lint/complexity/useLiteralKeys: tsc noPropertyAccessFromIndexSignature
-  if (season !== undefined) ctx["season"] = season;
-  // biome-ignore lint/complexity/useLiteralKeys: tsc noPropertyAccessFromIndexSignature
-  if (episode !== undefined) ctx["episode"] = episode;
-  // biome-ignore lint/complexity/useLiteralKeys: tsc noPropertyAccessFromIndexSignature
-  if (episodeTitle) ctx["title"] = episodeTitle;
-  return ctx;
 }
 
 export class Renamer {
@@ -86,46 +62,21 @@ export class Renamer {
 
     const targetDir = render(this.directoryTemplate, dirContext);
 
-    const filenameContext = buildFilenameContext(
-      anime.title,
-      extension,
-      episode?.season,
-      episode?.episode,
-      episode?.title,
-    );
+    const filenameContext = {
+      anime: anime.title,
+      ext: extension,
+      ...(episode?.season !== undefined ? { season: episode.season } : {}),
+      ...(episode?.episode !== undefined ? { episode: episode.episode } : {}),
+      ...(episode?.title ? { title: episode.title } : {}),
+    } as Record<string, string | number>;
 
     let targetFilename = render(this.filenameTemplate, filenameContext);
     let targetPath = `${targetDir}/${targetFilename}`;
 
     if (this.usedTargets.has(targetPath)) {
-      const base = stripExtension(targetFilename);
-      const ext = `.${extension}`;
-
-      if (tags) {
-        const disambiguator = buildDisambiguator(tags);
-        if (disambiguator) {
-          const taggedFilename = `${base}${disambiguator}${ext}`;
-          const taggedPath = `${targetDir}/${taggedFilename}`;
-          if (!this.usedTargets.has(taggedPath)) {
-            targetFilename = taggedFilename;
-            targetPath = taggedPath;
-            this.usedTargets.add(taggedPath);
-            return { sourcePath, targetPath, targetDir, targetFilename, action: this.action };
-          }
-        }
-      }
-
-      let counter = 2;
-      while (true) {
-        const suffixedFilename = `${base} (${counter})${ext}`;
-        const suffixedPath = `${targetDir}/${suffixedFilename}`;
-        if (!this.usedTargets.has(suffixedPath)) {
-          targetFilename = suffixedFilename;
-          targetPath = suffixedPath;
-          break;
-        }
-        counter++;
-      }
+      const resolved = this.resolveCollision(targetDir, targetFilename, extension, tags);
+      targetFilename = resolved.filename;
+      targetPath = resolved.path;
     }
 
     this.usedTargets.add(targetPath);
@@ -137,6 +88,37 @@ export class Renamer {
       targetFilename,
       action: this.action,
     };
+  }
+
+  private resolveCollision(
+    targetDir: string,
+    baseFilename: string,
+    extension: string,
+    tags?: ParsedTags,
+  ): { filename: string; path: string } {
+    const base = stripExtension(baseFilename);
+    const ext = `.${extension}`;
+
+    if (tags) {
+      const disambiguator = buildDisambiguator(tags);
+      if (disambiguator) {
+        const taggedFilename = `${base}${disambiguator}${ext}`;
+        const taggedPath = `${targetDir}/${taggedFilename}`;
+        if (!this.usedTargets.has(taggedPath)) {
+          return { filename: taggedFilename, path: taggedPath };
+        }
+      }
+    }
+
+    let counter = 2;
+    while (true) {
+      const suffixedFilename = `${base} (${counter})${ext}`;
+      const suffixedPath = `${targetDir}/${suffixedFilename}`;
+      if (!this.usedTargets.has(suffixedPath)) {
+        return { filename: suffixedFilename, path: suffixedPath };
+      }
+      counter++;
+    }
   }
 
   execute(plan: RenamePlan, baseDir?: string): void {

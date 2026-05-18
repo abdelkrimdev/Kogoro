@@ -5,6 +5,7 @@ import { CredentialStore } from "../config/credential-store.ts";
 import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { parse } from "../parser.ts";
+import type { FileAction } from "../renamer.ts";
 import { render } from "../template-engine.ts";
 import { createConfigHandlers } from "./config-commands.ts";
 import { createDBCommands } from "./db-commands.ts";
@@ -317,7 +318,7 @@ export function run(argv: string[]): string | undefined {
             season: argv.season,
             episode: argv.episode,
             title: argv.title,
-            action: argv.action as "move" | "copy" | "symlink" | "hardlink",
+            action: argv.action as FileAction,
           },
           console.log,
           console.error,
