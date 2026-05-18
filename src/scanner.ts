@@ -1,6 +1,6 @@
 import { readdirSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
-import type { DatabasePlugin } from "./database/types.ts";
+import type { DatabasePlugin } from "./db/database-plugin.ts";
 import { Matcher, type MatchResult } from "./matcher.ts";
 import { type ParsedResult, parse } from "./parser.ts";
 

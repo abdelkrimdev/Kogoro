@@ -1,5 +1,5 @@
 import { statSync } from "node:fs";
-import type { DatabasePlugin } from "../database/types.ts";
+import type { DatabasePlugin } from "../db/database-plugin.ts";
 import { Scanner } from "../scanner.ts";
 
 export interface ScanHandlerOptions {

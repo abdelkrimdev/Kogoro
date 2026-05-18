@@ -2,17 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabasePlugin } from "../src/database/types.ts";
+import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { Scanner } from "../src/scanner.ts";
 
 function createMockDb(): DatabasePlugin {
   return {
     async searchAnime(title: string) {
-      return [{ id: "1", title }];
+      return [{ id: "1", title, entryType: "tv" as const }];
     },
     async getEpisodes(_animeId: string) {
       return [
-        { id: "101", seasonNumber: 1, episodeNumber: 1, title: "Ep 1", entryType: "TV" as const },
+        { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
       ];
     },
     async getArtwork() {
@@ -31,7 +31,7 @@ describe("Scanner", () => {
     expect(result.parsed.episode).toBe(1);
     expect(result.matches).toHaveLength(1);
     expect(result.matches[0]?.anime.title).toBe("My Anime");
-    expect(result.matches[0]?.episode?.episodeNumber).toBe(1);
+    expect(result.matches[0]?.episode?.episode).toBe(1);
   });
 
   test("scanDir discovers media files, parses, and matches", async () => {

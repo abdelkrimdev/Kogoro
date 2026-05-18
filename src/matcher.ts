@@ -1,4 +1,5 @@
-import type { AnimeResult, DatabasePlugin, EpisodeResult } from "./database/types.ts";
+import type { DatabasePlugin } from "./db/database-plugin.ts";
+import type { AnimeResult, EpisodeResult } from "./db/types.ts";
 import type { ParsedResult } from "./parser.ts";
 
 export interface MatchResult {
@@ -30,8 +31,7 @@ export class Matcher {
         const episodes = await this.db.getEpisodes(anime.id);
         const matchingEpisode = episodes.find(
           (e) =>
-            e.episodeNumber === parsed.episode &&
-            (parsed.season === null || e.seasonNumber === parsed.season),
+            e.episode === parsed.episode && (parsed.season === null || e.season === parsed.season),
         );
         results.push({ anime, episode: matchingEpisode });
       } else {

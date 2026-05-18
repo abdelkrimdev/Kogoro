@@ -3,16 +3,16 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createScanHandlers } from "../src/cli/scan-commands.ts";
-import type { DatabasePlugin } from "../src/database/types.ts";
+import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 
 function createMockDb(): DatabasePlugin {
   return {
     async searchAnime(title: string) {
-      return [{ id: "1", title }];
+      return [{ id: "1", title, entryType: "tv" as const }];
     },
     async getEpisodes(_animeId: string) {
       return [
-        { id: "101", seasonNumber: 1, episodeNumber: 1, title: "Ep 1", entryType: "TV" as const },
+        { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
       ];
     },
     async getArtwork() {

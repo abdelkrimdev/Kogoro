@@ -1,16 +1,34 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { getDefaultPrompts } from "../config/config-wizard.ts";
-import { TVDBAdapter } from "../database/tvdb-adapter.ts";
+import { CredentialStore } from "../config/credential-store.ts";
+import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { parse } from "../parser.ts";
 import { render } from "../template-engine.ts";
 import { createConfigHandlers } from "./config-commands.ts";
-import { createDbHandlers } from "./db-commands.ts";
+import { createDBCommands } from "./db-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 
-function getTvdbApiKey(): string | undefined {
-  // biome-ignore lint/complexity/useLiteralKeys: env var name requires bracket notation
-  return process.env["KOGORO_TVDB_KEY"];
+async function createDBCommandsWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const apiKey = await credentialStore.getCredential("tvdb");
+  if (!apiKey) {
+    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const adapter = new TVDBAdapter({ apiKey });
+  return createDBCommands(adapter);
+}
+
+async function createScanWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const apiKey = await credentialStore.getCredential("tvdb");
+  if (!apiKey) {
+    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const adapter = new TVDBAdapter({ apiKey });
+  return createScanHandlers({ database: adapter });
 }
 
 export function run(argv: string[]): string | undefined {
@@ -29,9 +47,8 @@ export function run(argv: string[]): string | undefined {
           describe: "Path to a directory or MediaFile to scan",
         }),
       async (argv) => {
-        const apiKey = getTvdbApiKey();
-        const adapter = new TVDBAdapter({ apiKey });
-        const handlers = createScanHandlers({ database: adapter });
+        const handlers = await createScanWithCredentials();
+        if (!handlers) return;
         try {
           const output = await handlers.scan(argv.path);
           console.log(output);
@@ -146,11 +163,48 @@ export function run(argv: string[]): string | undefined {
       () => {},
     )
     .command(
+      "db",
+      "Query TVDB database for Anime and Episode data",
+      (yargs) =>
+        yargs
+          .command(
+            "search <title>",
+            "Search for Anime by title and print results as JSON",
+            (yargs) =>
+              yargs.positional("title", {
+                type: "string",
+                demandOption: true,
+                describe: "Anime title to search for",
+              }),
+            async (argv) => {
+              const commands = await createDBCommandsWithCredentials();
+              if (!commands) return;
+              await commands.search(argv.title, console.log, console.error);
+            },
+          )
+          .command(
+            "episodes <animeId>",
+            "Get episodes for an Anime by TVDB ID and print as JSON",
+            (yargs) =>
+              yargs.positional("animeId", {
+                type: "string",
+                demandOption: true,
+                describe: "TVDB Anime ID",
+              }),
+            async (argv) => {
+              const commands = await createDBCommandsWithCredentials();
+              if (!commands) return;
+              await commands.episodes(argv.animeId, console.log, console.error);
+            },
+          )
+          .demandCommand(1, "Please specify a db action: search or episodes"),
+      () => {},
+    )
+    .command(
       "template <pattern>",
       "Test a rename pattern with {placeholder} variables",
       (yargs) =>
         yargs
-          // Allow arbitrary --key value pairs to be passed as template variables
           .strict(false)
           .positional("pattern", {
             type: "string",
@@ -171,54 +225,6 @@ export function run(argv: string[]): string | undefined {
         }
         result = render(argv.pattern, ctx);
       },
-    )
-    .command(
-      "db",
-      "Query a Database (TVDB) for Anime, Episodes, and Artwork",
-      (yargs) =>
-        yargs
-          .command(
-            "search <title>",
-            "Search for an Anime by title",
-            (yargs) =>
-              yargs.positional("title", {
-                type: "string",
-                demandOption: true,
-                describe: "Anime title to search for",
-              }),
-            async (argv) => {
-              const apiKey = getTvdbApiKey();
-              const db = createDbHandlers({ apiKey });
-              try {
-                const output = await db.search(argv.title);
-                console.log(output);
-              } catch (err) {
-                console.error(String(err));
-              }
-            },
-          )
-          .command(
-            "episodes <animeId>",
-            "Get episodes for an Anime by TVDB ID",
-            (yargs) =>
-              yargs.positional("animeId", {
-                type: "string",
-                demandOption: true,
-                describe: "TVDB Anime ID",
-              }),
-            async (argv) => {
-              const apiKey = getTvdbApiKey();
-              const db = createDbHandlers({ apiKey });
-              try {
-                const output = await db.episodes(argv.animeId);
-                console.log(output);
-              } catch (err) {
-                console.error(String(err));
-              }
-            },
-          )
-          .demandCommand(1, "Please specify a db action: search or episodes"),
-      () => {},
     )
     .demandCommand(1, "Please specify a command")
     .help()

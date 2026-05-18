@@ -1,23 +1,31 @@
-import { TVDBAdapter } from "../database/tvdb-adapter.ts";
-import type { DatabasePlugin } from "../database/types.ts";
+import type { DatabasePlugin } from "../db/database-plugin.ts";
 
-export interface DbHandlerOptions {
-  apiKey?: string;
-  adapter?: DatabasePlugin;
-}
-
-export function createDbHandlers(options: DbHandlerOptions = {}) {
-  const adapter = options.adapter ?? new TVDBAdapter({ apiKey: options.apiKey });
-
+export function createDBCommands(adapter: DatabasePlugin) {
   return {
-    async search(title: string): Promise<string> {
-      const results = await adapter.searchAnime(title);
-      return JSON.stringify(results, null, 2);
+    async search(
+      title: string,
+      onLog: (msg: string) => void,
+      onError: (msg: string) => void,
+    ): Promise<void> {
+      try {
+        const results = await adapter.searchAnime(title);
+        onLog(JSON.stringify(results, null, 2));
+      } catch {
+        onError("Search failed");
+      }
     },
 
-    async episodes(animeId: string): Promise<string> {
-      const results = await adapter.getEpisodes(animeId);
-      return JSON.stringify(results, null, 2);
+    async episodes(
+      animeId: string,
+      onLog: (msg: string) => void,
+      onError: (msg: string) => void,
+    ): Promise<void> {
+      try {
+        const results = await adapter.getEpisodes(animeId);
+        onLog(JSON.stringify(results, null, 2));
+      } catch {
+        onError("Failed to fetch episodes");
+      }
     },
   };
 }

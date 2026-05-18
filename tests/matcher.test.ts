@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { DatabasePlugin } from "../src/database/types.ts";
+import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { Matcher } from "../src/matcher.ts";
 import type { ParsedResult } from "../src/parser.ts";
 
@@ -7,20 +7,21 @@ function createMockDb(
   results: {
     animeId: string;
     title: string;
-    episodes: Array<{ id: string; seasonNumber: number; episodeNumber: number; title: string }>;
+    episodes: Array<{ id: string; season: number; episode: number; title: string }>;
   }[],
 ): DatabasePlugin {
   return {
     async searchAnime(title: string) {
       return results
         .filter((r) => r.title.toLowerCase().includes(title.toLowerCase()))
-        .map((r) => ({ id: r.animeId, title: r.title }));
+        .map((r) => ({ id: r.animeId, title: r.title, entryType: "tv" as const }));
     },
     async getEpisodes(animeId: string) {
       const anime = results.find((r) => r.animeId === animeId);
       return (anime?.episodes ?? []).map((e) => ({
         ...e,
-        entryType: "TV" as const,
+        animeId,
+        entryType: "tv" as const,
       }));
     },
     async getArtwork() {
@@ -35,7 +36,7 @@ describe("Matcher", () => {
       {
         animeId: "1",
         title: "Jujutsu Kaisen",
-        episodes: [{ id: "101", seasonNumber: 1, episodeNumber: 1, title: "Ryomen Sukuna" }],
+        episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
       },
     ]);
 
@@ -50,8 +51,8 @@ describe("Matcher", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]?.anime.title).toBe("Jujutsu Kaisen");
-    expect(results[0]?.episode?.episodeNumber).toBe(1);
-    expect(results[0]?.episode?.seasonNumber).toBe(1);
+    expect(results[0]?.episode?.episode).toBe(1);
+    expect(results[0]?.episode?.season).toBe(1);
   });
 
   test("returns match without episode when parsed has no episode number", async () => {
@@ -59,7 +60,7 @@ describe("Matcher", () => {
       {
         animeId: "1",
         title: "Jujutsu Kaisen 0",
-        episodes: [{ id: "101", seasonNumber: 1, episodeNumber: 1, title: "Movie" }],
+        episodes: [{ id: "101", season: 1, episode: 1, title: "Movie" }],
       },
     ]);
 
@@ -97,12 +98,12 @@ describe("Matcher", () => {
       {
         animeId: "1",
         title: "One Piece",
-        episodes: [{ id: "101", seasonNumber: 1, episodeNumber: 1, title: "Romance Dawn" }],
+        episodes: [{ id: "101", season: 1, episode: 1, title: "Romance Dawn" }],
       },
       {
         animeId: "2",
         title: "One Piece: Movie 1",
-        episodes: [{ id: "201", seasonNumber: 1, episodeNumber: 1, title: "Movie" }],
+        episodes: [{ id: "201", season: 1, episode: 1, title: "Movie" }],
       },
     ]);
 
