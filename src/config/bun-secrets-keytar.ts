@@ -7,11 +7,7 @@ export interface SecretsLike {
 }
 
 export class BunSecretsKeytar implements KeytarLike {
-  private secrets: SecretsLike;
-
-  constructor(secrets: SecretsLike) {
-    this.secrets = secrets;
-  }
+  constructor(private readonly secrets: SecretsLike) {}
 
   async setPassword(service: string, account: string, password: string): Promise<void> {
     await this.secrets.set({ service, name: account, value: password });

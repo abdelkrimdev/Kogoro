@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { BunSecretsKeytar } from "../src/config/bun-secrets-keytar.ts";
+import { BunSecretsKeytar, type SecretsLike } from "../src/config/bun-secrets-keytar.ts";
 
 function createMockSecrets() {
   const store = new Map<string, string>();
@@ -13,6 +13,25 @@ function createMockSecrets() {
     async delete(opts: { service: string; name: string }): Promise<boolean> {
       return store.delete(`${opts.service}:${opts.name}`);
     },
+  };
+}
+
+function createPartialMockSecrets(
+  overrides: Partial<{
+    set(opts: { service: string; name: string; value: string }): Promise<void>;
+    get(opts: { service: string; name: string }): Promise<string | null | undefined>;
+    delete(opts: { service: string; name: string }): Promise<boolean>;
+  }> = {},
+): SecretsLike {
+  return {
+    async set() {},
+    async get() {
+      return undefined;
+    },
+    async delete() {
+      return true;
+    },
+    ...overrides,
   };
 }
 
@@ -49,16 +68,13 @@ describe("BunSecretsKeytar", () => {
   });
 
   test("getPassword returns null when Bun.secrets throws", async () => {
-    const secrets = {
-      async set(): Promise<void> {},
-      async get(): Promise<string | undefined> {
-        throw new Error("Keyring unavailable");
-      },
-      async delete(): Promise<boolean> {
-        return true;
-      },
-    };
-    const keytar = new BunSecretsKeytar(secrets);
+    const keytar = new BunSecretsKeytar(
+      createPartialMockSecrets({
+        async get(): Promise<string | undefined> {
+          throw new Error("Keyring unavailable");
+        },
+      }),
+    );
 
     const result = await keytar.getPassword("kogoro", "tvdb");
 
@@ -66,16 +82,13 @@ describe("BunSecretsKeytar", () => {
   });
 
   test("deletePassword returns false when Bun.secrets throws", async () => {
-    const secrets = {
-      async set(): Promise<void> {},
-      async get(): Promise<string | undefined> {
-        return undefined;
-      },
-      async delete(): Promise<boolean> {
-        throw new Error("Keyring unavailable");
-      },
-    };
-    const keytar = new BunSecretsKeytar(secrets);
+    const keytar = new BunSecretsKeytar(
+      createPartialMockSecrets({
+        async delete(): Promise<boolean> {
+          throw new Error("Keyring unavailable");
+        },
+      }),
+    );
 
     const result = await keytar.deletePassword("kogoro", "tvdb");
 
@@ -83,18 +96,13 @@ describe("BunSecretsKeytar", () => {
   });
 
   test("setPassword propagates errors from Bun.secrets", async () => {
-    const secrets = {
-      async set(): Promise<void> {
-        throw new Error("Keyring unavailable");
-      },
-      async get(): Promise<string | undefined> {
-        return undefined;
-      },
-      async delete(): Promise<boolean> {
-        return true;
-      },
-    };
-    const keytar = new BunSecretsKeytar(secrets);
+    const keytar = new BunSecretsKeytar(
+      createPartialMockSecrets({
+        async set(): Promise<void> {
+          throw new Error("Keyring unavailable");
+        },
+      }),
+    );
 
     await expect(keytar.setPassword("kogoro", "tvdb", "key")).rejects.toThrow(
       "Keyring unavailable",
@@ -102,16 +110,7 @@ describe("BunSecretsKeytar", () => {
   });
 
   test("getPassword normalizes undefined to null", async () => {
-    const secrets = {
-      async set(): Promise<void> {},
-      async get(): Promise<string | undefined> {
-        return undefined;
-      },
-      async delete(): Promise<boolean> {
-        return true;
-      },
-    };
-    const keytar = new BunSecretsKeytar(secrets);
+    const keytar = new BunSecretsKeytar(createPartialMockSecrets());
 
     const result = await keytar.getPassword("kogoro", "tvdb");
 

@@ -12,7 +12,7 @@ export interface CredentialStoreOptions {
 }
 
 export class CredentialStore {
-  private keytar: KeytarLike | null;
+  private readonly keytar: KeytarLike | null;
 
   constructor(options: CredentialStoreOptions = {}) {
     this.keytar = options.keytar ?? null;

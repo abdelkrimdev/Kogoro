@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { CredentialStore } from "../src/config/credential-store.ts";
+import { CredentialStore, createCredentialStore } from "../src/config/credential-store.ts";
 
 describe("CredentialStore", () => {
   const mockKeytar = {
@@ -79,5 +79,10 @@ describe("CredentialStore", () => {
     const store = new CredentialStore({ keytar: mockKeytar });
     const val = await store.getCredential("anidb");
     expect(val).toBe("fallback-key");
+  });
+
+  test("createCredentialStore returns a CredentialStore instance", () => {
+    const store = createCredentialStore();
+    expect(store).toBeInstanceOf(CredentialStore);
   });
 });
