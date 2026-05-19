@@ -61,6 +61,7 @@ async function createAniDBCommandsWithCredentials() {
 async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
   const config = new ConfigManager();
   const registry = new PluginRegistry();
+  const credentialStore = new CredentialStore();
 
   const primaryDbName = config.get("primary-db") ?? "tvdb";
   const apiDelay = Number(config.get("api-delay")) || 200;
@@ -73,15 +74,14 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
       database = plugin;
     } else {
       console.warn(`Primary database "${primaryDbName}" not available, falling back to TVDB`);
-      database = await buildTVDBAdapter(apiDelay, debug);
+      database = await buildTVDBAdapter(credentialStore, apiDelay, debug);
     }
   } else {
-    database = await buildTVDBAdapter(apiDelay, debug);
+    database = await buildTVDBAdapter(credentialStore, apiDelay, debug);
   }
 
   if (!database) return undefined;
 
-  const credentialStore = new CredentialStore();
   const fallbackDatabases = await buildSecondaryDatabases(config, credentialStore, debug, registry);
   const cache = new MatchCache();
 
@@ -95,10 +95,10 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
 }
 
 async function buildTVDBAdapter(
+  credentialStore: CredentialStore,
   apiDelay: number,
   debug?: boolean,
 ): Promise<TVDBAdapter | undefined> {
-  const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
     console.error("No TVDB API key configured. Run 'kogoro config init' first.");
@@ -119,23 +119,19 @@ export async function buildSecondaryDatabases(
 ): Promise<DatabasePlugin[]> {
   const dbNames = config.getList("secondary-dbs");
   const dbs: DatabasePlugin[] = [];
+  const pluginRegistry = registry ?? new PluginRegistry();
 
   for (const name of dbNames) {
     if (name === "anidb") {
       const cred = await credentialStore.getCredential("anidb");
-      if (cred) {
-        dbs.push(buildAniDBAdapter(cred, debug));
-      }
+      if (!cred) continue;
+      dbs.push(buildAniDBAdapter(cred, debug));
     } else if (name === "tvdb") {
       const cred = await credentialStore.getCredential("tvdb");
-      if (cred) {
-        dbs.push(new TVDBAdapter({ apiKey: cred }));
-      }
+      if (!cred) continue;
+      dbs.push(new TVDBAdapter({ apiKey: cred }));
     } else {
-      const plugin = await (registry ?? new PluginRegistry()).instantiate(
-        name,
-        debug ? { debug: true } : {},
-      );
+      const plugin = await pluginRegistry.instantiate(name, debug ? { debug: true } : {});
       if (plugin) {
         dbs.push(plugin);
       }

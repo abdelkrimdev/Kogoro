@@ -240,10 +240,9 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         });
       }
 
-      let scanResults: ScanResult[] | undefined;
-      try {
+      async function tryScan(dbScanner: Scanner): Promise<ScanResult[]> {
         try {
-          scanResults = await runBatch(scanner);
+          return await runBatch(dbScanner);
         } catch (dbError) {
           const fallbacks = options.fallbackDatabases ?? [];
           if (fallbacks.length === 0 || interrupted) {
@@ -254,16 +253,13 @@ export function createScanHandlers(options: ScanHandlerOptions) {
             console.log("\nPrimary Database unreachable.");
           }
 
-          let useFallback = yes;
           if (!yes) {
             const response = await confirm({
               message: "Fall back to secondary Database?",
             });
-            useFallback = !isCancel(response) && response;
-          }
-
-          if (!useFallback) {
-            throw dbError;
+            if (isCancel(response) || !response) {
+              throw dbError;
+            }
           }
 
           let lastError: unknown = dbError;
@@ -277,18 +273,18 @@ export function createScanHandlers(options: ScanHandlerOptions) {
                 cache: options.cache,
                 renamer,
               });
-              scanResults = await runBatch(fallbackScanner);
-              lastError = undefined;
-              break;
+              return await runBatch(fallbackScanner);
             } catch (fallbackError) {
               lastError = fallbackError;
             }
           }
 
-          if (lastError) {
-            throw lastError;
-          }
+          throw lastError;
         }
+      }
+
+      try {
+        const scanResults = await tryScan(scanner);
 
         const skippedResults: ScanResult[] = organizedFiles.map((file) => ({
           file,
@@ -301,7 +297,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           status: "skipped",
         }));
 
-        const allResults = [...skippedResults, ...(scanResults as ScanResult[])];
+        const allResults = [...skippedResults, ...scanResults];
 
         if (interrupted && !quiet) {
           const matchedCount = allResults.filter((r) => r.status === "matched").length;
