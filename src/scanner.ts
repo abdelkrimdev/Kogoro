@@ -153,7 +153,15 @@ export class Scanner {
       const failureReason = matches[0]?.failureReason ?? "No title parsed";
       const manual = await this.tryResolveFailed(parsed, options);
       if (manual) {
-        return this.cacheAndPlan(filePath, hash, parsed, buildManualMatch(manual), options, true);
+        return this.cacheAndPlan(
+          filePath,
+          hash,
+          parsed,
+          buildManualMatch(manual),
+          options,
+          true,
+          fileHash,
+        );
       }
       return {
         file: filePath,
@@ -175,7 +183,15 @@ export class Scanner {
     if (goodMatches.length === 0) {
       const manual = await this.tryResolveFailed(parsed, options);
       if (manual) {
-        return this.cacheAndPlan(filePath, hash, parsed, buildManualMatch(manual), options, true);
+        return this.cacheAndPlan(
+          filePath,
+          hash,
+          parsed,
+          buildManualMatch(manual),
+          options,
+          true,
+          fileHash,
+        );
       }
       return {
         file: filePath,
@@ -197,7 +213,7 @@ export class Scanner {
     if (options?.onAmbiguous) {
       const resolved = await options.onAmbiguous(goodMatches, parsed);
       if (resolved) {
-        return this.cacheAndPlan(filePath, hash, parsed, resolved, options, true);
+        return this.cacheAndPlan(filePath, hash, parsed, resolved, options, true, fileHash);
       }
     }
 
@@ -228,6 +244,7 @@ export class Scanner {
     match: MatchResult,
     options?: ScanFileOptions,
     persistOverride?: boolean,
+    overrideHash?: string,
   ): Promise<ScanResult> {
     let fileHash = hash;
 
@@ -247,8 +264,7 @@ export class Scanner {
       });
     }
 
-    if (persistOverride && this.overrideStore) {
-      const overrideHash = computeFileHash(basename(filePath));
+    if (persistOverride && this.overrideStore && overrideHash) {
       this.overrideStore.set(overrideHash, {
         animeId: match.anime.id,
         episodeId: match.episode?.id,

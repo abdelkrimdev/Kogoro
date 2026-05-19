@@ -103,11 +103,12 @@ export class ArtworkFetcher {
   }
 
   private pickBestPoster(artworks: ArtworkResult[]): ArtworkResult | undefined {
-    if (artworks.length === 0) return undefined;
-    const first = artworks[0];
-    if (!first) return undefined;
-    let best = first;
+    let best: ArtworkResult | undefined;
     for (const artwork of artworks) {
+      if (!best) {
+        best = artwork;
+        continue;
+      }
       const bestRes = (best.width ?? 0) * (best.height ?? 0);
       const thisRes = (artwork.width ?? 0) * (artwork.height ?? 0);
       if (thisRes > bestRes) best = artwork;
@@ -116,12 +117,10 @@ export class ArtworkFetcher {
   }
 
   private async findPosterUrl(animeId: string): Promise<string | undefined> {
-    // Try primary DB first
     const primary = await this.primaryDb.getArtwork(animeId, "poster");
     const bestPrimary = this.pickBestPoster(primary);
     if (bestPrimary) return bestPrimary.url;
 
-    // Try secondary DBs in order
     for (const db of this.secondaryDbs) {
       const artworks = await db.getArtwork(animeId, "poster");
       const artwork = this.pickBestPoster(artworks);

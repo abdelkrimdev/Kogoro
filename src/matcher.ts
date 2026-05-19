@@ -38,8 +38,20 @@ function emptyAnimeResult(): AnimeResult {
   return { id: "", title: "", entryType: "tv" };
 }
 
+function noMatchResult(failureReason: string): MatchResult {
+  return { anime: emptyAnimeResult(), score: 0, failureReason };
+}
+
 function noMatch(failureReason: string): MatchResult[] {
-  return [{ anime: emptyAnimeResult(), score: 0, failureReason }];
+  return [noMatchResult(failureReason)];
+}
+
+function findMatchingEpisode(
+  episodes: EpisodeResult[],
+  season: number | null,
+  episode: number,
+): EpisodeResult | undefined {
+  return episodes.find((e) => e.episode === episode && (season === null || e.season === season));
 }
 
 export class Matcher {
@@ -72,10 +84,7 @@ export class Matcher {
       const score = diceSimilarity(parsed.title, anime.title);
       if (parsed.episode !== null) {
         const episodes = await this.db.getEpisodes(anime.id);
-        const matchingEpisode = episodes.find(
-          (e) =>
-            e.episode === parsed.episode && (parsed.season === null || e.season === parsed.season),
-        );
+        const matchingEpisode = findMatchingEpisode(episodes, parsed.season, parsed.episode);
         results.push({ anime, episode: matchingEpisode, score });
       } else {
         results.push({ anime, score });
@@ -90,65 +99,52 @@ export class Matcher {
   async matchBatch(parsedList: ParsedResult[]): Promise<MatchResult[]> {
     if (parsedList.length === 0) return [];
 
-    const animeCache = new Map<string, AnimeResult>();
-    const episodeCache = new Map<string, EpisodeResult[]>();
     const titleCandidates = new Map<string, AnimeResult[]>();
-    const results: MatchResult[] = new Array(parsedList.length);
+    const animeIds = new Set<string>();
 
-    for (let i = 0; i < parsedList.length; i++) {
-      const parsed = parsedList[i];
-      if (!parsed?.title) {
-        results[i] = noMatch("No title parsed")[0] as MatchResult;
-        continue;
-      }
-      if (!titleCandidates.has(parsed.title)) {
-        const animeList = await this.db.searchAnime(parsed.title);
-        titleCandidates.set(parsed.title, animeList);
-        for (const anime of animeList) {
-          if (!animeCache.has(anime.id)) {
-            animeCache.set(anime.id, anime);
-          }
-        }
+    for (const parsed of parsedList) {
+      if (!parsed.title) continue;
+      if (titleCandidates.has(parsed.title)) continue;
+
+      const animeList = await this.db.searchAnime(parsed.title);
+      titleCandidates.set(parsed.title, animeList);
+      for (const anime of animeList) {
+        animeIds.add(anime.id);
       }
     }
 
-    const animeIds = Array.from(animeCache.keys());
+    const episodeCache = new Map<string, EpisodeResult[]>();
     await Promise.all(
-      animeIds.map(async (id) => {
-        const episodes = await this.db.getEpisodes(id);
-        episodeCache.set(id, episodes);
+      Array.from(animeIds).map(async (id) => {
+        episodeCache.set(id, await this.db.getEpisodes(id));
       }),
     );
 
-    for (let i = 0; i < parsedList.length; i++) {
-      if (results[i] !== undefined) continue;
-      const parsed = parsedList[i];
-      if (!parsed) continue;
-      const candidates = titleCandidates.get(parsed.title ?? "") ?? [];
-      if (candidates.length === 0) {
-        results[i] = noMatch("No anime found")[0] as MatchResult;
-        continue;
+    return parsedList.map((parsed) => {
+      if (!parsed.title) {
+        return noMatchResult("No title parsed");
       }
+
+      const candidates = titleCandidates.get(parsed.title) ?? [];
+      if (candidates.length === 0) {
+        return noMatchResult("No anime found");
+      }
+
       const matchResults: MatchResult[] = [];
       for (const anime of candidates) {
-        const score = diceSimilarity(parsed.title ?? "", anime.title);
+        const score = diceSimilarity(parsed.title, anime.title);
         if (parsed.episode !== null) {
           const episodes = episodeCache.get(anime.id) ?? [];
-          const matchingEpisode = episodes.find(
-            (e) =>
-              e.episode === parsed.episode &&
-              (parsed.season === null || e.season === parsed.season),
-          );
+          const matchingEpisode = findMatchingEpisode(episodes, parsed.season, parsed.episode);
           matchResults.push({ anime, episode: matchingEpisode, score });
         } else {
           matchResults.push({ anime, score });
         }
       }
-      matchResults.sort((a, b) => b.score - a.score);
-      results[i] = matchResults[0] ?? (noMatch("No anime found")[0] as MatchResult);
-    }
 
-    return results;
+      matchResults.sort((a, b) => b.score - a.score);
+      return matchResults[0] ?? noMatchResult("No anime found");
+    });
   }
 
   private buildOverrideMatch(override: OverrideData): MatchResult[] {

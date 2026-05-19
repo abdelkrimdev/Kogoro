@@ -90,8 +90,7 @@ export class ConfigManager {
       return TEMPLATE_PRESETS[preset] as string;
     }
 
-    // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
-    return TEMPLATE_PRESETS["standard"] as string;
+    return "{anime} - {season}x{episode:02} - {title}";
   }
 
   getDefaults(): Record<string, string> {
