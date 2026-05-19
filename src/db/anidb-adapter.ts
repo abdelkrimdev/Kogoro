@@ -110,13 +110,14 @@ export class AniDBAdapter implements DatabasePlugin {
       const episodeNum = Number.parseInt(epnoText, 10);
       if (Number.isNaN(episodeNum)) continue;
       const seasonText = extractTag(content, "season") ?? "1";
-      const seasonNum = Number.parseInt(seasonText, 10);
+      const parsedSeason = Number.parseInt(seasonText, 10);
+      const season = Number.isNaN(parsedSeason) ? 1 : parsedSeason;
       const epTitle = extractTag(content, "title") ?? "";
       const epAirdate = extractTag(content, "airdate");
       episodes.push({
         id: epId,
         animeId,
-        season: seasonNum,
+        season,
         episode: episodeNum,
         title: epTitle,
         airDate: epAirdate,

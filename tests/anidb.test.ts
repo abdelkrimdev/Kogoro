@@ -303,6 +303,26 @@ describe("AniDBAdapter", () => {
       expect(results[0]?.season).toBe(1);
       expect(results[1]?.season).toBe(2);
     });
+
+    test("defaults season to 1 when season element is invalid", async () => {
+      const invalidSeasonXml = `<?xml version="1.0"?>
+<anime>
+  <id>12345</id>
+  <type>TV Series</type>
+  <episodes>
+    <episode id="1"><epno>1</epno><season>abc</season><title>Invalid Season</title></episode>
+  </episodes>
+</anime>`;
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(invalidSeasonXml),
+      });
+      const results = await adapter.getEpisodes("12345");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.season).toBe(1);
+      expect(results[0]?.episode).toBe(1);
+    });
   });
 
   describe("getArtwork", () => {
