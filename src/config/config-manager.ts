@@ -35,6 +35,22 @@ export const TEMPLATE_PRESETS: Record<string, string> = {
   anidb: "{anime} - {episode:03} - {title}",
 };
 
+function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      const nested = flattenObject(value as Record<string, unknown>, fullKey);
+      for (const [nk, nv] of Object.entries(nested)) {
+        result[nk] = nv;
+      }
+    } else {
+      result[fullKey] = value;
+    }
+  }
+  return result;
+}
+
 export class ConfigManager {
   private configDir: string;
   private configPath: string;
@@ -49,7 +65,8 @@ export class ConfigManager {
   private load(): void {
     if (existsSync(this.configPath)) {
       const raw = readFileSync(this.configPath, "utf-8");
-      this.data = Bun.TOML.parse(raw) as Record<string, unknown>;
+      const parsed = Bun.TOML.parse(raw) as Record<string, unknown>;
+      this.data = flattenObject(parsed);
     }
   }
 

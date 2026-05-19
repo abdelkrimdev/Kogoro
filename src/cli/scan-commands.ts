@@ -79,7 +79,9 @@ export function discoverFiles(
 }
 
 function getFilenameTemplate(config?: ConfigManager): string {
-  return config?.get("template.string") ?? DEFAULT_FILENAME_TEMPLATE;
+  const template = config?.getTemplate() ?? DEFAULT_FILENAME_TEMPLATE;
+  if (template.includes("{ext}")) return template;
+  return `${template}.{ext}`;
 }
 
 function getDirectoryTemplate(config?: ConfigManager): string {

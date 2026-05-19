@@ -425,7 +425,7 @@ export function run(argv: string[]): string | undefined {
                 }),
             async (argv) => {
               const handlers = createConfigHandlers();
-              await handlers.set(argv.key, argv.value, console.log);
+              await handlers.set(argv.key, argv.value, console.log, console.error);
             },
           )
           .command(

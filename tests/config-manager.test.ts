@@ -129,6 +129,19 @@ describe("ConfigManager", () => {
     }
   });
 
+  test("dotted key survives round-trip through disk", async () => {
+    const dir = setupTempDir();
+    try {
+      const mgr1 = new ConfigManager({ configDir: dir });
+      mgr1.set("template.preset", "plex");
+
+      const mgr2 = new ConfigManager({ configDir: dir });
+      expect(mgr2.get("template.preset")).toBe("plex");
+    } finally {
+      cleanupTempDir(dir);
+    }
+  });
+
   describe("template presets", () => {
     test("getTemplate returns default standard preset when nothing configured", async () => {
       const dir = setupTempDir();

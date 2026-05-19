@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../src/cli/scan-commands.ts";
+import { ConfigManager } from "../src/config/config-manager.ts";
 import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { MatchCache } from "../src/match-cache.ts";
 import { OverrideStore } from "../src/override-store.ts";
@@ -288,6 +289,52 @@ describe("scan CLI commands", () => {
 
       expect(organized?.status).toBe("skipped");
       expect(unorganized?.status).toBe("matched");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("scan uses template.preset for filename template via ConfigManager", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-preset-"));
+    try {
+      const filePath = join(dir, "[Group] Anime - 01.mkv");
+      writeFileSync(filePath, "content");
+
+      const configDir = mkdtempSync(join(tmpdir(), "kogoro-cli-preset-config-"));
+      const config = new ConfigManager({ configDir });
+      config.set("template.preset", "plex");
+
+      const handlers = createScanHandlers({ database: createMockDb(), config });
+      const output = await handlers.scan(filePath, { yes: true, dryRun: true });
+
+      const parsed = JSON.parse(output);
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0]?.status).toBe("matched");
+      // Plex template: {anime} - s{season:02}e{episode:02} - {title}.{ext}
+      expect(parsed[0]?.plan?.targetFilename).toMatch(/^Anime - s01e01 - /);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("scan uses template.string over template.preset when both set", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-preset-override-"));
+    try {
+      const filePath = join(dir, "[Group] Anime - 01.mkv");
+      writeFileSync(filePath, "content");
+
+      const configDir = mkdtempSync(join(tmpdir(), "kogoro-cli-preset-config-"));
+      const config = new ConfigManager({ configDir });
+      config.set("template.preset", "plex");
+      config.set("template.string", "{anime} - E{episode:02}");
+
+      const handlers = createScanHandlers({ database: createMockDb(), config });
+      const output = await handlers.scan(filePath, { yes: true, dryRun: true });
+
+      const parsed = JSON.parse(output);
+      expect(parsed[0]?.status).toBe("matched");
+      // Custom template.string should override preset; .{ext} appended automatically
+      expect(parsed[0]?.plan?.targetFilename).toMatch(/^Anime - E01\.mkv$/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -52,7 +52,12 @@ describe("Config CLI commands", () => {
     const dir = setupTempDir();
     try {
       const handlers = createConfigHandlers({ configDir: dir });
-      await handlers.set("concurrency", "8", () => {});
+      await handlers.set(
+        "concurrency",
+        "8",
+        () => {},
+        () => {},
+      );
       const config = new ConfigManager({ configDir: dir });
       expect(await config.get("concurrency")).toBe("8");
     } finally {
@@ -80,6 +85,56 @@ describe("Config CLI commands", () => {
     } finally {
       cleanupTempDir(dir);
     }
+  });
+
+  describe("config set template.preset", () => {
+    test("accepts valid preset name", async () => {
+      const dir = setupTempDir();
+      try {
+        const handlers = createConfigHandlers({ configDir: dir });
+        let output = "";
+        await handlers.set(
+          "template.preset",
+          "plex",
+          (msg) => {
+            output = msg;
+          },
+          () => {},
+        );
+        expect(output).toContain("Set config 'template.preset' to 'plex'");
+
+        const config = new ConfigManager({ configDir: dir });
+        expect(await config.get("template.preset")).toBe("plex");
+        expect(config.getTemplate()).toBe("{anime} - s{season:02}e{episode:02} - {title}");
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("rejects unknown preset name with clear error", async () => {
+      const dir = setupTempDir();
+      try {
+        const handlers = createConfigHandlers({ configDir: dir });
+        let errOutput = "";
+        await handlers.set(
+          "template.preset",
+          "nonexistent",
+          () => {},
+          (msg) => {
+            errOutput = msg;
+          },
+        );
+        expect(errOutput).toContain("Unknown preset 'nonexistent'");
+        expect(errOutput).toContain("standard");
+        expect(errOutput).toContain("compact");
+
+        // Value should not be persisted
+        const config = new ConfigManager({ configDir: dir });
+        expect(await config.get("template.preset")).toBeUndefined();
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
   });
 
   describe("config override", () => {

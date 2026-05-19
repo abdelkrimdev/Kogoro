@@ -1,4 +1,4 @@
-import { ConfigManager } from "../config/config-manager.ts";
+import { ConfigManager, TEMPLATE_PRESETS } from "../config/config-manager.ts";
 import { type PromptsAPI, runConfigWizard } from "../config/config-wizard.ts";
 import { CredentialStore } from "../config/credential-store.ts";
 import { type OverrideData, OverrideStore } from "../override-store.ts";
@@ -28,8 +28,23 @@ export function createConfigHandlers(options: ConfigHandlerOptions = {}) {
       }
     },
 
-    async set(key: string, value: string, onLog: (msg: string) => void): Promise<void> {
-      config.set(key, value);
+    async set(
+      key: string,
+      value: string,
+      onLog: (msg: string) => void,
+      onError: (msg: string) => void,
+    ): Promise<void> {
+      if (key === "template.preset") {
+        const normalized = value.toLowerCase();
+        if (!(normalized in TEMPLATE_PRESETS)) {
+          const valid = Object.keys(TEMPLATE_PRESETS).join(", ");
+          onError(`Unknown preset '${value}'. Valid presets: ${valid}`);
+          return;
+        }
+        config.set(key, normalized);
+      } else {
+        config.set(key, value);
+      }
       onLog(`Set config '${key}' to '${value}'`);
     },
 
