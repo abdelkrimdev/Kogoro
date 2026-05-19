@@ -1,5 +1,170 @@
-import { describe, expect, test } from "bun:test";
-import { PluginRegistry } from "../src/plugin-registry.ts";
+import { describe, expect, mock, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createScanHandlers } from "../src/cli/scan-commands.ts";
+import type { DatabasePlugin } from "../src/db/database-plugin.ts";
+import { MatchCache } from "../src/match-cache.ts";
+import { isDatabasePlugin, PluginRegistry } from "../src/plugin-registry.ts";
+
+describe("isDatabasePlugin", () => {
+  test("returns true for object implementing DatabasePlugin", () => {
+    const valid: DatabasePlugin = {
+      async searchAnime() {
+        return [];
+      },
+      async getEpisodes() {
+        return [];
+      },
+      async getArtwork() {
+        return [];
+      },
+    };
+    expect(isDatabasePlugin(valid)).toBe(true);
+  });
+
+  test("returns false for null", () => {
+    expect(isDatabasePlugin(null)).toBe(false);
+  });
+
+  test("returns false for plain object without required methods", () => {
+    expect(isDatabasePlugin({})).toBe(false);
+  });
+
+  test("returns false for object missing one method", () => {
+    expect(isDatabasePlugin({ searchAnime: async () => [], getEpisodes: async () => [] })).toBe(
+      false,
+    );
+  });
+});
+
+describe("PluginRegistry.instantiate", () => {
+  test("returns null for non-existent external plugin", async () => {
+    const registry = new PluginRegistry();
+    const instance = await registry.instantiate("nonexistent-plugin", {});
+    expect(instance).toBeNull();
+  });
+
+  test("loads and returns an external plugin that implements DatabasePlugin", async () => {
+    const mockModule = {
+      default: class MockPlugin {
+        options: Record<string, unknown>;
+        constructor(options: Record<string, unknown>) {
+          this.options = options;
+        }
+        async searchAnime() {
+          return [];
+        }
+        async getEpisodes() {
+          return [];
+        }
+        async getArtwork() {
+          return [];
+        }
+      },
+    };
+    mock.module("kogoro-plugin-validplugin", () => mockModule);
+
+    const registry = new PluginRegistry();
+    const instance = await registry.instantiate("validplugin", { key: "value" });
+    expect(instance).not.toBeNull();
+    expect(instance?.searchAnime).toBeFunction();
+    expect(instance?.getEpisodes).toBeFunction();
+    expect(instance?.getArtwork).toBeFunction();
+  });
+
+  test("caches instance and returns singleton on subsequent calls", async () => {
+    const mockModule = {
+      default: class SingletonPlugin {
+        id = Math.random();
+        async searchAnime() {
+          return [];
+        }
+        async getEpisodes() {
+          return [];
+        }
+        async getArtwork() {
+          return [];
+        }
+      },
+    };
+    mock.module("kogoro-plugin-singleton", () => mockModule);
+
+    const registry = new PluginRegistry();
+    const first = await registry.instantiate("singleton", {});
+    const second = await registry.instantiate("singleton", {});
+    expect(first).toBe(second);
+  });
+
+  test("rejects module whose default export is not a DatabasePlugin", async () => {
+    mock.module("kogoro-plugin-badplugin", () => ({
+      default: class BadPlugin {
+        async searchAnime() {
+          return [];
+        }
+        // Missing getEpisodes and getArtwork
+      },
+    }));
+
+    const registry = new PluginRegistry();
+    const instance = await registry.instantiate("badplugin", {});
+    expect(instance).toBeNull();
+  });
+
+  test("rejects module whose default export is not a constructor", async () => {
+    mock.module("kogoro-plugin-stringplugin", () => ({
+      default: "not a constructor",
+    }));
+
+    const registry = new PluginRegistry();
+    const instance = await registry.instantiate("stringplugin", {});
+    expect(instance).toBeNull();
+  });
+
+  test("instantiated external plugin works with scan handlers", async () => {
+    mock.module("kogoro-plugin-extscan", () => ({
+      default: class ExternalScanPlugin {
+        async searchAnime(title: string) {
+          return [{ id: "ext-1", title, entryType: "tv" as const }];
+        }
+        async getEpisodes(_animeId: string) {
+          return [
+            {
+              id: "e1",
+              animeId: "ext-1",
+              season: 1,
+              episode: 1,
+              title: "Ep 1",
+              entryType: "tv" as const,
+            },
+          ];
+        }
+        async getArtwork() {
+          return [];
+        }
+      },
+    }));
+
+    const registry = new PluginRegistry();
+    const plugin = await registry.instantiate("extscan", {});
+    expect(plugin).not.toBeNull();
+    if (!plugin) return;
+
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-ext-plugin-test-"));
+    try {
+      const filePath = join(dir, "[Group] External Test - 01.mkv");
+      writeFileSync(filePath, "content");
+      const cache = new MatchCache({ dbPath: join(dir, "cache.db") });
+      const handlers = createScanHandlers({ database: plugin, cache });
+      const output = await handlers.scan(filePath, { yes: true, dryRun: true });
+      const parsed = JSON.parse(output);
+      expect(parsed[0]?.status).toBe("matched");
+      expect(parsed[0]?.parsed.title).toBe("External Test");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("PluginRegistry", () => {
   test("discovers built-in database plugins", () => {

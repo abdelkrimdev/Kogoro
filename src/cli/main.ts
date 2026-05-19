@@ -59,14 +59,34 @@ async function createAniDBCommandsWithCredentials() {
 }
 
 async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
+  const config = new ConfigManager();
+  const registry = new PluginRegistry();
+
+  const primaryDbName = config.get("primary-db") ?? "tvdb";
+  const apiDelay = Number(config.get("api-delay")) || 200;
+
+  if (primaryDbName !== "tvdb") {
+    const options: Record<string, unknown> = {};
+    if (debug) options["debug"] = true;
+    const plugin = await registry.instantiate(primaryDbName, options);
+    if (plugin) {
+      const cache = new MatchCache();
+      return createScanHandlers({
+        database: plugin,
+        cache,
+        config,
+        episodeNumbering,
+      });
+    }
+    console.warn(`Primary database "${primaryDbName}" not available, falling back to TVDB`);
+  }
+
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
     console.error("No TVDB API key configured. Run 'kogoro config init' first.");
     return undefined;
   }
-  const config = new ConfigManager();
-  const apiDelay = Number(config.get("api-delay")) || 200;
   const httpClient = new HttpClient({
     minDelay: apiDelay,
     onDebug: debug ? createDebugCallback() : undefined,
