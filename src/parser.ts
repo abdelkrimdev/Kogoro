@@ -22,9 +22,19 @@ export function stripExtension(name: string): string {
 }
 
 const defaultPatterns: RegExp[] = [
-  /^\[(?<group>[^\]]+)\]\s*(?<title>.+?)\s*-\s*(?<episode>\d+)\s*(?:\((?<resolution>[^)]*?)\))?\s*(?:\[(?<codec>[^\]]+)\])?$/,
-  /^(?<title>.+?)\s*-\s*S(?<season>\d+)E(?<episode>\d+)$/,
-  /^(?<title>.+?)\s*-\s*(?<episode>\d+)(?:\s*\[[^\]]+\])?$/,
+  // [Group] Title - ##v# END [tags] [codec] [CRC]
+  /^\[(?<group>[^\]]+)\]\s*(?<title>.+?)\s*-\s*(?<episode>\d+)(?:\s*(?:END|v\d+))*\s*(?:(?:\(|\[)\s*(?<resolution>\d+p)[^)\]]*[)\]])?\s*(?:\[(?<codec>(?!\s*[0-9A-Fa-f]{8}\s*\]?\s*$)[^\]]*?)\])?\s*(?:\s*(?:\[[^\]]*\]|\([^)]*\)))*\s*$/,
+  // [Group] Title - S##E##v# [tags]
+  /^\[(?<group>[^\]]+)\]\s*(?<title>.+?)\s*-\s*S(?<season>\d+)E(?<episode>\d+)(?:v\d+)?\s*(?:\s*(?:\[[^\]]*\]|\([^)]*\)))*\s*$/,
+  // Title - S##E##v#
+  /^(?<title>.+?)\s*-\s*S(?<season>\d+)E(?<episode>\d+)(?:v\d+)?$/,
+  // [Group] Title S##E##v# [tags] (no dash)
+  /^\[(?<group>[^\]]+)\]\s*(?<title>.+?)\s+S(?<season>\d+)E(?<episode>\d+)(?:v\d+)?\s*(?:\s*(?:\[[^\]]*\]|\([^)]*\)))*\s*$/,
+  // Title - ## [tags]
+  /^(?<title>.+?)\s*-\s*(?<episode>\d+)(?:\s*(?:END|v\d+))*\s*(?:\s*(?:\[[^\]]*\]|\([^)]*\)))*\s*$/,
+  // [Group] Title ## [tags] (no dash)
+  /^\[(?<group>[^\]]+)\]\s*(?<title>.+)\s+(?<episode>\d+)\s*(?:\s*(?:\[[^\]]*\]|\([^)]*\)))*\s*$/,
+  // [Group] Title (no episode)
   /^\[(?<group>[^\]]+)\]\s*(?<title>.+)$/,
 ];
 

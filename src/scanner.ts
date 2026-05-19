@@ -133,6 +133,28 @@ export function computeFileHash(input: string): string {
   return Bun.hash(input).toString(16);
 }
 
+const ORGANIZED_DIRS = new Set(["TV", "Movies", "OVA", "Specials"]);
+
+function isValidDirName(name: string): boolean {
+  return name !== "" && name !== "." && name !== "..";
+}
+
+export function getDirectoryTitle(filePath: string): string | null {
+  const parent = basename(dirname(filePath));
+  if (!isValidDirName(parent)) return null;
+
+  if (ORGANIZED_DIRS.has(parent)) {
+    const grandparent = basename(dirname(dirname(filePath)));
+    if (isValidDirName(grandparent) && !ORGANIZED_DIRS.has(grandparent)) {
+      return grandparent;
+    }
+    return null;
+  }
+
+  if (/-[A-Za-z0-9]{6,}$/.test(parent)) return null;
+  return parent;
+}
+
 interface BatchEntry {
   filePath: string;
   hash: string;
@@ -193,8 +215,23 @@ export class Scanner {
     }
 
     const parsed = parse(basename(filePath));
+    if (!parsed.title) {
+      const dirTitle = getDirectoryTitle(filePath);
+      if (dirTitle) parsed.title = dirTitle;
+    }
     const matches = await this.matcher.match(parsed, overrideKey);
 
+    return this.resolveMatches(filePath, hash, parsed, matches, options, overrideKey);
+  }
+
+  private async resolveMatches(
+    filePath: string,
+    hash: string,
+    parsed: ParsedResult,
+    matches: MatchResult[],
+    options?: ScanFileOptions,
+    overrideKey?: string,
+  ): Promise<ScanResult> {
     if (!parsed.title || matches.length === 0 || matches[0]?.failureReason) {
       const failureReason = matches[0]?.failureReason ?? "No title parsed";
       const manual = await this.tryResolveFailed(parsed, options);
@@ -271,7 +308,7 @@ export class Scanner {
       plan: null,
       cached: false,
       skipped: false,
-      status: "ambiguous",
+      status: "ambiguous" as ScanStatus,
     };
   }
 
@@ -386,6 +423,10 @@ export class Scanner {
           }
 
           const parsed = parse(basename(filePath));
+          if (!parsed.title) {
+            const dirTitle = getDirectoryTitle(filePath);
+            if (dirTitle) parsed.title = dirTitle;
+          }
           const override = this.overrideStore?.get(overrideKey);
 
           if (override?.animeId) {
@@ -415,16 +456,16 @@ export class Scanner {
         const matchResults = await this.matcher.matchBatch(needsMatch.map((e) => e.parsed));
         for (let i = 0; i < needsMatch.length; i++) {
           const entry = needsMatch[i];
-          const match = matchResults[i];
-          if (!entry || !match) continue;
+          const matchResult = matchResults[i];
+          if (!entry || !matchResult) continue;
 
-          if (match.failureReason) {
+          if (matchResult.failureReason) {
             const manual = await this.tryResolveFailed(entry.parsed, options);
             if (manual) {
               entry.match = buildManualMatch(manual);
             }
           } else {
-            entry.match = match;
+            entry.match = matchResult;
           }
         }
       }

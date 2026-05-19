@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { MatchCache } from "../src/match-cache.ts";
 import { OverrideStore } from "../src/override-store.ts";
 import { Renamer } from "../src/renamer.ts";
-import { computeFileHash, Scanner } from "../src/scanner.ts";
+import { computeFileHash, getDirectoryTitle, Scanner } from "../src/scanner.ts";
 
 describe("Scanner", () => {
   function createMockDb(): DatabasePlugin {
@@ -485,5 +485,78 @@ describe("Scanner", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  describe("getDirectoryTitle", () => {
+    test("returns parent directory name as title", () => {
+      expect(getDirectoryTitle("/anime/Oshi no Ko/file.mkv")).toBe("Oshi no Ko");
+      expect(getDirectoryTitle("/downloads/Jujutsu Kaisen/ep.mkv")).toBe("Jujutsu Kaisen");
+    });
+
+    test("skips organized dirs and uses grandparent", () => {
+      expect(getDirectoryTitle("/anime/Oshi no Ko/TV/file.mkv")).toBe("Oshi no Ko");
+      expect(getDirectoryTitle("/shows/JJK/Movies/movie.mkv")).toBe("JJK");
+    });
+
+    test("returns null for root-level files", () => {
+      expect(getDirectoryTitle("/file.mkv")).toBeNull();
+      expect(getDirectoryTitle("file.mkv")).toBeNull();
+    });
+  });
+
+  describe("scanFile directory-title fallback", () => {
+    test("uses directory name when filename title is unparseable", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "kogoro-dirfallback-"));
+      try {
+        const animeDir = join(dir, "Summertime Render");
+        mkdirSync(animeDir);
+        const filePath = join(animeDir, "[Group].mkv");
+        writeFileSync(filePath, "content");
+
+        const scanner = new Scanner({ database: createMockDb() });
+        const result = await scanner.scanFile(filePath);
+
+        expect(result.parsed.title).toBe("Summertime Render");
+        expect(result.status).toBe("matched");
+        expect(result.match?.anime.title).toBe("Summertime Render");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    test("skips TV directory and uses grandparent anime name", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "kogoro-dirfallback-"));
+      try {
+        const tvDir = join(dir, "Jujutsu Kaisen", "TV");
+        mkdirSync(tvDir, { recursive: true });
+        const filePath = join(tvDir, "[Group].mkv");
+        writeFileSync(filePath, "content");
+
+        const scanner = new Scanner({ database: createMockDb() });
+        const result = await scanner.scanFile(filePath);
+
+        expect(result.parsed.title).toBe("Jujutsu Kaisen");
+        expect(result.status).toBe("matched");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    test("does not override parsed title with directory name", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "kogoro-dirfallback-"));
+      try {
+        const animeDir = join(dir, "Wrong Name");
+        mkdirSync(animeDir);
+        const filePath = join(animeDir, "[SubsPlease] Correct Name - 01.mkv");
+        writeFileSync(filePath, "content");
+
+        const scanner = new Scanner({ database: createMockDb() });
+        const result = await scanner.scanFile(filePath);
+
+        expect(result.parsed.title).toBe("Correct Name");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 });
