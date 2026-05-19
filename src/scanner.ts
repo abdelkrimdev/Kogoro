@@ -316,20 +316,161 @@ export class Scanner {
     let completed = 0;
     for (let i = 0; i < filePaths.length && !options?.abortSignal?.aborted; i += concurrency) {
       const chunk = filePaths.slice(i, i + concurrency);
-      const chunkResults = await Promise.all(
+
+      const entries = await Promise.all(
         chunk.map(async (filePath) => {
-          const result = await this.scanFile(filePath, options);
-          completed++;
-          options?.onProgress?.({
-            completed,
-            total: filePaths.length,
-            file: filePath,
-            status: result.status,
-          });
-          return result;
+          const overrideKey = computeFileHash(basename(filePath));
+          let hash = "";
+
+          if (this.cache) {
+            hash = await MatchCache.hashFile(filePath);
+            if (!options?.force) {
+              const cached = this.cache.get(hash);
+              if (cached) {
+                const match: MatchResult = {
+                  anime: {
+                    id: cached.animeId,
+                    title: cached.title ?? "",
+                    entryType: cached.entryType as EntryType,
+                  },
+                  episode:
+                    cached.episodeId && cached.episode !== null
+                      ? {
+                          id: cached.episodeId,
+                          animeId: cached.animeId,
+                          season: cached.season ?? 1,
+                          episode: cached.episode,
+                          title: cached.title ?? "",
+                          entryType: cached.entryType as EntryType,
+                        }
+                      : undefined,
+                  score: 1,
+                };
+                return {
+                  filePath,
+                  hash,
+                  match,
+                  overrideKey,
+                  parsed: createEmptyResult(),
+                  cached: true,
+                };
+              }
+            }
+          }
+
+          const parsed = parse(basename(filePath));
+          const override = this.overrideStore?.get(overrideKey);
+
+          if (override?.animeId) {
+            const entryType = override.entryType ?? "tv";
+            const match: MatchResult = {
+              anime: {
+                id: override.animeId,
+                title: "(overridden)",
+                entryType: entryType as EntryType,
+              },
+              episode: override.episodeId
+                ? {
+                    id: override.episodeId,
+                    animeId: override.animeId,
+                    season: 0,
+                    episode: 0,
+                    title: "(overridden)",
+                    entryType: entryType as EntryType,
+                  }
+                : undefined,
+              score: 1,
+            };
+            return {
+              filePath,
+              hash,
+              match,
+              overrideKey,
+              parsed,
+              cached: false,
+            };
+          }
+
+          return {
+            filePath,
+            hash,
+            overrideKey,
+            parsed,
+            match: null,
+            cached: false,
+          };
         }),
       );
-      results.push(...chunkResults);
+
+      const needsMatch = entries.filter((e) => !e.cached && e.match === null);
+      if (needsMatch.length > 0) {
+        const matchResults = await this.matcher.matchBatch(needsMatch.map((e) => e.parsed));
+        for (let index = 0; index < needsMatch.length; index++) {
+          const entry = needsMatch[index];
+          const match = matchResults[index];
+          if (!entry || !match) continue;
+
+          if (match.failureReason && !match.anime.id) {
+            const manual = await this.tryResolveFailed(entry.parsed, options);
+            if (manual) {
+              entry.match = buildManualMatch(manual);
+            }
+          } else {
+            entry.match = match;
+          }
+        }
+      }
+
+      for (const entry of entries) {
+        if (options?.abortSignal?.aborted) break;
+
+        let result: ScanResult;
+
+        if (entry.cached) {
+          result = {
+            file: entry.filePath,
+            hash: entry.hash,
+            parsed: entry.parsed,
+            match: entry.match,
+            plan: null,
+            cached: true,
+            skipped: true,
+            status: "cached",
+          };
+        } else if (entry.match && !entry.match.failureReason) {
+          result = await this.cacheAndPlan(
+            entry.filePath,
+            entry.hash,
+            entry.parsed,
+            entry.match,
+            options,
+            false,
+            entry.overrideKey,
+          );
+        } else {
+          const failureReason = entry.match?.failureReason ?? "No title parsed";
+          result = {
+            file: entry.filePath,
+            hash: entry.hash,
+            parsed: entry.parsed,
+            match: null,
+            plan: null,
+            cached: false,
+            skipped: false,
+            status: "failed",
+            failureReason,
+          };
+        }
+
+        results.push(result);
+        completed++;
+        options?.onProgress?.({
+          completed,
+          total: filePaths.length,
+          file: entry.filePath,
+          status: result.status,
+        });
+      }
     }
 
     return results;

@@ -140,7 +140,7 @@ describe("scan CLI commands", () => {
     }
   });
 
-  test("scan with ambiguous mock DB returns ambiguous status in -y mode", async () => {
+  test("scan with ambiguous mock DB is auto-resolved by matchBatch in -y mode", async () => {
     const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-scan-test-"));
     try {
       const filePath = join(dir, "Some Anime - 01.mkv");
@@ -168,7 +168,8 @@ describe("scan CLI commands", () => {
       const output = await handlers.scan(filePath, { yes: true, dryRun: true });
 
       const parsed = JSON.parse(output);
-      expect(parsed[0]?.status).toBe("ambiguous");
+      expect(parsed[0]?.status).toBe("matched");
+      // matchBatch auto-selects the best candidate; ambiguity is not surfaced in batch mode
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -223,10 +224,9 @@ describe("scan CLI commands", () => {
 
       expect(results).toHaveLength(4);
       const matched = results.filter((r) => r.status === "matched");
-      const ambiguous = results.filter((r) => r.status === "ambiguous");
       const failed = results.filter((r) => r.status === "failed");
-      expect(matched).toHaveLength(2);
-      expect(ambiguous).toHaveLength(1);
+      // matchBatch auto-resolves ambiguity; "Some Anime" picks best candidate
+      expect(matched).toHaveLength(3);
       expect(failed).toHaveLength(1);
     } finally {
       rmSync(dir, { recursive: true, force: true });

@@ -378,6 +378,66 @@ describe("Scanner", () => {
     }
   });
 
+  test("scanBatch deduplicates searchAnime and getEpisodes calls via matchBatch", async () => {
+    let searchCallCount = 0;
+    let episodesCallCount = 0;
+
+    const trackingDb: DatabasePlugin = {
+      async searchAnime(title: string) {
+        searchCallCount++;
+        return [{ id: "1", title, entryType: "tv" as const }];
+      },
+      async getEpisodes(animeId: string) {
+        episodesCallCount++;
+        return [
+          {
+            id: "101",
+            animeId,
+            season: 1,
+            episode: 1,
+            title: "Ep 1",
+            entryType: "tv" as const,
+          },
+          {
+            id: "102",
+            animeId,
+            season: 1,
+            episode: 2,
+            title: "Ep 2",
+            entryType: "tv" as const,
+          },
+          {
+            id: "103",
+            animeId,
+            season: 1,
+            episode: 3,
+            title: "Ep 3",
+            entryType: "tv" as const,
+          },
+        ];
+      },
+      async getArtwork() {
+        return [];
+      },
+    };
+
+    const scanner = new Scanner({ database: trackingDb });
+    const filePaths = [
+      "[Group] Anime - 01.mkv",
+      "[Group] Anime - 02.mkv",
+      "[Group] Anime - 03.mkv",
+    ];
+
+    const results = await scanner.scanBatch(filePaths, { concurrency: 3 });
+
+    expect(results).toHaveLength(3);
+    for (const r of results) {
+      expect(r.status).toBe("matched");
+    }
+    expect(searchCallCount).toBe(1);
+    expect(episodesCallCount).toBe(1);
+  });
+
   test("scanBatch aborts mid-way with abortSignal and returns partial results", async () => {
     const dir = mkdtempSync(join(tmpdir(), "kogoro-scanner-abort-"));
     try {
