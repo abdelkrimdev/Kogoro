@@ -72,7 +72,7 @@ function buildManualMatch(manual: {
   };
 }
 
-function computeFileHash(input: string): string {
+export function computeFileHash(input: string): string {
   return Bun.hash(input).toString(16);
 }
 
@@ -104,7 +104,7 @@ export class Scanner {
     const force = options?.force ?? false;
     let hash = "";
 
-    const fileHash = computeFileHash(basename(filePath));
+    const overrideKey = computeFileHash(basename(filePath));
 
     if (this.cache) {
       hash = await MatchCache.hashFile(filePath);
@@ -147,7 +147,7 @@ export class Scanner {
     }
 
     const parsed = parse(basename(filePath));
-    const matches = await this.matcher.match(parsed, fileHash);
+    const matches = await this.matcher.match(parsed, overrideKey);
 
     if (!parsed.title || matches.length === 0 || matches[0]?.failureReason) {
       const failureReason = matches[0]?.failureReason ?? "No title parsed";
@@ -160,7 +160,7 @@ export class Scanner {
           buildManualMatch(manual),
           options,
           true,
-          fileHash,
+          overrideKey,
         );
       }
       return {
@@ -190,7 +190,7 @@ export class Scanner {
           buildManualMatch(manual),
           options,
           true,
-          fileHash,
+          overrideKey,
         );
       }
       return {
@@ -213,7 +213,7 @@ export class Scanner {
     if (options?.onAmbiguous) {
       const resolved = await options.onAmbiguous(goodMatches, parsed);
       if (resolved) {
-        return this.cacheAndPlan(filePath, hash, parsed, resolved, options, true, fileHash);
+        return this.cacheAndPlan(filePath, hash, parsed, resolved, options, true, overrideKey);
       }
     }
 
@@ -239,20 +239,20 @@ export class Scanner {
 
   private async cacheAndPlan(
     filePath: string,
-    hash: string,
+    contentHash: string,
     parsed: ParsedResult,
     match: MatchResult,
     options?: ScanFileOptions,
     persistOverride?: boolean,
     overrideHash?: string,
   ): Promise<ScanResult> {
-    let fileHash = hash;
+    let hash = contentHash;
 
     if (this.cache) {
-      if (!fileHash) {
-        fileHash = await MatchCache.hashFile(filePath);
+      if (!hash) {
+        hash = await MatchCache.hashFile(filePath);
       }
-      this.cache.set(fileHash, {
+      this.cache.set(hash, {
         animeId: match.anime.id,
         animeTitle: match.anime.title,
         episodeId: match.episode?.id ?? null,
@@ -284,7 +284,7 @@ export class Scanner {
         if (!result.success) {
           return {
             file: filePath,
-            hash: fileHash,
+            hash,
             parsed,
             match,
             plan: null,
@@ -299,7 +299,7 @@ export class Scanner {
 
     return {
       file: filePath,
-      hash: fileHash,
+      hash,
       parsed,
       match,
       plan,

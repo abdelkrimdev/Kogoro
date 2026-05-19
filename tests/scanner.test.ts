@@ -6,11 +6,7 @@ import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { MatchCache } from "../src/match-cache.ts";
 import { OverrideStore } from "../src/override-store.ts";
 import { Renamer } from "../src/renamer.ts";
-import { Scanner } from "../src/scanner.ts";
-
-function computeFileHash(input: string): string {
-  return Bun.hash(input).toString(16);
-}
+import { computeFileHash, Scanner } from "../src/scanner.ts";
 
 describe("Scanner", () => {
   function createMockDb(): DatabasePlugin {

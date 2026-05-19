@@ -96,12 +96,16 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       directoryTemplate,
     });
 
-  const scanner = new Scanner({
-    database: options.database,
-    cache: options.cache,
-    renamer,
-    overrideStore: options.overrideStore,
-  });
+  function buildScanner(database: DatabasePlugin): Scanner {
+    return new Scanner({
+      database,
+      cache: options.cache,
+      renamer,
+      overrideStore: options.overrideStore,
+    });
+  }
+
+  const scanner = buildScanner(options.database);
 
   const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
 
@@ -271,12 +275,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
               console.log(`Trying fallback database...`);
             }
             try {
-              const fallbackScanner = new Scanner({
-                database: fallbackDb,
-                cache: options.cache,
-                renamer,
-                overrideStore: options.overrideStore,
-              });
+              const fallbackScanner = buildScanner(fallbackDb);
               return await runBatch(fallbackScanner);
             } catch (fallbackError) {
               lastError = fallbackError;

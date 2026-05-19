@@ -6,6 +6,7 @@ import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../src/cl
 import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { MatchCache } from "../src/match-cache.ts";
 import { OverrideStore } from "../src/override-store.ts";
+import { computeFileHash } from "../src/scanner.ts";
 
 function createMockDb(): DatabasePlugin {
   return {
@@ -290,7 +291,7 @@ describe("scan CLI commands", () => {
       writeFileSync(filePath, "content");
 
       const overrideStore = new OverrideStore(dir);
-      const fileHash = Bun.hash(basename(filePath)).toString(16);
+      const fileHash = computeFileHash(basename(filePath));
       overrideStore.set(fileHash, {
         animeId: "99",
         episodeId: "ep-42",
