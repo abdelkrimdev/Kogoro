@@ -53,25 +53,17 @@ export class AniDBAdapter implements DatabasePlugin {
     const results: AnimeResult[] = [];
     const lowerTitle = title.toLowerCase();
     const animeRegex = /<anime\s+([^>]*)>([\s\S]*?)<\/anime>/g;
-    let match = animeRegex.exec(xml);
-    while (match !== null) {
+    for (const match of xml.matchAll(animeRegex)) {
       const attrs = match[1] ?? "";
       const content = match[2];
-      if (!content) {
-        match = animeRegex.exec(xml);
-        continue;
-      }
+      if (!content) continue;
       const aid = attrs.match(/aid="(\d+)"/)?.[1];
-      if (!aid) {
-        match = animeRegex.exec(xml);
-        continue;
-      }
+      if (!aid) continue;
 
       let mainTitle: string | undefined;
       let originalTitle: string | undefined;
       const titleRegex = /<title[^>]*type="([^"]*)"[^>]*lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
-      let titleMatch = titleRegex.exec(content);
-      while (titleMatch !== null) {
+      for (const titleMatch of content.matchAll(titleRegex)) {
         const lang = titleMatch[2];
         const value = titleMatch[3];
         if (lang === "en" && mainTitle === undefined) {
@@ -83,10 +75,8 @@ export class AniDBAdapter implements DatabasePlugin {
         if (mainTitle !== undefined && originalTitle !== undefined) {
           break;
         }
-        titleMatch = titleRegex.exec(content);
       }
       if (!mainTitle?.toLowerCase().includes(lowerTitle)) {
-        match = animeRegex.exec(xml);
         continue;
       }
 
@@ -98,7 +88,6 @@ export class AniDBAdapter implements DatabasePlugin {
         year: yearAttr ? Number.parseInt(yearAttr[1] ?? "0", 10) : undefined,
         entryType: "tv",
       });
-      match = animeRegex.exec(xml);
     }
     return results;
   }
@@ -113,20 +102,13 @@ export class AniDBAdapter implements DatabasePlugin {
     const entryType = toEntryType(animeType);
     const episodes: EpisodeResult[] = [];
     const episodeRegex = /<episode\s+id="(\d+)">([\s\S]*?)<\/episode>/g;
-    let match = episodeRegex.exec(xml);
-    while (match !== null) {
+    for (const match of xml.matchAll(episodeRegex)) {
       const epId = match[1];
       const content = match[2];
-      if (!epId || !content) {
-        match = episodeRegex.exec(xml);
-        continue;
-      }
+      if (!epId || !content) continue;
       const epnoText = extractTag(content, "epno") ?? "";
       const episodeNum = Number.parseInt(epnoText, 10);
-      if (Number.isNaN(episodeNum)) {
-        match = episodeRegex.exec(xml);
-        continue;
-      }
+      if (Number.isNaN(episodeNum)) continue;
       const epTitle = extractTag(content, "title") ?? "";
       const epAirdate = extractTag(content, "airdate");
       episodes.push({
@@ -138,7 +120,6 @@ export class AniDBAdapter implements DatabasePlugin {
         airDate: epAirdate,
         entryType,
       });
-      match = episodeRegex.exec(xml);
     }
     return episodes;
   }
