@@ -1,6 +1,6 @@
 import { ConfigManager, TEMPLATE_PRESETS } from "../config/config-manager.ts";
 import { type PromptsAPI, runConfigWizard } from "../config/config-wizard.ts";
-import { CredentialStore } from "../config/credential-store.ts";
+import { createCredentialStore } from "../config/credential-store.ts";
 import { type OverrideData, OverrideStore } from "../override-store.ts";
 
 export interface ConfigHandlerOptions {
@@ -10,7 +10,7 @@ export interface ConfigHandlerOptions {
 
 export function createConfigHandlers(options: ConfigHandlerOptions = {}) {
   const config = new ConfigManager({ configDir: options.configDir });
-  const credentialStore = new CredentialStore();
+  const credentialStore = createCredentialStore();
   const overrideDir = options.overrideDir ?? process.cwd();
   const overrideStore = new OverrideStore(overrideDir);
 

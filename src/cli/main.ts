@@ -3,7 +3,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { ConfigManager } from "../config/config-manager.ts";
 import { getDefaultPrompts } from "../config/config-wizard.ts";
-import { CredentialStore } from "../config/credential-store.ts";
+import { type CredentialStore, createCredentialStore } from "../config/credential-store.ts";
 import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import type { DatabasePlugin } from "../db/database-plugin.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
@@ -31,7 +31,7 @@ function withOptionalDebug(debug: boolean | undefined): Pick<HttpClientOptions, 
 }
 
 async function getTVDBAdapter(debug?: boolean): Promise<TVDBAdapter | undefined> {
-  const credentialStore = new CredentialStore();
+  const credentialStore = createCredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
     console.error("No TVDB API key configured. Run 'kogoro config init' first.");
@@ -63,7 +63,7 @@ function buildAniDBAdapter(credential: string, debug?: boolean): AniDBAdapter {
 }
 
 async function createAniDBCommandsWithCredentials(debug?: boolean) {
-  const credentialStore = new CredentialStore();
+  const credentialStore = createCredentialStore();
   const credential = await credentialStore.getCredential("anidb");
   if (!credential) {
     console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
@@ -75,7 +75,7 @@ async function createAniDBCommandsWithCredentials(debug?: boolean) {
 async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
   const config = new ConfigManager();
   const registry = new PluginRegistry();
-  const credentialStore = new CredentialStore();
+  const credentialStore = createCredentialStore();
 
   registry.setDisabled(config.getDisabledPlugins());
 
@@ -196,7 +196,7 @@ async function createMetadataWithCredentials(debug?: boolean) {
 
 async function createArtworkWithCredentials(debug?: boolean) {
   const config = new ConfigManager();
-  const credentialStore = new CredentialStore();
+  const credentialStore = createCredentialStore();
   const primaryDb = await getTVDBAdapter(debug);
   if (!primaryDb) return undefined;
 
@@ -206,7 +206,7 @@ async function createArtworkWithCredentials(debug?: boolean) {
 }
 
 async function createSubtitleWithCredentials(debug?: boolean) {
-  const credentialStore = new CredentialStore();
+  const credentialStore = createCredentialStore();
   const apiKey = await credentialStore.getCredential("opensubtitles");
   if (!apiKey) {
     console.error("No OpenSubtitles API key configured. Run 'kogoro config init' first.");
