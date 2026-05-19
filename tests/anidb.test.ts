@@ -1,17 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import { AniDBAdapter } from "../src/db/anidb-adapter.ts";
 import type { DatabasePlugin } from "../src/db/database-plugin.ts";
+import { HttpClient } from "../src/http-client.ts";
 
-function mockFetch(
-  data: string,
-  status = 200,
-): (url: string | URL, init?: RequestInit) => Promise<Response> {
-  return async (_url: string | URL, _init?: RequestInit) => {
-    return new Response(data, {
-      status,
-      headers: { "Content-Type": "application/xml" },
-    });
-  };
+function mockHttpClient(data: string, status = 200): HttpClient {
+  return new HttpClient({
+    minDelay: 0,
+    maxRetries: 0,
+    fetch: async (_url: string | URL, _init?: RequestInit) => {
+      return new Response(data, {
+        status,
+        headers: { "Content-Type": "application/xml" },
+      });
+    },
+  });
 }
 
 const animetitlesXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -32,7 +34,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(animetitlesXml),
+        httpClient: mockHttpClient(animetitlesXml),
       });
       const results = await adapter.searchAnime("Jujutsu Kaisen");
       expect(results).toHaveLength(1);
@@ -46,7 +48,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(animetitlesXml),
+        httpClient: mockHttpClient(animetitlesXml),
       });
       const results = await adapter.searchAnime("Nonexistent Anime");
       expect(results).toEqual([]);
@@ -56,7 +58,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(animetitlesXml),
+        httpClient: mockHttpClient(animetitlesXml),
       });
       const results = await adapter.searchAnime("attack on titan");
       expect(results).toHaveLength(1);
@@ -67,7 +69,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(animetitlesXml),
+        httpClient: mockHttpClient(animetitlesXml),
       });
       const results = await adapter.searchAnime("Titan");
       expect(results).toHaveLength(1);
@@ -87,7 +89,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(xmlWithNoEnglishTitle),
+        httpClient: mockHttpClient(xmlWithNoEnglishTitle),
       });
       const results = await adapter.searchAnime("Jujutsu");
       expect(results).toHaveLength(1);
@@ -131,7 +133,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(animeXml),
+        httpClient: mockHttpClient(animeXml),
       });
       const results = await adapter.getEpisodes("12345");
       expect(results).toHaveLength(2);
@@ -149,7 +151,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch("", 404),
+        httpClient: mockHttpClient("", 404),
       });
       const results = await adapter.getEpisodes("99999");
       expect(results).toEqual([]);
@@ -167,7 +169,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(xmlWithoutEpisodes),
+        httpClient: mockHttpClient(xmlWithoutEpisodes),
       });
       const results = await adapter.getEpisodes("12345");
       expect(results).toEqual([]);
@@ -210,22 +212,22 @@ describe("AniDBAdapter", () => {
       const movieAdapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(movieXml),
+        httpClient: mockHttpClient(movieXml),
       });
       const ovaAdapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(ovaXml),
+        httpClient: mockHttpClient(ovaXml),
       });
       const specialAdapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(specialXml),
+        httpClient: mockHttpClient(specialXml),
       });
       const tvSpecialAdapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(tvSpecialXml),
+        httpClient: mockHttpClient(tvSpecialXml),
       });
 
       expect((await movieAdapter.getEpisodes("111"))[0]?.entryType).toBe("movie");
@@ -247,7 +249,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(multiSeasonXml),
+        httpClient: mockHttpClient(multiSeasonXml),
       });
       const results = await adapter.getEpisodes("12345");
       expect(results).toHaveLength(2);
@@ -276,7 +278,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(animeWithPictureXml),
+        httpClient: mockHttpClient(animeWithPictureXml),
       });
       const results = await adapter.getArtwork("12345", "poster");
       expect(results).toHaveLength(1);
@@ -288,7 +290,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(animeWithoutPictureXml),
+        httpClient: mockHttpClient(animeWithoutPictureXml),
       });
       const results = await adapter.getArtwork("67890", "poster");
       expect(results).toEqual([]);
@@ -298,7 +300,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch(animeWithPictureXml),
+        httpClient: mockHttpClient(animeWithPictureXml),
       });
       const fanartResults = await adapter.getArtwork("12345", "fanart");
       expect(fanartResults).toEqual([]);
@@ -310,7 +312,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch("", 404),
+        httpClient: mockHttpClient("", 404),
       });
       const results = await adapter.getArtwork("99999", "poster");
       expect(results).toEqual([]);
@@ -322,7 +324,7 @@ describe("AniDBAdapter", () => {
       const adapter = new AniDBAdapter({
         client: "kogoro",
         clientver: "1",
-        fetch: mockFetch("", 500),
+        httpClient: mockHttpClient("", 500),
       });
       const results = await adapter.searchAnime("Jujutsu Kaisen");
       expect(results).toEqual([]);

@@ -1,9 +1,8 @@
+import { HttpClient } from "../http-client.ts";
 import type { DatabasePlugin } from "./database-plugin.ts";
 import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types.ts";
 
 const BASE_URL = "http://api.anidb.net:9001/httpapi";
-
-type FetchFunction = (url: string | URL, init?: RequestInit) => Promise<Response>;
 
 function toEntryType(animeType: string): EntryType {
   switch (animeType) {
@@ -27,16 +26,16 @@ function extractTag(xml: string, tag: string): string | undefined {
 }
 
 export class AniDBAdapter implements DatabasePlugin {
-  private fetchFn: FetchFunction;
+  private httpClient: HttpClient;
   private client: string;
   private clientver: string;
 
   constructor(options: {
     client: string;
     clientver: string;
-    fetch?: FetchFunction;
+    httpClient?: HttpClient;
   }) {
-    this.fetchFn = options.fetch ?? globalThis.fetch;
+    this.httpClient = options.httpClient ?? new HttpClient();
     this.client = options.client;
     this.clientver = options.clientver;
   }
@@ -46,7 +45,9 @@ export class AniDBAdapter implements DatabasePlugin {
   }
 
   async searchAnime(title: string): Promise<AnimeResult[]> {
-    const response = await this.fetchFn(`${BASE_URL}?request=animetitles&${this.commonParams()}`);
+    const response = await this.httpClient.fetch(
+      `${BASE_URL}?request=animetitles&${this.commonParams()}`,
+    );
     if (!response.ok) return [];
     const xml = await response.text();
     const results: AnimeResult[] = [];
@@ -103,7 +104,7 @@ export class AniDBAdapter implements DatabasePlugin {
   }
 
   async getEpisodes(animeId: string): Promise<EpisodeResult[]> {
-    const response = await this.fetchFn(
+    const response = await this.httpClient.fetch(
       `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
     );
     if (!response.ok) return [];
@@ -143,7 +144,7 @@ export class AniDBAdapter implements DatabasePlugin {
   }
 
   async getArtwork(animeId: string, type: ArtworkType): Promise<ArtworkResult[]> {
-    const response = await this.fetchFn(
+    const response = await this.httpClient.fetch(
       `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
     );
     if (!response.ok) return [];

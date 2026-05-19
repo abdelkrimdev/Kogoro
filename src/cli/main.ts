@@ -44,9 +44,11 @@ async function createAniDBCommandsWithCredentials() {
     return undefined;
   }
   const [client, clientver] = credential.split(":", 2);
+  const httpClient = new HttpClient({ minDelay: 2000 });
   const adapter = new AniDBAdapter({
     client: client ?? credential,
     clientver: clientver ?? "1",
+    httpClient,
   });
   return createDBCommands(adapter);
 }
@@ -95,8 +97,13 @@ async function createArtworkWithCredentials() {
   const anidbCred = await credentialStore.getCredential("anidb");
   if (anidbCred) {
     const [client, clientver] = anidbCred.split(":", 2);
+    const httpClient = new HttpClient({ minDelay: 2000 });
     secondaryDbs.push(
-      new AniDBAdapter({ client: client ?? anidbCred, clientver: clientver ?? "1" }),
+      new AniDBAdapter({
+        client: client ?? anidbCred,
+        clientver: clientver ?? "1",
+        httpClient,
+      }),
     );
   }
 
