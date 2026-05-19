@@ -81,44 +81,29 @@ export class PluginRegistry {
     name: string,
     options: Record<string, unknown>,
   ): Promise<DatabasePlugin | null> {
-    if (!this.isEnabled(name)) {
-      console.warn(`Plugin "${name}" is disabled`);
-      return null;
-    }
-
-    const cached = this.instanceCache.get(name);
-    if (cached) return cached;
-
-    try {
-      const mod = await import(`kogoro-plugin-${name}`);
-      const PluginConstructor = mod.default as new (options: Record<string, unknown>) => unknown;
-      if (typeof PluginConstructor !== "function") {
-        console.warn(`Plugin "${name}" does not export a constructor as default`);
-        return null;
-      }
-      const instance = new PluginConstructor(options);
-      if (!isDatabasePlugin(instance)) {
-        console.warn(`Plugin "${name}" does not implement DatabasePlugin interface`);
-        return null;
-      }
-      this.instanceCache.set(name, instance);
-      return instance;
-    } catch (err) {
-      console.warn(`Failed to load external plugin "${name}": ${String(err)}`);
-      return null;
-    }
+    return this.loadExternalPlugin(name, options, this.instanceCache, isDatabasePlugin, "Database");
   }
 
   async instantiateSubtitle(
     name: string,
     options: Record<string, unknown>,
   ): Promise<SubtitlePlugin | null> {
+    return this.loadExternalPlugin(name, options, this.subtitleCache, isSubtitlePlugin, "Subtitle");
+  }
+
+  private async loadExternalPlugin<T extends object>(
+    name: string,
+    options: Record<string, unknown>,
+    cache: Map<string, T>,
+    typeGuard: (obj: unknown) => obj is T,
+    label: string,
+  ): Promise<T | null> {
     if (!this.isEnabled(name)) {
       console.warn(`Plugin "${name}" is disabled`);
       return null;
     }
 
-    const cached = this.subtitleCache.get(name);
+    const cached = cache.get(name);
     if (cached) return cached;
 
     try {
@@ -129,14 +114,15 @@ export class PluginRegistry {
         return null;
       }
       const instance = new PluginConstructor(options);
-      if (!isSubtitlePlugin(instance)) {
-        console.warn(`Plugin "${name}" does not implement SubtitlePlugin interface`);
+      if (!typeGuard(instance)) {
+        console.warn(`Plugin "${name}" does not implement ${label}Plugin interface`);
         return null;
       }
-      this.subtitleCache.set(name, instance);
+      cache.set(name, instance);
       return instance;
     } catch (err) {
-      console.warn(`Failed to load external subtitle plugin "${name}": ${String(err)}`);
+      const kindPhrase = label === "Database" ? "" : ` ${label.toLowerCase()}`;
+      console.warn(`Failed to load external${kindPhrase} plugin "${name}": ${String(err)}`);
       return null;
     }
   }

@@ -7,7 +7,7 @@ import { CredentialStore } from "../config/credential-store.ts";
 import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import type { DatabasePlugin } from "../db/database-plugin.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
-import { type DebugEntry, HttpClient } from "../http-client.ts";
+import { type DebugEntry, HttpClient, type HttpClientOptions } from "../http-client.ts";
 import { MatchCache } from "../match-cache.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
 import { OverrideStore } from "../override-store.ts";
@@ -26,6 +26,10 @@ import { createRenameHandlers } from "./rename-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 import { createSubtitleHandlers } from "./subtitle-commands.ts";
 
+function withOptionalDebug(debug: boolean | undefined): Pick<HttpClientOptions, "onDebug"> {
+  return { onDebug: debug ? createDebugCallback() : undefined };
+}
+
 async function getTVDBAdapter(debug?: boolean): Promise<TVDBAdapter | undefined> {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
@@ -35,7 +39,7 @@ async function getTVDBAdapter(debug?: boolean): Promise<TVDBAdapter | undefined>
   }
   const httpClient = new HttpClient({
     minDelay: 200,
-    onDebug: debug ? createDebugCallback() : undefined,
+    ...withOptionalDebug(debug),
   });
   return new TVDBAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
 }
@@ -146,7 +150,7 @@ export async function buildSecondaryDatabases(
       if (!cred) continue;
       const tvdbClient = new HttpClient({
         minDelay: 200,
-        onDebug: debug ? createDebugCallback() : undefined,
+        ...withOptionalDebug(debug),
       });
       dbs.push(new TVDBAdapter({ apiKey: cred, fetch: tvdbClient.fetch.bind(tvdbClient) }));
     } else {
@@ -194,14 +198,18 @@ async function createArtworkWithCredentials(debug?: boolean) {
   return createArtworkHandlers({ primaryDb, secondaryDbs });
 }
 
-async function createSubtitleWithCredentials() {
+async function createSubtitleWithCredentials(debug?: boolean) {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("opensubtitles");
   if (!apiKey) {
     console.error("No OpenSubtitles API key configured. Run 'kogoro config init' first.");
     return undefined;
   }
-  const adapter = new OpenSubtitlesAdapter({ apiKey });
+  const httpClient = new HttpClient({
+    minDelay: 200,
+    ...withOptionalDebug(debug),
+  });
+  const adapter = new OpenSubtitlesAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
   const cache = new MatchCache();
   return createSubtitleHandlers({ subtitlePlugin: adapter, cache });
 }
@@ -354,9 +362,14 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing subtitle files",
+          })
+          .option("debug", {
+            type: "boolean",
+            default: false,
+            describe: "Dump API requests and responses",
           }),
       async (argv) => {
-        const handlers = await createSubtitleWithCredentials();
+        const handlers = await createSubtitleWithCredentials(argv.debug);
         if (!handlers) return;
         await handlers.fetch(
           argv.path,
