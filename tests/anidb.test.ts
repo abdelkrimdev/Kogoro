@@ -256,6 +256,53 @@ describe("AniDBAdapter", () => {
       expect(results[0]?.episode).toBe(25);
       expect(results[1]?.episode).toBe(26);
     });
+
+    test("parses season from episode XML element", async () => {
+      const multiSeasonXml = `<?xml version="1.0"?>
+<anime>
+  <id>12345</id>
+  <type>TV Series</type>
+  <episodes>
+    <episode id="1"><epno>1</epno><season>1</season><title>S1E1</title></episode>
+    <episode id="2"><epno>2</epno><season>1</season><title>S1E2</title></episode>
+    <episode id="3"><epno>3</epno><season>2</season><title>S2E1</title></episode>
+  </episodes>
+</anime>`;
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(multiSeasonXml),
+      });
+      const results = await adapter.getEpisodes("12345");
+      expect(results).toHaveLength(3);
+      expect(results[0]?.season).toBe(1);
+      expect(results[0]?.episode).toBe(1);
+      expect(results[1]?.season).toBe(1);
+      expect(results[1]?.episode).toBe(2);
+      expect(results[2]?.season).toBe(2);
+      expect(results[2]?.episode).toBe(3);
+    });
+
+    test("defaults season to 1 when season element is absent", async () => {
+      const noSeasonXml = `<?xml version="1.0"?>
+<anime>
+  <id>12345</id>
+  <type>TV Series</type>
+  <episodes>
+    <episode id="1"><epno>1</epno><title>No Season Tag</title></episode>
+    <episode id="2"><epno>2</epno><season>2</season><title>With Season Tag</title></episode>
+  </episodes>
+</anime>`;
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(noSeasonXml),
+      });
+      const results = await adapter.getEpisodes("12345");
+      expect(results).toHaveLength(2);
+      expect(results[0]?.season).toBe(1);
+      expect(results[1]?.season).toBe(2);
+    });
   });
 
   describe("getArtwork", () => {
