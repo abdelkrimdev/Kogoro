@@ -1,8 +1,19 @@
+export interface DebugEntry {
+  type: "request" | "response";
+  url: string;
+  method: string;
+  status?: number;
+  body?: string;
+}
+
+export type DebugCallback = (entry: DebugEntry) => void;
+
 export interface HttpClientOptions {
   minDelay?: number;
   maxRetries?: number;
   backoffBase?: number;
   fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>;
+  onDebug?: DebugCallback;
 }
 
 export class HttpClient {
@@ -10,6 +21,7 @@ export class HttpClient {
   private maxRetries: number;
   private backoffBase: number;
   private fetchFn: (url: string | URL, init?: RequestInit) => Promise<Response>;
+  private onDebug?: DebugCallback;
   private lastCallTime = 0;
 
   constructor(options: HttpClientOptions = {}) {
@@ -17,11 +29,42 @@ export class HttpClient {
     this.maxRetries = options.maxRetries ?? 3;
     this.backoffBase = options.backoffBase ?? 1000;
     this.fetchFn = options.fetch ?? globalThis.fetch;
+    this.onDebug = options.onDebug;
   }
 
   async fetch(url: string | URL, init?: RequestInit): Promise<Response> {
+    const urlStr = typeof url === "string" ? url : url.toString();
+    const method = init?.method ?? "GET";
+
+    this.onDebug?.({
+      type: "request",
+      url: urlStr,
+      method,
+    });
+
     await this.enforceRateLimit();
-    return this.executeWithRetry(url, init);
+    const response = await this.executeWithRetry(url, init);
+
+    if (this.onDebug) {
+      const bodyText = await response.text();
+      const truncated = bodyText.length <= 4096 ? bodyText : `${bodyText.slice(0, 4096)}...`;
+
+      this.onDebug({
+        type: "response",
+        url: urlStr,
+        method,
+        status: response.status,
+        body: truncated,
+      });
+
+      return new Response(bodyText, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    }
+
+    return response;
   }
 
   private async enforceRateLimit(): Promise<void> {

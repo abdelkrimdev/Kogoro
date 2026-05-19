@@ -36,12 +36,15 @@ async function createTVDBCommandsWithCredentials() {
   return createDBCommands(adapter);
 }
 
-function buildAniDBAdapter(credential: string): AniDBAdapter {
+function buildAniDBAdapter(credential: string, debug?: boolean): AniDBAdapter {
   const [client, clientver] = credential.split(":", 2);
   return new AniDBAdapter({
     client: client ?? credential,
     clientver: clientver ?? "1",
-    httpClient: new HttpClient({ minDelay: 2000 }),
+    httpClient: new HttpClient({
+      minDelay: 2000,
+      onDebug: debug ? createDebugCallback() : undefined,
+    }),
   });
 }
 
@@ -55,7 +58,7 @@ async function createAniDBCommandsWithCredentials() {
   return createDBCommands(buildAniDBAdapter(credential));
 }
 
-async function createScanWithCredentials(episodeNumbering?: NumberingScheme) {
+async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
@@ -64,7 +67,10 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme) {
   }
   const config = new ConfigManager();
   const apiDelay = Number(config.get("api-delay")) || 200;
-  const httpClient = new HttpClient({ minDelay: apiDelay });
+  const httpClient = new HttpClient({
+    minDelay: apiDelay,
+    onDebug: debug ? createDebugCallback() : undefined,
+  });
   const adapter = new TVDBAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
   const cache = new MatchCache();
   return createScanHandlers({
@@ -73,6 +79,17 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme) {
     config,
     episodeNumbering,
   });
+}
+
+function createDebugCallback() {
+  return (entry: { type: string; url: string; method: string; status?: number; body?: string }) => {
+    if (entry.type === "request") {
+      console.error(`→ ${entry.method} ${entry.url}`);
+    } else {
+      const bodySuffix = entry.body ? `\n   body: ${entry.body}` : "";
+      console.error(`← ${entry.status} ${entry.url}${bodySuffix}`);
+    }
+  };
 }
 
 async function createMatchWithCredentials() {
@@ -86,7 +103,7 @@ async function createMatchWithCredentials() {
   return createMatchHandlers({ database: adapter });
 }
 
-async function createArtworkWithCredentials() {
+async function createArtworkWithCredentials(debug?: boolean) {
   const credentialStore = new CredentialStore();
   const tvdbKey = await credentialStore.getCredential("tvdb");
   if (!tvdbKey) {
@@ -98,7 +115,7 @@ async function createArtworkWithCredentials() {
   const secondaryDbs: DatabasePlugin[] = [];
   const anidbCred = await credentialStore.getCredential("anidb");
   if (anidbCred) {
-    secondaryDbs.push(buildAniDBAdapter(anidbCred));
+    secondaryDbs.push(buildAniDBAdapter(anidbCred, debug));
   }
 
   return createArtworkHandlers({ primaryDb, secondaryDbs });
@@ -188,6 +205,7 @@ export function run(argv: string[]): string | undefined {
       async (argv) => {
         const handlers = await createScanWithCredentials(
           argv["episode-numbering"] as NumberingScheme | undefined,
+          argv.debug,
         );
         if (!handlers) return;
         try {
@@ -227,9 +245,14 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Show per-anime status messages",
+          })
+          .option("debug", {
+            type: "boolean",
+            default: false,
+            describe: "Dump API requests and responses",
           }),
       async (argv) => {
-        const handlers = await createArtworkWithCredentials();
+        const handlers = await createArtworkWithCredentials(argv.debug);
         if (!handlers) return;
         await handlers.process(
           argv.path,
@@ -258,6 +281,11 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing subtitle files",
+          })
+          .option("debug", {
+            type: "boolean",
+            default: false,
+            describe: "Dump API requests and responses",
           }),
       async (argv) => {
         const handlers = await createSubtitleWithCredentials();
@@ -284,6 +312,11 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing .nfo files",
+          })
+          .option("debug", {
+            type: "boolean",
+            default: false,
+            describe: "Dump API requests and responses",
           }),
       async (argv) => {
         const handlers = createMetadataHandlers();

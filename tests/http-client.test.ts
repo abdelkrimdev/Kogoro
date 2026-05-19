@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { HttpClient } from "../src/http-client.ts";
+import { type DebugEntry, HttpClient } from "../src/http-client.ts";
 
 function mockResponse(body: string, init?: ResponseInit): Response {
   return new Response(body, init);
@@ -162,6 +162,73 @@ describe("HttpClient", () => {
 
       expect(seq.getCallCount()).toBe(1);
       expect(response.status).toBe(403);
+    });
+  });
+
+  describe("debug callback", () => {
+    test("calls onDebug before and after fetch with request/response details", async () => {
+      const entries: DebugEntry[] = [];
+      const client = new HttpClient({
+        minDelay: 0,
+        fetch: () => Promise.resolve(mockResponse('{"key": "value"}', { status: 200 })),
+        onDebug: (entry) => {
+          entries.push(entry);
+        },
+      });
+
+      await client.fetch("http://test.com/api");
+
+      expect(entries).toHaveLength(2);
+      expect(entries[0]?.type).toBe("request");
+      expect(entries[0]?.url).toBe("http://test.com/api");
+      expect(entries[0]?.method).toBe("GET");
+      expect(entries[1]?.type).toBe("response");
+      expect(entries[1]?.url).toBe("http://test.com/api");
+      expect(entries[1]?.method).toBe("GET");
+      expect(entries[1]?.status).toBe(200);
+    });
+
+    test("response body is truncated at 4096 characters", async () => {
+      const longBody = "x".repeat(5000);
+      const entries: DebugEntry[] = [];
+      const client = new HttpClient({
+        minDelay: 0,
+        fetch: () => Promise.resolve(mockResponse(longBody, { status: 200 })),
+        onDebug: (entry) => {
+          entries.push(entry);
+        },
+      });
+
+      await client.fetch("http://test.com/long");
+
+      expect(entries).toHaveLength(2);
+      const body = entries[1]?.body ?? "";
+      expect(body.length).toBeLessThanOrEqual(4100);
+      expect(body.endsWith("...")).toBe(true);
+    });
+
+    test("no debug callback provided does not throw", async () => {
+      const client = new HttpClient({
+        minDelay: 0,
+        fetch: () => Promise.resolve(mockResponse("ok", { status: 200 })),
+      });
+
+      await expect(client.fetch("http://test.com/noop")).resolves.toBeDefined();
+    });
+
+    test("response body is still readable after debug callback", async () => {
+      const entries: DebugEntry[] = [];
+      const client = new HttpClient({
+        minDelay: 0,
+        fetch: () => Promise.resolve(mockResponse("hello world", { status: 200 })),
+        onDebug: (entry) => {
+          entries.push(entry);
+        },
+      });
+
+      const response = await client.fetch("http://test.com/readable");
+      const body = await response.text();
+      expect(body).toBe("hello world");
     });
   });
 });
