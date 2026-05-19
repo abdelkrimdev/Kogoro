@@ -100,23 +100,21 @@ function toArtworkType(type: number): ArtworkType {
 }
 
 function extractOriginalTitle(aliases: TVDBAlias[] | string[] | undefined): string | undefined {
-  if (!aliases || aliases.length === 0) return undefined;
-  const first = aliases[0];
+  const first = aliases?.[0];
   if (first === undefined) return undefined;
-  if (typeof first === "string") return first;
-  return first.name;
+  return typeof first === "string" ? first : first.name;
 }
 
 export class TVDBAdapter implements DatabasePlugin {
   private token: string | null = null;
+  private apiKey: string;
   private fetchFn: (url: string | URL, init?: RequestInit) => Promise<Response>;
 
-  constructor(
-    private options: {
-      apiKey?: string;
-      fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>;
-    },
-  ) {
+  constructor(options: {
+    apiKey?: string;
+    fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>;
+  }) {
+    this.apiKey = options.apiKey ?? "";
     this.fetchFn = options.fetch ?? globalThis.fetch;
   }
 
@@ -126,7 +124,7 @@ export class TVDBAdapter implements DatabasePlugin {
     const response = await this.fetchFn(`${BASE_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apikey: this.options.apiKey ?? "" }),
+      body: JSON.stringify({ apikey: this.apiKey }),
     });
 
     if (!response.ok) return null;
@@ -180,7 +178,7 @@ export class TVDBAdapter implements DatabasePlugin {
 
   async getTranslations(animeId: string): Promise<Record<string, string>> {
     const data = await this.apiRequest<TVDBTranslation[]>(`/series/${animeId}/translations`);
-    if (!data || !Array.isArray(data)) return {};
+    if (!data) return {};
     const result: Record<string, string> = {};
     for (const t of data) {
       result[t.language] = t.name;

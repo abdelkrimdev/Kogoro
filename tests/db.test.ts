@@ -38,6 +38,30 @@ function mockFetchFailure(
   };
 }
 
+function mockFetchWithRoutes(
+  routes: Record<string, unknown>,
+  loginToken = "mock-token",
+): (url: string | URL, init?: RequestInit) => Promise<Response> {
+  return async (url: string | URL, _init?: RequestInit) => {
+    const urlStr = toUrlString(url);
+    if (urlStr.includes("/login")) {
+      return new Response(JSON.stringify({ data: { token: loginToken } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    for (const [path, data] of Object.entries(routes)) {
+      if (urlStr.includes(path)) {
+        return new Response(JSON.stringify({ data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+    return new Response(JSON.stringify({ error: "Not Found" }), { status: 404 });
+  };
+}
+
 describe("DatabasePlugin interface", () => {
   test("interface is defined", () => {
     const adapter: DatabasePlugin = new TVDBAdapter({ apiKey: "test-key" });
@@ -136,7 +160,10 @@ describe("TVDBAdapter", () => {
 
       const adapter = new TVDBAdapter({
         apiKey: "test-key",
-        fetch: mockFetch(episodesResponse),
+        fetch: mockFetchWithRoutes({
+          "/episodes/default": episodesResponse,
+          "/translations": [],
+        }),
       });
       const results = await adapter.getEpisodes("12345");
 
@@ -173,7 +200,10 @@ describe("TVDBAdapter", () => {
 
       const adapter = new TVDBAdapter({
         apiKey: "test-key",
-        fetch: mockFetch(episodesResponse),
+        fetch: mockFetchWithRoutes({
+          "/episodes/default": episodesResponse,
+          "/translations": [],
+        }),
       });
       const results = await adapter.getEpisodes("100");
 
@@ -286,27 +316,13 @@ describe("TVDBAdapter", () => {
         { language: "eng", name: "Jujutsu Kaisen", overview: "" },
       ];
 
-      const fetch = async (url: string | URL, _init?: RequestInit) => {
-        const urlStr = toUrlString(url);
-        if (urlStr.includes("/login")) {
-          return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        if (urlStr.includes("/translations")) {
-          return new Response(JSON.stringify({ data: translationsResponse }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify({ data: episodesResponse }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      };
-
-      const adapter = new TVDBAdapter({ apiKey: "test-key", fetch });
+      const adapter = new TVDBAdapter({
+        apiKey: "test-key",
+        fetch: mockFetchWithRoutes({
+          "/episodes/default": episodesResponse,
+          "/translations": translationsResponse,
+        }),
+      });
       const results = await adapter.getEpisodes("12345");
 
       expect(results).toHaveLength(1);
