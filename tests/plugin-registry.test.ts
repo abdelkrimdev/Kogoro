@@ -102,7 +102,6 @@ describe("PluginRegistry.instantiate", () => {
         async searchAnime() {
           return [];
         }
-        // Missing getEpisodes and getArtwork
       },
     }));
 

@@ -66,9 +66,7 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
   const apiDelay = Number(config.get("api-delay")) || 200;
 
   if (primaryDbName !== "tvdb") {
-    const options: Record<string, unknown> = {};
-    if (debug) options["debug"] = true;
-    const plugin = await registry.instantiate(primaryDbName, options);
+    const plugin = await registry.instantiate(primaryDbName, debug ? { debug: true } : {});
     if (plugin) {
       const cache = new MatchCache();
       return createScanHandlers({

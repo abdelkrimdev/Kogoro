@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { DatabasePlugin } from "./db/database-plugin.ts";
 
 export function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
-  if (obj === null || obj === undefined || typeof obj !== "object") return false;
+  if (obj === null || typeof obj !== "object") return false;
   const p = obj as { searchAnime?: unknown; getEpisodes?: unknown; getArtwork?: unknown };
   return (
     typeof p.searchAnime === "function" &&
@@ -51,12 +51,12 @@ export class PluginRegistry {
 
     try {
       const mod = await import(`kogoro-plugin-${name}`);
-      const ExportClass = mod.default as new (options: Record<string, unknown>) => unknown;
-      if (typeof ExportClass !== "function") {
+      const PluginConstructor = mod.default as new (options: Record<string, unknown>) => unknown;
+      if (typeof PluginConstructor !== "function") {
         console.warn(`Plugin "${name}" does not export a constructor as default`);
         return null;
       }
-      const instance = new ExportClass(options);
+      const instance = new PluginConstructor(options);
       if (!isDatabasePlugin(instance)) {
         console.warn(`Plugin "${name}" does not implement DatabasePlugin interface`);
         return null;
@@ -64,7 +64,7 @@ export class PluginRegistry {
       this.instanceCache.set(name, instance);
       return instance;
     } catch (err) {
-      console.warn(`Failed to load external plugin "${name}": ${err}`);
+      console.warn(`Failed to load external plugin "${name}": ${String(err)}`);
       return null;
     }
   }
