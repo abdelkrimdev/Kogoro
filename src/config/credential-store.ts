@@ -1,3 +1,5 @@
+import { BunSecretsKeytar } from "./bun-secrets-keytar.ts";
+
 export interface KeytarLike {
   setPassword(service: string, account: string, password: string): Promise<void>;
   getPassword(service: string, account: string): Promise<string | null>;
@@ -42,4 +44,8 @@ export class CredentialStore {
     }
     delete process.env[this.envVarName(service)];
   }
+}
+
+export function createCredentialStore(): CredentialStore {
+  return new CredentialStore({ keytar: new BunSecretsKeytar() });
 }
