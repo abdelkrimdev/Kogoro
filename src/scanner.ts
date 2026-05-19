@@ -72,8 +72,74 @@ function buildManualMatch(manual: {
   };
 }
 
+function matchFromCache(cached: {
+  animeId: string;
+  episodeId: string | null;
+  entryType: string;
+  season: number | null;
+  episode: number | null;
+  title: string | null;
+}): MatchResult {
+  const entryType = cached.entryType as EntryType;
+  return {
+    anime: {
+      id: cached.animeId,
+      title: cached.title ?? "",
+      entryType,
+    },
+    episode:
+      cached.episodeId && cached.episode !== null
+        ? {
+            id: cached.episodeId,
+            animeId: cached.animeId,
+            season: cached.season ?? 1,
+            episode: cached.episode,
+            title: cached.title ?? "",
+            entryType,
+          }
+        : undefined,
+    score: 1,
+  };
+}
+
+function matchFromOverride(override: {
+  animeId?: string;
+  episodeId?: string;
+  entryType?: EntryType;
+}): MatchResult {
+  const animeId = override.animeId ?? "";
+  const entryType = override.entryType ?? "tv";
+  return {
+    anime: {
+      id: animeId,
+      title: "(overridden)",
+      entryType,
+    },
+    episode: override.episodeId
+      ? {
+          id: override.episodeId,
+          animeId,
+          season: 0,
+          episode: 0,
+          title: "(overridden)",
+          entryType,
+        }
+      : undefined,
+    score: 1,
+  };
+}
+
 export function computeFileHash(input: string): string {
   return Bun.hash(input).toString(16);
+}
+
+interface BatchEntry {
+  filePath: string;
+  hash: string;
+  overrideKey: string;
+  parsed: ParsedResult;
+  match: MatchResult | null;
+  cached: boolean;
 }
 
 export class Scanner {
@@ -112,31 +178,11 @@ export class Scanner {
       if (!force) {
         const cached = this.cache.get(hash);
         if (cached) {
-          const match: MatchResult = {
-            anime: {
-              id: cached.animeId,
-              title: cached.title ?? "",
-              entryType: cached.entryType as EntryType,
-            },
-            episode:
-              cached.episodeId && cached.episode !== null
-                ? {
-                    id: cached.episodeId,
-                    animeId: cached.animeId,
-                    season: cached.season ?? 1,
-                    episode: cached.episode,
-                    title: cached.title ?? "",
-                    entryType: cached.entryType as EntryType,
-                  }
-                : undefined,
-            score: 1,
-          };
-
           return {
             file: filePath,
             hash,
             parsed: createEmptyResult(),
-            match,
+            match: matchFromCache(cached),
             plan: null,
             cached: true,
             skipped: true,
@@ -317,7 +363,7 @@ export class Scanner {
     for (let i = 0; i < filePaths.length && !options?.abortSignal?.aborted; i += concurrency) {
       const chunk = filePaths.slice(i, i + concurrency);
 
-      const entries = await Promise.all(
+      const entries: BatchEntry[] = await Promise.all(
         chunk.map(async (filePath) => {
           const overrideKey = computeFileHash(basename(filePath));
           let hash = "";
@@ -327,29 +373,10 @@ export class Scanner {
             if (!options?.force) {
               const cached = this.cache.get(hash);
               if (cached) {
-                const match: MatchResult = {
-                  anime: {
-                    id: cached.animeId,
-                    title: cached.title ?? "",
-                    entryType: cached.entryType as EntryType,
-                  },
-                  episode:
-                    cached.episodeId && cached.episode !== null
-                      ? {
-                          id: cached.episodeId,
-                          animeId: cached.animeId,
-                          season: cached.season ?? 1,
-                          episode: cached.episode,
-                          title: cached.title ?? "",
-                          entryType: cached.entryType as EntryType,
-                        }
-                      : undefined,
-                  score: 1,
-                };
                 return {
                   filePath,
                   hash,
-                  match,
+                  match: matchFromCache(cached),
                   overrideKey,
                   parsed: createEmptyResult(),
                   cached: true,
@@ -362,29 +389,10 @@ export class Scanner {
           const override = this.overrideStore?.get(overrideKey);
 
           if (override?.animeId) {
-            const entryType = override.entryType ?? "tv";
-            const match: MatchResult = {
-              anime: {
-                id: override.animeId,
-                title: "(overridden)",
-                entryType: entryType as EntryType,
-              },
-              episode: override.episodeId
-                ? {
-                    id: override.episodeId,
-                    animeId: override.animeId,
-                    season: 0,
-                    episode: 0,
-                    title: "(overridden)",
-                    entryType: entryType as EntryType,
-                  }
-                : undefined,
-              score: 1,
-            };
             return {
               filePath,
               hash,
-              match,
+              match: matchFromOverride(override),
               overrideKey,
               parsed,
               cached: false,
@@ -405,12 +413,12 @@ export class Scanner {
       const needsMatch = entries.filter((e) => !e.cached && e.match === null);
       if (needsMatch.length > 0) {
         const matchResults = await this.matcher.matchBatch(needsMatch.map((e) => e.parsed));
-        for (let index = 0; index < needsMatch.length; index++) {
-          const entry = needsMatch[index];
-          const match = matchResults[index];
+        for (let i = 0; i < needsMatch.length; i++) {
+          const entry = needsMatch[i];
+          const match = matchResults[i];
           if (!entry || !match) continue;
 
-          if (match.failureReason && !match.anime.id) {
+          if (match.failureReason) {
             const manual = await this.tryResolveFailed(entry.parsed, options);
             if (manual) {
               entry.match = buildManualMatch(manual);
