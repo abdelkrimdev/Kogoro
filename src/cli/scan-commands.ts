@@ -6,6 +6,7 @@ import type { DatabasePlugin } from "../db/database-plugin.ts";
 import type { MatchCache } from "../match-cache.ts";
 import type { MatchResult } from "../matcher.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
+import type { OverrideStore } from "../override-store.ts";
 import { createEmptyResult, type ParsedResult } from "../parser.ts";
 import { type FileAction, Renamer } from "../renamer.ts";
 import { Scanner, type ScanProgress, type ScanResult } from "../scanner.ts";
@@ -18,6 +19,7 @@ export interface ScanHandlerOptions {
   config?: ConfigManager;
   extensions?: string[];
   episodeNumbering?: NumberingScheme;
+  overrideStore?: OverrideStore;
 }
 
 export interface ScanOptions {
@@ -98,6 +100,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
     database: options.database,
     cache: options.cache,
     renamer,
+    overrideStore: options.overrideStore,
   });
 
   const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
@@ -272,6 +275,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
                 database: fallbackDb,
                 cache: options.cache,
                 renamer,
+                overrideStore: options.overrideStore,
               });
               return await runBatch(fallbackScanner);
             } catch (fallbackError) {

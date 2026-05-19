@@ -10,6 +10,7 @@ import { TVDBAdapter } from "../db/tvdb-adapter.ts";
 import { type DebugEntry, HttpClient } from "../http-client.ts";
 import { MatchCache } from "../match-cache.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
+import { OverrideStore } from "../override-store.ts";
 import { parse } from "../parser.ts";
 import { PluginRegistry } from "../plugin-registry.ts";
 import type { FileAction } from "../renamer.ts";
@@ -84,6 +85,7 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
 
   const fallbackDatabases = await buildSecondaryDatabases(config, credentialStore, debug, registry);
   const cache = new MatchCache();
+  const overrideStore = new OverrideStore(process.cwd());
 
   return createScanHandlers({
     database,
@@ -91,6 +93,7 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
     cache,
     config,
     episodeNumbering,
+    overrideStore,
   });
 }
 

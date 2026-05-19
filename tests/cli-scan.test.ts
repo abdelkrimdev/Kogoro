@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../src/cli/scan-commands.ts";
 import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { MatchCache } from "../src/match-cache.ts";
+import { OverrideStore } from "../src/override-store.ts";
 
 function createMockDb(): DatabasePlugin {
   return {
@@ -277,6 +278,45 @@ describe("scan CLI commands", () => {
 
       expect(organized?.status).toBe("skipped");
       expect(unorganized?.status).toBe("matched");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("scan with OverrideStore uses pre-existing override and skips DB query", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-override-"));
+    try {
+      const filePath = join(dir, "[Group] Some Show - 01.mkv");
+      writeFileSync(filePath, "content");
+
+      const overrideStore = new OverrideStore(dir);
+      const fileHash = Bun.hash(basename(filePath)).toString(16);
+      overrideStore.set(fileHash, {
+        animeId: "99",
+        episodeId: "ep-42",
+        entryType: "movie",
+      });
+
+      const throwingDb: DatabasePlugin = {
+        async searchAnime() {
+          throw new Error("Should not be called");
+        },
+        async getEpisodes() {
+          throw new Error("Should not be called");
+        },
+        async getArtwork() {
+          return [];
+        },
+      };
+
+      const handlers = createScanHandlers({ database: throwingDb, overrideStore });
+      const output = await handlers.scan(filePath, { yes: true });
+      const results = JSON.parse(output);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.status).toBe("matched");
+      expect(results[0]?.match?.anime.id).toBe("99");
+      expect(results[0]?.match?.anime.entryType).toBe("movie");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
