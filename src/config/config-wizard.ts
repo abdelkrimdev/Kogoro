@@ -94,9 +94,10 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
     try {
       await credentialStore.setCredential(primaryDb, apiKey);
     } catch (err) {
+      const envVar = `KOGORO_${primaryDb.toUpperCase()}_KEY`;
       p.outro(
         `Warning: Failed to save API key to OS keyring: ${err instanceof Error ? err.message : String(err)}. ` +
-          "Set the KOGORO_ANIDB_KEY environment variable as a fallback.",
+          `Set the ${envVar} environment variable as a fallback.`,
       );
     }
   }

@@ -5,9 +5,21 @@ describe("BunSecretsKeytar", () => {
   const mockStore = new Map<string, string>();
   const originalSecrets = Bun.secrets;
 
+  function stubBunSecrets(impl: typeof Bun.secrets): void {
+    (Bun as any).secrets = impl;
+  }
+
+  function silentBunSecrets(): typeof Bun.secrets {
+    return {
+      get: async () => null,
+      set: async () => {},
+      delete: async () => false,
+    };
+  }
+
   beforeEach(() => {
     mockStore.clear();
-    (Bun as any).secrets = {
+    stubBunSecrets({
       get: async ({ service, name }: { service: string; name: string }) =>
         mockStore.get(`${service}:${name}`) ?? null,
       set: async ({ service, name, value }: { service: string; name: string; value: string }) => {
@@ -15,11 +27,11 @@ describe("BunSecretsKeytar", () => {
       },
       delete: async ({ service, name }: { service: string; name: string }) =>
         mockStore.delete(`${service}:${name}`),
-    };
+    });
   });
 
   afterEach(() => {
-    (Bun as any).secrets = originalSecrets;
+    stubBunSecrets(originalSecrets);
   });
 
   test("setPassword stores and getPassword retrieves a credential", async () => {
@@ -51,50 +63,43 @@ describe("BunSecretsKeytar", () => {
   });
 
   test("getPassword returns null when Bun.secrets.get returns null", async () => {
-    (Bun as any).secrets = {
-      get: async () => null,
-      set: async () => {},
-      delete: async () => false,
-    };
+    stubBunSecrets(silentBunSecrets());
     const keytar = new BunSecretsKeytar();
     const val = await keytar.getPassword("kogoro", "any");
     expect(val).toBeNull();
   });
 
   test("getPassword swallows errors and returns null", async () => {
-    (Bun as any).secrets = {
+    stubBunSecrets({
+      ...silentBunSecrets(),
       get: async () => {
         throw new Error("keyring unavailable");
       },
-      set: async () => {},
-      delete: async () => false,
-    };
+    });
     const keytar = new BunSecretsKeytar();
     const val = await keytar.getPassword("kogoro", "any");
     expect(val).toBeNull();
   });
 
   test("deletePassword swallows errors and returns false", async () => {
-    (Bun as any).secrets = {
-      get: async () => null,
-      set: async () => {},
+    stubBunSecrets({
+      ...silentBunSecrets(),
       delete: async () => {
         throw new Error("keyring unavailable");
       },
-    };
+    });
     const keytar = new BunSecretsKeytar();
     const result = await keytar.deletePassword("kogoro", "any");
     expect(result).toBe(false);
   });
 
   test("setPassword propagates errors to caller", async () => {
-    (Bun as any).secrets = {
-      get: async () => null,
+    stubBunSecrets({
+      ...silentBunSecrets(),
       set: async () => {
         throw new Error("keyring unavailable");
       },
-      delete: async () => false,
-    };
+    });
     const keytar = new BunSecretsKeytar();
     await expect(keytar.setPassword("kogoro", "any", "secret")).rejects.toThrow(
       "keyring unavailable",

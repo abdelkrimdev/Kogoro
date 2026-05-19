@@ -84,9 +84,27 @@ describe("CredentialStore", () => {
 
 describe("createCredentialStore", () => {
   const originalSecrets = Bun.secrets;
+  const originalEnv = process.env;
+
+  function stubBunSecrets(impl: typeof Bun.secrets): void {
+    (Bun as any).secrets = impl;
+  }
+
+  function silentBunSecrets(): typeof Bun.secrets {
+    return {
+      get: async () => null,
+      set: async () => {},
+      delete: async () => false,
+    };
+  }
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+  });
 
   afterEach(() => {
-    (Bun as any).secrets = originalSecrets;
+    stubBunSecrets(originalSecrets);
+    process.env = originalEnv;
   });
 
   test("returns a CredentialStore with BunSecretsKeytar wired in", () => {
@@ -97,7 +115,7 @@ describe("createCredentialStore", () => {
   test("factory-wired store reads from keyring when env var is absent", async () => {
     const mockStore = new Map<string, string>();
     mockStore.set("kogoro:anidb", "keytar-val");
-    (Bun as any).secrets = {
+    stubBunSecrets({
       get: async ({ service, name }: { service: string; name: string }) =>
         mockStore.get(`${service}:${name}`) ?? null,
       set: async ({ service, name, value }: { service: string; name: string; value: string }) => {
@@ -105,7 +123,7 @@ describe("createCredentialStore", () => {
       },
       delete: async ({ service, name }: { service: string; name: string }) =>
         mockStore.delete(`${service}:${name}`),
-    };
+    });
     const store = createCredentialStore();
     const val = await store.getCredential("anidb");
     expect(val).toBe("keytar-val");
@@ -114,22 +132,14 @@ describe("createCredentialStore", () => {
   test("factory-wired store falls through to env var when keyring returns null", async () => {
     // biome-ignore lint/complexity/useLiteralKeys: TS noPropertyAccessFromIndexSignature
     process.env["KOGORO_ANIDB_KEY"] = "env-val";
-    (Bun as any).secrets = {
-      get: async () => null,
-      set: async () => {},
-      delete: async () => false,
-    };
+    stubBunSecrets(silentBunSecrets());
     const store = createCredentialStore();
     const val = await store.getCredential("anidb");
     expect(val).toBe("env-val");
   });
 
   test("factory-wired store returns undefined when neither keyring nor env var has value", async () => {
-    (Bun as any).secrets = {
-      get: async () => null,
-      set: async () => {},
-      delete: async () => false,
-    };
+    stubBunSecrets(silentBunSecrets());
     const store = createCredentialStore();
     const val = await store.getCredential("nonexistent");
     expect(val).toBeUndefined();
