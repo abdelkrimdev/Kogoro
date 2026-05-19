@@ -26,14 +26,19 @@ import { createRenameHandlers } from "./rename-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 import { createSubtitleHandlers } from "./subtitle-commands.ts";
 
-async function createTVDBCommandsWithCredentials() {
+async function getTVDBAdapter(): Promise<TVDBAdapter | undefined> {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
     console.error("No TVDB API key configured. Run 'kogoro config init' first.");
     return undefined;
   }
-  const adapter = new TVDBAdapter({ apiKey });
+  return new TVDBAdapter({ apiKey });
+}
+
+async function createTVDBCommandsWithCredentials() {
+  const adapter = await getTVDBAdapter();
+  if (!adapter) return undefined;
   return createDBCommands(adapter);
 }
 
@@ -156,36 +161,22 @@ function createDebugCallback() {
 }
 
 async function createMatchWithCredentials() {
-  const credentialStore = new CredentialStore();
-  const apiKey = await credentialStore.getCredential("tvdb");
-  if (!apiKey) {
-    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-    return undefined;
-  }
-  const adapter = new TVDBAdapter({ apiKey });
+  const adapter = await getTVDBAdapter();
+  if (!adapter) return undefined;
   return createMatchHandlers({ database: adapter });
 }
 
 async function createMetadataWithCredentials() {
-  const credentialStore = new CredentialStore();
-  const apiKey = await credentialStore.getCredential("tvdb");
-  if (!apiKey) {
-    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-    return undefined;
-  }
-  const database: DatabasePlugin = new TVDBAdapter({ apiKey });
-  return createMetadataHandlers({ database });
+  const adapter = await getTVDBAdapter();
+  if (!adapter) return undefined;
+  return createMetadataHandlers({ database: adapter });
 }
 
 async function createArtworkWithCredentials(debug?: boolean) {
   const config = new ConfigManager();
   const credentialStore = new CredentialStore();
-  const tvdbKey = await credentialStore.getCredential("tvdb");
-  if (!tvdbKey) {
-    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-    return undefined;
-  }
-  const primaryDb: DatabasePlugin = new TVDBAdapter({ apiKey: tvdbKey });
+  const primaryDb = await getTVDBAdapter();
+  if (!primaryDb) return undefined;
 
   const secondaryDbs = await buildSecondaryDatabases(config, credentialStore, debug);
 

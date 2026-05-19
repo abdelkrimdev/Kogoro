@@ -49,7 +49,7 @@ export class MetadataWriter {
 
     const videoFiles = this.walkDir(dirPath);
     const episodeCache = new Map<string, Map<number, EpisodeResult>>();
-    const animeCache = new Map<string, string>();
+    const animeCache = new Map<string, string | undefined>();
 
     for (const filePath of videoFiles) {
       total++;
@@ -87,9 +87,9 @@ export class MetadataWriter {
 
           if (!animeCache.has(match.animeId)) {
             const anime = await this.database.getAnime(match.animeId);
-            animeCache.set(match.animeId, anime?.title ?? "");
+            animeCache.set(match.animeId, anime?.title);
           }
-          dbAnimeTitle = animeCache.get(match.animeId) || undefined;
+          dbAnimeTitle = animeCache.get(match.animeId);
         }
 
         const showTitle = dbAnimeTitle ?? match.animeTitle;

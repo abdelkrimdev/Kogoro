@@ -25,6 +25,28 @@ function extractTag(xml: string, tag: string): string | undefined {
   return match?.[1];
 }
 
+function findTitles(
+  content: string,
+  regex: RegExp,
+): { title: string | undefined; originalTitle: string | undefined } {
+  let title: string | undefined;
+  let originalTitle: string | undefined;
+  for (const match of content.matchAll(regex)) {
+    const lang = match[2];
+    const value = match[3];
+    if (lang === "en" && title === undefined) {
+      title = value;
+    }
+    if (lang === "ja" && originalTitle === undefined) {
+      originalTitle = value;
+    }
+    if (title !== undefined && originalTitle !== undefined) {
+      break;
+    }
+  }
+  return { title, originalTitle };
+}
+
 export class AniDBAdapter implements DatabasePlugin {
   private httpClient: HttpClient;
   private client: string;
@@ -44,6 +66,14 @@ export class AniDBAdapter implements DatabasePlugin {
     return `client=${this.client}&clientver=${this.clientver}&protover=1`;
   }
 
+  private async fetchAnimeDocument(animeId: string): Promise<string | null> {
+    const response = await this.httpClient.fetch(
+      `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
+    );
+    if (!response.ok) return null;
+    return response.text();
+  }
+
   async searchAnime(title: string): Promise<AnimeResult[]> {
     const response = await this.httpClient.fetch(
       `${BASE_URL}?request=animetitles&${this.commonParams()}`,
@@ -60,22 +90,8 @@ export class AniDBAdapter implements DatabasePlugin {
       const aid = attrs.match(/aid="(\d+)"/)?.[1];
       if (!aid) continue;
 
-      let mainTitle: string | undefined;
-      let originalTitle: string | undefined;
       const titleRegex = /<title[^>]*type="([^"]*)"[^>]*lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
-      for (const titleMatch of content.matchAll(titleRegex)) {
-        const lang = titleMatch[2];
-        const value = titleMatch[3];
-        if (lang === "en" && mainTitle === undefined) {
-          mainTitle = value;
-        }
-        if (lang === "ja" && originalTitle === undefined) {
-          originalTitle = value;
-        }
-        if (mainTitle !== undefined && originalTitle !== undefined) {
-          break;
-        }
-      }
+      const { title: mainTitle, originalTitle } = findTitles(content, titleRegex);
       if (!mainTitle?.toLowerCase().includes(lowerTitle)) {
         continue;
       }
@@ -93,11 +109,8 @@ export class AniDBAdapter implements DatabasePlugin {
   }
 
   async getEpisodes(animeId: string): Promise<EpisodeResult[]> {
-    const response = await this.httpClient.fetch(
-      `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
-    );
-    if (!response.ok) return [];
-    const xml = await response.text();
+    const xml = await this.fetchAnimeDocument(animeId);
+    if (!xml) return [];
     const animeType = extractTag(xml, "type") ?? "";
     const entryType = toEntryType(animeType);
     const episodes: EpisodeResult[] = [];
@@ -128,11 +141,8 @@ export class AniDBAdapter implements DatabasePlugin {
   }
 
   async getAnime(animeId: string): Promise<AnimeResult | null> {
-    const response = await this.httpClient.fetch(
-      `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
-    );
-    if (!response.ok) return null;
-    const xml = await response.text();
+    const xml = await this.fetchAnimeDocument(animeId);
+    if (!xml) return null;
 
     const animeType = extractTag(xml, "type") ?? "";
     const entryType = toEntryType(animeType);
@@ -140,24 +150,10 @@ export class AniDBAdapter implements DatabasePlugin {
     const startdate = extractTag(xml, "startdate");
     const year = startdate ? Number.parseInt(startdate.slice(0, 4), 10) : undefined;
 
-    let title: string | undefined;
-    let originalTitle: string | undefined;
     const titleRegex = /<title[^>]*type="([^"]*)"[^>]*lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
     const titlesMatch = xml.match(/<titles>([\s\S]*?)<\/titles>/);
     const titlesContent = titlesMatch?.[1] ?? "";
-    for (const titleMatch of titlesContent.matchAll(titleRegex)) {
-      const lang = titleMatch[2];
-      const value = titleMatch[3];
-      if (lang === "en" && title === undefined) {
-        title = value;
-      }
-      if (lang === "ja" && originalTitle === undefined) {
-        originalTitle = value;
-      }
-      if (title !== undefined && originalTitle !== undefined) {
-        break;
-      }
-    }
+    const { title, originalTitle } = findTitles(titlesContent, titleRegex);
 
     if (!title) return null;
 
@@ -172,11 +168,8 @@ export class AniDBAdapter implements DatabasePlugin {
   }
 
   async getArtwork(animeId: string, type: ArtworkType): Promise<ArtworkResult[]> {
-    const response = await this.httpClient.fetch(
-      `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
-    );
-    if (!response.ok) return [];
-    const xml = await response.text();
+    const xml = await this.fetchAnimeDocument(animeId);
+    if (!xml) return [];
     if (type !== "poster") return [];
     const picture = extractTag(xml, "picture");
     if (!picture) return [];
