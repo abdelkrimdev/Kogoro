@@ -27,23 +27,26 @@ function tomlStringify(data: Record<string, unknown>): string {
   return `${lines.join("\n")}\n`;
 }
 
+const DEFAULT_TEMPLATE = "{anime} - {season}x{episode:02} - {title}";
+
 export const TEMPLATE_PRESETS: Record<string, string> = {
-  standard: "{anime} - {season}x{episode:02} - {title}",
+  standard: DEFAULT_TEMPLATE,
   compact: "{anime} - E{episode:02}",
   absolute: "{anime} - {episode:03}",
   plex: "{anime} - s{season:02}e{episode:02} - {title}",
   anidb: "{anime} - {episode:03} - {title}",
 };
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
-    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-      const nested = flattenObject(value as Record<string, unknown>, fullKey);
-      for (const [nk, nv] of Object.entries(nested)) {
-        result[nk] = nv;
-      }
+    if (isPlainObject(value)) {
+      Object.assign(result, flattenObject(value, fullKey));
     } else {
       result[fullKey] = value;
     }
@@ -100,14 +103,15 @@ export class ConfigManager {
 
   getTemplate(): string {
     const customString = this.get("template.string");
-    if (customString && customString.length > 0) return customString;
+    if (customString) return customString;
 
     const preset = this.get("template.preset");
-    if (preset && TEMPLATE_PRESETS[preset]) {
-      return TEMPLATE_PRESETS[preset] as string;
+    if (preset) {
+      const template = TEMPLATE_PRESETS[preset];
+      if (template) return template;
     }
 
-    return "{anime} - {season}x{episode:02} - {title}";
+    return DEFAULT_TEMPLATE;
   }
 
   getDefaults(): Record<string, string> {

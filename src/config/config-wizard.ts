@@ -1,5 +1,6 @@
 import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
 import type { ConfigManager } from "./config-manager.ts";
+import { TEMPLATE_PRESETS as PRESET_MAP } from "./config-manager.ts";
 import type { CredentialStore } from "./credential-store.ts";
 
 export interface PromptsAPI {
@@ -23,13 +24,15 @@ export interface TemplatePreset {
   value: string;
 }
 
-export const TEMPLATE_PRESETS: TemplatePreset[] = [
-  { label: "Standard (Recommended)", value: "standard" },
-  { label: "Compact", value: "compact" },
-  { label: "Absolute", value: "absolute" },
-  { label: "Plex", value: "plex" },
-  { label: "AniDB", value: "anidb" },
-];
+function presetLabel(key: string): string {
+  if (key === "standard") return "Standard (Recommended)";
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+export const TEMPLATE_PRESETS: TemplatePreset[] = Object.keys(PRESET_MAP).map((key) => ({
+  value: key,
+  label: presetLabel(key),
+}));
 
 export function getDefaultPrompts(): PromptsAPI {
   return {
