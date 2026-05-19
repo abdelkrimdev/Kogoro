@@ -15,7 +15,10 @@ After all branches are merged, make a single commit summarizing the merge.
 
 # CLOSE ISSUES
 
-For each branch that was merged, close its issue using the following command:
+For each branch that was merged, follow these steps:
+
+1. Check the completed Acceptance criteria on the issue.
+2. Close the issue using the following command:
 
 `gh issue close <ID> --comment "Completed by Sandcastle"`
 
