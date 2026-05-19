@@ -196,6 +196,135 @@ describe("ArtworkFetcher", () => {
     }
   });
 
+  test("selects highest resolution poster when multiple available", async () => {
+    const { dir, animeDir, videoPath, cache, cleanup } = setup();
+    try {
+      const hash = await MatchCache.hashFile(videoPath);
+      cache.set(hash, {
+        animeId: "12345",
+        episodeId: "101",
+        entryType: "tv",
+        season: 1,
+        episode: 1,
+        title: "Test Episode",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      });
+
+      const mockDb = {
+        searchAnime: async () => [],
+        getEpisodes: async () => [],
+        getArtwork: async () => [
+          {
+            id: "1",
+            type: "poster" as const,
+            url: "https://example.com/small.jpg",
+            width: 200,
+            height: 300,
+          },
+          {
+            id: "2",
+            type: "poster" as const,
+            url: "https://example.com/large.jpg",
+            width: 1000,
+            height: 1500,
+          },
+          {
+            id: "3",
+            type: "poster" as const,
+            url: "https://example.com/medium.jpg",
+            width: 500,
+            height: 750,
+          },
+        ],
+      };
+
+      const fetcher = new ArtworkFetcher({
+        primaryDb: mockDb,
+        cache,
+        fetch: mockFetch(testImageBytes),
+      });
+
+      const summary = await fetcher.process(dir);
+      expect(summary).toEqual({ total: 1, downloaded: 1, skipped: 0, noArtwork: 0 });
+
+      // The largest poster (1000x1500) should be downloaded
+      expect(existsSync(join(animeDir, "cover.jpg"))).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("falls back to first artwork when no resolution data available", async () => {
+    const { dir, animeDir, videoPath, cache, cleanup } = setup();
+    try {
+      const hash = await MatchCache.hashFile(videoPath);
+      cache.set(hash, {
+        animeId: "12345",
+        episodeId: "101",
+        entryType: "tv",
+        season: 1,
+        episode: 1,
+        title: "Test Episode",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      });
+
+      const mockDb = {
+        searchAnime: async () => [],
+        getEpisodes: async () => [],
+        getArtwork: async () => [
+          { id: "1", type: "poster" as const, url: "https://example.com/first.jpg" },
+          { id: "2", type: "poster" as const, url: "https://example.com/second.jpg" },
+        ],
+      };
+
+      const fetcher = new ArtworkFetcher({
+        primaryDb: mockDb,
+        cache,
+        fetch: mockFetch(testImageBytes),
+      });
+
+      const summary = await fetcher.process(dir);
+      expect(summary).toEqual({ total: 1, downloaded: 1, skipped: 0, noArtwork: 0 });
+
+      // First artwork (no resolution data) should be used
+      expect(existsSync(join(animeDir, "cover.jpg"))).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("TVDB artwork includes width and height in response", async () => {
+    const artworkResponse = [
+      { id: 1, image: "https://example.com/poster.jpg", type: 1, width: 680, height: 1000 },
+      { id: 2, image: "https://example.com/poster2.jpg", type: 14, width: 900, height: 1280 },
+    ];
+
+    const { TVDBAdapter } = await import("../src/db/tvdb-adapter.ts");
+    const adapter = new TVDBAdapter({
+      apiKey: "test-key",
+      fetch: async (url: string | URL, _init?: RequestInit) => {
+        const urlStr = typeof url === "string" ? url : url.toString();
+        if (urlStr.includes("/login")) {
+          return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ data: artworkResponse }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    });
+
+    const results = await adapter.getArtwork("12345", "poster");
+    expect(results).toHaveLength(2);
+    expect(results[0]?.width).toBe(680);
+    expect(results[0]?.height).toBe(1000);
+    expect(results[1]?.width).toBe(900);
+    expect(results[1]?.height).toBe(1280);
+  });
+
   test("reports total 0 when no cache entries for files in directory", async () => {
     const { dir, cache, cleanup } = setup();
     try {

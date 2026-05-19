@@ -230,6 +230,91 @@ describe("TVDBAdapter", () => {
     });
   });
 
+  describe("getTranslations", () => {
+    test("returns translation map from TVDB translations API", async () => {
+      const translationsResponse = [
+        { language: "jpn", name: "呪術廻戦", overview: "呪いを払う少年の物語" },
+        { language: "eng", name: "Jujutsu Kaisen", overview: "A boy fights curses." },
+      ];
+
+      const adapter = new TVDBAdapter({
+        apiKey: "test-key",
+        fetch: mockFetch(translationsResponse),
+      });
+      const results = await adapter.getTranslations?.("12345");
+
+      expect(results).toEqual({
+        jpn: "呪術廻戦",
+        eng: "Jujutsu Kaisen",
+      });
+    });
+
+    test("returns empty object when no translations exist", async () => {
+      const adapter = new TVDBAdapter({
+        apiKey: "test-key",
+        fetch: mockFetch([]),
+      });
+      const results = await adapter.getTranslations?.("99999");
+      expect(results).toEqual({});
+    });
+
+    test("getTranslations is an optional method on DatabasePlugin", () => {
+      const adapter: DatabasePlugin = new TVDBAdapter({ apiKey: "test-key" });
+      expect(adapter.getTranslations).toBeInstanceOf(Function);
+    });
+  });
+
+  describe("translations integration with getEpisodes", () => {
+    test("populates titleEn and titleJa on episodes from translations", async () => {
+      const episodesResponse = {
+        series: { id: 12345, name: "Jujutsu Kaisen" },
+        episodes: [
+          {
+            id: 1001,
+            seasonNumber: 1,
+            number: 1,
+            name: "Ryomen Sukuna",
+            overview: "A boy swallows a cursed finger.",
+            aired: "2020-10-03",
+            type: "series",
+          },
+        ],
+      };
+
+      const translationsResponse = [
+        { language: "jpn", name: "呪術廻戦", overview: "" },
+        { language: "eng", name: "Jujutsu Kaisen", overview: "" },
+      ];
+
+      const fetch = async (url: string | URL, _init?: RequestInit) => {
+        const urlStr = toUrlString(url);
+        if (urlStr.includes("/login")) {
+          return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (urlStr.includes("/translations")) {
+          return new Response(JSON.stringify({ data: translationsResponse }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ data: episodesResponse }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const adapter = new TVDBAdapter({ apiKey: "test-key", fetch });
+      const results = await adapter.getEpisodes("12345");
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.titleEn).toBe("Jujutsu Kaisen");
+      expect(results[0]?.titleJa).toBe("呪術廻戦");
+    });
+  });
+
   describe("error handling", () => {
     test("returns empty array on login failure", async () => {
       const adapter = new TVDBAdapter({

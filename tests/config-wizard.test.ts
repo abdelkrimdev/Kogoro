@@ -99,11 +99,18 @@ describe("ConfigWizard", () => {
     try {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({ keytar: null });
-      const prompts = makePrompts();
+      let selectCalls = 0;
+      const prompts = makePrompts({
+        select: async () => {
+          selectCalls++;
+          if (selectCalls === 1) return "tvdb";
+          return "compact";
+        },
+      });
 
       await runConfigWizard({ config, credentialStore, prompts });
-      const tmpl = await config.get("template.string");
-      expect(tmpl).toBeTruthy();
+      const preset = await config.get("template.preset");
+      expect(preset).toBe("compact");
     } finally {
       cleanupTempDir(dir);
     }
@@ -114,13 +121,21 @@ describe("ConfigWizard", () => {
     try {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({ keytar: null });
-      const prompts = makePrompts();
+      let selectCalls = 0;
+      const prompts = makePrompts({
+        select: async () => {
+          selectCalls++;
+          if (selectCalls === 1) return "tvdb";
+          return "standard";
+        },
+      });
 
       await runConfigWizard({ config, credentialStore, prompts });
       expect(await config.get("primary-db")).toBe("tvdb");
       expect(await config.get("concurrency")).toBe("4");
       expect(await config.get("extensions")).toBe(".mkv,.mp4");
       expect(await config.get("exclude-patterns")).toBe(".part,.crdownload");
+      expect(await config.get("template.preset")).toBe("standard");
     } finally {
       cleanupTempDir(dir);
     }

@@ -86,7 +86,8 @@ describe("kogoro CLI", () => {
       expect(dbs).toHaveLength(1);
       expect(dbs[0]?.constructor.name).toBe("AniDBAdapter");
     } finally {
-      delete (process.env as Record<string, string | undefined>)["KOGORO_ANIDB_KEY"];
+      // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+      delete process.env["KOGORO_ANIDB_KEY"];
       rmSync(dir, { recursive: true, force: true });
     }
   });
@@ -104,7 +105,8 @@ describe("kogoro CLI", () => {
       expect(dbs).toHaveLength(1);
       expect(dbs[0]?.constructor.name).toBe("AniDBAdapter");
     } finally {
-      delete (process.env as Record<string, string | undefined>)["KOGORO_ANIDB_KEY"];
+      // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+      delete process.env["KOGORO_ANIDB_KEY"];
       rmSync(dir, { recursive: true, force: true });
     }
   });

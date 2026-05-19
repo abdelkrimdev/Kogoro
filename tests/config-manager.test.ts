@@ -59,7 +59,7 @@ describe("ConfigManager", () => {
       await mgr.init();
       expect(await mgr.get("primary-db")).toBe("tvdb");
       expect(await mgr.get("secondary-dbs")).toBe("");
-      expect(await mgr.get("template.string")).toBe("{anime} - {season}x{episode:02} - {title}");
+      expect(await mgr.get("template.preset")).toBe("standard");
       expect(await mgr.get("extensions")).toBe(".mkv,.mp4");
       expect(await mgr.get("exclude-patterns")).toBe(".part,.crdownload");
       expect(await mgr.get("concurrency")).toBe("4");
@@ -127,5 +127,79 @@ describe("ConfigManager", () => {
     } finally {
       cleanupTempDir(dir);
     }
+  });
+
+  describe("template presets", () => {
+    test("getTemplate returns default standard preset when nothing configured", async () => {
+      const dir = setupTempDir();
+      try {
+        const mgr = new ConfigManager({ configDir: dir });
+        const template = mgr.getTemplate();
+        expect(template).toBe("{anime} - {season}x{episode:02} - {title}");
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("getTemplate resolves named preset from template.preset", async () => {
+      const dir = setupTempDir();
+      try {
+        const mgr = new ConfigManager({ configDir: dir });
+        mgr.set("template.preset", "plex");
+        mgr.init();
+        const template = mgr.getTemplate();
+        expect(template).toBe("{anime} - s{season:02}e{episode:02} - {title}");
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("getTemplate prefers template.string over template.preset", async () => {
+      const dir = setupTempDir();
+      try {
+        const mgr = new ConfigManager({ configDir: dir });
+        mgr.set("template.preset", "plex");
+        mgr.set("template.string", "{custom} - {template}");
+        mgr.init();
+        const template = mgr.getTemplate();
+        expect(template).toBe("{custom} - {template}");
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("getTemplate falls back to standard preset for unknown preset name", async () => {
+      const dir = setupTempDir();
+      try {
+        const mgr = new ConfigManager({ configDir: dir });
+        mgr.set("template.preset", "nonexistent");
+        mgr.init();
+        const template = mgr.getTemplate();
+        expect(template).toBe("{anime} - {season}x{episode:02} - {title}");
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("all five named presets resolve correctly", async () => {
+      const presets: Record<string, string> = {
+        standard: "{anime} - {season}x{episode:02} - {title}",
+        compact: "{anime} - E{episode:02}",
+        absolute: "{anime} - {episode:03}",
+        plex: "{anime} - s{season:02}e{episode:02} - {title}",
+        anidb: "{anime} - {episode:03} - {title}",
+      };
+
+      const dir = setupTempDir();
+      try {
+        const mgr = new ConfigManager({ configDir: dir });
+        for (const [name, expected] of Object.entries(presets)) {
+          mgr.set("template.preset", name);
+          expect(mgr.getTemplate()).toBe(expected);
+        }
+      } finally {
+        cleanupTempDir(dir);
+      }
+    });
   });
 });

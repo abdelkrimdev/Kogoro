@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
 import type { DatabasePlugin } from "./db/database-plugin.ts";
+import type { ArtworkResult } from "./db/types.ts";
 import { MatchCache } from "./match-cache.ts";
 
 export type UrlFetch = (url: string | URL, init?: RequestInit) => Promise<Response>;
@@ -101,19 +102,30 @@ export class ArtworkFetcher {
     return files;
   }
 
-  private async findPosterUrl(animeId: string): Promise<string | undefined> {
-    const primary = await this.primaryDb.getArtwork(animeId, "poster");
-    const [primaryArtwork] = primary;
-    if (primaryArtwork) {
-      return primaryArtwork.url;
+  private pickBestPoster(artworks: ArtworkResult[]): ArtworkResult | undefined {
+    if (artworks.length === 0) return undefined;
+    const first = artworks[0];
+    if (!first) return undefined;
+    let best = first;
+    for (const artwork of artworks) {
+      const bestRes = (best.width ?? 0) * (best.height ?? 0);
+      const thisRes = (artwork.width ?? 0) * (artwork.height ?? 0);
+      if (thisRes > bestRes) best = artwork;
     }
+    return best;
+  }
 
+  private async findPosterUrl(animeId: string): Promise<string | undefined> {
+    // Try primary DB first
+    const primary = await this.primaryDb.getArtwork(animeId, "poster");
+    const bestPrimary = this.pickBestPoster(primary);
+    if (bestPrimary) return bestPrimary.url;
+
+    // Try secondary DBs in order
     for (const db of this.secondaryDbs) {
       const artworks = await db.getArtwork(animeId, "poster");
-      const [artwork] = artworks;
-      if (artwork) {
-        return artwork.url;
-      }
+      const artwork = this.pickBestPoster(artworks);
+      if (artwork) return artwork.url;
     }
 
     return undefined;

@@ -33,6 +33,7 @@ describe("MetadataWriter", () => {
         season: 1,
         episode: 13,
         title: "The Test Episode",
+        animeTitle: "Test Anime",
         timestamp: "2026-01-01T00:00:00.000Z",
       };
 
@@ -70,6 +71,89 @@ describe("MetadataWriter", () => {
       expect(xml).toContain("</movie>");
       expect(xml).not.toContain("<episodedetails>");
       expect(xml).not.toContain("<season>");
+    });
+  });
+
+  describe("enriched NFO with optional DatabasePlugin", () => {
+    test("populates showtitle, plot, and aired when database plugin provided", async () => {
+      const dir = createTempDir();
+      const dbPath = createTempDb();
+      try {
+        const videoPath = join(dir, "Test Anime - 1x01.mkv");
+        writeFileSync(videoPath, "fake video content");
+
+        const hash = await MatchCache.hashFile(videoPath);
+        const cache = new MatchCache({ dbPath });
+        cache.set(hash, {
+          animeId: "42",
+          episodeId: "101",
+          entryType: "tv",
+          season: 1,
+          episode: 1,
+          title: "First Episode",
+          animeTitle: "Test Anime",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        });
+
+        const mockDb = {
+          async searchAnime() {
+            return [{ id: "42", title: "Test Anime", entryType: "tv" as const }];
+          },
+          async getEpisodes() {
+            return [
+              {
+                id: "101",
+                animeId: "42",
+                season: 1,
+                episode: 1,
+                title: "First Episode",
+                overview: "A thrilling start",
+                airDate: "2026-01-15",
+                entryType: "tv" as const,
+              },
+            ];
+          },
+          async getArtwork() {
+            return [];
+          },
+        };
+
+        const writer = new MetadataWriter({ cache, database: mockDb });
+        const summary = await writer.write(dir);
+
+        const nfoPath = join(dir, "Test Anime - 1x01.nfo");
+        expect(existsSync(nfoPath)).toBe(true);
+
+        const nfoContent = readFileSync(nfoPath, "utf-8");
+        expect(nfoContent).toContain("<showtitle>Test Anime</showtitle>");
+        expect(nfoContent).toContain("<plot>A thrilling start</plot>");
+        expect(nfoContent).toContain("<aired>2026-01-15</aired>");
+
+        expect(summary.total).toBe(1);
+        expect(summary.written).toBe(1);
+      } finally {
+        cleanupTempDb(dbPath);
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("still writes NFO without database plugin (empty showtitle/plot/aired)", async () => {
+      const match: CachedMatch = {
+        animeId: "12345",
+        episodeId: "67890",
+        entryType: "tv",
+        season: 1,
+        episode: 13,
+        title: "The Test Episode",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      };
+
+      const writer = new MetadataWriter({ cache: null as never });
+      const xml = writer.generateEpisodeNfo(match);
+
+      expect(xml).toContain("<showtitle></showtitle>");
+      expect(xml).toContain("<plot></plot>");
+      expect(xml).toContain("<aired></aired>");
     });
   });
 

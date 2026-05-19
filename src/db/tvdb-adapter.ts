@@ -51,10 +51,18 @@ type TVDBEpisodeType =
   | "trailer"
   | "behind_the_scenes";
 
+interface TVDBTranslation {
+  language: string;
+  name: string;
+  overview: string;
+}
+
 interface TVDBArtworkItem {
   id: number;
   image: string;
   type: number;
+  width?: number;
+  height?: number;
   language?: string;
   season?: number;
 }
@@ -170,6 +178,16 @@ export class TVDBAdapter implements DatabasePlugin {
     );
   }
 
+  async getTranslations(animeId: string): Promise<Record<string, string>> {
+    const data = await this.apiRequest<TVDBTranslation[]>(`/series/${animeId}/translations`);
+    if (!data || !Array.isArray(data)) return {};
+    const result: Record<string, string> = {};
+    for (const t of data) {
+      result[t.language] = t.name;
+    }
+    return result;
+  }
+
   async getEpisodes(animeId: string): Promise<EpisodeResult[]> {
     const data = await this.apiRequest<{
       series?: TVDBSeriesResult;
@@ -177,6 +195,8 @@ export class TVDBAdapter implements DatabasePlugin {
     }>(`/series/${animeId}/episodes/default`);
 
     if (!data?.episodes) return [];
+
+    const translations = await this.getTranslations(animeId);
 
     return data.episodes.map(
       (item): EpisodeResult => ({
@@ -186,6 +206,10 @@ export class TVDBAdapter implements DatabasePlugin {
         episode: item.number ?? 0,
         title: item.name ?? "",
         originalTitle: undefined,
+        // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+        titleEn: translations["eng"],
+        // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+        titleJa: translations["jpn"],
         airDate: item.aired ?? undefined,
         overview: item.overview ?? undefined,
         image: item.image ?? undefined,
@@ -207,6 +231,8 @@ export class TVDBAdapter implements DatabasePlugin {
         id: String(item.id),
         type: artworkType,
         url: item.image,
+        width: item.width,
+        height: item.height,
         language: item.language ?? undefined,
         season: item.season ?? undefined,
       });

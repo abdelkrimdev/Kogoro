@@ -81,12 +81,14 @@ export class Scanner {
   private matcher: Matcher;
   private cache?: MatchCache;
   private renamer?: Renamer;
+  private overrideStore?: OverrideStore;
 
   constructor(options: ScannerOptions) {
     this.db = options.database;
     this.matcher = new Matcher({ database: this.db, overrideStore: options.overrideStore });
     this.cache = options.cache;
     this.renamer = options.renamer;
+    this.overrideStore = options.overrideStore;
   }
 
   hasRollback(): boolean {
@@ -151,7 +153,7 @@ export class Scanner {
       const failureReason = matches[0]?.failureReason ?? "No title parsed";
       const manual = await this.tryResolveFailed(parsed, options);
       if (manual) {
-        return this.cacheAndPlan(filePath, hash, parsed, buildManualMatch(manual), options);
+        return this.cacheAndPlan(filePath, hash, parsed, buildManualMatch(manual), options, true);
       }
       return {
         file: filePath,
@@ -173,7 +175,7 @@ export class Scanner {
     if (goodMatches.length === 0) {
       const manual = await this.tryResolveFailed(parsed, options);
       if (manual) {
-        return this.cacheAndPlan(filePath, hash, parsed, buildManualMatch(manual), options);
+        return this.cacheAndPlan(filePath, hash, parsed, buildManualMatch(manual), options, true);
       }
       return {
         file: filePath,
@@ -195,7 +197,7 @@ export class Scanner {
     if (options?.onAmbiguous) {
       const resolved = await options.onAmbiguous(goodMatches, parsed);
       if (resolved) {
-        return this.cacheAndPlan(filePath, hash, parsed, resolved, options);
+        return this.cacheAndPlan(filePath, hash, parsed, resolved, options, true);
       }
     }
 
@@ -225,6 +227,7 @@ export class Scanner {
     parsed: ParsedResult,
     match: MatchResult,
     options?: ScanFileOptions,
+    persistOverride?: boolean,
   ): Promise<ScanResult> {
     let fileHash = hash;
 
@@ -234,12 +237,22 @@ export class Scanner {
       }
       this.cache.set(fileHash, {
         animeId: match.anime.id,
+        animeTitle: match.anime.title,
         episodeId: match.episode?.id ?? null,
         entryType: match.anime.entryType,
         season: match.episode?.season ?? null,
         episode: match.episode?.episode ?? null,
         title: match.episode?.title ?? null,
         timestamp: new Date().toISOString(),
+      });
+    }
+
+    if (persistOverride && this.overrideStore) {
+      const overrideHash = computeFileHash(basename(filePath));
+      this.overrideStore.set(overrideHash, {
+        animeId: match.anime.id,
+        episodeId: match.episode?.id,
+        entryType: match.anime.entryType,
       });
     }
 

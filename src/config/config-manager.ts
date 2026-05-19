@@ -27,6 +27,14 @@ function tomlStringify(data: Record<string, unknown>): string {
   return `${lines.join("\n")}\n`;
 }
 
+export const TEMPLATE_PRESETS: Record<string, string> = {
+  standard: "{anime} - {season}x{episode:02} - {title}",
+  compact: "{anime} - E{episode:02}",
+  absolute: "{anime} - {episode:03}",
+  plex: "{anime} - s{season:02}e{episode:02} - {title}",
+  anidb: "{anime} - {episode:03} - {title}",
+};
+
 export class ConfigManager {
   private configDir: string;
   private configPath: string;
@@ -73,11 +81,24 @@ export class ConfigManager {
     this.save();
   }
 
+  getTemplate(): string {
+    const customString = this.get("template.string");
+    if (customString && customString.length > 0) return customString;
+
+    const preset = this.get("template.preset");
+    if (preset && TEMPLATE_PRESETS[preset]) {
+      return TEMPLATE_PRESETS[preset] as string;
+    }
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+    return TEMPLATE_PRESETS["standard"] as string;
+  }
+
   getDefaults(): Record<string, string> {
     return {
       "primary-db": "tvdb",
       "secondary-dbs": "",
-      "template.string": "{anime} - {season}x{episode:02} - {title}",
+      "template.preset": "standard",
       extensions: ".mkv,.mp4",
       "exclude-patterns": ".part,.crdownload",
       concurrency: "4",

@@ -1,31 +1,56 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { DatabasePlugin } from "../src/db/database-plugin.ts";
 import { MatchCache } from "../src/match-cache.ts";
+import { OverrideStore } from "../src/override-store.ts";
 import { Renamer } from "../src/renamer.ts";
 import { Scanner } from "../src/scanner.ts";
 
-function createMockDb(): DatabasePlugin {
-  return {
-    async searchAnime(title: string) {
-      return [{ id: "1", title, entryType: "tv" as const }];
-    },
-    async getEpisodes(_animeId: string) {
-      return [
-        { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
-        { id: "102", animeId: "1", season: 1, episode: 2, title: "Ep 2", entryType: "tv" as const },
-        { id: "103", animeId: "1", season: 1, episode: 3, title: "Ep 3", entryType: "tv" as const },
-      ];
-    },
-    async getArtwork() {
-      return [];
-    },
-  };
+function computeFileHash(input: string): string {
+  return Bun.hash(input).toString(16);
 }
 
 describe("Scanner", () => {
+  function createMockDb(): DatabasePlugin {
+    return {
+      async searchAnime(title: string) {
+        return [{ id: "1", title, entryType: "tv" as const }];
+      },
+      async getEpisodes(_animeId: string) {
+        return [
+          {
+            id: "101",
+            animeId: "1",
+            season: 1,
+            episode: 1,
+            title: "Ep 1",
+            entryType: "tv" as const,
+          },
+          {
+            id: "102",
+            animeId: "1",
+            season: 1,
+            episode: 2,
+            title: "Ep 2",
+            entryType: "tv" as const,
+          },
+          {
+            id: "103",
+            animeId: "1",
+            season: 1,
+            episode: 3,
+            title: "Ep 3",
+            entryType: "tv" as const,
+          },
+        ];
+      },
+      async getArtwork() {
+        return [];
+      },
+    };
+  }
   test("scanFile parses filename and returns auto-resolved match", async () => {
     const scanner = new Scanner({ database: createMockDb() });
     const result = await scanner.scanFile("[Group] My Anime - 01.mkv");
@@ -37,6 +62,142 @@ describe("Scanner", () => {
     expect(result.match).not.toBeNull();
     expect(result.match?.anime.title).toBe("My Anime");
     expect(result.hash).toBe("");
+  });
+
+  test("persists override after interactive ambiguous resolution", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-scan-override-"));
+    try {
+      const ambiguousDb: DatabasePlugin = {
+        async searchAnime(title: string) {
+          return [
+            { id: "1", title, entryType: "tv" as const },
+            { id: "2", title: `${title} Special`, entryType: "special" as const },
+          ];
+        },
+        async getEpisodes(animeId: string) {
+          if (animeId === "1") {
+            return [
+              {
+                id: "101",
+                animeId: "1",
+                season: 1,
+                episode: 1,
+                title: "Ep 1",
+                entryType: "tv" as const,
+              },
+            ];
+          }
+          return [
+            {
+              id: "201",
+              animeId: "2",
+              season: 1,
+              episode: 1,
+              title: "Special",
+              entryType: "special" as const,
+            },
+          ];
+        },
+        async getArtwork() {
+          return [];
+        },
+      };
+
+      const overrideStore = new OverrideStore(dir);
+      const scanner = new Scanner({
+        database: ambiguousDb,
+        overrideStore,
+      });
+
+      const filePath = join(dir, "[Group] My Anime - 01.mkv");
+      writeFileSync(filePath, "fake content");
+
+      const result = await scanner.scanFile(filePath, {
+        onAmbiguous: async (candidates) => candidates[0] ?? null,
+      });
+
+      expect(result.status).toBe("matched");
+
+      const overrideHash = computeFileHash(basename(filePath));
+      const savedOverride = overrideStore.get(overrideHash);
+      expect(savedOverride).toBeDefined();
+      expect(savedOverride?.animeId).toBe("1");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("persists override after interactive failed resolution (manual entry)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-scan-failed-override-"));
+    try {
+      const overrideStore = new OverrideStore(dir);
+      const scanner = new Scanner({
+        database: createMockDb(),
+        overrideStore,
+      });
+
+      const filePath = join(dir, "Unknown File.mkv");
+      writeFileSync(filePath, "fake");
+
+      const result = await scanner.scanFile(filePath, {
+        onFailed: async () => ({ animeId: "99", episode: 5, entryType: "special" }),
+      });
+
+      expect(result.status).toBe("matched");
+
+      const overrideHash = computeFileHash(basename(filePath));
+      const savedOverride = overrideStore.get(overrideHash);
+      expect(savedOverride).toBeDefined();
+      expect(savedOverride?.animeId).toBe("99");
+      expect(savedOverride?.entryType).toBe("special");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("override persists choices across scan sessions", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-scan-cross-session-"));
+    try {
+      const overrideStore = new OverrideStore(dir);
+      const scanner = new Scanner({
+        database: createMockDb(),
+        overrideStore,
+      });
+
+      // First scan: override saved via onFailed for a file the parser cannot match
+      const filePath = join(dir, "[Group] Unknown Show - 99.mkv");
+      writeFileSync(filePath, "content");
+
+      const firstResult = await scanner.scanFile(filePath, {
+        onFailed: async () => ({ animeId: "42", episode: 1, entryType: "movie" }),
+      });
+      expect(firstResult.status).toBe("matched");
+
+      const overrideHash = computeFileHash(basename(filePath));
+      expect(overrideStore.get(overrideHash)?.animeId).toBe("42");
+
+      // Second scan: should use override (no DB query needed)
+      const secondDb: DatabasePlugin = {
+        async searchAnime() {
+          throw new Error("Should not be called");
+        },
+        async getEpisodes() {
+          throw new Error("Should not be called");
+        },
+        async getArtwork() {
+          return [];
+        },
+      };
+
+      const secondScanner = new Scanner({ database: secondDb, overrideStore });
+      const secondResult = await secondScanner.scanFile(filePath);
+
+      expect(secondResult.status).toBe("matched");
+      expect(secondResult.match?.anime.id).toBe("42");
+      expect(secondResult.match?.anime.entryType).toBe("movie");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test("scanFile with cache and renamer (dry-run) computes hash, matches, caches, and plans rename", async () => {

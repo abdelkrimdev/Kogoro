@@ -247,6 +247,131 @@ describe("Matcher", () => {
     expect(results[0]?.score).toBe(0);
   });
 
+  describe("matchBatch", () => {
+    test("deduplicates searchAnime calls for duplicate titles and getEpisodes for duplicate anime IDs", async () => {
+      let searchCallCount = 0;
+      let episodesCallCount = 0;
+      const searchTitles: string[] = [];
+      const episodesIds: string[] = [];
+
+      const trackingDb: DatabasePlugin = {
+        async searchAnime(title: string) {
+          searchCallCount++;
+          searchTitles.push(title);
+          if (title === "Jujutsu Kaisen") {
+            return [{ id: "1", title: "Jujutsu Kaisen", entryType: "tv" }];
+          }
+          return [{ id: "2", title: "One Piece", entryType: "tv" }];
+        },
+        async getEpisodes(animeId: string) {
+          episodesCallCount++;
+          episodesIds.push(animeId);
+          if (animeId === "1") {
+            return [
+              { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" },
+              { id: "102", animeId: "1", season: 1, episode: 2, title: "Ep 2", entryType: "tv" },
+            ];
+          }
+          return [
+            {
+              id: "201",
+              animeId: "2",
+              season: 1,
+              episode: 1,
+              title: "One Piece Ep 1",
+              entryType: "tv",
+            },
+          ];
+        },
+        async getArtwork() {
+          return [];
+        },
+      };
+
+      const matcher = new Matcher({ database: trackingDb });
+
+      const parsedList: ParsedResult[] = [
+        {
+          title: "Jujutsu Kaisen",
+          season: 1,
+          episode: 1,
+          tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+        },
+        {
+          title: "Jujutsu Kaisen",
+          season: 1,
+          episode: 2,
+          tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+        },
+        {
+          title: "One Piece",
+          season: 1,
+          episode: 1,
+          tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+        },
+      ];
+
+      const results = await matcher.matchBatch(parsedList);
+
+      expect(results).toHaveLength(3);
+      expect(searchCallCount).toBe(2); // once per unique title
+      expect(searchTitles).toEqual(["Jujutsu Kaisen", "One Piece"]);
+      expect(episodesCallCount).toBe(2); // once per unique anime ID
+      expect(episodesIds).toEqual(["1", "2"]);
+
+      // First two results should be Jujutsu Kaisen episodes
+      expect(results[0]?.anime.title).toBe("Jujutsu Kaisen");
+      expect(results[0]?.episode?.episode).toBe(1);
+      expect(results[1]?.anime.title).toBe("Jujutsu Kaisen");
+      expect(results[1]?.episode?.episode).toBe(2);
+
+      // Third result should be One Piece
+      expect(results[2]?.anime.title).toBe("One Piece");
+      expect(results[2]?.episode?.episode).toBe(1);
+    });
+
+    test("handles empty input", async () => {
+      const db = createMockDb([{ animeId: "1", title: "Test", episodes: [] }]);
+
+      const matcher = new Matcher({ database: db });
+      const results = await matcher.matchBatch([]);
+      expect(results).toEqual([]);
+    });
+
+    test("handles titles with no episode number gracefully", async () => {
+      let searchCallCount = 0;
+
+      const trackingDb: DatabasePlugin = {
+        async searchAnime(title: string) {
+          searchCallCount++;
+          return [{ id: "1", title, entryType: "movie" }];
+        },
+        async getEpisodes() {
+          return [];
+        },
+        async getArtwork() {
+          return [];
+        },
+      };
+
+      const matcher = new Matcher({ database: trackingDb });
+      const parsedList: ParsedResult[] = [
+        {
+          title: "Movie Title",
+          season: null,
+          episode: null,
+          tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+        },
+      ];
+
+      const results = await matcher.matchBatch(parsedList);
+      expect(results).toHaveLength(1);
+      expect(results[0]?.anime.title).toBe("Movie Title");
+      expect(results[0]?.episode).toBeUndefined();
+      expect(searchCallCount).toBe(1);
+    });
+  });
+
   describe("with OverrideStore", () => {
     function setupTempDir(): string {
       return mkdtempSync(join(tmpdir(), "kogoro-matcher-override-"));

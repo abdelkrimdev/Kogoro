@@ -1,5 +1,7 @@
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
+import type { DatabasePlugin } from "./db/database-plugin.ts";
+import type { EpisodeResult } from "./db/types.ts";
 import { type CachedMatch, MatchCache } from "./match-cache.ts";
 import { stripExtension } from "./parser.ts";
 
@@ -14,6 +16,7 @@ export interface MetadataSummary {
 
 export interface MetadataWriterOptions {
   cache: MatchCache;
+  database?: DatabasePlugin;
   extensions?: string[];
 }
 
@@ -28,10 +31,12 @@ function escapeXml(str: string): string {
 
 export class MetadataWriter {
   private cache: MatchCache;
+  private database?: DatabasePlugin;
   private extensions: string[];
 
   constructor(options: MetadataWriterOptions) {
     this.cache = options.cache;
+    this.database = options.database;
     this.extensions = options.extensions ?? [...VIDEO_EXTENSIONS];
   }
 
@@ -43,6 +48,7 @@ export class MetadataWriter {
     let failed = 0;
 
     const videoFiles = this.walkDir(dirPath);
+    const episodeCache = new Map<string, Map<number, EpisodeResult>>();
 
     for (const filePath of videoFiles) {
       total++;
@@ -62,13 +68,28 @@ export class MetadataWriter {
           continue;
         }
 
+        let episodeData: EpisodeResult | undefined;
+        if (this.database && match.animeId) {
+          if (!episodeCache.has(match.animeId)) {
+            const episodes = await this.database.getEpisodes(match.animeId);
+            const map = new Map<number, EpisodeResult>();
+            for (const ep of episodes) {
+              map.set(ep.episode, ep);
+            }
+            episodeCache.set(match.animeId, map);
+          }
+          if (match.episode !== null) {
+            const animeEpisodes = episodeCache.get(match.animeId);
+            episodeData = animeEpisodes?.get(match.episode);
+          }
+        }
         let xml: string;
         switch (match.entryType) {
           case "movie":
-            xml = this.generateMovieNfo(match);
+            xml = this.generateMovieNfo(match, episodeData);
             break;
           default:
-            xml = this.generateEpisodeNfo(match);
+            xml = this.generateEpisodeNfo(match, episodeData);
         }
 
         writeFileSync(nfoPath, xml, "utf-8");
@@ -95,16 +116,19 @@ export class MetadataWriter {
     return files;
   }
 
-  generateEpisodeNfo(match: CachedMatch): string {
+  generateEpisodeNfo(match: CachedMatch, episodeData?: EpisodeResult): string {
     const title = escapeXml(match.title ?? "");
+    const showTitle = escapeXml(match.animeTitle ?? "");
+    const plot = escapeXml(episodeData?.overview ?? "");
+    const aired = escapeXml(episodeData?.airDate ?? "");
     const season = match.season ?? 1;
     const episode = match.episode ?? 1;
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <episodedetails>
   <title>${title}</title>
-  <showtitle></showtitle>
-  <plot></plot>
-  <aired></aired>
+  <showtitle>${showTitle}</showtitle>
+  <plot>${plot}</plot>
+  <aired>${aired}</aired>
   <season>${season}</season>
   <episode>${episode}</episode>
   <displayseason>${season}</displayseason>
@@ -112,13 +136,15 @@ export class MetadataWriter {
 </episodedetails>`;
   }
 
-  generateMovieNfo(match: CachedMatch): string {
+  generateMovieNfo(match: CachedMatch, episodeData?: EpisodeResult): string {
     const title = escapeXml(match.title ?? "");
+    const plot = escapeXml(episodeData?.overview ?? match.animeTitle ?? "");
+    const aired = escapeXml(episodeData?.airDate ?? "");
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <movie>
   <title>${title}</title>
-  <plot></plot>
-  <aired></aired>
+  <plot>${plot}</plot>
+  <aired>${aired}</aired>
 </movie>`;
   }
 }

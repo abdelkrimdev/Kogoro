@@ -236,6 +236,53 @@ describe("AniDBAdapter", () => {
       expect((await tvSpecialAdapter.getEpisodes("444"))[0]?.entryType).toBe("special");
     });
 
+    test("parses season element from episode XML when present", async () => {
+      const multiSeasonXml = `<?xml version="1.0"?>
+<anime>
+  <id>12345</id>
+  <type>TV Series</type>
+  <episodes>
+    <episode id="1"><epno>1</epno><season>1</season><title>Episode 1</title></episode>
+    <episode id="2"><epno>2</epno><season>1</season><title>Episode 2</title></episode>
+    <episode id="3"><epno>25</epno><season>2</season><title>Season 2 Ep 1</title></episode>
+  </episodes>
+</anime>`;
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(multiSeasonXml),
+      });
+      const results = await adapter.getEpisodes("12345");
+      expect(results).toHaveLength(3);
+      expect(results[0]?.season).toBe(1);
+      expect(results[0]?.episode).toBe(1);
+      expect(results[1]?.season).toBe(1);
+      expect(results[1]?.episode).toBe(2);
+      expect(results[2]?.season).toBe(2);
+      expect(results[2]?.episode).toBe(25);
+    });
+
+    test("falls back to season 1 when no season element in episode", async () => {
+      const xmlWithoutSeason = `<?xml version="1.0"?>
+<anime>
+  <id>12345</id>
+  <type>TV Series</type>
+  <episodes>
+    <episode id="1"><epno>1</epno><title>No Season Tag</title></episode>
+    <episode id="2"><epno>2</epno><title>Also No Season</title></episode>
+  </episodes>
+</anime>`;
+      const adapter = new AniDBAdapter({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(xmlWithoutSeason),
+      });
+      const results = await adapter.getEpisodes("12345");
+      expect(results).toHaveLength(2);
+      expect(results[0]?.season).toBe(1);
+      expect(results[1]?.season).toBe(1);
+    });
+
     test("uses absolute episode number from epno", async () => {
       const multiSeasonXml = `<?xml version="1.0"?>
 <anime>

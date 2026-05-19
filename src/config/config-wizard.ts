@@ -24,9 +24,11 @@ export interface TemplatePreset {
 }
 
 export const TEMPLATE_PRESETS: TemplatePreset[] = [
-  { label: "Standard (Recommended)", value: "{anime} - {season}x{episode:02} - {title}" },
-  { label: "Compact", value: "{anime} - E{episode:02}" },
-  { label: "Absolute", value: "{anime} - {episode:03d}" },
+  { label: "Standard (Recommended)", value: "standard" },
+  { label: "Compact", value: "compact" },
+  { label: "Absolute", value: "absolute" },
+  { label: "Plex", value: "plex" },
+  { label: "AniDB", value: "anidb" },
 ];
 
 export function getDefaultPrompts(): PromptsAPI {
@@ -110,21 +112,20 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
   );
   if (templateChoice === undefined) return;
 
-  let templateValue: string;
   if (templateChoice === "__custom__") {
     const custom = await prompt(
       p.text({
         message: "Enter your custom template string",
-        defaultValue: TEMPLATE_PRESETS[0]?.value ?? "{anime} - {season}x{episode:02} - {title}",
+        defaultValue: "{anime} - {season}x{episode:02} - {title}",
       }),
     );
     if (custom === undefined) return;
-    templateValue = custom;
+    config.set("template.string", custom);
+    config.set("template.preset", "");
   } else {
-    templateValue = templateChoice;
+    config.set("template.preset", templateChoice);
+    config.set("template.string", "");
   }
-
-  config.set("template.string", templateValue);
 
   const useDirStructure = await prompt(
     p.confirm({

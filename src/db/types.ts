@@ -21,6 +21,8 @@ export interface EpisodeResult {
   episode: number;
   title: string;
   originalTitle?: string;
+  titleEn?: string;
+  titleJa?: string;
   airDate?: string;
   overview?: string;
   image?: string;
@@ -31,6 +33,8 @@ export interface ArtworkResult {
   id: string;
   type: ArtworkType;
   url: string;
+  width?: number;
+  height?: number;
   language?: string;
   season?: number;
 }
