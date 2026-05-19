@@ -58,6 +58,7 @@ describe("ConfigManager", () => {
       const mgr = new ConfigManager({ configDir: dir });
       await mgr.init();
       expect(await mgr.get("primary-db")).toBe("tvdb");
+      expect(await mgr.get("secondary-dbs")).toBe("");
       expect(await mgr.get("template.string")).toBe("{anime} - {season}x{episode:02} - {title}");
       expect(await mgr.get("extensions")).toBe(".mkv,.mp4");
       expect(await mgr.get("exclude-patterns")).toBe(".part,.crdownload");
@@ -76,6 +77,53 @@ describe("ConfigManager", () => {
       await mgr.set("primary-db", "anidb");
       await mgr.init();
       expect(await mgr.get("primary-db")).toBe("anidb");
+    } finally {
+      cleanupTempDir(dir);
+    }
+  });
+
+  test("getList returns empty array for unset key", async () => {
+    const dir = setupTempDir();
+    try {
+      const mgr = new ConfigManager({ configDir: dir });
+      const list = mgr.getList("secondary-dbs");
+      expect(list).toEqual([]);
+    } finally {
+      cleanupTempDir(dir);
+    }
+  });
+
+  test("getList parses comma-separated values", async () => {
+    const dir = setupTempDir();
+    try {
+      const mgr = new ConfigManager({ configDir: dir });
+      mgr.set("secondary-dbs", "anidb,tvdb");
+      const list = mgr.getList("secondary-dbs");
+      expect(list).toEqual(["anidb", "tvdb"]);
+    } finally {
+      cleanupTempDir(dir);
+    }
+  });
+
+  test("getList trims whitespace around values", async () => {
+    const dir = setupTempDir();
+    try {
+      const mgr = new ConfigManager({ configDir: dir });
+      mgr.set("secondary-dbs", " anidb , tvdb ");
+      const list = mgr.getList("secondary-dbs");
+      expect(list).toEqual(["anidb", "tvdb"]);
+    } finally {
+      cleanupTempDir(dir);
+    }
+  });
+
+  test("getList returns empty array for empty string", async () => {
+    const dir = setupTempDir();
+    try {
+      const mgr = new ConfigManager({ configDir: dir });
+      mgr.set("secondary-dbs", "");
+      const list = mgr.getList("secondary-dbs");
+      expect(list).toEqual([]);
     } finally {
       cleanupTempDir(dir);
     }

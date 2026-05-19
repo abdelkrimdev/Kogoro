@@ -12,7 +12,7 @@ import { Scanner, type ScanProgress, type ScanResult } from "../scanner.ts";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
-  fallbackDatabase?: DatabasePlugin;
+  fallbackDatabases?: DatabasePlugin[];
   cache?: MatchCache;
   renamer?: Renamer;
   config?: ConfigManager;
@@ -240,30 +240,53 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         });
       }
 
-      let scanResults: ScanResult[];
+      let scanResults: ScanResult[] | undefined;
       try {
         try {
           scanResults = await runBatch(scanner);
         } catch (dbError) {
-          if (options.fallbackDatabase && !yes && !interrupted) {
-            if (!quiet) {
-              console.log("\nPrimary Database unreachable.");
-            }
-            const useFallback = await confirm({
+          const fallbacks = options.fallbackDatabases ?? [];
+          if (fallbacks.length === 0 || interrupted) {
+            throw dbError;
+          }
+
+          if (!quiet) {
+            console.log("\nPrimary Database unreachable.");
+          }
+
+          let useFallback = yes;
+          if (!yes) {
+            const response = await confirm({
               message: "Fall back to secondary Database?",
             });
-            if (!isCancel(useFallback) && useFallback) {
+            useFallback = !isCancel(response) && response;
+          }
+
+          if (!useFallback) {
+            throw dbError;
+          }
+
+          let lastError: unknown = dbError;
+          for (const fallbackDb of fallbacks) {
+            if (!quiet) {
+              console.log(`Trying fallback database...`);
+            }
+            try {
               const fallbackScanner = new Scanner({
-                database: options.fallbackDatabase,
+                database: fallbackDb,
                 cache: options.cache,
                 renamer,
               });
               scanResults = await runBatch(fallbackScanner);
-            } else {
-              throw dbError;
+              lastError = undefined;
+              break;
+            } catch (fallbackError) {
+              lastError = fallbackError;
             }
-          } else {
-            throw dbError;
+          }
+
+          if (lastError) {
+            throw lastError;
           }
         }
 
@@ -278,7 +301,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           status: "skipped",
         }));
 
-        const allResults = [...skippedResults, ...scanResults];
+        const allResults = [...skippedResults, ...(scanResults as ScanResult[])];
 
         if (interrupted && !quiet) {
           const matchedCount = allResults.filter((r) => r.status === "matched").length;

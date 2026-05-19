@@ -65,20 +65,39 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
   const primaryDbName = config.get("primary-db") ?? "tvdb";
   const apiDelay = Number(config.get("api-delay")) || 200;
 
+  let database: DatabasePlugin | undefined;
+
   if (primaryDbName !== "tvdb") {
     const plugin = await registry.instantiate(primaryDbName, debug ? { debug: true } : {});
     if (plugin) {
-      const cache = new MatchCache();
-      return createScanHandlers({
-        database: plugin,
-        cache,
-        config,
-        episodeNumbering,
-      });
+      database = plugin;
+    } else {
+      console.warn(`Primary database "${primaryDbName}" not available, falling back to TVDB`);
+      database = await buildTVDBAdapter(apiDelay, debug);
     }
-    console.warn(`Primary database "${primaryDbName}" not available, falling back to TVDB`);
+  } else {
+    database = await buildTVDBAdapter(apiDelay, debug);
   }
 
+  if (!database) return undefined;
+
+  const credentialStore = new CredentialStore();
+  const fallbackDatabases = await buildSecondaryDatabases(config, credentialStore, debug, registry);
+  const cache = new MatchCache();
+
+  return createScanHandlers({
+    database,
+    fallbackDatabases,
+    cache,
+    config,
+    episodeNumbering,
+  });
+}
+
+async function buildTVDBAdapter(
+  apiDelay: number,
+  debug?: boolean,
+): Promise<TVDBAdapter | undefined> {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
@@ -89,14 +108,41 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
     minDelay: apiDelay,
     onDebug: debug ? createDebugCallback() : undefined,
   });
-  const adapter = new TVDBAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
-  const cache = new MatchCache();
-  return createScanHandlers({
-    database: adapter,
-    cache,
-    config,
-    episodeNumbering,
-  });
+  return new TVDBAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+}
+
+export async function buildSecondaryDatabases(
+  config: ConfigManager,
+  credentialStore: CredentialStore,
+  debug?: boolean,
+  registry?: PluginRegistry,
+): Promise<DatabasePlugin[]> {
+  const dbNames = config.getList("secondary-dbs");
+  const dbs: DatabasePlugin[] = [];
+
+  for (const name of dbNames) {
+    if (name === "anidb") {
+      const cred = await credentialStore.getCredential("anidb");
+      if (cred) {
+        dbs.push(buildAniDBAdapter(cred, debug));
+      }
+    } else if (name === "tvdb") {
+      const cred = await credentialStore.getCredential("tvdb");
+      if (cred) {
+        dbs.push(new TVDBAdapter({ apiKey: cred }));
+      }
+    } else {
+      const plugin = await (registry ?? new PluginRegistry()).instantiate(
+        name,
+        debug ? { debug: true } : {},
+      );
+      if (plugin) {
+        dbs.push(plugin);
+      }
+    }
+  }
+
+  return dbs;
 }
 
 function createDebugCallback() {
@@ -122,6 +168,7 @@ async function createMatchWithCredentials() {
 }
 
 async function createArtworkWithCredentials(debug?: boolean) {
+  const config = new ConfigManager();
   const credentialStore = new CredentialStore();
   const tvdbKey = await credentialStore.getCredential("tvdb");
   if (!tvdbKey) {
@@ -130,11 +177,7 @@ async function createArtworkWithCredentials(debug?: boolean) {
   }
   const primaryDb: DatabasePlugin = new TVDBAdapter({ apiKey: tvdbKey });
 
-  const secondaryDbs: DatabasePlugin[] = [];
-  const anidbCred = await credentialStore.getCredential("anidb");
-  if (anidbCred) {
-    secondaryDbs.push(buildAniDBAdapter(anidbCred, debug));
-  }
+  const secondaryDbs = await buildSecondaryDatabases(config, credentialStore, debug);
 
   return createArtworkHandlers({ primaryDb, secondaryDbs });
 }

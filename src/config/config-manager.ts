@@ -59,6 +59,15 @@ export class ConfigManager {
     return String(val);
   }
 
+  getList(key: string): string[] {
+    const val = this.get(key);
+    if (!val || val.trim() === "") return [];
+    return val
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  }
+
   set(key: string, value: string): void {
     this.data[key] = value;
     this.save();
@@ -67,6 +76,7 @@ export class ConfigManager {
   getDefaults(): Record<string, string> {
     return {
       "primary-db": "tvdb",
+      "secondary-dbs": "",
       "template.string": "{anime} - {season}x{episode:02} - {title}",
       extensions: ".mkv,.mp4",
       "exclude-patterns": ".part,.crdownload",

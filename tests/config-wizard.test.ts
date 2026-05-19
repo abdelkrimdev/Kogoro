@@ -125,4 +125,46 @@ describe("ConfigWizard", () => {
       cleanupTempDir(dir);
     }
   });
+
+  test("wizard prompts for secondary databases and stores value", async () => {
+    const dir = setupTempDir();
+    try {
+      const config = new ConfigManager({ configDir: dir });
+      const credentialStore = new CredentialStore({ keytar: null });
+      let textCalls = 0;
+      const prompts = makePrompts({
+        select: async () => "tvdb",
+        text: async () => {
+          textCalls++;
+          if (textCalls === 1) return "";
+          if (textCalls === 2) return "anidb,opensubtitles";
+          return "";
+        },
+      });
+
+      await runConfigWizard({ config, credentialStore, prompts });
+      expect(await config.get("secondary-dbs")).toBe("anidb,opensubtitles");
+      expect(config.getList("secondary-dbs")).toEqual(["anidb", "opensubtitles"]);
+    } finally {
+      cleanupTempDir(dir);
+    }
+  });
+
+  test("wizard accepts empty secondary databases", async () => {
+    const dir = setupTempDir();
+    try {
+      const config = new ConfigManager({ configDir: dir });
+      const credentialStore = new CredentialStore({ keytar: null });
+      const prompts = makePrompts({
+        select: async () => "tvdb",
+        text: async () => "",
+      });
+
+      await runConfigWizard({ config, credentialStore, prompts });
+      expect(await config.get("secondary-dbs")).toBe("");
+      expect(config.getList("secondary-dbs")).toEqual([]);
+    } finally {
+      cleanupTempDir(dir);
+    }
+  });
 });

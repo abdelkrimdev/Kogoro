@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { run } from "../src/cli/main.ts";
+import { ConfigManager } from "../src/config/config-manager.ts";
+import { CredentialStore } from "../src/config/credential-store.ts";
 import type { PluginInfo } from "../src/plugin-registry.ts";
 
 describe("kogoro CLI", () => {
@@ -54,6 +58,54 @@ describe("kogoro CLI", () => {
       expect(tvdb?.source).toBe("built-in");
     } finally {
       console.log = origLog;
+    }
+  });
+
+  test("buildSecondaryDatabases returns empty array when config has no secondary-dbs", async () => {
+    const { buildSecondaryDatabases } = await import("../src/cli/main.ts");
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-build-secondary-"));
+    try {
+      const config = new ConfigManager({ configDir: dir });
+      const credentialStore = new CredentialStore({ keytar: null });
+      const dbs = await buildSecondaryDatabases(config, credentialStore);
+      expect(dbs).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("buildSecondaryDatabases returns anidb when configured", async () => {
+    const { buildSecondaryDatabases } = await import("../src/cli/main.ts");
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-build-secondary-"));
+    try {
+      const config = new ConfigManager({ configDir: dir });
+      config.set("secondary-dbs", "anidb");
+      const credentialStore = new CredentialStore({ keytar: null });
+      await credentialStore.setCredential("anidb", "testclient:1");
+      const dbs = await buildSecondaryDatabases(config, credentialStore);
+      expect(dbs).toHaveLength(1);
+      expect(dbs[0]?.constructor.name).toBe("AniDBAdapter");
+    } finally {
+      delete (process.env as Record<string, string | undefined>)["KOGORO_ANIDB_KEY"];
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("buildSecondaryDatabases skips databases without credentials", async () => {
+    const { buildSecondaryDatabases } = await import("../src/cli/main.ts");
+    const dir = mkdtempSync(join(tmpdir(), "kogoro-build-secondary-"));
+    try {
+      const config = new ConfigManager({ configDir: dir });
+      config.set("secondary-dbs", "anidb,tvdb");
+      const credentialStore = new CredentialStore({ keytar: null });
+      // Only set anidb credentials, not tvdb
+      await credentialStore.setCredential("anidb", "testclient:1");
+      const dbs = await buildSecondaryDatabases(config, credentialStore);
+      expect(dbs).toHaveLength(1);
+      expect(dbs[0]?.constructor.name).toBe("AniDBAdapter");
+    } finally {
+      delete (process.env as Record<string, string | undefined>)["KOGORO_ANIDB_KEY"];
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
