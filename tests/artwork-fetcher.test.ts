@@ -6,6 +6,10 @@ import { ArtworkFetcher } from "../src/artwork-fetcher.ts";
 import { MatchCache } from "../src/match-cache.ts";
 import { createMockDb, mockFetch, testImageBytes } from "./helpers.ts";
 
+function urlString(url: string | URL): string {
+  return typeof url === "string" ? url : url.toString();
+}
+
 describe("ArtworkFetcher", () => {
   function setup() {
     const dir = mkdtempSync(join(tmpdir(), "kogoro-artwork-test-"));
@@ -17,21 +21,10 @@ describe("ArtworkFetcher", () => {
     const dbPath = join(dir, "cache.db");
     const cache = new MatchCache({ dbPath });
 
-    return {
-      dir,
-      animeDir,
-      videoPath,
-      cache,
-      cleanup: () => rmSync(dir, { recursive: true, force: true }),
-    };
-  }
-
-  test("downloads poster and saves cover.jpg in anime directory", async () => {
-    const { dir, animeDir, videoPath, cache, cleanup } = setup();
-    try {
+    async function seedCache(animeId = "12345") {
       const hash = await MatchCache.hashFile(videoPath);
       cache.set(hash, {
-        animeId: "12345",
+        animeId,
         episodeId: "101",
         entryType: "tv",
         season: 1,
@@ -39,6 +32,22 @@ describe("ArtworkFetcher", () => {
         title: "Test Episode",
         timestamp: "2026-01-01T00:00:00.000Z",
       });
+    }
+
+    return {
+      dir,
+      animeDir,
+      videoPath,
+      cache,
+      seedCache,
+      cleanup: () => rmSync(dir, { recursive: true, force: true }),
+    };
+  }
+
+  test("downloads poster and saves cover.jpg in anime directory", async () => {
+    const { dir, animeDir, cache, seedCache, cleanup } = setup();
+    try {
+      await seedCache();
 
       const mockDb = createMockDb([
         { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
@@ -60,20 +69,11 @@ describe("ArtworkFetcher", () => {
   });
 
   test("skips anime directory that already has cover.jpg", async () => {
-    const { dir, animeDir, videoPath, cache, cleanup } = setup();
+    const { dir, animeDir, cache, seedCache, cleanup } = setup();
     try {
       writeFileSync(join(animeDir, "cover.jpg"), "existing cover");
 
-      const hash = await MatchCache.hashFile(videoPath);
-      cache.set(hash, {
-        animeId: "12345",
-        episodeId: "101",
-        entryType: "tv",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+      await seedCache();
 
       const mockDb = createMockDb([
         { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
@@ -94,20 +94,11 @@ describe("ArtworkFetcher", () => {
   });
 
   test("force overwrites existing cover.jpg", async () => {
-    const { dir, animeDir, videoPath, cache, cleanup } = setup();
+    const { dir, animeDir, cache, seedCache, cleanup } = setup();
     try {
       writeFileSync(join(animeDir, "cover.jpg"), "old cover");
 
-      const hash = await MatchCache.hashFile(videoPath);
-      cache.set(hash, {
-        animeId: "12345",
-        episodeId: "101",
-        entryType: "tv",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+      await seedCache();
 
       const mockDb = createMockDb([
         { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
@@ -130,18 +121,9 @@ describe("ArtworkFetcher", () => {
   });
 
   test("falls back to secondary database when primary has no artwork", async () => {
-    const { dir, animeDir, videoPath, cache, cleanup } = setup();
+    const { dir, animeDir, cache, seedCache, cleanup } = setup();
     try {
-      const hash = await MatchCache.hashFile(videoPath);
-      cache.set(hash, {
-        animeId: "12345",
-        episodeId: "101",
-        entryType: "tv",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+      await seedCache();
 
       const primaryDb = createMockDb([]);
       const secondaryDb = createMockDb([
@@ -165,18 +147,9 @@ describe("ArtworkFetcher", () => {
   });
 
   test("reports noArtwork when no database returns poster", async () => {
-    const { dir, animeDir, videoPath, cache, cleanup } = setup();
+    const { dir, animeDir, cache, seedCache, cleanup } = setup();
     try {
-      const hash = await MatchCache.hashFile(videoPath);
-      cache.set(hash, {
-        animeId: "12345",
-        episodeId: "101",
-        entryType: "tv",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+      await seedCache();
 
       const primaryDb = createMockDb([]);
       const secondaryDb = createMockDb([]);
@@ -196,111 +169,26 @@ describe("ArtworkFetcher", () => {
     }
   });
 
-  test("selects highest resolution poster when multiple available", async () => {
-    const { dir, animeDir, videoPath, cache, cleanup } = setup();
-    try {
-      const hash = await MatchCache.hashFile(videoPath);
-      cache.set(hash, {
-        animeId: "12345",
-        episodeId: "101",
-        entryType: "tv",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
-
-      const mockDb = {
-        searchAnime: async () => [],
-        getEpisodes: async () => [],
-        getAnime: async () => null,
-        getArtwork: async () => [
-          {
-            id: "1",
-            type: "poster" as const,
-            url: "https://example.com/small.jpg",
-            width: 200,
-            height: 300,
-          },
-          {
-            id: "2",
-            type: "poster" as const,
-            url: "https://example.com/large.jpg",
-            width: 1000,
-            height: 1500,
-          },
-          {
-            id: "3",
-            type: "poster" as const,
-            url: "https://example.com/medium.jpg",
-            width: 500,
-            height: 750,
-          },
-        ],
-      };
-
-      const fetcher = new ArtworkFetcher({
-        primaryDb: mockDb,
-        cache,
-        fetch: mockFetch(testImageBytes),
-      });
-
-      const summary = await fetcher.process(dir);
-      expect(summary).toEqual({ total: 1, downloaded: 1, skipped: 0, noArtwork: 0 });
-
-      // The largest poster (1000x1500) should be downloaded
-      expect(existsSync(join(animeDir, "cover.jpg"))).toBe(true);
-    } finally {
-      cleanup();
-    }
-  });
-
   test("selects highest resolution poster URL when multiple available", async () => {
-    const { dir, videoPath, cache, cleanup } = setup();
+    const { dir, animeDir, cache, seedCache, cleanup } = setup();
     try {
-      const hash = await MatchCache.hashFile(videoPath);
-      cache.set(hash, {
-        animeId: "12345",
-        episodeId: "101",
-        entryType: "tv",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+      await seedCache();
 
-      const mockDb = {
-        searchAnime: async () => [],
-        getEpisodes: async () => [],
-        getAnime: async () => null,
-        getArtwork: async () => [
-          {
-            id: "1",
-            type: "poster" as const,
-            url: "https://example.com/small.jpg",
-            width: 200,
-            height: 300,
-          },
-          {
-            id: "2",
-            type: "poster" as const,
-            url: "https://example.com/large.jpg",
-            width: 1000,
-            height: 1500,
-          },
-          {
-            id: "3",
-            type: "poster" as const,
-            url: "https://example.com/medium.jpg",
-            width: 500,
-            height: 750,
-          },
-        ],
-      };
+      const mockDb = createMockDb([
+        { id: "1", type: "poster", url: "https://example.com/small.jpg", width: 200, height: 300 },
+        {
+          id: "2",
+          type: "poster",
+          url: "https://example.com/large.jpg",
+          width: 1000,
+          height: 1500,
+        },
+        { id: "3", type: "poster", url: "https://example.com/medium.jpg", width: 500, height: 750 },
+      ]);
 
       const requestedUrls: string[] = [];
       const trackingFetch = async (url: string | URL) => {
-        requestedUrls.push(typeof url === "string" ? url : url.toString());
+        requestedUrls.push(urlString(url));
         return new Response(testImageBytes, {
           status: 200,
           headers: { "Content-Type": "image/jpeg" },
@@ -316,34 +204,21 @@ describe("ArtworkFetcher", () => {
       const summary = await fetcher.process(dir);
       expect(summary).toEqual({ total: 1, downloaded: 1, skipped: 0, noArtwork: 0 });
       expect(requestedUrls).toContain("https://example.com/large.jpg");
+      expect(existsSync(join(animeDir, "cover.jpg"))).toBe(true);
     } finally {
       cleanup();
     }
   });
 
   test("falls back to first artwork when no resolution data available", async () => {
-    const { dir, animeDir, videoPath, cache, cleanup } = setup();
+    const { dir, animeDir, cache, seedCache, cleanup } = setup();
     try {
-      const hash = await MatchCache.hashFile(videoPath);
-      cache.set(hash, {
-        animeId: "12345",
-        episodeId: "101",
-        entryType: "tv",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+      await seedCache();
 
-      const mockDb = {
-        searchAnime: async () => [],
-        getEpisodes: async () => [],
-        getAnime: async () => null,
-        getArtwork: async () => [
-          { id: "1", type: "poster" as const, url: "https://example.com/first.jpg" },
-          { id: "2", type: "poster" as const, url: "https://example.com/second.jpg" },
-        ],
-      };
+      const mockDb = createMockDb([
+        { id: "1", type: "poster", url: "https://example.com/first.jpg" },
+        { id: "2", type: "poster", url: "https://example.com/second.jpg" },
+      ]);
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
@@ -353,8 +228,6 @@ describe("ArtworkFetcher", () => {
 
       const summary = await fetcher.process(dir);
       expect(summary).toEqual({ total: 1, downloaded: 1, skipped: 0, noArtwork: 0 });
-
-      // First artwork (no resolution data) should be used
       expect(existsSync(join(animeDir, "cover.jpg"))).toBe(true);
     } finally {
       cleanup();
@@ -371,8 +244,7 @@ describe("ArtworkFetcher", () => {
     const adapter = new TVDBAdapter({
       apiKey: "test-key",
       fetch: async (url: string | URL, _init?: RequestInit) => {
-        const urlStr = typeof url === "string" ? url : url.toString();
-        if (urlStr.includes("/login")) {
+        if (urlString(url).includes("/login")) {
           return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
