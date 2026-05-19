@@ -213,6 +213,7 @@ describe("ArtworkFetcher", () => {
       const mockDb = {
         searchAnime: async () => [],
         getEpisodes: async () => [],
+        getAnime: async () => null,
         getArtwork: async () => [
           {
             id: "1",
@@ -271,6 +272,7 @@ describe("ArtworkFetcher", () => {
       const mockDb = {
         searchAnime: async () => [],
         getEpisodes: async () => [],
+        getAnime: async () => null,
         getArtwork: async () => [
           { id: "1", type: "poster" as const, url: "https://example.com/first.jpg" },
           { id: "2", type: "poster" as const, url: "https://example.com/second.jpg" },

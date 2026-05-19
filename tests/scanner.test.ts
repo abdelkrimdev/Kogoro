@@ -45,6 +45,9 @@ describe("Scanner", () => {
       async getArtwork() {
         return [];
       },
+      async getAnime() {
+        return null;
+      },
     };
   }
   test("scanFile parses filename and returns auto-resolved match", async () => {
@@ -96,6 +99,9 @@ describe("Scanner", () => {
         },
         async getArtwork() {
           return [];
+        },
+        async getAnime() {
+          return null;
         },
       };
 
@@ -182,6 +188,9 @@ describe("Scanner", () => {
         },
         async getArtwork() {
           return [];
+        },
+        async getAnime() {
+          return null;
         },
       };
 
@@ -418,6 +427,9 @@ describe("Scanner", () => {
       },
       async getArtwork() {
         return [];
+      },
+      async getAnime() {
+        return null;
       },
     };
 

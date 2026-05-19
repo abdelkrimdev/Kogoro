@@ -166,6 +166,17 @@ async function createMatchWithCredentials() {
   return createMatchHandlers({ database: adapter });
 }
 
+async function createMetadataWithCredentials() {
+  const credentialStore = new CredentialStore();
+  const apiKey = await credentialStore.getCredential("tvdb");
+  if (!apiKey) {
+    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+    return undefined;
+  }
+  const database: DatabasePlugin = new TVDBAdapter({ apiKey });
+  return createMetadataHandlers({ database });
+}
+
 async function createArtworkWithCredentials(debug?: boolean) {
   const config = new ConfigManager();
   const credentialStore = new CredentialStore();
@@ -369,7 +380,7 @@ export function run(argv: string[]): string | undefined {
             describe: "Overwrite existing .nfo files",
           }),
       async (argv) => {
-        const handlers = createMetadataHandlers();
+        const handlers = (await createMetadataWithCredentials()) ?? createMetadataHandlers();
         await handlers.write(argv.path, argv.force, console.log, console.error);
       },
     )

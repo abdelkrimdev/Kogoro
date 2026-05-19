@@ -19,6 +19,9 @@ describe("isDatabasePlugin", () => {
       async getArtwork() {
         return [];
       },
+      async getAnime() {
+        return null;
+      },
     };
     expect(isDatabasePlugin(valid)).toBe(true);
   });
@@ -61,6 +64,9 @@ describe("PluginRegistry.instantiate", () => {
         async getArtwork() {
           return [];
         }
+        async getAnime() {
+          return null;
+        }
       },
     };
     mock.module("kogoro-plugin-validplugin", () => mockModule);
@@ -85,6 +91,9 @@ describe("PluginRegistry.instantiate", () => {
         }
         async getArtwork() {
           return [];
+        }
+        async getAnime() {
+          return null;
         }
       },
     };
@@ -140,6 +149,9 @@ describe("PluginRegistry.instantiate", () => {
         }
         async getArtwork() {
           return [];
+        }
+        async getAnime() {
+          return null;
         }
       },
     }));

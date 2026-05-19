@@ -49,6 +49,7 @@ export class MetadataWriter {
 
     const videoFiles = this.walkDir(dirPath);
     const episodeCache = new Map<string, Map<number, EpisodeResult>>();
+    const animeCache = new Map<string, string>();
 
     for (const filePath of videoFiles) {
       total++;
@@ -69,6 +70,7 @@ export class MetadataWriter {
         }
 
         let episodeData: EpisodeResult | undefined;
+        let dbAnimeTitle: string | undefined;
         if (this.database && match.animeId) {
           if (!episodeCache.has(match.animeId)) {
             const episodes = await this.database.getEpisodes(match.animeId);
@@ -82,14 +84,22 @@ export class MetadataWriter {
             const animeEpisodes = episodeCache.get(match.animeId);
             episodeData = animeEpisodes?.get(match.episode);
           }
+
+          if (!animeCache.has(match.animeId)) {
+            const anime = await this.database.getAnime(match.animeId);
+            animeCache.set(match.animeId, anime?.title ?? "");
+          }
+          dbAnimeTitle = animeCache.get(match.animeId) || undefined;
         }
+
+        const showTitle = dbAnimeTitle ?? match.animeTitle;
         let xml: string;
         switch (match.entryType) {
           case "movie":
-            xml = this.generateMovieNfo(match, episodeData);
+            xml = this.generateMovieNfo(match, episodeData, showTitle);
             break;
           default:
-            xml = this.generateEpisodeNfo(match, episodeData);
+            xml = this.generateEpisodeNfo(match, episodeData, showTitle);
         }
 
         writeFileSync(nfoPath, xml, "utf-8");
@@ -116,9 +126,9 @@ export class MetadataWriter {
     return files;
   }
 
-  generateEpisodeNfo(match: CachedMatch, episodeData?: EpisodeResult): string {
+  generateEpisodeNfo(match: CachedMatch, episodeData?: EpisodeResult, showTitle?: string): string {
     const title = escapeXml(match.title ?? "");
-    const showTitle = escapeXml(match.animeTitle ?? "");
+    const showTitleEscaped = escapeXml(showTitle ?? match.animeTitle ?? "");
     const plot = escapeXml(episodeData?.overview ?? "");
     const aired = escapeXml(episodeData?.airDate ?? "");
     const season = match.season ?? 1;
@@ -126,7 +136,7 @@ export class MetadataWriter {
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <episodedetails>
   <title>${title}</title>
-  <showtitle>${showTitle}</showtitle>
+  <showtitle>${showTitleEscaped}</showtitle>
   <plot>${plot}</plot>
   <aired>${aired}</aired>
   <season>${season}</season>
@@ -136,9 +146,9 @@ export class MetadataWriter {
 </episodedetails>`;
   }
 
-  generateMovieNfo(match: CachedMatch, episodeData?: EpisodeResult): string {
-    const title = escapeXml(match.title ?? "");
-    const plot = escapeXml(episodeData?.overview ?? match.animeTitle ?? "");
+  generateMovieNfo(match: CachedMatch, episodeData?: EpisodeResult, showTitle?: string): string {
+    const title = escapeXml(showTitle ?? match.title ?? "");
+    const plot = escapeXml(episodeData?.overview ?? showTitle ?? match.animeTitle ?? "");
     const aired = escapeXml(episodeData?.airDate ?? "");
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <movie>

@@ -21,6 +21,9 @@ function createMockDb(): DatabasePlugin {
     async getArtwork() {
       return [];
     },
+    async getAnime() {
+      return null;
+    },
   };
 }
 
@@ -162,6 +165,9 @@ describe("scan CLI commands", () => {
         async getArtwork() {
           return [];
         },
+        async getAnime() {
+          return null;
+        },
       };
 
       const handlers = createScanHandlers({ database: ambiguousDb });
@@ -215,6 +221,9 @@ describe("scan CLI commands", () => {
         },
         async getArtwork() {
           return [];
+        },
+        async getAnime() {
+          return null;
         },
       };
 
@@ -307,6 +316,9 @@ describe("scan CLI commands", () => {
         },
         async getArtwork() {
           return [];
+        },
+        async getAnime() {
+          return null;
         },
       };
 

@@ -39,6 +39,9 @@ function createMockAdapter(): DatabasePlugin {
     async getArtwork(): Promise<ArtworkResult[]> {
       return [];
     },
+    async getAnime(): Promise<AnimeResult | null> {
+      return null;
+    },
   };
 }
 
@@ -112,6 +115,9 @@ describe("DB CLI commands", () => {
         throw new Error("API Error");
       },
       async getArtwork(): Promise<ArtworkResult[]> {
+        throw new Error("API Error");
+      },
+      async getAnime(): Promise<AnimeResult | null> {
         throw new Error("API Error");
       },
     };

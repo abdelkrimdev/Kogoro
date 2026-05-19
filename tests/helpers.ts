@@ -26,5 +26,8 @@ export function createMockDb(artworks: ArtworkResult[]): DatabasePlugin {
     async getArtwork() {
       return artworks;
     },
+    async getAnime() {
+      return null;
+    },
   };
 }

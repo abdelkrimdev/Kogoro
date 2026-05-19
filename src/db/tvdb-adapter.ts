@@ -176,6 +176,24 @@ export class TVDBAdapter implements DatabasePlugin {
     );
   }
 
+  async getAnime(animeId: string): Promise<AnimeResult | null> {
+    const data = await this.apiRequest<TVDBSeriesResult>(`/series/${animeId}`);
+
+    if (!data) return null;
+
+    return {
+      id: String(data.id),
+      slug: data.slug,
+      title: data.name,
+      originalTitle: extractOriginalTitle(data.aliases),
+      overview: data.overview,
+      year: data.year ? Number.parseInt(data.year, 10) : undefined,
+      image: data.image,
+      status: data.status,
+      entryType: "tv",
+    };
+  }
+
   async getTranslations(animeId: string): Promise<Record<string, string>> {
     const data = await this.apiRequest<TVDBTranslation[]>(`/series/${animeId}/translations`);
     if (!data) return {};

@@ -446,6 +446,46 @@ describe("AniDBAdapter", () => {
   });
 });
 
+describe("getAnime", () => {
+  test("returns AnimeResult from anime XML for a valid ID", async () => {
+    const animeXml = `<?xml version="1.0" encoding="UTF-8"?>
+<anime>
+  <id>12345</id>
+  <type>TV Series</type>
+  <startdate>2020-10-03</startdate>
+  <titles>
+    <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
+    <title type="official" lang="ja" xml:lang="ja">呪術廻戦</title>
+  </titles>
+  <description>A boy fights curses.</description>
+</anime>`;
+
+    const adapter = new AniDBAdapter({
+      client: "kogoro",
+      clientver: "1",
+      httpClient: mockHttpClient(animeXml),
+    });
+    const result = await adapter.getAnime("12345");
+
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe("12345");
+    expect(result?.title).toBe("Jujutsu Kaisen");
+    expect(result?.originalTitle).toBe("呪術廻戦");
+    expect(result?.overview).toBe("A boy fights curses.");
+    expect(result?.entryType).toBe("tv");
+  });
+
+  test("returns null on API failure", async () => {
+    const adapter = new AniDBAdapter({
+      client: "kogoro",
+      clientver: "1",
+      httpClient: mockHttpClient("", 404),
+    });
+    const result = await adapter.getAnime("99999");
+    expect(result).toBeNull();
+  });
+});
+
 describe("DatabasePlugin interface", () => {
   test("interface is defined", () => {
     const adapter: DatabasePlugin = new AniDBAdapter({
@@ -454,6 +494,7 @@ describe("DatabasePlugin interface", () => {
     });
     expect(adapter.searchAnime).toBeInstanceOf(Function);
     expect(adapter.getEpisodes).toBeInstanceOf(Function);
+    expect(adapter.getAnime).toBeInstanceOf(Function);
     expect(adapter.getArtwork).toBeInstanceOf(Function);
   });
 });

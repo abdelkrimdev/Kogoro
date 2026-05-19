@@ -99,6 +99,9 @@ describe("MetadataWriter", () => {
           async searchAnime() {
             return [{ id: "42", title: "Test Anime", entryType: "tv" as const }];
           },
+          async getAnime() {
+            return { id: "42", title: "Test Anime", entryType: "tv" as const };
+          },
           async getEpisodes() {
             return [
               {
@@ -131,6 +134,64 @@ describe("MetadataWriter", () => {
 
         expect(summary.total).toBe(1);
         expect(summary.written).toBe(1);
+      } finally {
+        cleanupTempDb(dbPath);
+        cleanupTempDir(dir);
+      }
+    });
+
+    test("showtitle comes from database getAnime, not just from cache", async () => {
+      const dir = createTempDir();
+      const dbPath = createTempDb();
+      try {
+        const videoPath = join(dir, "Anime - 1x01.mkv");
+        writeFileSync(videoPath, "content");
+
+        const hash = await MatchCache.hashFile(videoPath);
+        const cache = new MatchCache({ dbPath });
+        cache.set(hash, {
+          animeId: "99",
+          episodeId: "5",
+          entryType: "tv",
+          season: 1,
+          episode: 1,
+          title: "Ep Title",
+          animeTitle: "Cached Anime Title",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        });
+
+        const mockDb = {
+          async searchAnime() {
+            return [{ id: "99", title: "DB Anime Title", entryType: "tv" as const }];
+          },
+          async getAnime() {
+            return { id: "99", title: "DB Anime Title", entryType: "tv" as const };
+          },
+          async getEpisodes() {
+            return [
+              {
+                id: "5",
+                animeId: "99",
+                season: 1,
+                episode: 1,
+                title: "Ep Title",
+                overview: "DB overview",
+                airDate: "2025-01-01",
+                entryType: "tv" as const,
+              },
+            ];
+          },
+          async getArtwork() {
+            return [];
+          },
+        };
+
+        const writer = new MetadataWriter({ cache, database: mockDb });
+        await writer.write(dir);
+
+        const nfoContent = readFileSync(join(dir, "Anime - 1x01.nfo"), "utf-8");
+        expect(nfoContent).toContain("<showtitle>DB Anime Title</showtitle>");
+        expect(nfoContent).not.toContain("<showtitle>Cached Anime Title</showtitle>");
       } finally {
         cleanupTempDb(dbPath);
         cleanupTempDir(dir);

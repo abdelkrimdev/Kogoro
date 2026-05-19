@@ -331,6 +331,44 @@ describe("TVDBAdapter", () => {
     });
   });
 
+  describe("getAnime", () => {
+    test("returns AnimeResult from TVDB series API for a valid ID", async () => {
+      const seriesResponse = {
+        id: 12345,
+        slug: "jujutsu-kaisen",
+        name: "Jujutsu Kaisen",
+        aliases: [{ name: "呪術廻戦", lang: "jpn" }],
+        image: "https://artworks.thetvdb.com/series/12345/poster.jpg",
+        year: "2020",
+        overview: "A boy fights curses.",
+        status: "Continuing",
+      };
+
+      const adapter = new TVDBAdapter({
+        apiKey: "test-key",
+        fetch: mockFetch(seriesResponse),
+      });
+      const result = await adapter.getAnime("12345");
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("12345");
+      expect(result?.title).toBe("Jujutsu Kaisen");
+      expect(result?.slug).toBe("jujutsu-kaisen");
+      expect(result?.overview).toBe("A boy fights curses.");
+      expect(result?.year).toBe(2020);
+      expect(result?.entryType).toBe("tv");
+    });
+
+    test("returns null when anime ID does not exist", async () => {
+      const adapter = new TVDBAdapter({
+        apiKey: "test-key",
+        fetch: mockFetchFailure(404),
+      });
+      const result = await adapter.getAnime("99999");
+      expect(result).toBeNull();
+    });
+  });
+
   describe("error handling", () => {
     test("returns empty array on login failure", async () => {
       const adapter = new TVDBAdapter({

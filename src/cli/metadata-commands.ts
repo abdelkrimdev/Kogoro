@@ -1,13 +1,15 @@
+import type { DatabasePlugin } from "../db/database-plugin.ts";
 import { MatchCache } from "../match-cache.ts";
 import { MetadataWriter } from "../metadata-writer.ts";
 
 export interface MetadataHandlerOptions {
   dbPath?: string;
+  database?: DatabasePlugin;
 }
 
 export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
   const cache = new MatchCache({ dbPath: options.dbPath });
-  const writer = new MetadataWriter({ cache });
+  const writer = new MetadataWriter({ cache, database: options.database });
 
   return {
     async write(

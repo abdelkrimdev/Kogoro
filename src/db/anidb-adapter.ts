@@ -127,6 +127,50 @@ export class AniDBAdapter implements DatabasePlugin {
     return episodes;
   }
 
+  async getAnime(animeId: string): Promise<AnimeResult | null> {
+    const response = await this.httpClient.fetch(
+      `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
+    );
+    if (!response.ok) return null;
+    const xml = await response.text();
+
+    const animeType = extractTag(xml, "type") ?? "";
+    const entryType = toEntryType(animeType);
+    const description = extractTag(xml, "description");
+    const startdate = extractTag(xml, "startdate");
+    const year = startdate ? Number.parseInt(startdate.slice(0, 4), 10) : undefined;
+
+    let title: string | undefined;
+    let originalTitle: string | undefined;
+    const titleRegex = /<title[^>]*type="([^"]*)"[^>]*lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
+    const titlesMatch = xml.match(/<titles>([\s\S]*?)<\/titles>/);
+    const titlesContent = titlesMatch?.[1] ?? "";
+    for (const titleMatch of titlesContent.matchAll(titleRegex)) {
+      const lang = titleMatch[2];
+      const value = titleMatch[3];
+      if (lang === "en" && title === undefined) {
+        title = value;
+      }
+      if (lang === "ja" && originalTitle === undefined) {
+        originalTitle = value;
+      }
+      if (title !== undefined && originalTitle !== undefined) {
+        break;
+      }
+    }
+
+    if (!title) return null;
+
+    return {
+      id: animeId,
+      title,
+      originalTitle,
+      overview: description,
+      year,
+      entryType,
+    };
+  }
+
   async getArtwork(animeId: string, type: ArtworkType): Promise<ArtworkResult[]> {
     const response = await this.httpClient.fetch(
       `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,

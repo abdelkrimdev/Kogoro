@@ -129,6 +129,9 @@ describe("artwork CLI commands", () => {
         async getArtwork() {
           throw new Error("DB connection failed");
         },
+        async getAnime() {
+          return null;
+        },
       };
 
       const handlers = createArtworkHandlers({

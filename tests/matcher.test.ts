@@ -32,6 +32,9 @@ function createMockDb(results: MockAnime[]): DatabasePlugin {
     async getArtwork() {
       return [];
     },
+    async getAnime() {
+      return null;
+    },
   };
 }
 
@@ -210,6 +213,9 @@ describe("Matcher", () => {
       async getArtwork() {
         return [];
       },
+      async getAnime() {
+        return null;
+      },
     };
 
     const tvMatcher = new Matcher({ database: tvDb });
@@ -286,6 +292,9 @@ describe("Matcher", () => {
         async getArtwork() {
           return [];
         },
+        async getAnime() {
+          return null;
+        },
       };
 
       const matcher = new Matcher({ database: trackingDb });
@@ -351,6 +360,9 @@ describe("Matcher", () => {
         },
         async getArtwork() {
           return [];
+        },
+        async getAnime() {
+          return null;
         },
       };
 
