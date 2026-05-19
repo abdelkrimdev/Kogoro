@@ -26,14 +26,18 @@ import { createRenameHandlers } from "./rename-commands.ts";
 import { createScanHandlers } from "./scan-commands.ts";
 import { createSubtitleHandlers } from "./subtitle-commands.ts";
 
-async function getTVDBAdapter(): Promise<TVDBAdapter | undefined> {
+async function getTVDBAdapter(debug?: boolean): Promise<TVDBAdapter | undefined> {
   const credentialStore = new CredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
     console.error("No TVDB API key configured. Run 'kogoro config init' first.");
     return undefined;
   }
-  return new TVDBAdapter({ apiKey });
+  const httpClient = new HttpClient({
+    minDelay: 200,
+    onDebug: debug ? createDebugCallback() : undefined,
+  });
+  return new TVDBAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
 }
 
 async function createTVDBCommandsWithCredentials() {
@@ -68,6 +72,8 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
   const config = new ConfigManager();
   const registry = new PluginRegistry();
   const credentialStore = new CredentialStore();
+
+  registry.setDisabled(config.getDisabledPlugins());
 
   const primaryDbName = config.get("primary-db") ?? "tvdb";
   const apiDelay = Number(config.get("api-delay")) || 200;
@@ -128,6 +134,7 @@ export async function buildSecondaryDatabases(
   const dbNames = config.getList("secondary-dbs");
   const dbs: DatabasePlugin[] = [];
   const pluginRegistry = registry ?? new PluginRegistry();
+  pluginRegistry.setDisabled(config.getDisabledPlugins());
 
   for (const name of dbNames) {
     if (name === "anidb") {
@@ -137,7 +144,11 @@ export async function buildSecondaryDatabases(
     } else if (name === "tvdb") {
       const cred = await credentialStore.getCredential("tvdb");
       if (!cred) continue;
-      dbs.push(new TVDBAdapter({ apiKey: cred }));
+      const tvdbClient = new HttpClient({
+        minDelay: 200,
+        onDebug: debug ? createDebugCallback() : undefined,
+      });
+      dbs.push(new TVDBAdapter({ apiKey: cred, fetch: tvdbClient.fetch.bind(tvdbClient) }));
     } else {
       const plugin = await pluginRegistry.instantiate(name, debug ? { debug: true } : {});
       if (plugin) {
@@ -175,7 +186,7 @@ async function createMetadataWithCredentials() {
 async function createArtworkWithCredentials(debug?: boolean) {
   const config = new ConfigManager();
   const credentialStore = new CredentialStore();
-  const primaryDb = await getTVDBAdapter();
+  const primaryDb = await getTVDBAdapter(debug);
   if (!primaryDb) return undefined;
 
   const secondaryDbs = await buildSecondaryDatabases(config, credentialStore, debug);
@@ -718,6 +729,8 @@ export function run(argv: string[]): string | undefined {
             () => {},
             () => {
               const registry = new PluginRegistry();
+              const config = new ConfigManager();
+              registry.setDisabled(config.getDisabledPlugins());
               const plugins = registry.list();
               console.log(JSON.stringify(plugins, null, 2));
             },

@@ -101,6 +101,27 @@ export class ConfigManager {
     this.save();
   }
 
+  isPluginEnabled(name: string): boolean {
+    const val = this.get(`plugins.${name}.enabled`);
+    if (val === undefined) return true;
+    return val.toLowerCase() !== "false";
+  }
+
+  getDisabledPlugins(): Set<string> {
+    const disabled = new Set<string>();
+    for (const [key, value] of Object.entries(this.data)) {
+      if (
+        key.startsWith("plugins.") &&
+        key.endsWith(".enabled") &&
+        String(value).toLowerCase() === "false"
+      ) {
+        const name = key.slice("plugins.".length, -".enabled".length);
+        disabled.add(name);
+      }
+    }
+    return disabled;
+  }
+
   getTemplate(): string {
     const customString = this.get("template.string");
     if (customString) return customString;

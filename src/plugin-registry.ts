@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabasePlugin } from "./db/database-plugin.ts";
+import type { SubtitlePlugin } from "./subtitle/subtitle-plugin.ts";
 
 export function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
   if (obj === null || typeof obj !== "object") return false;
@@ -12,16 +13,35 @@ export function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
   );
 }
 
+export function isSubtitlePlugin(obj: unknown): obj is SubtitlePlugin {
+  if (obj === null || typeof obj !== "object") return false;
+  const p = obj as { search?: unknown; download?: unknown };
+  return typeof p.search === "function" && typeof p.download === "function";
+}
+
 export interface PluginInfo {
   name: string;
   type: "database" | "subtitle";
   source: "built-in" | "external";
   description?: string;
+  enabled: boolean;
 }
 
 const BUILT_IN_DATABASE_PLUGINS: PluginInfo[] = [
-  { name: "tvdb", type: "database", source: "built-in", description: "TheTVDB.com adapter" },
-  { name: "anidb", type: "database", source: "built-in", description: "AniDB adapter" },
+  {
+    name: "tvdb",
+    type: "database",
+    source: "built-in",
+    description: "TheTVDB.com adapter",
+    enabled: true,
+  },
+  {
+    name: "anidb",
+    type: "database",
+    source: "built-in",
+    description: "AniDB adapter",
+    enabled: true,
+  },
 ];
 
 const BUILT_IN_SUBTITLE_PLUGINS: PluginInfo[] = [
@@ -30,6 +50,7 @@ const BUILT_IN_SUBTITLE_PLUGINS: PluginInfo[] = [
     type: "subtitle",
     source: "built-in",
     description: "OpenSubtitles.com adapter",
+    enabled: true,
   },
 ];
 
@@ -37,15 +58,34 @@ export class PluginRegistry {
   private plugins: Map<string, PluginInfo> = new Map();
   private externalDiscovered = false;
   private instanceCache: Map<string, DatabasePlugin> = new Map();
+  private subtitleCache: Map<string, SubtitlePlugin> = new Map();
+  private disabledNames: Set<string> = new Set();
 
   constructor() {
     this.registerBuiltIn();
+  }
+
+  setDisabled(disabledNames: Set<string>): void {
+    this.disabledNames = disabledNames;
+    for (const [name, info] of this.plugins) {
+      info.enabled = !disabledNames.has(name);
+    }
+  }
+
+  isEnabled(name: string): boolean {
+    const info = this.plugins.get(name);
+    return info?.enabled ?? true;
   }
 
   async instantiate(
     name: string,
     options: Record<string, unknown>,
   ): Promise<DatabasePlugin | null> {
+    if (!this.isEnabled(name)) {
+      console.warn(`Plugin "${name}" is disabled`);
+      return null;
+    }
+
     const cached = this.instanceCache.get(name);
     if (cached) return cached;
 
@@ -69,9 +109,41 @@ export class PluginRegistry {
     }
   }
 
+  async instantiateSubtitle(
+    name: string,
+    options: Record<string, unknown>,
+  ): Promise<SubtitlePlugin | null> {
+    if (!this.isEnabled(name)) {
+      console.warn(`Plugin "${name}" is disabled`);
+      return null;
+    }
+
+    const cached = this.subtitleCache.get(name);
+    if (cached) return cached;
+
+    try {
+      const mod = await import(`kogoro-plugin-${name}`);
+      const PluginConstructor = mod.default as new (options: Record<string, unknown>) => unknown;
+      if (typeof PluginConstructor !== "function") {
+        console.warn(`Plugin "${name}" does not export a constructor as default`);
+        return null;
+      }
+      const instance = new PluginConstructor(options);
+      if (!isSubtitlePlugin(instance)) {
+        console.warn(`Plugin "${name}" does not implement SubtitlePlugin interface`);
+        return null;
+      }
+      this.subtitleCache.set(name, instance);
+      return instance;
+    } catch (err) {
+      console.warn(`Failed to load external subtitle plugin "${name}": ${String(err)}`);
+      return null;
+    }
+  }
+
   private registerBuiltIn(): void {
     for (const plugin of [...BUILT_IN_DATABASE_PLUGINS, ...BUILT_IN_SUBTITLE_PLUGINS]) {
-      this.plugins.set(plugin.name, plugin);
+      this.plugins.set(plugin.name, { ...plugin });
     }
   }
 
@@ -114,6 +186,7 @@ export class PluginRegistry {
       type,
       source: "external",
       description: `External plugin: ${packageName}`,
+      enabled: !this.disabledNames.has(name),
     };
   }
 
