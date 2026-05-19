@@ -255,6 +255,72 @@ describe("ArtworkFetcher", () => {
     }
   });
 
+  test("selects highest resolution poster URL when multiple available", async () => {
+    const { dir, videoPath, cache, cleanup } = setup();
+    try {
+      const hash = await MatchCache.hashFile(videoPath);
+      cache.set(hash, {
+        animeId: "12345",
+        episodeId: "101",
+        entryType: "tv",
+        season: 1,
+        episode: 1,
+        title: "Test Episode",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      });
+
+      const mockDb = {
+        searchAnime: async () => [],
+        getEpisodes: async () => [],
+        getAnime: async () => null,
+        getArtwork: async () => [
+          {
+            id: "1",
+            type: "poster" as const,
+            url: "https://example.com/small.jpg",
+            width: 200,
+            height: 300,
+          },
+          {
+            id: "2",
+            type: "poster" as const,
+            url: "https://example.com/large.jpg",
+            width: 1000,
+            height: 1500,
+          },
+          {
+            id: "3",
+            type: "poster" as const,
+            url: "https://example.com/medium.jpg",
+            width: 500,
+            height: 750,
+          },
+        ],
+      };
+
+      const requestedUrls: string[] = [];
+      const trackingFetch = async (url: string | URL) => {
+        requestedUrls.push(typeof url === "string" ? url : url.toString());
+        return new Response(testImageBytes, {
+          status: 200,
+          headers: { "Content-Type": "image/jpeg" },
+        });
+      };
+
+      const fetcher = new ArtworkFetcher({
+        primaryDb: mockDb,
+        cache,
+        fetch: trackingFetch,
+      });
+
+      const summary = await fetcher.process(dir);
+      expect(summary).toEqual({ total: 1, downloaded: 1, skipped: 0, noArtwork: 0 });
+      expect(requestedUrls).toContain("https://example.com/large.jpg");
+    } finally {
+      cleanup();
+    }
+  });
+
   test("falls back to first artwork when no resolution data available", async () => {
     const { dir, animeDir, videoPath, cache, cleanup } = setup();
     try {
