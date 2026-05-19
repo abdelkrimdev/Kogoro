@@ -7,7 +7,7 @@ import { CredentialStore } from "../config/credential-store.ts";
 import { AniDBAdapter } from "../db/anidb-adapter.ts";
 import type { DatabasePlugin } from "../db/database-plugin.ts";
 import { TVDBAdapter } from "../db/tvdb-adapter.ts";
-import { HttpClient } from "../http-client.ts";
+import { type DebugEntry, HttpClient } from "../http-client.ts";
 import { MatchCache } from "../match-cache.ts";
 import type { NumberingScheme } from "../numbering-converter.ts";
 import { parse } from "../parser.ts";
@@ -82,7 +82,7 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
 }
 
 function createDebugCallback() {
-  return (entry: { type: string; url: string; method: string; status?: number; body?: string }) => {
+  return (entry: DebugEntry) => {
     if (entry.type === "request") {
       console.error(`→ ${entry.method} ${entry.url}`);
     } else {
@@ -281,11 +281,6 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing subtitle files",
-          })
-          .option("debug", {
-            type: "boolean",
-            default: false,
-            describe: "Dump API requests and responses",
           }),
       async (argv) => {
         const handlers = await createSubtitleWithCredentials();
@@ -312,11 +307,6 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing .nfo files",
-          })
-          .option("debug", {
-            type: "boolean",
-            default: false,
-            describe: "Dump API requests and responses",
           }),
       async (argv) => {
         const handlers = createMetadataHandlers();

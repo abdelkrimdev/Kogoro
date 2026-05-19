@@ -36,35 +36,31 @@ export class HttpClient {
     const urlStr = typeof url === "string" ? url : url.toString();
     const method = init?.method ?? "GET";
 
-    this.onDebug?.({
-      type: "request",
-      url: urlStr,
-      method,
-    });
-
+    this.onDebug?.({ type: "request", url: urlStr, method });
     await this.enforceRateLimit();
     const response = await this.executeWithRetry(url, init);
+    return this.debugResponse(response, urlStr, method);
+  }
 
-    if (this.onDebug) {
-      const bodyText = await response.text();
-      const truncated = bodyText.length <= 4096 ? bodyText : `${bodyText.slice(0, 4096)}...`;
+  private async debugResponse(response: Response, url: string, method: string): Promise<Response> {
+    if (!this.onDebug) return response;
 
-      this.onDebug({
-        type: "response",
-        url: urlStr,
-        method,
-        status: response.status,
-        body: truncated,
-      });
+    const bodyText = await response.text();
+    const truncated = bodyText.length <= 4096 ? bodyText : `${bodyText.slice(0, 4096)}...`;
 
-      return new Response(bodyText, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      });
-    }
+    this.onDebug({
+      type: "response",
+      url,
+      method,
+      status: response.status,
+      body: truncated,
+    });
 
-    return response;
+    return new Response(bodyText, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
   }
 
   private async enforceRateLimit(): Promise<void> {
