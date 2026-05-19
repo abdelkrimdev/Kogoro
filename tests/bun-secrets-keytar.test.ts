@@ -62,6 +62,16 @@ describe("BunSecretsKeytar", () => {
     expect(deleted).toBe(false);
   });
 
+  test("getPassword normalizes undefined to null", async () => {
+    stubBunSecrets({
+      ...silentBunSecrets(),
+      get: async () => undefined as any,
+    });
+    const keytar = new BunSecretsKeytar();
+    const val = await keytar.getPassword("kogoro", "any");
+    expect(val).toBeNull();
+  });
+
   test("getPassword returns null when Bun.secrets.get returns null", async () => {
     stubBunSecrets(silentBunSecrets());
     const keytar = new BunSecretsKeytar();

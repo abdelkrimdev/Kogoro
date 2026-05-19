@@ -7,7 +7,7 @@ export class BunSecretsKeytar implements KeytarLike {
 
   async getPassword(service: string, account: string): Promise<string | null> {
     try {
-      return await Bun.secrets.get({ service, name: account });
+      return (await Bun.secrets.get({ service, name: account })) ?? null;
     } catch {
       return null;
     }
