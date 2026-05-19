@@ -140,6 +140,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             agent: sandcastle.opencode("opencode-go/kimi-k2.6"),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
+              SOURCE_BRANCH: "main",
               BRANCH: issue.branch,
             },
           });
