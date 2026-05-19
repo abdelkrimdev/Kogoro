@@ -40,8 +40,8 @@ async function getTVDBAdapter(debug?: boolean): Promise<TVDBAdapter | undefined>
   return new TVDBAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
 }
 
-async function createTVDBCommandsWithCredentials() {
-  const adapter = await getTVDBAdapter();
+async function createTVDBCommandsWithCredentials(debug?: boolean) {
+  const adapter = await getTVDBAdapter(debug);
   if (!adapter) return undefined;
   return createDBCommands(adapter);
 }
@@ -58,14 +58,14 @@ function buildAniDBAdapter(credential: string, debug?: boolean): AniDBAdapter {
   });
 }
 
-async function createAniDBCommandsWithCredentials() {
+async function createAniDBCommandsWithCredentials(debug?: boolean) {
   const credentialStore = new CredentialStore();
   const credential = await credentialStore.getCredential("anidb");
   if (!credential) {
     console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
     return undefined;
   }
-  return createDBCommands(buildAniDBAdapter(credential));
+  return createDBCommands(buildAniDBAdapter(credential, debug));
 }
 
 async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
@@ -171,14 +171,14 @@ function createDebugCallback() {
   };
 }
 
-async function createMatchWithCredentials() {
-  const adapter = await getTVDBAdapter();
+async function createMatchWithCredentials(debug?: boolean) {
+  const adapter = await getTVDBAdapter(debug);
   if (!adapter) return undefined;
   return createMatchHandlers({ database: adapter });
 }
 
-async function createMetadataWithCredentials() {
-  const adapter = await getTVDBAdapter();
+async function createMetadataWithCredentials(debug?: boolean) {
+  const adapter = await getTVDBAdapter(debug);
   if (!adapter) return undefined;
   return createMetadataHandlers({ database: adapter });
 }
@@ -380,9 +380,15 @@ export function run(argv: string[]): string | undefined {
             type: "boolean",
             default: false,
             describe: "Overwrite existing .nfo files",
+          })
+          .option("debug", {
+            type: "boolean",
+            default: false,
+            describe: "Dump API requests and responses",
           }),
       async (argv) => {
-        const handlers = (await createMetadataWithCredentials()) ?? createMetadataHandlers();
+        const handlers =
+          (await createMetadataWithCredentials(argv.debug)) ?? createMetadataHandlers();
         await handlers.write(argv.path, argv.force, console.log, console.error);
       },
     )
@@ -524,13 +530,19 @@ export function run(argv: string[]): string | undefined {
             "search <title>",
             "Search for Anime by title on TVDB and print results as JSON",
             (yargs) =>
-              yargs.positional("title", {
-                type: "string",
-                demandOption: true,
-                describe: "Anime title to search for",
-              }),
+              yargs
+                .positional("title", {
+                  type: "string",
+                  demandOption: true,
+                  describe: "Anime title to search for",
+                })
+                .option("debug", {
+                  type: "boolean",
+                  default: false,
+                  describe: "Dump API requests and responses",
+                }),
             async (argv) => {
-              const commands = await createTVDBCommandsWithCredentials();
+              const commands = await createTVDBCommandsWithCredentials(argv.debug);
               if (!commands) return;
               await commands.search(argv.title, console.log, console.error);
             },
@@ -539,13 +551,19 @@ export function run(argv: string[]): string | undefined {
             "episodes <animeId>",
             "Get episodes for an Anime by TVDB ID and print as JSON",
             (yargs) =>
-              yargs.positional("animeId", {
-                type: "string",
-                demandOption: true,
-                describe: "TVDB Anime ID",
-              }),
+              yargs
+                .positional("animeId", {
+                  type: "string",
+                  demandOption: true,
+                  describe: "TVDB Anime ID",
+                })
+                .option("debug", {
+                  type: "boolean",
+                  default: false,
+                  describe: "Dump API requests and responses",
+                }),
             async (argv) => {
-              const commands = await createTVDBCommandsWithCredentials();
+              const commands = await createTVDBCommandsWithCredentials(argv.debug);
               if (!commands) return;
               await commands.episodes(argv.animeId, console.log, console.error);
             },
@@ -559,13 +577,19 @@ export function run(argv: string[]): string | undefined {
                   "search <title>",
                   "Search for Anime by title on AniDB and print results as JSON",
                   (yargs) =>
-                    yargs.positional("title", {
-                      type: "string",
-                      demandOption: true,
-                      describe: "Anime title to search for",
-                    }),
+                    yargs
+                      .positional("title", {
+                        type: "string",
+                        demandOption: true,
+                        describe: "Anime title to search for",
+                      })
+                      .option("debug", {
+                        type: "boolean",
+                        default: false,
+                        describe: "Dump API requests and responses",
+                      }),
                   async (argv) => {
-                    const commands = await createAniDBCommandsWithCredentials();
+                    const commands = await createAniDBCommandsWithCredentials(argv.debug);
                     if (!commands) return;
                     await commands.search(argv.title, console.log, console.error);
                   },
@@ -574,13 +598,19 @@ export function run(argv: string[]): string | undefined {
                   "episodes <animeId>",
                   "Get episodes for an Anime by AniDB AID and print as JSON",
                   (yargs) =>
-                    yargs.positional("animeId", {
-                      type: "string",
-                      demandOption: true,
-                      describe: "AniDB Anime ID",
-                    }),
+                    yargs
+                      .positional("animeId", {
+                        type: "string",
+                        demandOption: true,
+                        describe: "AniDB Anime ID",
+                      })
+                      .option("debug", {
+                        type: "boolean",
+                        default: false,
+                        describe: "Dump API requests and responses",
+                      }),
                   async (argv) => {
-                    const commands = await createAniDBCommandsWithCredentials();
+                    const commands = await createAniDBCommandsWithCredentials(argv.debug);
                     if (!commands) return;
                     await commands.episodes(argv.animeId, console.log, console.error);
                   },
@@ -595,13 +625,19 @@ export function run(argv: string[]): string | undefined {
       "match <filename>",
       "Parse a MediaFile filename and resolve Match candidates via the Database",
       (yargs) =>
-        yargs.positional("filename", {
-          type: "string",
-          demandOption: true,
-          describe: "The filename to parse and match",
-        }),
+        yargs
+          .positional("filename", {
+            type: "string",
+            demandOption: true,
+            describe: "The filename to parse and match",
+          })
+          .option("debug", {
+            type: "boolean",
+            default: false,
+            describe: "Dump API requests and responses",
+          }),
       async (argv) => {
-        const handlers = await createMatchWithCredentials();
+        const handlers = await createMatchWithCredentials(argv.debug);
         if (!handlers) return;
         await handlers.match(argv.filename, console.log, console.error);
       },
