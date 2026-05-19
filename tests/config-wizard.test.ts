@@ -165,6 +165,35 @@ describe("ConfigWizard", () => {
     }
   });
 
+  test("wizard warns with correct env var when credential store throws", async () => {
+    const dir = setupTempDir();
+    try {
+      const config = new ConfigManager({ configDir: dir });
+      const credentialStore = new CredentialStore({
+        keytar: {
+          setPassword: async () => {
+            throw new Error("keyring down");
+          },
+          getPassword: async () => null,
+          deletePassword: async () => false,
+        },
+      });
+      const outroMessages: string[] = [];
+      const prompts = makePrompts({
+        select: async () => "tvdb",
+        text: async () => "my-api-key",
+        outro: (msg: string) => {
+          outroMessages.push(msg);
+        },
+      });
+
+      await runConfigWizard({ config, credentialStore, prompts });
+      expect(outroMessages.some((m) => m.includes("KOGORO_TVDB_KEY"))).toBe(true);
+    } finally {
+      cleanupTempDir(dir);
+    }
+  });
+
   test("wizard accepts empty secondary databases", async () => {
     const dir = setupTempDir();
     try {

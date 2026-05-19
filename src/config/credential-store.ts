@@ -1,4 +1,3 @@
-import { secrets } from "bun";
 import { BunSecretsKeytar } from "./bun-secrets-keytar.ts";
 
 export interface KeytarLike {
@@ -48,5 +47,5 @@ export class CredentialStore {
 }
 
 export function createCredentialStore(): CredentialStore {
-  return new CredentialStore({ keytar: new BunSecretsKeytar(secrets) });
+  return new CredentialStore({ keytar: new BunSecretsKeytar() });
 }
