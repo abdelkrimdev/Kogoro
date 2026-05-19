@@ -84,7 +84,16 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
 
   let database: DatabasePlugin | undefined;
 
-  if (primaryDbName !== "tvdb") {
+  if (primaryDbName === "anidb") {
+    const cred = await credentialStore.getCredential("anidb");
+    if (!cred) {
+      console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
+    } else {
+      database = buildAniDBAdapter(cred, debug);
+    }
+  } else if (primaryDbName === "tvdb") {
+    database = await buildTVDBAdapter(credentialStore, apiDelay, debug);
+  } else {
     const plugin = await registry.instantiate(primaryDbName, debug ? { debug: true } : {});
     if (plugin) {
       database = plugin;
@@ -92,8 +101,6 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
       console.warn(`Primary database "${primaryDbName}" not available, falling back to TVDB`);
       database = await buildTVDBAdapter(credentialStore, apiDelay, debug);
     }
-  } else {
-    database = await buildTVDBAdapter(credentialStore, apiDelay, debug);
   }
 
   if (!database) return undefined;
