@@ -12,9 +12,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { EpisodeResult } from "../src/db/types";
-import type { MatchResult } from "../src/matcher";
-import { Renamer } from "../src/renamer";
+import type { EpisodeResult } from "./db/types";
+import type { MatchResult } from "./matcher";
+import { Renamer } from "./renamer";
 
 function makeTvMatch(): MatchResult {
   return {

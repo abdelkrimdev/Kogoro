@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ArtworkFetcher } from "../src/artwork-fetcher";
-import { TVDBAdapter } from "../src/db/tvdb-adapter";
-import { MatchCache } from "../src/match-cache";
-import { createMockDb, mockFetch, testImageBytes } from "./helpers";
+import { ArtworkFetcher } from "./artwork-fetcher";
+import { TVDBAdapter } from "./db/tvdb-adapter";
+import { MatchCache } from "./match-cache";
+import { createMockDb, mockFetch, testImageBytes } from "./test-helpers";
 
 function urlString(url: string | URL): string {
   return typeof url === "string" ? url : url.toString();

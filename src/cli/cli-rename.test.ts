@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createRenameHandlers } from "../src/cli/rename-commands";
+import { createRenameHandlers } from "../cli/rename-commands";
 
 describe("rename CLI commands", () => {
   test("rename command returns plan as JSON", async () => {

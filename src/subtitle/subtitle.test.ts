@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { OpenSubtitlesAdapter } from "../src/subtitle/opensubtitles-adapter";
+import { OpenSubtitlesAdapter } from "../subtitle/opensubtitles-adapter";
 
 function mockFetch(data: unknown, status = 200) {
   return async (_url: string | URL, _init?: RequestInit) => {

@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createConfigHandlers } from "../src/cli/config-commands";
-import { ConfigManager } from "../src/config/config-manager";
-import { OverrideStore } from "../src/override-store";
+import { createConfigHandlers } from "../cli/config-commands";
+import { ConfigManager } from "../config/config-manager";
+import { OverrideStore } from "../override-store";
 
 describe("Config CLI commands", () => {
   function setupTempDir(): string {

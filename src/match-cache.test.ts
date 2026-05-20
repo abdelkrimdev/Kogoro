@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type CachedMatch, MatchCache } from "../src/match-cache";
+import { type CachedMatch, MatchCache } from "./match-cache";
 
 function createTempDb(): string {
   const dir = mkdtempSync(join(tmpdir(), "kogoro-cache-test-"));

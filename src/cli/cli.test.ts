@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildSecondaryDatabases, run } from "../src/cli/main";
-import { ConfigManager } from "../src/config/config-manager";
-import { CredentialStore } from "../src/config/credential-store";
-import type { PluginInfo } from "../src/plugin-registry";
+import { buildSecondaryDatabases, run } from "../cli/main";
+import { ConfigManager } from "../config/config-manager";
+import { CredentialStore } from "../config/credential-store";
+import type { PluginInfo } from "../plugin-registry";
 
 describe("kogoro CLI", () => {
   test("project bootstrap is set up", () => {

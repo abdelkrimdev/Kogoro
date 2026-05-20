@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type DebugEntry, HttpClient } from "../src/http-client";
+import { type DebugEntry, HttpClient } from "./http-client";
 
 function mockResponse(body: string, init?: ResponseInit): Response {
   return new Response(body, init);

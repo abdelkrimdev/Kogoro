@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createMatchHandlers } from "../src/cli/match-commands";
-import type { DatabasePlugin } from "../src/db/database-plugin";
+import { createMatchHandlers } from "../cli/match-commands";
+import type { DatabasePlugin } from "../db/database-plugin";
 
 function createMockDb(): DatabasePlugin {
   return {

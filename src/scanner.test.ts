@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import type { DatabasePlugin } from "../src/db/database-plugin";
-import type { AnimeResult, EpisodeResult } from "../src/db/types";
-import { MatchCache } from "../src/match-cache";
-import { OverrideStore } from "../src/override-store";
-import { Renamer } from "../src/renamer";
-import { computeFileHash, getDirectoryTitle, Scanner } from "../src/scanner";
+import type { DatabasePlugin } from "./db/database-plugin";
+import type { AnimeResult, EpisodeResult } from "./db/types";
+import { MatchCache } from "./match-cache";
+import { OverrideStore } from "./override-store";
+import { Renamer } from "./renamer";
+import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
 
 async function withTempDir(label: string, fn: (dir: string) => Promise<void>): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), `kogoro-test-${label}-`));

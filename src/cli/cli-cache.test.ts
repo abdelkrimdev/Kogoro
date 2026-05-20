@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createCacheHandlers } from "../src/cli/cache-commands";
-import { MatchCache } from "../src/match-cache";
+import { createCacheHandlers } from "../cli/cache-commands";
+import { MatchCache } from "../match-cache";
 
 function setupTempDb(): string {
   const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-cache-"));

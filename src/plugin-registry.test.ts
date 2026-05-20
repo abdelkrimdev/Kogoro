@@ -2,10 +2,10 @@ import { describe, expect, mock, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createScanHandlers } from "../src/cli/scan-commands";
-import type { DatabasePlugin } from "../src/db/database-plugin";
-import { MatchCache } from "../src/match-cache";
-import { isDatabasePlugin, isSubtitlePlugin, PluginRegistry } from "../src/plugin-registry";
+import { createScanHandlers } from "./cli/scan-commands";
+import type { DatabasePlugin } from "./db/database-plugin";
+import { MatchCache } from "./match-cache";
+import { isDatabasePlugin, isSubtitlePlugin, PluginRegistry } from "./plugin-registry";
 
 describe("isDatabasePlugin", () => {
   test("returns true for object implementing DatabasePlugin", () => {

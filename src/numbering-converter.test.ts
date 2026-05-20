@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { EpisodeResult } from "../src/db/types";
+import type { EpisodeResult } from "./db/types";
 import {
   absoluteToRelative,
   convertEpisodeNumbering,
   relativeToAbsolute,
-} from "../src/numbering-converter";
+} from "./numbering-converter";
 
 function makeEpisodes(perSeason: number, seasonCount: number): EpisodeResult[] {
   const result: EpisodeResult[] = [];

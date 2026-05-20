@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { BunSecretsKeytar } from "../src/config/bun-secrets-keytar";
+import { BunSecretsKeytar } from "../config/bun-secrets-keytar";
 
 describe("BunSecretsKeytar", () => {
   const mockStore = new Map<string, string>();
