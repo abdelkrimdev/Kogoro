@@ -19,7 +19,7 @@ import { render } from "../template-engine";
 import { createArtworkHandlers } from "./artwork-commands";
 import { createCacheHandlers } from "./cache-commands";
 import { createConfigHandlers } from "./config-commands";
-import { createDBCommands } from "./db-commands";
+import { createDatabaseCommands } from "./database-commands";
 import { createMatchHandlers } from "./match-commands";
 import { createMetadataHandlers } from "./metadata-commands";
 import { createRenameHandlers } from "./rename-commands";
@@ -47,7 +47,7 @@ async function getTVDBPlugin(debug?: boolean): Promise<TVDBPlugin | undefined> {
 async function createTVDBCommandsWithCredentials(debug?: boolean) {
   const plugin = await getTVDBPlugin(debug);
   if (!plugin) return undefined;
-  return createDBCommands(plugin);
+  return createDatabaseCommands(plugin);
 }
 
 function buildAniDBPlugin(credential: string, debug?: boolean): AniDBPlugin {
@@ -69,7 +69,7 @@ async function createAniDBCommandsWithCredentials(debug?: boolean) {
     console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
     return undefined;
   }
-  return createDBCommands(buildAniDBPlugin(credential, debug));
+  return createDatabaseCommands(buildAniDBPlugin(credential, debug));
 }
 
 async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {

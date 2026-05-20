@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createDBCommands } from "../cli/db-commands";
+import { createDatabaseCommands } from "../cli/database-commands";
 import type { DatabasePlugin } from "../plugins/database/plugin";
 import type { AnimeResult, ArtworkResult, EpisodeResult } from "../plugins/database/types";
 
@@ -48,7 +48,7 @@ function createMockPlugin(): DatabasePlugin {
 describe("DB CLI commands", () => {
   test("db search outputs anime results as JSON", async () => {
     const plugin = createMockPlugin();
-    const commands = createDBCommands(plugin);
+    const commands = createDatabaseCommands(plugin);
     let output = "";
     await commands.search(
       "Jujutsu Kaisen",
@@ -64,7 +64,7 @@ describe("DB CLI commands", () => {
 
   test("db search outputs empty array for no results", async () => {
     const plugin = createMockPlugin();
-    const commands = createDBCommands(plugin);
+    const commands = createDatabaseCommands(plugin);
     let output = "";
     await commands.search(
       "Unknown",
@@ -78,7 +78,7 @@ describe("DB CLI commands", () => {
 
   test("db episodes outputs episode results as JSON", async () => {
     const plugin = createMockPlugin();
-    const commands = createDBCommands(plugin);
+    const commands = createDatabaseCommands(plugin);
     let output = "";
     await commands.episodes(
       "12345",
@@ -94,7 +94,7 @@ describe("DB CLI commands", () => {
 
   test("db episodes outputs empty array for unknown ID", async () => {
     const plugin = createMockPlugin();
-    const commands = createDBCommands(plugin);
+    const commands = createDatabaseCommands(plugin);
     let output = "";
     await commands.episodes(
       "99999",
@@ -121,7 +121,7 @@ describe("DB CLI commands", () => {
         throw new Error("API Error");
       },
     };
-    const commands = createDBCommands(failingPlugin);
+    const commands = createDatabaseCommands(failingPlugin);
     let errorOutput = "";
     await commands.search(
       "Anything",

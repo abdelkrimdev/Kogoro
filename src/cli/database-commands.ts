@@ -1,6 +1,6 @@
 import type { DatabasePlugin } from "../plugins/database/plugin";
 
-export function createDBCommands(plugin: DatabasePlugin) {
+export function createDatabaseCommands(plugin: DatabasePlugin) {
   return {
     async search(
       title: string,
