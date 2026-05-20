@@ -1,4 +1,4 @@
-import { BunSecretsKeytar } from "./bun-secrets-keytar.ts";
+import { BunSecretsKeytar } from "./bun-secrets-keytar";
 
 export interface KeytarLike {
   setPassword(service: string, account: string, password: string): Promise<void>;

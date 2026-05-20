@@ -1,4 +1,4 @@
-import type { AnimeResult, ArtworkResult, ArtworkType, EpisodeResult } from "./types.ts";
+import type { AnimeResult, ArtworkResult, ArtworkType, EpisodeResult } from "./types";
 
 export interface DatabasePlugin {
   searchAnime(title: string): Promise<AnimeResult[]>;

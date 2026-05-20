@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createMetadataHandlers } from "../src/cli/metadata-commands.ts";
-import { MatchCache } from "../src/match-cache.ts";
+import { createMetadataHandlers } from "../src/cli/metadata-commands";
+import { MatchCache } from "../src/match-cache";
 
 function setupTempDb(): string {
   const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-meta-"));

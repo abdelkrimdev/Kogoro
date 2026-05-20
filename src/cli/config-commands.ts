@@ -1,7 +1,7 @@
-import { ConfigManager, TEMPLATE_PRESETS } from "../config/config-manager.ts";
-import { type PromptsAPI, runConfigWizard } from "../config/config-wizard.ts";
-import { createCredentialStore } from "../config/credential-store.ts";
-import { type OverrideData, OverrideStore } from "../override-store.ts";
+import { ConfigManager, TEMPLATE_PRESETS } from "../config/config-manager";
+import { type PromptsAPI, runConfigWizard } from "../config/config-wizard";
+import { createCredentialStore } from "../config/credential-store";
+import { type OverrideData, OverrideStore } from "../override-store";
 
 export interface ConfigHandlerOptions {
   configDir?: string;

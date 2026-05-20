@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
 
-import { run } from "./main.ts";
+import { run } from "./main";
 
 run(process.argv);

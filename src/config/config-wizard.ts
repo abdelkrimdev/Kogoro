@@ -1,7 +1,7 @@
 import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
-import type { ConfigManager } from "./config-manager.ts";
-import { TEMPLATE_PRESETS as PRESET_MAP } from "./config-manager.ts";
-import type { CredentialStore } from "./credential-store.ts";
+import type { ConfigManager } from "./config-manager";
+import { TEMPLATE_PRESETS as PRESET_MAP } from "./config-manager";
+import type { CredentialStore } from "./credential-store";
 
 export interface PromptsAPI {
   intro(title: string): void;

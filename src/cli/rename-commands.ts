@@ -1,8 +1,8 @@
 import { extname } from "node:path";
-import type { EntryType } from "../db/types.ts";
-import type { MatchResult } from "../matcher.ts";
-import { parse } from "../parser.ts";
-import { type FileAction, Renamer } from "../renamer.ts";
+import type { EntryType } from "../db/types";
+import type { MatchResult } from "../matcher";
+import { parse } from "../parser";
+import { type FileAction, Renamer } from "../renamer";
 
 export interface RenameHandlerOptions {
   filenameTemplate?: string;

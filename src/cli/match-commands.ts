@@ -1,6 +1,6 @@
-import type { DatabasePlugin } from "../db/database-plugin.ts";
-import { Matcher } from "../matcher.ts";
-import { parse } from "../parser.ts";
+import type { DatabasePlugin } from "../db/database-plugin";
+import { Matcher } from "../matcher";
+import { parse } from "../parser";
 
 export interface MatchHandlerOptions {
   database: DatabasePlugin;

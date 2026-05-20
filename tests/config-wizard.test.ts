@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ConfigManager } from "../src/config/config-manager.ts";
-import { type PromptsAPI, runConfigWizard } from "../src/config/config-wizard.ts";
-import { CredentialStore } from "../src/config/credential-store.ts";
+import { ConfigManager } from "../src/config/config-manager";
+import { type PromptsAPI, runConfigWizard } from "../src/config/config-wizard";
+import { CredentialStore } from "../src/config/credential-store";
 
 describe("ConfigWizard", () => {
   function setupTempDir(): string {

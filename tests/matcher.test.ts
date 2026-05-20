@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabasePlugin } from "../src/db/database-plugin.ts";
-import { Matcher } from "../src/matcher.ts";
-import { OverrideStore } from "../src/override-store.ts";
-import type { ParsedResult } from "../src/parser.ts";
+import type { DatabasePlugin } from "../src/db/database-plugin";
+import { Matcher } from "../src/matcher";
+import { OverrideStore } from "../src/override-store";
+import type { ParsedResult } from "../src/parser";
 
 interface MockAnime {
   animeId: string;

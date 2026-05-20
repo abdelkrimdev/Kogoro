@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { run } from "../src/cli/main.ts";
-import { ConfigManager } from "../src/config/config-manager.ts";
-import { CredentialStore } from "../src/config/credential-store.ts";
-import type { PluginInfo } from "../src/plugin-registry.ts";
+import { buildSecondaryDatabases, run } from "../src/cli/main";
+import { ConfigManager } from "../src/config/config-manager";
+import { CredentialStore } from "../src/config/credential-store";
+import type { PluginInfo } from "../src/plugin-registry";
 
 describe("kogoro CLI", () => {
   test("project bootstrap is set up", () => {
@@ -62,7 +62,6 @@ describe("kogoro CLI", () => {
   });
 
   test("buildSecondaryDatabases returns empty array when config has no secondary-dbs", async () => {
-    const { buildSecondaryDatabases } = await import("../src/cli/main.ts");
     const dir = mkdtempSync(join(tmpdir(), "kogoro-build-secondary-"));
     try {
       const config = new ConfigManager({ configDir: dir });
@@ -75,7 +74,6 @@ describe("kogoro CLI", () => {
   });
 
   test("buildSecondaryDatabases returns anidb when configured", async () => {
-    const { buildSecondaryDatabases } = await import("../src/cli/main.ts");
     const dir = mkdtempSync(join(tmpdir(), "kogoro-build-secondary-"));
     try {
       const config = new ConfigManager({ configDir: dir });
@@ -93,7 +91,6 @@ describe("kogoro CLI", () => {
   });
 
   test("buildSecondaryDatabases skips databases without credentials", async () => {
-    const { buildSecondaryDatabases } = await import("../src/cli/main.ts");
     const dir = mkdtempSync(join(tmpdir(), "kogoro-build-secondary-"));
     try {
       const config = new ConfigManager({ configDir: dir });

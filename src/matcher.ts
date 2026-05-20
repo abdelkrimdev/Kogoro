@@ -1,7 +1,7 @@
-import type { DatabasePlugin } from "./db/database-plugin.ts";
-import type { AnimeResult, EpisodeResult } from "./db/types.ts";
-import type { OverrideData, OverrideStore } from "./override-store.ts";
-import type { ParsedResult } from "./parser.ts";
+import type { DatabasePlugin } from "./db/database-plugin";
+import type { AnimeResult, EpisodeResult } from "./db/types";
+import type { OverrideData, OverrideStore } from "./override-store";
+import type { ParsedResult } from "./parser";
 
 export interface MatchResult {
   anime: AnimeResult;

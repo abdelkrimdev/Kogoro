@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type CachedMatch, MatchCache } from "../src/match-cache.ts";
-import { MetadataWriter } from "../src/metadata-writer.ts";
+import { type CachedMatch, MatchCache } from "../src/match-cache";
+import { MetadataWriter } from "../src/metadata-writer";
 
 function createTempDir(): string {
   return mkdtempSync(join(tmpdir(), "kogoro-metadata-test-"));

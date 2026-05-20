@@ -1,5 +1,5 @@
-import type { DatabasePlugin } from "../src/db/database-plugin.ts";
-import type { ArtworkResult } from "../src/db/types.ts";
+import type { DatabasePlugin } from "../src/db/database-plugin";
+import type { ArtworkResult } from "../src/db/types";
 
 export function mockFetch(
   data: string,

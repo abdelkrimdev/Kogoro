@@ -1,4 +1,4 @@
-import type { EpisodeResult } from "./db/types.ts";
+import type { EpisodeResult } from "./db/types";
 
 export type NumberingScheme = "absolute" | "relative";
 

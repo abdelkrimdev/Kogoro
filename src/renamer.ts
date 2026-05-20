@@ -8,11 +8,11 @@ import {
   unlinkSync,
 } from "node:fs";
 import { join } from "node:path";
-import type { EntryType } from "./db/types.ts";
-import type { MatchResult } from "./matcher.ts";
-import type { ParsedTags } from "./parser.ts";
-import { stripExtension } from "./parser.ts";
-import { render } from "./template-engine.ts";
+import type { EntryType } from "./db/types";
+import type { MatchResult } from "./matcher";
+import type { ParsedTags } from "./parser";
+import { stripExtension } from "./parser";
+import { render } from "./template-engine";
 
 export type FileAction = "move" | "copy" | "symlink" | "hardlink";
 

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { EntryType } from "./db/types.ts";
+import type { EntryType } from "./db/types";
 
 export interface OverrideData {
   animeId?: string;

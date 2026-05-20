@@ -1,5 +1,5 @@
-import type { SubtitlePlugin } from "./subtitle-plugin.ts";
-import type { SubtitleResult } from "./types.ts";
+import type { SubtitlePlugin } from "./subtitle-plugin";
+import type { SubtitleResult } from "./types";
 
 const BASE_URL = "https://api.opensubtitles.com/api/v1";
 

@@ -1,15 +1,15 @@
 import { lstatSync, readdirSync } from "node:fs";
 import { extname, join, sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
-import type { ConfigManager } from "../config/config-manager.ts";
-import type { DatabasePlugin } from "../db/database-plugin.ts";
-import type { MatchCache } from "../match-cache.ts";
-import type { MatchResult } from "../matcher.ts";
-import type { NumberingScheme } from "../numbering-converter.ts";
-import type { OverrideStore } from "../override-store.ts";
-import { createEmptyResult, type ParsedResult } from "../parser.ts";
-import { type FileAction, Renamer } from "../renamer.ts";
-import { Scanner, type ScanProgress, type ScanResult } from "../scanner.ts";
+import type { ConfigManager } from "../config/config-manager";
+import type { DatabasePlugin } from "../db/database-plugin";
+import type { MatchCache } from "../match-cache";
+import type { MatchResult } from "../matcher";
+import type { NumberingScheme } from "../numbering-converter";
+import type { OverrideStore } from "../override-store";
+import { createEmptyResult, type ParsedResult } from "../parser";
+import { type FileAction, Renamer } from "../renamer";
+import { Scanner, type ScanProgress, type ScanResult } from "../scanner";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;

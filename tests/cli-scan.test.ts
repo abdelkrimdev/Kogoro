@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../src/cli/scan-commands.ts";
-import { ConfigManager } from "../src/config/config-manager.ts";
-import type { DatabasePlugin } from "../src/db/database-plugin.ts";
-import { MatchCache } from "../src/match-cache.ts";
-import { OverrideStore } from "../src/override-store.ts";
-import { computeFileHash } from "../src/scanner.ts";
+import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../src/cli/scan-commands";
+import { ConfigManager } from "../src/config/config-manager";
+import type { DatabasePlugin } from "../src/db/database-plugin";
+import { MatchCache } from "../src/match-cache";
+import { OverrideStore } from "../src/override-store";
+import { computeFileHash } from "../src/scanner";
 
 function createMockDb(): DatabasePlugin {
   return {

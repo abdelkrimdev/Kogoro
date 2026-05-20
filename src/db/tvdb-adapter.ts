@@ -1,5 +1,5 @@
-import type { DatabasePlugin } from "./database-plugin.ts";
-import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types.ts";
+import type { DatabasePlugin } from "./database-plugin";
+import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types";
 
 const BASE_URL = "https://api4.thetvdb.com/v4";
 

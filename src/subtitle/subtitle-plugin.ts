@@ -1,4 +1,4 @@
-import type { SubtitleResult } from "./types.ts";
+import type { SubtitleResult } from "./types";
 
 export interface SubtitlePlugin {
   search(

@@ -1,6 +1,6 @@
-import type { DatabasePlugin } from "../db/database-plugin.ts";
-import { MatchCache } from "../match-cache.ts";
-import { MetadataWriter } from "../metadata-writer.ts";
+import type { DatabasePlugin } from "../db/database-plugin";
+import { MatchCache } from "../match-cache";
+import { MetadataWriter } from "../metadata-writer";
 
 export interface MetadataHandlerOptions {
   dbPath?: string;

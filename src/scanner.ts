@@ -1,12 +1,12 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
-import type { DatabasePlugin } from "./db/database-plugin.ts";
-import type { EntryType } from "./db/types.ts";
-import { MatchCache } from "./match-cache.ts";
-import { Matcher, type MatchResult } from "./matcher.ts";
-import type { OverrideStore } from "./override-store.ts";
-import { createEmptyResult, type ParsedResult, parse } from "./parser.ts";
-import type { FileAction, RenamePlan, RenameResult, Renamer } from "./renamer.ts";
+import type { DatabasePlugin } from "./db/database-plugin";
+import type { EntryType } from "./db/types";
+import { MatchCache } from "./match-cache";
+import { Matcher, type MatchResult } from "./matcher";
+import type { OverrideStore } from "./override-store";
+import { createEmptyResult, type ParsedResult, parse } from "./parser";
+import type { FileAction, RenamePlan, RenameResult, Renamer } from "./renamer";
 
 export type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
 

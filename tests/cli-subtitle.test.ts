@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createSubtitleHandlers } from "../src/cli/subtitle-commands.ts";
-import { MatchCache } from "../src/match-cache.ts";
-import type { SubtitlePlugin } from "../src/subtitle/subtitle-plugin.ts";
-import type { SubtitleResult } from "../src/subtitle/types.ts";
+import { createSubtitleHandlers } from "../src/cli/subtitle-commands";
+import { MatchCache } from "../src/match-cache";
+import type { SubtitlePlugin } from "../src/subtitle/subtitle-plugin";
+import type { SubtitleResult } from "../src/subtitle/types";
 
 function createTempDir(): string {
   return mkdtempSync(join(tmpdir(), "kogoro-subtitle-test-"));

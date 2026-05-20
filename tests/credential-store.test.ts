@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { CredentialStore, createCredentialStore } from "../src/config/credential-store.ts";
+import { CredentialStore, createCredentialStore } from "../src/config/credential-store";
 
 describe("CredentialStore", () => {
   const mockKeytar = {

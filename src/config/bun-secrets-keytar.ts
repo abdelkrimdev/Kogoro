@@ -1,4 +1,4 @@
-import type { KeytarLike } from "./credential-store.ts";
+import type { KeytarLike } from "./credential-store";
 
 export class BunSecretsKeytar implements KeytarLike {
   async setPassword(service: string, account: string, password: string): Promise<void> {

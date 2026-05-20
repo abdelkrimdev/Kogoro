@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ArtworkFetcher } from "../src/artwork-fetcher.ts";
-import { MatchCache } from "../src/match-cache.ts";
-import { createMockDb, mockFetch, testImageBytes } from "./helpers.ts";
+import { ArtworkFetcher } from "../src/artwork-fetcher";
+import { TVDBAdapter } from "../src/db/tvdb-adapter";
+import { MatchCache } from "../src/match-cache";
+import { createMockDb, mockFetch, testImageBytes } from "./helpers";
 
 function urlString(url: string | URL): string {
   return typeof url === "string" ? url : url.toString();
@@ -240,7 +241,6 @@ describe("ArtworkFetcher", () => {
       { id: 2, image: "https://example.com/poster2.jpg", type: 14, width: 900, height: 1280 },
     ];
 
-    const { TVDBAdapter } = await import("../src/db/tvdb-adapter.ts");
     const adapter = new TVDBAdapter({
       apiKey: "test-key",
       fetch: async (url: string | URL, _init?: RequestInit) => {

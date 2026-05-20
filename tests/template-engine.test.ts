@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { render } from "../src/template-engine.ts";
+import { render } from "../src/template-engine";
 
 describe("TemplateEngine", () => {
   test("renders {placeholder} with simple string values", () => {

@@ -7,7 +7,7 @@
     "allowJs": true,
 
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    "types": ["bun", "node"],
     "verbatimModuleSyntax": true,
     "noEmit": true,
 

@@ -1,6 +1,6 @@
-import { HttpClient } from "../http-client.ts";
-import type { DatabasePlugin } from "./database-plugin.ts";
-import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types.ts";
+import { HttpClient } from "../http-client";
+import type { DatabasePlugin } from "./database-plugin";
+import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types";
 
 const BASE_URL = "http://api.anidb.net:9001/httpapi";
 

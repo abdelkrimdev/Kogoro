@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { DatabasePlugin } from "../src/db/database-plugin.ts";
-import { TVDBAdapter } from "../src/db/tvdb-adapter.ts";
-import type { AnimeResult } from "../src/db/types.ts";
+import type { DatabasePlugin } from "../src/db/database-plugin";
+import { TVDBAdapter } from "../src/db/tvdb-adapter";
+import type { AnimeResult } from "../src/db/types";
 
 function toUrlString(url: string | URL): string {
   return typeof url === "string" ? url : url.toString();

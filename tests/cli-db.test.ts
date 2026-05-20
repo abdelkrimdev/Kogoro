@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createDBCommands } from "../src/cli/db-commands.ts";
-import type { DatabasePlugin } from "../src/db/database-plugin.ts";
-import type { AnimeResult, ArtworkResult, EpisodeResult } from "../src/db/types.ts";
+import { createDBCommands } from "../src/cli/db-commands";
+import type { DatabasePlugin } from "../src/db/database-plugin";
+import type { AnimeResult, ArtworkResult, EpisodeResult } from "../src/db/types";
 
 function createMockAdapter(): DatabasePlugin {
   return {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parse } from "./parser.ts";
+import { parse } from "./parser";
 
 describe("Filename parsing", () => {
   test("parses [Group] Anime Title - 01 (1080p).mkv", () => {

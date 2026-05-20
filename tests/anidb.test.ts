@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { AniDBAdapter } from "../src/db/anidb-adapter.ts";
-import type { DatabasePlugin } from "../src/db/database-plugin.ts";
-import { HttpClient } from "../src/http-client.ts";
+import { AniDBAdapter } from "../src/db/anidb-adapter";
+import type { DatabasePlugin } from "../src/db/database-plugin";
+import { HttpClient } from "../src/http-client";
 
 function mockHttpClient(data: string, status = 200): HttpClient {
   return new HttpClient({

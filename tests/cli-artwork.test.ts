@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createArtworkHandlers } from "../src/cli/artwork-commands.ts";
-import type { DatabasePlugin } from "../src/db/database-plugin.ts";
-import { MatchCache } from "../src/match-cache.ts";
-import { createMockDb, mockFetch, testImageBytes } from "./helpers.ts";
+import { createArtworkHandlers } from "../src/cli/artwork-commands";
+import type { DatabasePlugin } from "../src/db/database-plugin";
+import { MatchCache } from "../src/match-cache";
+import { createMockDb, mockFetch, testImageBytes } from "./helpers";
 
 function setup() {
   const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-artwork-test-"));
