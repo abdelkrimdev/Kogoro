@@ -105,7 +105,7 @@ function extractOriginalTitle(aliases: TVDBAlias[] | string[] | undefined): stri
   return typeof first === "string" ? first : first.name;
 }
 
-export class TVDBAdapter implements DatabasePlugin {
+export class TVDBPlugin implements DatabasePlugin {
   private token: string | null = null;
   private apiKey: string;
   private fetchFn: (url: string | URL, init?: RequestInit) => Promise<Response>;

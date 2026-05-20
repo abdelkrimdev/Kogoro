@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { DatabasePlugin } from "../db/database-plugin";
-import { TVDBAdapter } from "../db/tvdb-adapter";
-import type { AnimeResult } from "../db/types";
+import type { DatabasePlugin } from "./database-plugin";
+import { TVDBPlugin } from "./tvdb-plugin";
+import type { AnimeResult } from "./types";
 
 function toUrlString(url: string | URL): string {
   return typeof url === "string" ? url : url.toString();
@@ -64,14 +64,14 @@ function mockFetchWithRoutes(
 
 describe("DatabasePlugin interface", () => {
   test("interface is defined", () => {
-    const adapter: DatabasePlugin = new TVDBAdapter({ apiKey: "test-key" });
+    const adapter: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
     expect(adapter.searchAnime).toBeInstanceOf(Function);
     expect(adapter.getEpisodes).toBeInstanceOf(Function);
     expect(adapter.getArtwork).toBeInstanceOf(Function);
   });
 });
 
-describe("TVDBAdapter", () => {
+describe("TVDBPlugin", () => {
   describe("searchAnime", () => {
     test("returns AnimeResult array from TVDB search API", async () => {
       const searchResponse = [
@@ -87,7 +87,7 @@ describe("TVDBAdapter", () => {
         },
       ];
 
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(searchResponse),
       });
@@ -105,7 +105,7 @@ describe("TVDBAdapter", () => {
     });
 
     test("returns empty array for no results", async () => {
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch([]),
       });
@@ -122,7 +122,7 @@ describe("TVDBAdapter", () => {
         },
       ];
 
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(searchResponse),
       });
@@ -158,7 +158,7 @@ describe("TVDBAdapter", () => {
         ],
       };
 
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetchWithRoutes({
           "/episodes/default": episodesResponse,
@@ -178,7 +178,7 @@ describe("TVDBAdapter", () => {
     });
 
     test("returns empty array when no episodes exist", async () => {
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch({ series: { id: 99999, name: "Unknown" } }),
       });
@@ -198,7 +198,7 @@ describe("TVDBAdapter", () => {
         ],
       };
 
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetchWithRoutes({
           "/episodes/default": episodesResponse,
@@ -225,7 +225,7 @@ describe("TVDBAdapter", () => {
         { id: 5, image: "https://example.com/thumb.jpg", type: 99 },
       ];
 
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(artworkResponse),
       });
@@ -242,7 +242,7 @@ describe("TVDBAdapter", () => {
     test("returns empty array when no matching artwork type", async () => {
       const artworkResponse = [{ id: 1, image: "https://example.com/banner.jpg", type: 3 }];
 
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(artworkResponse),
       });
@@ -251,7 +251,7 @@ describe("TVDBAdapter", () => {
     });
 
     test("returns empty array when no artwork exists", async () => {
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch([]),
       });
@@ -267,7 +267,7 @@ describe("TVDBAdapter", () => {
         { language: "eng", name: "Jujutsu Kaisen", overview: "A boy fights curses." },
       ];
 
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(translationsResponse),
       });
@@ -280,7 +280,7 @@ describe("TVDBAdapter", () => {
     });
 
     test("returns empty object when no translations exist", async () => {
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch([]),
       });
@@ -289,7 +289,7 @@ describe("TVDBAdapter", () => {
     });
 
     test("getTranslations is an optional method on DatabasePlugin", () => {
-      const adapter: DatabasePlugin = new TVDBAdapter({ apiKey: "test-key" });
+      const adapter: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
       expect(adapter.getTranslations).toBeInstanceOf(Function);
     });
   });
@@ -316,7 +316,7 @@ describe("TVDBAdapter", () => {
         { language: "eng", name: "Jujutsu Kaisen", overview: "" },
       ];
 
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetchWithRoutes({
           "/episodes/default": episodesResponse,
@@ -344,7 +344,7 @@ describe("TVDBAdapter", () => {
         status: "Continuing",
       };
 
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(seriesResponse),
       });
@@ -360,7 +360,7 @@ describe("TVDBAdapter", () => {
     });
 
     test("returns null when anime ID does not exist", async () => {
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetchFailure(404),
       });
@@ -371,7 +371,7 @@ describe("TVDBAdapter", () => {
 
   describe("error handling", () => {
     test("returns empty array on login failure", async () => {
-      const adapter = new TVDBAdapter({
+      const adapter = new TVDBPlugin({
         apiKey: "bad-key",
         fetch: mockFetchFailure(401),
       });
@@ -396,7 +396,7 @@ describe("TVDBAdapter", () => {
         });
       };
 
-      const adapter = new TVDBAdapter({ apiKey: "test-key", fetch });
+      const adapter = new TVDBPlugin({ apiKey: "test-key", fetch });
       const searchResults = await adapter.searchAnime("Unknown");
       expect(searchResults).toEqual([]);
       expect(callCount).toBe(2);
@@ -419,7 +419,7 @@ describe("TVDBAdapter", () => {
         });
       };
 
-      const adapter = new TVDBAdapter({ apiKey: "test-key", fetch });
+      const adapter = new TVDBPlugin({ apiKey: "test-key", fetch });
       await adapter.searchAnime("One");
       await adapter.searchAnime("Two");
       expect(loginCount).toBe(1);

@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../cli/scan-commands";
 import { ConfigManager } from "../config/config-manager";
-import type { DatabasePlugin } from "../db/database-plugin";
 import { MatchCache } from "../match-cache";
 import { OverrideStore } from "../override-store";
+import type { DatabasePlugin } from "../plugins/database-plugin";
 import { computeFileHash } from "../scanner";
 
 function createMockDb(): DatabasePlugin {

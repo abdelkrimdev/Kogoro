@@ -92,6 +92,7 @@ describe("createCredentialStore", () => {
   const originalEnv = process.env;
 
   function stubBunSecrets(impl: typeof Bun.secrets): void {
+    // biome-ignore lint/suspicious/noExplicitAny: test stub for Bun internals
     (Bun as any).secrets = impl;
   }
 

@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import type { DatabasePlugin } from "./db/database-plugin";
+import type { DatabasePlugin } from "./plugins/database-plugin";
 import type { SubtitlePlugin } from "./subtitle/subtitle-plugin";
 
 export function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {

@@ -6,6 +6,7 @@ describe("BunSecretsKeytar", () => {
   const originalSecrets = Bun.secrets;
 
   function stubBunSecrets(impl: typeof Bun.secrets): void {
+    // biome-ignore lint/suspicious/noExplicitAny: test stub for Bun internals
     (Bun as any).secrets = impl;
   }
 
@@ -65,6 +66,7 @@ describe("BunSecretsKeytar", () => {
   test("getPassword normalizes undefined to null", async () => {
     stubBunSecrets({
       ...silentBunSecrets(),
+      // biome-ignore lint/suspicious/noExplicitAny: Bun.get returns a string or undefined, type system expects only string
       get: async () => undefined as any,
     });
     const keytar = new BunSecretsKeytar();

@@ -8,10 +8,10 @@ import {
   unlinkSync,
 } from "node:fs";
 import { join } from "node:path";
-import type { EntryType } from "./db/types";
 import type { MatchResult } from "./matcher";
 import type { ParsedTags } from "./parser";
 import { stripExtension } from "./parser";
+import type { EntryType } from "./plugins/types";
 import { render } from "./template-engine";
 
 export type FileAction = "move" | "copy" | "symlink" | "hardlink";

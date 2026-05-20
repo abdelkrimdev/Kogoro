@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ArtworkFetcher } from "./artwork-fetcher";
-import { TVDBAdapter } from "./db/tvdb-adapter";
 import { MatchCache } from "./match-cache";
+import { TVDBPlugin } from "./plugins/tvdb-plugin";
 import { createMockDb, mockFetch, testImageBytes } from "./test-helpers";
 
 function urlString(url: string | URL): string {
@@ -241,7 +241,7 @@ describe("ArtworkFetcher", () => {
       { id: 2, image: "https://example.com/poster2.jpg", type: 14, width: 900, height: 1280 },
     ];
 
-    const adapter = new TVDBAdapter({
+    const adapter = new TVDBPlugin({
       apiKey: "test-key",
       fetch: async (url: string | URL, _init?: RequestInit) => {
         if (urlString(url).includes("/login")) {

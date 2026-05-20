@@ -1,4 +1,4 @@
-import type { EpisodeResult } from "./db/types";
+import type { EpisodeResult } from "./plugins/types";
 
 export type NumberingScheme = "absolute" | "relative";
 

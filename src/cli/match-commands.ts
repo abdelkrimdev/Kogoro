@@ -1,6 +1,6 @@
-import type { DatabasePlugin } from "../db/database-plugin";
 import { Matcher } from "../matcher";
 import { parse } from "../parser";
+import type { DatabasePlugin } from "../plugins/database-plugin";
 
 export interface MatchHandlerOptions {
   database: DatabasePlugin;

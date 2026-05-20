@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import type { DatabasePlugin } from "./db/database-plugin";
-import type { AnimeResult, EpisodeResult } from "./db/types";
 import { MatchCache } from "./match-cache";
 import { OverrideStore } from "./override-store";
+import type { DatabasePlugin } from "./plugins/database-plugin";
+import type { AnimeResult, EpisodeResult } from "./plugins/types";
 import { Renamer } from "./renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { AniDBAdapter } from "../db/anidb-adapter";
-import type { DatabasePlugin } from "../db/database-plugin";
 import { HttpClient } from "../http-client";
+import { AniDBPlugin } from "./anidb-plugin";
+import type { DatabasePlugin } from "./database-plugin";
 
 function mockHttpClient(data: string, status = 200): HttpClient {
   return new HttpClient({
@@ -28,10 +28,10 @@ const animetitlesXml = `<?xml version="1.0" encoding="UTF-8"?>
   </anime>
 </animetitles>`;
 
-describe("AniDBAdapter", () => {
+describe("AniDBPlugin", () => {
   describe("searchAnime", () => {
     test("returns AnimeResult array from animetitles XML", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animetitlesXml),
@@ -45,7 +45,7 @@ describe("AniDBAdapter", () => {
     });
 
     test("returns empty array for no matching title", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animetitlesXml),
@@ -55,7 +55,7 @@ describe("AniDBAdapter", () => {
     });
 
     test("matches case-insensitively", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animetitlesXml),
@@ -66,7 +66,7 @@ describe("AniDBAdapter", () => {
     });
 
     test("matches partial titles", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animetitlesXml),
@@ -86,7 +86,7 @@ describe("AniDBAdapter", () => {
     <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
   </anime>
 </animetitles>`;
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(xmlWithNoEnglishTitle),
@@ -130,7 +130,7 @@ describe("AniDBAdapter", () => {
 </anime>`;
 
     test("returns EpisodeResult array from anime XML", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animeXml),
@@ -148,7 +148,7 @@ describe("AniDBAdapter", () => {
     });
 
     test("returns empty array on API failure", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient("", 404),
@@ -166,7 +166,7 @@ describe("AniDBAdapter", () => {
     <title type="main" lang="en" xml:lang="en">Some Movie</title>
   </titles>
 </anime>`;
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(xmlWithoutEpisodes),
@@ -209,22 +209,22 @@ describe("AniDBAdapter", () => {
   </episodes>
 </anime>`;
 
-      const movieAdapter = new AniDBAdapter({
+      const movieAdapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(movieXml),
       });
-      const ovaAdapter = new AniDBAdapter({
+      const ovaAdapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(ovaXml),
       });
-      const specialAdapter = new AniDBAdapter({
+      const specialAdapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(specialXml),
       });
-      const tvSpecialAdapter = new AniDBAdapter({
+      const tvSpecialAdapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(tvSpecialXml),
@@ -247,7 +247,7 @@ describe("AniDBAdapter", () => {
     <episode id="3"><epno>25</epno><season>2</season><title>Season 2 Ep 1</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(multiSeasonXml),
@@ -272,7 +272,7 @@ describe("AniDBAdapter", () => {
     <episode id="2"><epno>2</epno><title>Also No Season</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(xmlWithoutSeason),
@@ -293,7 +293,7 @@ describe("AniDBAdapter", () => {
     <episode id="2"><epno>26</epno><title>Episode 26</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(multiSeasonXml),
@@ -315,7 +315,7 @@ describe("AniDBAdapter", () => {
     <episode id="3"><epno>3</epno><season>2</season><title>S2E1</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(multiSeasonXml),
@@ -340,7 +340,7 @@ describe("AniDBAdapter", () => {
     <episode id="2"><epno>2</epno><season>2</season><title>With Season Tag</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(noSeasonXml),
@@ -360,7 +360,7 @@ describe("AniDBAdapter", () => {
     <episode id="1"><epno>1</epno><season>abc</season><title>Invalid Season</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(invalidSeasonXml),
@@ -389,7 +389,7 @@ describe("AniDBAdapter", () => {
 </anime>`;
 
     test("returns poster artwork from anime picture", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animeWithPictureXml),
@@ -401,7 +401,7 @@ describe("AniDBAdapter", () => {
     });
 
     test("returns empty array when no picture element", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animeWithoutPictureXml),
@@ -411,7 +411,7 @@ describe("AniDBAdapter", () => {
     });
 
     test("returns empty array for non-poster artwork types", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animeWithPictureXml),
@@ -423,7 +423,7 @@ describe("AniDBAdapter", () => {
     });
 
     test("returns empty array on API failure", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient("", 404),
@@ -435,7 +435,7 @@ describe("AniDBAdapter", () => {
 
   describe("error handling", () => {
     test("returns empty array on API failure for searchAnime", async () => {
-      const adapter = new AniDBAdapter({
+      const adapter = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient("", 500),
@@ -460,7 +460,7 @@ describe("getAnime", () => {
   <description>A boy fights curses.</description>
 </anime>`;
 
-    const adapter = new AniDBAdapter({
+    const adapter = new AniDBPlugin({
       client: "kogoro",
       clientver: "1",
       httpClient: mockHttpClient(animeXml),
@@ -476,7 +476,7 @@ describe("getAnime", () => {
   });
 
   test("returns null on API failure", async () => {
-    const adapter = new AniDBAdapter({
+    const adapter = new AniDBPlugin({
       client: "kogoro",
       clientver: "1",
       httpClient: mockHttpClient("", 404),
@@ -488,7 +488,7 @@ describe("getAnime", () => {
 
 describe("DatabasePlugin interface", () => {
   test("interface is defined", () => {
-    const adapter: DatabasePlugin = new AniDBAdapter({
+    const adapter: DatabasePlugin = new AniDBPlugin({
       client: "kogoro",
       clientver: "1",
     });

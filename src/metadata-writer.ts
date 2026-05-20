@@ -1,9 +1,9 @@
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
-import type { DatabasePlugin } from "./db/database-plugin";
-import type { EpisodeResult } from "./db/types";
 import { type CachedMatch, MatchCache } from "./match-cache";
 import { stripExtension } from "./parser";
+import type { DatabasePlugin } from "./plugins/database-plugin";
+import type { EpisodeResult } from "./plugins/types";
 
 export const VIDEO_EXTENSIONS = [".mkv", ".mp4", ".avi", ".mov"];
 

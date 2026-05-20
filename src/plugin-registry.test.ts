@@ -3,9 +3,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createScanHandlers } from "./cli/scan-commands";
-import type { DatabasePlugin } from "./db/database-plugin";
 import { MatchCache } from "./match-cache";
 import { isDatabasePlugin, isSubtitlePlugin, PluginRegistry } from "./plugin-registry";
+import type { DatabasePlugin } from "./plugins/database-plugin";
 
 describe("isDatabasePlugin", () => {
   test("returns true for object implementing DatabasePlugin", () => {

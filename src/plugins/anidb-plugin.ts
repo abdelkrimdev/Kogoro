@@ -47,7 +47,7 @@ function findTitles(
   return { title, originalTitle };
 }
 
-export class AniDBAdapter implements DatabasePlugin {
+export class AniDBPlugin implements DatabasePlugin {
   private httpClient: HttpClient;
   private client: string;
   private clientver: string;

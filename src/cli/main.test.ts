@@ -82,7 +82,7 @@ describe("kogoro CLI", () => {
       await credentialStore.setCredential("anidb", "testclient:1");
       const dbs = await buildSecondaryDatabases(config, credentialStore);
       expect(dbs).toHaveLength(1);
-      expect(dbs[0]?.constructor.name).toBe("AniDBAdapter");
+      expect(dbs[0]?.constructor.name).toBe("AniDBPlugin");
     } finally {
       // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
       delete process.env["KOGORO_ANIDB_KEY"];
@@ -100,7 +100,7 @@ describe("kogoro CLI", () => {
       await credentialStore.setCredential("anidb", "testclient:1");
       const dbs = await buildSecondaryDatabases(config, credentialStore);
       expect(dbs).toHaveLength(1);
-      expect(dbs[0]?.constructor.name).toBe("AniDBAdapter");
+      expect(dbs[0]?.constructor.name).toBe("AniDBPlugin");
     } finally {
       // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
       delete process.env["KOGORO_ANIDB_KEY"];

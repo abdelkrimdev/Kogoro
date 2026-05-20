@@ -4,15 +4,15 @@ import { hideBin } from "yargs/helpers";
 import { ConfigManager } from "../config/config-manager";
 import { getDefaultPrompts } from "../config/config-wizard";
 import { type CredentialStore, createCredentialStore } from "../config/credential-store";
-import { AniDBAdapter } from "../db/anidb-adapter";
-import type { DatabasePlugin } from "../db/database-plugin";
-import { TVDBAdapter } from "../db/tvdb-adapter";
 import { type DebugEntry, HttpClient, type HttpClientOptions } from "../http-client";
 import { MatchCache } from "../match-cache";
 import type { NumberingScheme } from "../numbering-converter";
 import { OverrideStore } from "../override-store";
 import { parse } from "../parser";
 import { PluginRegistry } from "../plugin-registry";
+import { AniDBPlugin } from "../plugins/anidb-plugin";
+import type { DatabasePlugin } from "../plugins/database-plugin";
+import { TVDBPlugin } from "../plugins/tvdb-plugin";
 import type { FileAction } from "../renamer";
 import { OpenSubtitlesAdapter } from "../subtitle/opensubtitles-adapter";
 import { render } from "../template-engine";
@@ -30,7 +30,7 @@ function withOptionalDebug(debug: boolean | undefined): Pick<HttpClientOptions, 
   return { onDebug: debug ? createDebugCallback() : undefined };
 }
 
-async function getTVDBAdapter(debug?: boolean): Promise<TVDBAdapter | undefined> {
+async function getTVDBPlugin(debug?: boolean): Promise<TVDBPlugin | undefined> {
   const credentialStore = createCredentialStore();
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
@@ -41,18 +41,18 @@ async function getTVDBAdapter(debug?: boolean): Promise<TVDBAdapter | undefined>
     minDelay: 200,
     ...withOptionalDebug(debug),
   });
-  return new TVDBAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+  return new TVDBPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
 }
 
 async function createTVDBCommandsWithCredentials(debug?: boolean) {
-  const adapter = await getTVDBAdapter(debug);
+  const adapter = await getTVDBPlugin(debug);
   if (!adapter) return undefined;
   return createDBCommands(adapter);
 }
 
-function buildAniDBAdapter(credential: string, debug?: boolean): AniDBAdapter {
+function buildAniDBPlugin(credential: string, debug?: boolean): AniDBPlugin {
   const [client, clientver] = credential.split(":", 2);
-  return new AniDBAdapter({
+  return new AniDBPlugin({
     client: client ?? credential,
     clientver: clientver ?? "1",
     httpClient: new HttpClient({
@@ -69,7 +69,7 @@ async function createAniDBCommandsWithCredentials(debug?: boolean) {
     console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
     return undefined;
   }
-  return createDBCommands(buildAniDBAdapter(credential, debug));
+  return createDBCommands(buildAniDBPlugin(credential, debug));
 }
 
 async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
@@ -89,17 +89,17 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
     if (!cred) {
       console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
     } else {
-      database = buildAniDBAdapter(cred, debug);
+      database = buildAniDBPlugin(cred, debug);
     }
   } else if (primaryDbName === "tvdb") {
-    database = await buildTVDBAdapter(credentialStore, apiDelay, debug);
+    database = await buildTVDBPlugin(credentialStore, apiDelay, debug);
   } else {
     const plugin = await registry.instantiate(primaryDbName, debug ? { debug: true } : {});
     if (plugin) {
       database = plugin;
     } else {
       console.warn(`Primary database "${primaryDbName}" not available, falling back to TVDB`);
-      database = await buildTVDBAdapter(credentialStore, apiDelay, debug);
+      database = await buildTVDBPlugin(credentialStore, apiDelay, debug);
     }
   }
 
@@ -119,11 +119,11 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
   });
 }
 
-async function buildTVDBAdapter(
+async function buildTVDBPlugin(
   credentialStore: CredentialStore,
   apiDelay: number,
   debug?: boolean,
-): Promise<TVDBAdapter | undefined> {
+): Promise<TVDBPlugin | undefined> {
   const apiKey = await credentialStore.getCredential("tvdb");
   if (!apiKey) {
     console.error("No TVDB API key configured. Run 'kogoro config init' first.");
@@ -133,7 +133,7 @@ async function buildTVDBAdapter(
     minDelay: apiDelay,
     onDebug: debug ? createDebugCallback() : undefined,
   });
-  return new TVDBAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+  return new TVDBPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
 }
 
 export async function buildSecondaryDatabases(
@@ -151,7 +151,7 @@ export async function buildSecondaryDatabases(
     if (name === "anidb") {
       const cred = await credentialStore.getCredential("anidb");
       if (!cred) continue;
-      dbs.push(buildAniDBAdapter(cred, debug));
+      dbs.push(buildAniDBPlugin(cred, debug));
     } else if (name === "tvdb") {
       const cred = await credentialStore.getCredential("tvdb");
       if (!cred) continue;
@@ -159,7 +159,7 @@ export async function buildSecondaryDatabases(
         minDelay: 200,
         ...withOptionalDebug(debug),
       });
-      dbs.push(new TVDBAdapter({ apiKey: cred, fetch: tvdbClient.fetch.bind(tvdbClient) }));
+      dbs.push(new TVDBPlugin({ apiKey: cred, fetch: tvdbClient.fetch.bind(tvdbClient) }));
     } else {
       const plugin = await pluginRegistry.instantiate(name, debug ? { debug: true } : {});
       if (plugin) {
@@ -183,13 +183,13 @@ function createDebugCallback() {
 }
 
 async function createMatchWithCredentials(debug?: boolean) {
-  const adapter = await getTVDBAdapter(debug);
+  const adapter = await getTVDBPlugin(debug);
   if (!adapter) return undefined;
   return createMatchHandlers({ database: adapter });
 }
 
 async function createMetadataWithCredentials(debug?: boolean) {
-  const adapter = await getTVDBAdapter(debug);
+  const adapter = await getTVDBPlugin(debug);
   if (!adapter) return undefined;
   return createMetadataHandlers({ database: adapter });
 }
@@ -197,7 +197,7 @@ async function createMetadataWithCredentials(debug?: boolean) {
 async function createArtworkWithCredentials(debug?: boolean) {
   const config = new ConfigManager();
   const credentialStore = createCredentialStore();
-  const primaryDb = await getTVDBAdapter(debug);
+  const primaryDb = await getTVDBPlugin(debug);
   if (!primaryDb) return undefined;
 
   const secondaryDbs = await buildSecondaryDatabases(config, credentialStore, debug);
