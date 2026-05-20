@@ -27,12 +27,12 @@ describe("OpenSubtitlesPlugin", () => {
       ],
     };
 
-    const adapter = new OpenSubtitlesPlugin({
+    const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: mockFetch(searchResponse),
     });
 
-    const results = await adapter.search("Jujutsu Kaisen", 1, 1, "en");
+    const results = await plugin.search("Jujutsu Kaisen", 1, 1, "en");
     expect(results).toHaveLength(1);
     expect(results[0]?.id).toBe("abc123");
     expect(results[0]?.fileId).toBe(101);
@@ -42,22 +42,22 @@ describe("OpenSubtitlesPlugin", () => {
   test("search returns empty array for no results", async () => {
     const searchResponse = { data: [] };
 
-    const adapter = new OpenSubtitlesPlugin({
+    const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: mockFetch(searchResponse),
     });
 
-    const results = await adapter.search("Unknown Anime", 1, 1, "en");
+    const results = await plugin.search("Unknown Anime", 1, 1, "en");
     expect(results).toEqual([]);
   });
 
   test("search returns empty array on API error", async () => {
-    const adapter = new OpenSubtitlesPlugin({
+    const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: mockFetch(null, 401),
     });
 
-    const results = await adapter.search("Jujutsu Kaisen", 1, 1, "en");
+    const results = await plugin.search("Jujutsu Kaisen", 1, 1, "en");
     expect(results).toEqual([]);
   });
 
@@ -69,7 +69,7 @@ describe("OpenSubtitlesPlugin", () => {
     const contentResponse = "1\n00:00:01,000 --> 00:00:05,000\nHello world\n";
 
     let callCount = 0;
-    const adapter = new OpenSubtitlesPlugin({
+    const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: async (_url: string | URL, _init?: RequestInit) => {
         callCount++;
@@ -83,18 +83,18 @@ describe("OpenSubtitlesPlugin", () => {
       },
     });
 
-    const content = await adapter.download(101);
+    const content = await plugin.download(101);
     expect(content).toBe(contentResponse);
     expect(callCount).toBe(2);
   });
 
   test("download returns empty string on API error", async () => {
-    const adapter = new OpenSubtitlesPlugin({
+    const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: mockFetch(null, 500),
     });
 
-    const content = await adapter.download(101);
+    const content = await plugin.download(101);
     expect(content).toBe("");
   });
 });

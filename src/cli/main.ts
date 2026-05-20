@@ -45,9 +45,9 @@ async function getTVDBPlugin(debug?: boolean): Promise<TVDBPlugin | undefined> {
 }
 
 async function createTVDBCommandsWithCredentials(debug?: boolean) {
-  const adapter = await getTVDBPlugin(debug);
-  if (!adapter) return undefined;
-  return createDBCommands(adapter);
+  const plugin = await getTVDBPlugin(debug);
+  if (!plugin) return undefined;
+  return createDBCommands(plugin);
 }
 
 function buildAniDBPlugin(credential: string, debug?: boolean): AniDBPlugin {
@@ -183,15 +183,15 @@ function createDebugCallback() {
 }
 
 async function createMatchWithCredentials(debug?: boolean) {
-  const adapter = await getTVDBPlugin(debug);
-  if (!adapter) return undefined;
-  return createMatchHandlers({ database: adapter });
+  const plugin = await getTVDBPlugin(debug);
+  if (!plugin) return undefined;
+  return createMatchHandlers({ database: plugin });
 }
 
 async function createMetadataWithCredentials(debug?: boolean) {
-  const adapter = await getTVDBPlugin(debug);
-  if (!adapter) return undefined;
-  return createMetadataHandlers({ database: adapter });
+  const plugin = await getTVDBPlugin(debug);
+  if (!plugin) return undefined;
+  return createMetadataHandlers({ database: plugin });
 }
 
 async function createArtworkWithCredentials(debug?: boolean) {
@@ -216,9 +216,9 @@ async function createSubtitleWithCredentials(debug?: boolean) {
     minDelay: 200,
     ...withOptionalDebug(debug),
   });
-  const adapter = new OpenSubtitlesPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+  const plugin = new OpenSubtitlesPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
   const cache = new MatchCache();
-  return createSubtitleHandlers({ subtitlePlugin: adapter, cache });
+  return createSubtitleHandlers({ subtitlePlugin: plugin, cache });
 }
 
 export function run(argv: string[]): string | undefined {

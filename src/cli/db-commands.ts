@@ -1,6 +1,6 @@
 import type { DatabasePlugin } from "../plugins/database/plugin";
 
-export function createDBCommands(adapter: DatabasePlugin) {
+export function createDBCommands(plugin: DatabasePlugin) {
   return {
     async search(
       title: string,
@@ -8,7 +8,7 @@ export function createDBCommands(adapter: DatabasePlugin) {
       onError: (msg: string) => void,
     ): Promise<void> {
       try {
-        const results = await adapter.searchAnime(title);
+        const results = await plugin.searchAnime(title);
         onLog(JSON.stringify(results, null, 2));
       } catch {
         onError("Search failed");
@@ -21,7 +21,7 @@ export function createDBCommands(adapter: DatabasePlugin) {
       onError: (msg: string) => void,
     ): Promise<void> {
       try {
-        const results = await adapter.getEpisodes(animeId);
+        const results = await plugin.getEpisodes(animeId);
         onLog(JSON.stringify(results, null, 2));
       } catch {
         onError("Failed to fetch episodes");

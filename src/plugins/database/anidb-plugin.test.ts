@@ -31,12 +31,12 @@ const animetitlesXml = `<?xml version="1.0" encoding="UTF-8"?>
 describe("AniDBPlugin", () => {
   describe("searchAnime", () => {
     test("returns AnimeResult array from animetitles XML", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animetitlesXml),
       });
-      const results = await adapter.searchAnime("Jujutsu Kaisen");
+      const results = await plugin.searchAnime("Jujutsu Kaisen");
       expect(results).toHaveLength(1);
       expect(results[0]?.id).toBe("12345");
       expect(results[0]?.title).toBe("Jujutsu Kaisen");
@@ -45,33 +45,33 @@ describe("AniDBPlugin", () => {
     });
 
     test("returns empty array for no matching title", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animetitlesXml),
       });
-      const results = await adapter.searchAnime("Nonexistent Anime");
+      const results = await plugin.searchAnime("Nonexistent Anime");
       expect(results).toEqual([]);
     });
 
     test("matches case-insensitively", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animetitlesXml),
       });
-      const results = await adapter.searchAnime("attack on titan");
+      const results = await plugin.searchAnime("attack on titan");
       expect(results).toHaveLength(1);
       expect(results[0]?.id).toBe("67890");
     });
 
     test("matches partial titles", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animetitlesXml),
       });
-      const results = await adapter.searchAnime("Titan");
+      const results = await plugin.searchAnime("Titan");
       expect(results).toHaveLength(1);
       expect(results[0]?.id).toBe("67890");
     });
@@ -86,12 +86,12 @@ describe("AniDBPlugin", () => {
     <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
   </anime>
 </animetitles>`;
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(xmlWithNoEnglishTitle),
       });
-      const results = await adapter.searchAnime("Jujutsu");
+      const results = await plugin.searchAnime("Jujutsu");
       expect(results).toHaveLength(1);
       expect(results[0]?.id).toBe("12345");
     });
@@ -130,12 +130,12 @@ describe("AniDBPlugin", () => {
 </anime>`;
 
     test("returns EpisodeResult array from anime XML", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animeXml),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
       expect(results).toHaveLength(2);
       expect(results[0]?.id).toBe("1001");
       expect(results[0]?.episode).toBe(1);
@@ -148,12 +148,12 @@ describe("AniDBPlugin", () => {
     });
 
     test("returns empty array on API failure", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient("", 404),
       });
-      const results = await adapter.getEpisodes("99999");
+      const results = await plugin.getEpisodes("99999");
       expect(results).toEqual([]);
     });
 
@@ -166,12 +166,12 @@ describe("AniDBPlugin", () => {
     <title type="main" lang="en" xml:lang="en">Some Movie</title>
   </titles>
 </anime>`;
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(xmlWithoutEpisodes),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
       expect(results).toEqual([]);
     });
 
@@ -209,31 +209,31 @@ describe("AniDBPlugin", () => {
   </episodes>
 </anime>`;
 
-      const movieAdapter = new AniDBPlugin({
+      const moviePlugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(movieXml),
       });
-      const ovaAdapter = new AniDBPlugin({
+      const ovaPlugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(ovaXml),
       });
-      const specialAdapter = new AniDBPlugin({
+      const specialPlugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(specialXml),
       });
-      const tvSpecialAdapter = new AniDBPlugin({
+      const tvSpecialPlugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(tvSpecialXml),
       });
 
-      expect((await movieAdapter.getEpisodes("111"))[0]?.entryType).toBe("movie");
-      expect((await ovaAdapter.getEpisodes("222"))[0]?.entryType).toBe("ova");
-      expect((await specialAdapter.getEpisodes("333"))[0]?.entryType).toBe("special");
-      expect((await tvSpecialAdapter.getEpisodes("444"))[0]?.entryType).toBe("special");
+      expect((await moviePlugin.getEpisodes("111"))[0]?.entryType).toBe("movie");
+      expect((await ovaPlugin.getEpisodes("222"))[0]?.entryType).toBe("ova");
+      expect((await specialPlugin.getEpisodes("333"))[0]?.entryType).toBe("special");
+      expect((await tvSpecialPlugin.getEpisodes("444"))[0]?.entryType).toBe("special");
     });
 
     test("parses season element from episode XML when present", async () => {
@@ -247,12 +247,12 @@ describe("AniDBPlugin", () => {
     <episode id="3"><epno>25</epno><season>2</season><title>Season 2 Ep 1</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(multiSeasonXml),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
       expect(results).toHaveLength(3);
       expect(results[0]?.season).toBe(1);
       expect(results[0]?.episode).toBe(1);
@@ -272,12 +272,12 @@ describe("AniDBPlugin", () => {
     <episode id="2"><epno>2</epno><title>Also No Season</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(xmlWithoutSeason),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
       expect(results).toHaveLength(2);
       expect(results[0]?.season).toBe(1);
       expect(results[1]?.season).toBe(1);
@@ -293,12 +293,12 @@ describe("AniDBPlugin", () => {
     <episode id="2"><epno>26</epno><title>Episode 26</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(multiSeasonXml),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
       expect(results).toHaveLength(2);
       expect(results[0]?.episode).toBe(25);
       expect(results[1]?.episode).toBe(26);
@@ -315,12 +315,12 @@ describe("AniDBPlugin", () => {
     <episode id="3"><epno>3</epno><season>2</season><title>S2E1</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(multiSeasonXml),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
       expect(results).toHaveLength(3);
       expect(results[0]?.season).toBe(1);
       expect(results[0]?.episode).toBe(1);
@@ -340,12 +340,12 @@ describe("AniDBPlugin", () => {
     <episode id="2"><epno>2</epno><season>2</season><title>With Season Tag</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(noSeasonXml),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
       expect(results).toHaveLength(2);
       expect(results[0]?.season).toBe(1);
       expect(results[1]?.season).toBe(2);
@@ -360,12 +360,12 @@ describe("AniDBPlugin", () => {
     <episode id="1"><epno>1</epno><season>abc</season><title>Invalid Season</title></episode>
   </episodes>
 </anime>`;
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(invalidSeasonXml),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
       expect(results).toHaveLength(1);
       expect(results[0]?.season).toBe(1);
       expect(results[0]?.episode).toBe(1);
@@ -389,58 +389,58 @@ describe("AniDBPlugin", () => {
 </anime>`;
 
     test("returns poster artwork from anime picture", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animeWithPictureXml),
       });
-      const results = await adapter.getArtwork("12345", "poster");
+      const results = await plugin.getArtwork("12345", "poster");
       expect(results).toHaveLength(1);
       expect(results[0]?.type).toBe("poster");
       expect(results[0]?.url).toBe("https://cdn.anidb.net/images/main/12345.jpg");
     });
 
     test("returns empty array when no picture element", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animeWithoutPictureXml),
       });
-      const results = await adapter.getArtwork("67890", "poster");
+      const results = await plugin.getArtwork("67890", "poster");
       expect(results).toEqual([]);
     });
 
     test("returns empty array for non-poster artwork types", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient(animeWithPictureXml),
       });
-      const fanartResults = await adapter.getArtwork("12345", "fanart");
+      const fanartResults = await plugin.getArtwork("12345", "fanart");
       expect(fanartResults).toEqual([]);
-      const bannerResults = await adapter.getArtwork("12345", "banner");
+      const bannerResults = await plugin.getArtwork("12345", "banner");
       expect(bannerResults).toEqual([]);
     });
 
     test("returns empty array on API failure", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient("", 404),
       });
-      const results = await adapter.getArtwork("99999", "poster");
+      const results = await plugin.getArtwork("99999", "poster");
       expect(results).toEqual([]);
     });
   });
 
   describe("error handling", () => {
     test("returns empty array on API failure for searchAnime", async () => {
-      const adapter = new AniDBPlugin({
+      const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
         httpClient: mockHttpClient("", 500),
       });
-      const results = await adapter.searchAnime("Jujutsu Kaisen");
+      const results = await plugin.searchAnime("Jujutsu Kaisen");
       expect(results).toEqual([]);
     });
   });
@@ -460,12 +460,12 @@ describe("getAnime", () => {
   <description>A boy fights curses.</description>
 </anime>`;
 
-    const adapter = new AniDBPlugin({
+    const plugin = new AniDBPlugin({
       client: "kogoro",
       clientver: "1",
       httpClient: mockHttpClient(animeXml),
     });
-    const result = await adapter.getAnime("12345");
+    const result = await plugin.getAnime("12345");
 
     expect(result).not.toBeNull();
     expect(result?.id).toBe("12345");
@@ -476,25 +476,25 @@ describe("getAnime", () => {
   });
 
   test("returns null on API failure", async () => {
-    const adapter = new AniDBPlugin({
+    const plugin = new AniDBPlugin({
       client: "kogoro",
       clientver: "1",
       httpClient: mockHttpClient("", 404),
     });
-    const result = await adapter.getAnime("99999");
+    const result = await plugin.getAnime("99999");
     expect(result).toBeNull();
   });
 });
 
 describe("DatabasePlugin interface", () => {
   test("interface is defined", () => {
-    const adapter: DatabasePlugin = new AniDBPlugin({
+    const plugin: DatabasePlugin = new AniDBPlugin({
       client: "kogoro",
       clientver: "1",
     });
-    expect(adapter.searchAnime).toBeInstanceOf(Function);
-    expect(adapter.getEpisodes).toBeInstanceOf(Function);
-    expect(adapter.getAnime).toBeInstanceOf(Function);
-    expect(adapter.getArtwork).toBeInstanceOf(Function);
+    expect(plugin.searchAnime).toBeInstanceOf(Function);
+    expect(plugin.getEpisodes).toBeInstanceOf(Function);
+    expect(plugin.getAnime).toBeInstanceOf(Function);
+    expect(plugin.getArtwork).toBeInstanceOf(Function);
   });
 });

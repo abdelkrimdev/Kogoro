@@ -241,7 +241,7 @@ describe("ArtworkFetcher", () => {
       { id: 2, image: "https://example.com/poster2.jpg", type: 14, width: 900, height: 1280 },
     ];
 
-    const adapter = new TVDBPlugin({
+    const plugin = new TVDBPlugin({
       apiKey: "test-key",
       fetch: async (url: string | URL, _init?: RequestInit) => {
         if (urlString(url).includes("/login")) {
@@ -257,7 +257,7 @@ describe("ArtworkFetcher", () => {
       },
     });
 
-    const results = await adapter.getArtwork("12345", "poster");
+    const results = await plugin.getArtwork("12345", "poster");
     expect(results).toHaveLength(2);
     expect(results[0]?.width).toBe(680);
     expect(results[0]?.height).toBe(1000);

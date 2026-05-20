@@ -64,10 +64,10 @@ function mockFetchWithRoutes(
 
 describe("DatabasePlugin interface", () => {
   test("interface is defined", () => {
-    const adapter: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
-    expect(adapter.searchAnime).toBeInstanceOf(Function);
-    expect(adapter.getEpisodes).toBeInstanceOf(Function);
-    expect(adapter.getArtwork).toBeInstanceOf(Function);
+    const plugin: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
+    expect(plugin.searchAnime).toBeInstanceOf(Function);
+    expect(plugin.getEpisodes).toBeInstanceOf(Function);
+    expect(plugin.getArtwork).toBeInstanceOf(Function);
   });
 });
 
@@ -87,11 +87,11 @@ describe("TVDBPlugin", () => {
         },
       ];
 
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(searchResponse),
       });
-      const results: AnimeResult[] = await adapter.searchAnime("Jujutsu Kaisen");
+      const results: AnimeResult[] = await plugin.searchAnime("Jujutsu Kaisen");
 
       expect(results).toHaveLength(1);
       expect(results[0]?.id).toBe("12345");
@@ -105,11 +105,11 @@ describe("TVDBPlugin", () => {
     });
 
     test("returns empty array for no results", async () => {
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch([]),
       });
-      const results = await adapter.searchAnime("Nonexistent Anime");
+      const results = await plugin.searchAnime("Nonexistent Anime");
       expect(results).toEqual([]);
     });
 
@@ -122,11 +122,11 @@ describe("TVDBPlugin", () => {
         },
       ];
 
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(searchResponse),
       });
-      const results = await adapter.searchAnime("Attack on Titan");
+      const results = await plugin.searchAnime("Attack on Titan");
       expect(results[0]?.originalTitle).toBe("進撃の巨人");
     });
   });
@@ -158,14 +158,14 @@ describe("TVDBPlugin", () => {
         ],
       };
 
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetchWithRoutes({
           "/episodes/default": episodesResponse,
           "/translations": [],
         }),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
 
       expect(results).toHaveLength(2);
       expect(results[0]?.animeId).toBe("12345");
@@ -178,11 +178,11 @@ describe("TVDBPlugin", () => {
     });
 
     test("returns empty array when no episodes exist", async () => {
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch({ series: { id: 99999, name: "Unknown" } }),
       });
-      const results = await adapter.getEpisodes("99999");
+      const results = await plugin.getEpisodes("99999");
       expect(results).toEqual([]);
     });
 
@@ -198,14 +198,14 @@ describe("TVDBPlugin", () => {
         ],
       };
 
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetchWithRoutes({
           "/episodes/default": episodesResponse,
           "/translations": [],
         }),
       });
-      const results = await adapter.getEpisodes("100");
+      const results = await plugin.getEpisodes("100");
 
       expect(results.find((e) => e.title === "TV Eps")?.entryType).toBe("tv");
       expect(results.find((e) => e.title === "Movie")?.entryType).toBe("movie");
@@ -225,11 +225,11 @@ describe("TVDBPlugin", () => {
         { id: 5, image: "https://example.com/thumb.jpg", type: 99 },
       ];
 
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(artworkResponse),
       });
-      const results = await adapter.getArtwork("12345", "poster");
+      const results = await plugin.getArtwork("12345", "poster");
 
       expect(results).toHaveLength(2);
       expect(results[0]?.id).toBe("1");
@@ -242,20 +242,20 @@ describe("TVDBPlugin", () => {
     test("returns empty array when no matching artwork type", async () => {
       const artworkResponse = [{ id: 1, image: "https://example.com/banner.jpg", type: 3 }];
 
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(artworkResponse),
       });
-      const results = await adapter.getArtwork("12345", "fanart");
+      const results = await plugin.getArtwork("12345", "fanart");
       expect(results).toEqual([]);
     });
 
     test("returns empty array when no artwork exists", async () => {
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch([]),
       });
-      const results = await adapter.getArtwork("12345", "poster");
+      const results = await plugin.getArtwork("12345", "poster");
       expect(results).toEqual([]);
     });
   });
@@ -267,11 +267,11 @@ describe("TVDBPlugin", () => {
         { language: "eng", name: "Jujutsu Kaisen", overview: "A boy fights curses." },
       ];
 
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(translationsResponse),
       });
-      const results = await adapter.getTranslations?.("12345");
+      const results = await plugin.getTranslations?.("12345");
 
       expect(results).toEqual({
         jpn: "呪術廻戦",
@@ -280,17 +280,17 @@ describe("TVDBPlugin", () => {
     });
 
     test("returns empty object when no translations exist", async () => {
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch([]),
       });
-      const results = await adapter.getTranslations?.("99999");
+      const results = await plugin.getTranslations?.("99999");
       expect(results).toEqual({});
     });
 
     test("getTranslations is an optional method on DatabasePlugin", () => {
-      const adapter: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
-      expect(adapter.getTranslations).toBeInstanceOf(Function);
+      const plugin: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
+      expect(plugin.getTranslations).toBeInstanceOf(Function);
     });
   });
 
@@ -316,14 +316,14 @@ describe("TVDBPlugin", () => {
         { language: "eng", name: "Jujutsu Kaisen", overview: "" },
       ];
 
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetchWithRoutes({
           "/episodes/default": episodesResponse,
           "/translations": translationsResponse,
         }),
       });
-      const results = await adapter.getEpisodes("12345");
+      const results = await plugin.getEpisodes("12345");
 
       expect(results).toHaveLength(1);
       expect(results[0]?.titleEn).toBe("Jujutsu Kaisen");
@@ -344,11 +344,11 @@ describe("TVDBPlugin", () => {
         status: "Continuing",
       };
 
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetch(seriesResponse),
       });
-      const result = await adapter.getAnime("12345");
+      const result = await plugin.getAnime("12345");
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe("12345");
@@ -360,22 +360,22 @@ describe("TVDBPlugin", () => {
     });
 
     test("returns null when anime ID does not exist", async () => {
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetchFailure(404),
       });
-      const result = await adapter.getAnime("99999");
+      const result = await plugin.getAnime("99999");
       expect(result).toBeNull();
     });
   });
 
   describe("error handling", () => {
     test("returns empty array on login failure", async () => {
-      const adapter = new TVDBPlugin({
+      const plugin = new TVDBPlugin({
         apiKey: "bad-key",
         fetch: mockFetchFailure(401),
       });
-      const results = await adapter.searchAnime("Jujutsu Kaisen");
+      const results = await plugin.searchAnime("Jujutsu Kaisen");
       expect(results).toEqual([]);
     });
 
@@ -396,8 +396,8 @@ describe("TVDBPlugin", () => {
         });
       };
 
-      const adapter = new TVDBPlugin({ apiKey: "test-key", fetch });
-      const searchResults = await adapter.searchAnime("Unknown");
+      const plugin = new TVDBPlugin({ apiKey: "test-key", fetch });
+      const searchResults = await plugin.searchAnime("Unknown");
       expect(searchResults).toEqual([]);
       expect(callCount).toBe(2);
     });
@@ -419,9 +419,9 @@ describe("TVDBPlugin", () => {
         });
       };
 
-      const adapter = new TVDBPlugin({ apiKey: "test-key", fetch });
-      await adapter.searchAnime("One");
-      await adapter.searchAnime("Two");
+      const plugin = new TVDBPlugin({ apiKey: "test-key", fetch });
+      await plugin.searchAnime("One");
+      await plugin.searchAnime("Two");
       expect(loginCount).toBe(1);
     });
   });

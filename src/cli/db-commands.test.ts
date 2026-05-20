@@ -3,7 +3,7 @@ import { createDBCommands } from "../cli/db-commands";
 import type { DatabasePlugin } from "../plugins/database/plugin";
 import type { AnimeResult, ArtworkResult, EpisodeResult } from "../plugins/database/types";
 
-function createMockAdapter(): DatabasePlugin {
+function createMockPlugin(): DatabasePlugin {
   return {
     async searchAnime(title: string): Promise<AnimeResult[]> {
       if (title === "Jujutsu Kaisen") {
@@ -47,8 +47,8 @@ function createMockAdapter(): DatabasePlugin {
 
 describe("DB CLI commands", () => {
   test("db search outputs anime results as JSON", async () => {
-    const adapter = createMockAdapter();
-    const commands = createDBCommands(adapter);
+    const plugin = createMockPlugin();
+    const commands = createDBCommands(plugin);
     let output = "";
     await commands.search(
       "Jujutsu Kaisen",
@@ -63,8 +63,8 @@ describe("DB CLI commands", () => {
   });
 
   test("db search outputs empty array for no results", async () => {
-    const adapter = createMockAdapter();
-    const commands = createDBCommands(adapter);
+    const plugin = createMockPlugin();
+    const commands = createDBCommands(plugin);
     let output = "";
     await commands.search(
       "Unknown",
@@ -77,8 +77,8 @@ describe("DB CLI commands", () => {
   });
 
   test("db episodes outputs episode results as JSON", async () => {
-    const adapter = createMockAdapter();
-    const commands = createDBCommands(adapter);
+    const plugin = createMockPlugin();
+    const commands = createDBCommands(plugin);
     let output = "";
     await commands.episodes(
       "12345",
@@ -93,8 +93,8 @@ describe("DB CLI commands", () => {
   });
 
   test("db episodes outputs empty array for unknown ID", async () => {
-    const adapter = createMockAdapter();
-    const commands = createDBCommands(adapter);
+    const plugin = createMockPlugin();
+    const commands = createDBCommands(plugin);
     let output = "";
     await commands.episodes(
       "99999",
@@ -106,8 +106,8 @@ describe("DB CLI commands", () => {
     expect(JSON.parse(output)).toEqual([]);
   });
 
-  test("db search handles adapter error gracefully", async () => {
-    const failingAdapter: DatabasePlugin = {
+  test("db search handles plugin error gracefully", async () => {
+    const failingPlugin: DatabasePlugin = {
       async searchAnime(): Promise<AnimeResult[]> {
         throw new Error("API Error");
       },
@@ -121,7 +121,7 @@ describe("DB CLI commands", () => {
         throw new Error("API Error");
       },
     };
-    const commands = createDBCommands(failingAdapter);
+    const commands = createDBCommands(failingPlugin);
     let errorOutput = "";
     await commands.search(
       "Anything",

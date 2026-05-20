@@ -32,14 +32,14 @@ const BUILT_IN_DATABASE_PLUGINS: PluginInfo[] = [
     name: "tvdb",
     type: "database",
     source: "built-in",
-    description: "TheTVDB.com adapter",
+    description: "TheTVDB.com plugin",
     enabled: true,
   },
   {
     name: "anidb",
     type: "database",
     source: "built-in",
-    description: "AniDB adapter",
+    description: "AniDB plugin",
     enabled: true,
   },
 ];
@@ -49,7 +49,7 @@ const BUILT_IN_SUBTITLE_PLUGINS: PluginInfo[] = [
     name: "opensubtitles",
     type: "subtitle",
     source: "built-in",
-    description: "OpenSubtitles.com adapter",
+    description: "OpenSubtitles.com plugin",
     enabled: true,
   },
 ];
