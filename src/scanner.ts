@@ -133,7 +133,7 @@ export function computeFileHash(input: string): string {
   return Bun.hash(input).toString(16);
 }
 
-const ORGANIZED_DIRS = new Set(["TV", "Movies", "OVA", "Specials"]);
+const ORGANIZED_DIRS = new Set(["TV", "Movies", "OVA", "ONA", "Specials"]);
 
 function isValidDirName(name: string): boolean {
   return name !== "" && name !== "." && name !== "..";
@@ -188,6 +188,15 @@ export class Scanner {
     return this.renamer.rollback();
   }
 
+  private parseFile(filePath: string): ParsedResult {
+    const parsed = parse(basename(filePath));
+    if (!parsed.title) {
+      const dirTitle = getDirectoryTitle(filePath);
+      if (dirTitle) parsed.title = dirTitle;
+    }
+    return parsed;
+  }
+
   async scanFile(filePath: string, options?: ScanFileOptions): Promise<ScanResult> {
     const force = options?.force ?? false;
     let hash = "";
@@ -214,11 +223,7 @@ export class Scanner {
       }
     }
 
-    const parsed = parse(basename(filePath));
-    if (!parsed.title) {
-      const dirTitle = getDirectoryTitle(filePath);
-      if (dirTitle) parsed.title = dirTitle;
-    }
+    const parsed = this.parseFile(filePath);
     const matches = await this.matcher.match(parsed, overrideKey);
 
     return this.resolveMatches(filePath, hash, parsed, matches, options, overrideKey);
@@ -422,11 +427,7 @@ export class Scanner {
             }
           }
 
-          const parsed = parse(basename(filePath));
-          if (!parsed.title) {
-            const dirTitle = getDirectoryTitle(filePath);
-            if (dirTitle) parsed.title = dirTitle;
-          }
+          const parsed = this.parseFile(filePath);
           const override = this.overrideStore?.get(overrideKey);
 
           if (override?.animeId) {

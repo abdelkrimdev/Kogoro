@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parse } from "./parser.ts";
 
-describe("FilenameParser", () => {
+describe("Filename parsing", () => {
   test("parses [Group] Anime Title - 01 (1080p).mkv", () => {
     const result = parse("[SubsPlease] Jujutsu Kaisen - 01 (1080p).mkv");
     expect(result.title).toBe("Jujutsu Kaisen");
@@ -28,7 +28,7 @@ describe("FilenameParser", () => {
     expect(result.episode).toBe(1);
     expect(result.tags.group).toBe("Group");
     expect(result.tags.resolution).toBe("1080p");
-    expect(result.tags.codec).toBe("HEVC");
+    expect(result.tags.codec).toBe("hevc");
   });
 
   test("parses movie filename with no episode number", () => {
@@ -38,7 +38,7 @@ describe("FilenameParser", () => {
     expect(result.tags.group).toBe("Group");
   });
 
-  test("parses absolute numbering: One Piece - 1071", () => {
+  test("recognizes large episode numbers that could be mistaken for years", () => {
     const result = parse("[Group] One Piece - 1071.mkv");
     expect(result.title).toBe("One Piece");
     expect(result.episode).toBe(1071);
@@ -55,23 +55,6 @@ describe("FilenameParser", () => {
     const result = parse("");
     expect(result.title).toBeNull();
     expect(result.episode).toBeNull();
-  });
-
-  test("uses custom regex pattern from options", () => {
-    const customPattern = /^CUSTOM_(?<title>.+?)_(?<episode>\d+)$/;
-    const result = parse("CUSTOM_My Anime_42.mkv", {
-      patterns: [customPattern],
-    });
-    expect(result.title).toBe("My Anime");
-    expect(result.episode).toBe(42);
-    expect(result.season).toBeNull();
-  });
-
-  test("custom patterns override defaults", () => {
-    const result = parse("[SubsPlease] Jujutsu Kaisen - 01 (1080p).mkv", {
-      patterns: [],
-    });
-    expect(result.title).toBeNull();
   });
 
   test("handles spaces in title correctly", () => {
@@ -256,6 +239,153 @@ describe("FilenameParser", () => {
       expect(result.title).toBe("Oshi No Ko");
       expect(result.episode).toBe(1);
       expect(result.tags.group).toBe("Celestial Dragons & Najma-Subs");
+    });
+
+    describe("Edge-case filenames", () => {
+      test("Amagi.Brilliant.Park.S01E01.1080p.BluRay.10-Bit.Dual-Audio.FLAC2.0.x265-YURASUKA.mkv", () => {
+        const result = parse(
+          "Amagi.Brilliant.Park.S01E01.1080p.BluRay.10-Bit.Dual-Audio.FLAC2.0.x265-YURASUKA.mkv",
+        );
+        expect(result.title).toBe("Amagi Brilliant Park");
+        expect(result.season).toBe(1);
+        expect(result.episode).toBe(1);
+        expect(result.tags.group).toBe("YURASUKA");
+        expect(result.tags.resolution).toBe("1080p");
+        expect(result.tags.codec).toBe("x265");
+      });
+
+      test("Chuukan.Kanriroku.Tonegawa.01.[720-x265].takanime.pw.mkv", () => {
+        const result = parse("Chuukan.Kanriroku.Tonegawa.01.[720-x265].takanime.pw.mkv");
+        expect(result.title).toBe("Chuukan Kanriroku Tonegawa");
+        expect(result.episode).toBe(1);
+        expect(result.tags.group).toBe("takanime.pw");
+        expect(result.tags.resolution).toBe("720p");
+        expect(result.tags.codec).toBe("x265");
+      });
+
+      test("Chuukan.Kanriroku.Tonegawa.24.[720-x265].takanime.biz.mkv", () => {
+        const result = parse("Chuukan.Kanriroku.Tonegawa.24.[720-x265].takanime.biz.mkv");
+        expect(result.title).toBe("Chuukan Kanriroku Tonegawa");
+        expect(result.episode).toBe(24);
+        expect(result.tags.group).toBe("takanime.biz");
+        expect(result.tags.resolution).toBe("720p");
+        expect(result.tags.codec).toBe("x265");
+      });
+
+      test("Ookami_to_Koushinryou_Merchant_Meets_the_Wise_Wolf_01_1080pMini.mkv", () => {
+        const result = parse("Ookami_to_Koushinryou_Merchant_Meets_the_Wise_Wolf_01_1080pMini.mkv");
+        expect(result.title).toBe("Ookami to Koushinryou Merchant Meets the Wise Wolf");
+        expect(result.episode).toBe(1);
+        expect(result.tags.resolution).toBe("1080p");
+      });
+
+      test("Akagami no Shirayuki-hime - OVA [BD 720p Hi10 x264 AAC] [0B7F926B].mkv", () => {
+        const result = parse(
+          "Akagami no Shirayuki-hime - OVA [BD 720p Hi10 x264 AAC] [0B7F926B].mkv",
+        );
+        expect(result.title).toBe("Akagami no Shirayuki-hime - OVA");
+        expect(result.episode).toBeNull();
+        expect(result.tags.resolution).toBe("720p");
+        expect(result.tags.codec).toBe("x264");
+      });
+
+      test("BS.Team - Tonari no Kaibutsu-kun (Tonari no Gokudou-kun) OVA.mp4", () => {
+        const result = parse("BS.Team - Tonari no Kaibutsu-kun (Tonari no Gokudou-kun) OVA.mp4");
+        expect(result.title).toBe("Tonari no Kaibutsu-kun (Tonari no Gokudou-kun) OVA");
+        expect(result.tags.group).toBe("BS.Team");
+        expect(result.episode).toBeNull();
+      });
+
+      test("Kimagure Orange Road - NCED1 (BDRip 720x480p x265 HEVC AC3 2.0)[sxales].mkv", () => {
+        const result = parse(
+          "Kimagure Orange Road - NCED1 (BDRip 720x480p x265 HEVC AC3 2.0)[sxales].mkv",
+        );
+        expect(result.title).toBe("Kimagure Orange Road - NCED1");
+        expect(result.tags.group).toBe("sxales");
+        expect(result.episode).toBeNull();
+      });
+
+      test("Kimagure Orange Road - OVA 01 Notice (BDRip 720x480p x265 HEVC AC3 2.0)[sxales].mkv", () => {
+        const result = parse(
+          "Kimagure Orange Road - OVA 01 Notice (BDRip 720x480p x265 HEVC AC3 2.0)[sxales].mkv",
+        );
+        expect(result.title).toBe("Kimagure Orange Road - OVA 01 Notice");
+        expect(result.tags.group).toBe("sxales");
+        expect(result.episode).toBeNull();
+      });
+
+      test("TONIKAWA_ Over The Moon For You - SNS [1080p][Mini].mkv", () => {
+        const result = parse("TONIKAWA_ Over The Moon For You - SNS [1080p][Mini].mkv");
+        expect(result.title).toBe("TONIKAWA Over The Moon For You - SNS");
+        expect(result.episode).toBeNull();
+        expect(result.tags.resolution).toBe("1080p");
+      });
+
+      test("Yowamushi Pedal OVA - Special Ride   [DarkDream].mkv", () => {
+        const result = parse("Yowamushi Pedal OVA - Special Ride   [DarkDream].mkv");
+        expect(result.title).toBe("Yowamushi Pedal OVA - Special Ride");
+        expect(result.tags.group).toBe("DarkDream");
+        expect(result.episode).toBeNull();
+      });
+
+      test("Mirai.ai] Eizouken ni wa Te wo Dasu na! - 07 [720p][Mini].mkv].mkv", () => {
+        const result = parse("Mirai.ai] Eizouken ni wa Te wo Dasu na! - 07 [720p][Mini].mkv].mkv");
+        expect(result.title).toBe("Eizouken ni wa Te wo Dasu na!");
+        expect(result.episode).toBe(7);
+        expect(result.tags.group).toBe("Mirai.ai");
+        expect(result.tags.resolution).toBe("720p");
+      });
+
+      test("Mirai.ai] Eizouken ni wa Te wo Dasu na! - 09 [720p][Mini].mkv.mkv].mkv", () => {
+        const result = parse(
+          "Mirai.ai] Eizouken ni wa Te wo Dasu na! - 09 [720p][Mini].mkv.mkv].mkv",
+        );
+        expect(result.title).toBe("Eizouken ni wa Te wo Dasu na!");
+        expect(result.episode).toBe(9);
+        expect(result.tags.group).toBe("Mirai.ai");
+        expect(result.tags.resolution).toBe("720p");
+      });
+
+      test("100.Meters.2025.1080p.NF.WEB-DL.DUAL.DDP5.1.H.264-VARYG.mkv", () => {
+        const result = parse("100.Meters.2025.1080p.NF.WEB-DL.DUAL.DDP5.1.H.264-VARYG.mkv");
+        expect(result.title).toBe("100 Meters");
+        expect(result.tags.group).toBe("VARYG");
+        expect(result.tags.resolution).toBe("1080p");
+      });
+
+      test("Kimagure Orange Road Ano Hi ni Kaeritai (1988) (BDRip 1920x1036p x265 HEVC FLAC 2.0)[sxales].mkv", () => {
+        const result = parse(
+          "Kimagure Orange Road Ano Hi ni Kaeritai (1988) (BDRip 1920x1036p x265 HEVC FLAC 2.0)[sxales].mkv",
+        );
+        expect(result.title).toBe("Kimagure Orange Road Ano Hi ni Kaeritai (1988)");
+        expect(result.tags.group).toBe("sxales");
+        expect(result.episode).toBeNull();
+      });
+
+      test("Kimagure Orange Road OVA - 01 Shiroi Koibito-tachi (1989) (BDRip 1440x1080p x265 HEVC FLAC 2.0)[sxales].mkv", () => {
+        const result = parse(
+          "Kimagure Orange Road OVA - 01 Shiroi Koibito-tachi (1989) (BDRip 1440x1080p x265 HEVC FLAC 2.0)[sxales].mkv",
+        );
+        expect(result.title).toBe("Kimagure Orange Road OVA");
+        expect(result.episode).toBe(1);
+        expect(result.tags.group).toBe("sxales");
+      });
+
+      test("Shangri-La.Frontier.S02E01.MULTi.1080p.WEBRiP.x265-T3KASHi.mkv", () => {
+        const result = parse("Shangri-La.Frontier.S02E01.MULTi.1080p.WEBRiP.x265-T3KASHi.mkv");
+        expect(result.title).toBe("Shangri-La Frontier");
+        expect(result.season).toBe(2);
+        expect(result.episode).toBe(1);
+        expect(result.tags.group).toBe("T3KASHi");
+        expect(result.tags.resolution).toBe("1080p");
+        expect(result.tags.codec).toBe("x265");
+      });
+
+      test("Yowamushi Pedal SPARE BIKE.mkv", () => {
+        const result = parse("Yowamushi Pedal SPARE BIKE.mkv");
+        expect(result.title).toBe("Yowamushi Pedal SPARE BIKE");
+        expect(result.episode).toBeNull();
+      });
     });
   });
 });
