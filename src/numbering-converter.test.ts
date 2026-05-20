@@ -4,25 +4,7 @@ import {
   convertEpisodeNumbering,
   relativeToAbsolute,
 } from "./numbering-converter";
-import type { EpisodeResult } from "./plugins/database/types";
-
-function makeEpisodes(perSeason: number, seasonCount: number): EpisodeResult[] {
-  const result: EpisodeResult[] = [];
-  let id = 1;
-  for (let s = 1; s <= seasonCount; s++) {
-    for (let e = 1; e <= perSeason; e++) {
-      result.push({
-        id: String(id++),
-        animeId: "1",
-        season: s,
-        episode: e,
-        title: `Ep ${id - 1}`,
-        entryType: "tv",
-      });
-    }
-  }
-  return result;
-}
+import { makeEpisodes } from "./test-helpers";
 
 describe("relativeToAbsolute", () => {
   test("converts season-relative to absolute for 2-season anime (24 eps each)", () => {

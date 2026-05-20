@@ -1,11 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { toUrlString } from "../../test-helpers";
 import type { DatabasePlugin } from "./plugin";
 import { TVDBPlugin } from "./tvdb-plugin";
 import type { AnimeResult } from "./types";
-
-function toUrlString(url: string | URL): string {
-  return typeof url === "string" ? url : url.toString();
-}
 
 function mockFetch(
   data: unknown,

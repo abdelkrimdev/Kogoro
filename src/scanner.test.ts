@@ -1,22 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { MatchCache } from "./match-cache";
 import { OverrideStore } from "./override-store";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { AnimeResult, EpisodeResult } from "./plugins/database/types";
 import { Renamer } from "./renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
-
-async function withTempDir(label: string, fn: (dir: string) => Promise<void>): Promise<void> {
-  const dir = mkdtempSync(join(tmpdir(), `kogoro-test-${label}-`));
-  try {
-    await fn(dir);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
+import { createCache, makeThrowingDb, withTempDir } from "./test-helpers";
 
 function writeTempFile(dir: string, name: string, content = "content"): string {
   const path = join(dir, name);
@@ -51,23 +41,6 @@ function createMockDb(opts: MockDbOptions = {}): DatabasePlugin {
     async getEpisodes(animeId: string) {
       counters?.episodes?.push(1);
       return (opts.episodes ?? (() => STD_EPISODES))(animeId);
-    },
-    async getArtwork() {
-      return [];
-    },
-    async getAnime() {
-      return null;
-    },
-  };
-}
-
-function createThrowingDb(): DatabasePlugin {
-  return {
-    async searchAnime() {
-      throw new Error("Should not be called");
-    },
-    async getEpisodes() {
-      throw new Error("Should not be called");
     },
     async getArtwork() {
       return [];
@@ -177,7 +150,7 @@ describe("Scanner", () => {
       const overrideHash = computeFileHash(basename(filePath));
       expect(overrideStore.get(overrideHash)?.animeId).toBe("42");
 
-      const secondScanner = new Scanner({ database: createThrowingDb(), overrideStore });
+      const secondScanner = new Scanner({ database: makeThrowingDb(), overrideStore });
       const secondResult = await secondScanner.scanFile(filePath);
 
       expect(secondResult.status).toBe("matched");
@@ -190,7 +163,7 @@ describe("Scanner", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
 
-      const cache = new MatchCache({ dbPath: join(dir, "cache.db") });
+      const cache = createCache(dir);
       const renamer = new Renamer({
         filenameTemplate: "{anime} - {episode:02}.{ext}",
         directoryTemplate: "{anime}/{type}",
@@ -220,7 +193,7 @@ describe("Scanner", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
 
-      const cache = new MatchCache({ dbPath: join(dir, "cache.db") });
+      const cache = createCache(dir);
       const scanner = new Scanner({ database: createMockDb(), cache });
 
       const first = await scanner.scanFile(filePath, {
@@ -244,7 +217,7 @@ describe("Scanner", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
 
-      const cache = new MatchCache({ dbPath: join(dir, "cache.db") });
+      const cache = createCache(dir);
       const scanner = new Scanner({ database: createMockDb(), cache });
 
       const first = await scanner.scanFile(filePath, {
@@ -268,7 +241,7 @@ describe("Scanner", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
 
-      const cache = new MatchCache({ dbPath: join(dir, "cache.db") });
+      const cache = createCache(dir);
       const renamer = new Renamer({
         filenameTemplate: "{anime} - {episode:02}.{ext}",
         directoryTemplate: "{anime}/{type}",

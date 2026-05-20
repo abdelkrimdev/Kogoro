@@ -1,43 +1,26 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCacheHandlers } from "../cli/cache-commands";
-import { MatchCache } from "../match-cache";
-
-function setupTempDb(): string {
-  const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-cache-"));
-  return join(dir, "cache.db");
-}
-
-function cleanupTempDb(dbPath: string) {
-  const dir = join(dbPath, "..");
-  rmSync(dir, { recursive: true, force: true });
-}
+import { createCache, makeCachedMatch, withTempDir } from "../test-helpers";
 
 describe("cache CLI commands", () => {
   test("cache list returns JSON array of all cached entries", async () => {
-    const dbPath = setupTempDb();
-    try {
-      const cache = new MatchCache({ dbPath });
-      cache.set("hash1", {
-        animeId: "1",
-        episodeId: "101",
-        entryType: "tv",
-        season: 1,
-        episode: 5,
-        title: "Ep 5",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
-      cache.set("hash2", {
-        animeId: "2",
-        episodeId: null,
-        entryType: "movie",
-        season: null,
-        episode: null,
-        title: "Movie",
-        timestamp: "2026-01-02T00:00:00.000Z",
-      });
+    await withTempDir("cache", async (dir) => {
+      const dbPath = join(dir, "cache.db");
+      const cache = createCache(dir);
+      cache.set(
+        "hash1",
+        makeCachedMatch({ episodeId: "101", season: 1, episode: 5, title: "Ep 5" }),
+      );
+      cache.set(
+        "hash2",
+        makeCachedMatch({
+          animeId: "2",
+          entryType: "movie",
+          title: "Movie",
+          timestamp: "2026-01-02T00:00:00.000Z",
+        }),
+      );
 
       const handlers = createCacheHandlers({ dbPath });
       let logOutput = "";
@@ -53,24 +36,17 @@ describe("cache CLI commands", () => {
       expect(parsed[0]?.hash).toBe("hash1");
       expect(parsed[0]?.match.animeId).toBe("1");
       expect(parsed[1]?.hash).toBe("hash2");
-    } finally {
-      cleanupTempDb(dbPath);
-    }
+    });
   });
 
   test("cache lookup returns match for existing hash", async () => {
-    const dbPath = setupTempDb();
-    try {
-      const cache = new MatchCache({ dbPath });
-      cache.set("existhash", {
-        animeId: "99",
-        episodeId: null,
-        entryType: "ova",
-        season: null,
-        episode: null,
-        title: "Special",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+    await withTempDir("cache", async (dir) => {
+      const dbPath = join(dir, "cache.db");
+      const cache = createCache(dir);
+      cache.set(
+        "existhash",
+        makeCachedMatch({ animeId: "99", entryType: "ova", title: "Special" }),
+      );
 
       const handlers = createCacheHandlers({ dbPath });
       let logOutput = "";
@@ -85,14 +61,12 @@ describe("cache CLI commands", () => {
       const parsed = JSON.parse(logOutput);
       expect(parsed.animeId).toBe("99");
       expect(parsed.entryType).toBe("ova");
-    } finally {
-      cleanupTempDb(dbPath);
-    }
+    });
   });
 
   test("cache lookup returns message for missing hash", async () => {
-    const dbPath = setupTempDb();
-    try {
+    await withTempDir("cache", async (dir) => {
+      const dbPath = join(dir, "cache.db");
       const handlers = createCacheHandlers({ dbPath });
       let errOutput = "";
       await handlers.lookup(
@@ -103,24 +77,14 @@ describe("cache CLI commands", () => {
         },
       );
       expect(errOutput).toBe("No cached match for hash: nonexistent");
-    } finally {
-      cleanupTempDb(dbPath);
-    }
+    });
   });
 
   test("cache clear removes all entries", async () => {
-    const dbPath = setupTempDb();
-    try {
-      const cache = new MatchCache({ dbPath });
-      cache.set("a", {
-        animeId: "1",
-        episodeId: null,
-        entryType: "tv",
-        season: null,
-        episode: null,
-        title: null,
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+    await withTempDir("cache", async (dir) => {
+      const dbPath = join(dir, "cache.db");
+      const cache = createCache(dir);
+      cache.set("a", makeCachedMatch());
       expect(cache.has("a")).toBe(true);
 
       const handlers = createCacheHandlers({ dbPath });
@@ -134,24 +98,14 @@ describe("cache CLI commands", () => {
       );
       expect(logOutput).toBe("Cache cleared");
       expect(cache.has("a")).toBe(false);
-    } finally {
-      cleanupTempDb(dbPath);
-    }
+    });
   });
 
   test("cache clear skips when confirmation denied", async () => {
-    const dbPath = setupTempDb();
-    try {
-      const cache = new MatchCache({ dbPath });
-      cache.set("a", {
-        animeId: "1",
-        episodeId: null,
-        entryType: "tv",
-        season: null,
-        episode: null,
-        title: null,
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+    await withTempDir("cache", async (dir) => {
+      const dbPath = join(dir, "cache.db");
+      const cache = createCache(dir);
+      cache.set("a", makeCachedMatch());
 
       const handlers = createCacheHandlers({ dbPath });
       let logOutput = "";
@@ -164,8 +118,6 @@ describe("cache CLI commands", () => {
       );
       expect(logOutput).toBe("Cache clear cancelled");
       expect(cache.has("a")).toBe(true);
-    } finally {
-      cleanupTempDb(dbPath);
-    }
+    });
   });
 });

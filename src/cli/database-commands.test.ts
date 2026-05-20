@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createDatabaseCommands } from "../cli/database-commands";
 import type { DatabasePlugin } from "../plugins/database/plugin";
-import type { AnimeResult, ArtworkResult, EpisodeResult } from "../plugins/database/types";
+import type { AnimeResult, EpisodeResult } from "../plugins/database/types";
+import { createMockDb as _createMockDb, makeThrowingDb } from "../test-helpers";
 
 function createMockPlugin(): DatabasePlugin {
-  return {
-    async searchAnime(title: string): Promise<AnimeResult[]> {
+  return _createMockDb({
+    searchAnime: (title: string): AnimeResult[] => {
       if (title === "Jujutsu Kaisen") {
         return [
           {
@@ -20,7 +21,7 @@ function createMockPlugin(): DatabasePlugin {
       }
       return [];
     },
-    async getEpisodes(animeId: string): Promise<EpisodeResult[]> {
+    getEpisodes: (animeId: string): EpisodeResult[] => {
       if (animeId === "12345") {
         return [
           {
@@ -36,13 +37,7 @@ function createMockPlugin(): DatabasePlugin {
       }
       return [];
     },
-    async getArtwork(): Promise<ArtworkResult[]> {
-      return [];
-    },
-    async getAnime(): Promise<AnimeResult | null> {
-      return null;
-    },
-  };
+  });
 }
 
 describe("DB CLI commands", () => {
@@ -107,20 +102,7 @@ describe("DB CLI commands", () => {
   });
 
   test("db search handles plugin error gracefully", async () => {
-    const failingPlugin: DatabasePlugin = {
-      async searchAnime(): Promise<AnimeResult[]> {
-        throw new Error("API Error");
-      },
-      async getEpisodes(): Promise<EpisodeResult[]> {
-        throw new Error("API Error");
-      },
-      async getArtwork(): Promise<ArtworkResult[]> {
-        throw new Error("API Error");
-      },
-      async getAnime(): Promise<AnimeResult | null> {
-        throw new Error("API Error");
-      },
-    };
+    const failingPlugin = makeThrowingDb();
     const commands = createDatabaseCommands(failingPlugin);
     let errorOutput = "";
     await commands.search(

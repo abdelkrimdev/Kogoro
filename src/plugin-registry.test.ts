@@ -1,11 +1,10 @@
 import { describe, expect, mock, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createScanHandlers } from "./cli/scan-commands";
-import { MatchCache } from "./match-cache";
 import { isDatabasePlugin, isSubtitlePlugin, PluginRegistry } from "./plugin-registry";
 import type { DatabasePlugin } from "./plugins/database/plugin";
+import { createCache, withTempDir } from "./test-helpers";
 
 describe("isDatabasePlugin", () => {
   test("returns true for object implementing DatabasePlugin", () => {
@@ -161,19 +160,16 @@ describe("PluginRegistry.instantiate", () => {
     expect(plugin).not.toBeNull();
     if (!plugin) return;
 
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-ext-plugin-test-"));
-    try {
+    await withTempDir("ext-plugin", async (dir) => {
       const filePath = join(dir, "[Group] External Test - 01.mkv");
       writeFileSync(filePath, "content");
-      const cache = new MatchCache({ dbPath: join(dir, "cache.db") });
+      const cache = createCache(dir);
       const handlers = createScanHandlers({ database: plugin, cache });
       const output = await handlers.scan(filePath, { yes: true, dryRun: true });
       const parsed = JSON.parse(output);
       expect(parsed[0]?.status).toBe("matched");
       expect(parsed[0]?.parsed.title).toBe("External Test");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 });
 

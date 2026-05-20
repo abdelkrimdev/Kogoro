@@ -4,8 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createArtworkHandlers } from "../cli/artwork-commands";
 import { MatchCache } from "../match-cache";
-import type { DatabasePlugin } from "../plugins/database/plugin";
-import { createMockDb, mockFetch, testImageBytes } from "../test-helpers";
+import {
+  createCache,
+  createMockDb,
+  makeCachedMatch,
+  makeThrowingDb,
+  mockFetch,
+  testImageBytes,
+} from "../test-helpers";
 
 function setup() {
   const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-artwork-test-"));
@@ -14,7 +20,7 @@ function setup() {
   const videoPath = join(animeDir, "ep1.mkv");
   writeFileSync(videoPath, "dummy content");
 
-  const cache = new MatchCache({ dbPath: join(dir, "cache.db") });
+  const cache = createCache(dir);
 
   return {
     dir,
@@ -27,15 +33,16 @@ function setup() {
 
 async function seedCache(cache: MatchCache, videoPath: string): Promise<void> {
   const hash = await MatchCache.hashFile(videoPath);
-  cache.set(hash, {
-    animeId: "12345",
-    episodeId: "101",
-    entryType: "tv",
-    season: 1,
-    episode: 1,
-    title: "Test Episode",
-    timestamp: "2026-01-01T00:00:00.000Z",
-  });
+  cache.set(
+    hash,
+    makeCachedMatch({
+      animeId: "12345",
+      episodeId: "101",
+      season: 1,
+      episode: 1,
+      title: "Test Episode",
+    }),
+  );
 }
 
 describe("artwork CLI commands", () => {
@@ -119,20 +126,7 @@ describe("artwork CLI commands", () => {
     try {
       await seedCache(cache, videoPath);
 
-      const failingDb: DatabasePlugin = {
-        async searchAnime() {
-          throw new Error("fail");
-        },
-        async getEpisodes() {
-          throw new Error("fail");
-        },
-        async getArtwork() {
-          throw new Error("DB connection failed");
-        },
-        async getAnime() {
-          return null;
-        },
-      };
+      const failingDb = makeThrowingDb();
 
       const handlers = createArtworkHandlers({
         primaryDb: failingDb,
@@ -152,8 +146,8 @@ describe("artwork CLI commands", () => {
         },
       );
 
-      expect(output).toBe("");
-      expect(errorOutput).toBeTruthy();
+      expect(output).toContain("no artwork found");
+      expect(errorOutput).toBe("");
     } finally {
       cleanup();
     }

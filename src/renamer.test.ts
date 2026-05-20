@@ -15,6 +15,7 @@ import { join } from "node:path";
 import type { MatchResult } from "./matcher";
 import type { EpisodeResult } from "./plugins/database/types";
 import { Renamer } from "./renamer";
+import { withTempDir } from "./test-helpers";
 
 function makeTvMatch(): MatchResult {
   return {
@@ -315,9 +316,8 @@ describe("Renamer", () => {
       expect(renamer.canRollback()).toBe(false);
     });
 
-    test("canRollback returns true after successful execute", () => {
-      const dir = mkdtempSync(join(tmpdir(), "kogoro-rollback-"));
-      try {
+    test("canRollback returns true after successful execute", async () => {
+      await withTempDir("rollback", async (dir) => {
         const renamer = new Renamer({
           filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
           directoryTemplate: "{anime}/{type}",
@@ -329,14 +329,11 @@ describe("Renamer", () => {
         renamer.execute(plan, dir);
 
         expect(renamer.canRollback()).toBe(true);
-      } finally {
-        rmSync(dir, { recursive: true, force: true });
-      }
+      });
     });
 
-    test("rollback restores source file after move", () => {
-      const dir = mkdtempSync(join(tmpdir(), "kogoro-rollback-"));
-      try {
+    test("rollback restores source file after move", async () => {
+      await withTempDir("rollback", async (dir) => {
         const renamer = new Renamer({
           filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
           directoryTemplate: "{anime}/{type}",
@@ -357,14 +354,11 @@ describe("Renamer", () => {
         expect(existsSync(sourcePath)).toBe(true);
         expect(existsSync(targetPath)).toBe(false);
         expect(readFileSync(sourcePath, "utf-8")).toBe("hello");
-      } finally {
-        rmSync(dir, { recursive: true, force: true });
-      }
+      });
     });
 
-    test("rollback removes copied file", () => {
-      const dir = mkdtempSync(join(tmpdir(), "kogoro-rollback-"));
-      try {
+    test("rollback removes copied file", async () => {
+      await withTempDir("rollback", async (dir) => {
         const renamer = new Renamer({
           filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
           directoryTemplate: "{anime}/{type}",
@@ -383,14 +377,11 @@ describe("Renamer", () => {
         expect(results[0]?.success).toBe(true);
         expect(existsSync(sourcePath)).toBe(true);
         expect(existsSync(targetPath)).toBe(false);
-      } finally {
-        rmSync(dir, { recursive: true, force: true });
-      }
+      });
     });
 
-    test("rollback after successful execute clears canRollback", () => {
-      const dir = mkdtempSync(join(tmpdir(), "kogoro-rollback-"));
-      try {
+    test("rollback after successful execute clears canRollback", async () => {
+      await withTempDir("rollback", async (dir) => {
         const renamer = new Renamer({
           filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
           directoryTemplate: "{anime}/{type}",
@@ -404,9 +395,7 @@ describe("Renamer", () => {
         expect(renamer.canRollback()).toBe(true);
         renamer.rollback();
         expect(renamer.canRollback()).toBe(false);
-      } finally {
-        rmSync(dir, { recursive: true, force: true });
-      }
+      });
     });
   });
 });

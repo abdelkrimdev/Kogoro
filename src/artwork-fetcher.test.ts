@@ -5,11 +5,14 @@ import { join } from "node:path";
 import { ArtworkFetcher } from "./artwork-fetcher";
 import { MatchCache } from "./match-cache";
 import { TVDBPlugin } from "./plugins/database/tvdb-plugin";
-import { createMockDb, mockFetch, testImageBytes } from "./test-helpers";
-
-function urlString(url: string | URL): string {
-  return typeof url === "string" ? url : url.toString();
-}
+import {
+  createCache,
+  createMockDb,
+  makeCachedMatch,
+  mockFetch,
+  testImageBytes,
+  toUrlString,
+} from "./test-helpers";
 
 describe("ArtworkFetcher", () => {
   function setup() {
@@ -19,20 +22,20 @@ describe("ArtworkFetcher", () => {
     const videoPath = join(animeDir, "ep1.mkv");
     writeFileSync(videoPath, "dummy video content");
 
-    const dbPath = join(dir, "cache.db");
-    const cache = new MatchCache({ dbPath });
+    const cache = createCache(dir);
 
     async function seedCache(animeId = "12345") {
       const hash = await MatchCache.hashFile(videoPath);
-      cache.set(hash, {
-        animeId,
-        episodeId: "101",
-        entryType: "tv",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      });
+      cache.set(
+        hash,
+        makeCachedMatch({
+          animeId,
+          episodeId: "101",
+          season: 1,
+          episode: 1,
+          title: "Test Episode",
+        }),
+      );
     }
 
     return {
@@ -189,7 +192,7 @@ describe("ArtworkFetcher", () => {
 
       const requestedUrls: string[] = [];
       const trackingFetch = async (url: string | URL) => {
-        requestedUrls.push(urlString(url));
+        requestedUrls.push(toUrlString(url));
         return new Response(testImageBytes, {
           status: 200,
           headers: { "Content-Type": "image/jpeg" },
@@ -244,7 +247,7 @@ describe("ArtworkFetcher", () => {
     const plugin = new TVDBPlugin({
       apiKey: "test-key",
       fetch: async (url: string | URL, _init?: RequestInit) => {
-        if (urlString(url).includes("/login")) {
+        if (toUrlString(url).includes("/login")) {
           return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
             status: 200,
             headers: { "Content-Type": "application/json" },

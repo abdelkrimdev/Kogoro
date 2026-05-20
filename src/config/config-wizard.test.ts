@@ -1,21 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { ConfigManager } from "../config/config-manager";
 import { type PromptsAPI, runConfigWizard } from "../config/config-wizard";
 import { CredentialStore } from "../config/credential-store";
+import { withTempDir } from "../test-helpers";
 
 describe("ConfigWizard", () => {
-  function setupTempDir(): string {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-wizard-test-"));
-    return dir;
-  }
-
-  function cleanupTempDir(dir: string) {
-    rmSync(dir, { recursive: true, force: true });
-  }
-
   function makePrompts(overrides: Partial<PromptsAPI> = {}): PromptsAPI {
     return {
       intro: () => {},
@@ -29,8 +20,7 @@ describe("ConfigWizard", () => {
   }
 
   test("wizard sets primary-db from user selection", async () => {
-    const dir = setupTempDir();
-    try {
+    await withTempDir("wizard", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({ keytar: null });
       const prompts = makePrompts({
@@ -39,28 +29,22 @@ describe("ConfigWizard", () => {
 
       await runConfigWizard({ config, credentialStore, prompts });
       expect(await config.get("primary-db")).toBe("anidb");
-    } finally {
-      cleanupTempDir(dir);
-    }
+    });
   });
 
   test("wizard creates config.toml file", async () => {
-    const dir = setupTempDir();
-    try {
+    await withTempDir("wizard", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({ keytar: null });
       const prompts = makePrompts();
 
       await runConfigWizard({ config, credentialStore, prompts });
       expect(existsSync(join(dir, "config.toml"))).toBe(true);
-    } finally {
-      cleanupTempDir(dir);
-    }
+    });
   });
 
   test("wizard saves API key via credential store when provided", async () => {
-    const dir = setupTempDir();
-    try {
+    await withTempDir("wizard", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const mockKeytar = {
         store: new Map<string, string>(),
@@ -89,14 +73,11 @@ describe("ConfigWizard", () => {
       await runConfigWizard({ config, credentialStore, prompts });
       const stored = await credentialStore.getCredential("anidb");
       expect(stored).toBe("my-api-key-123");
-    } finally {
-      cleanupTempDir(dir);
-    }
+    });
   });
 
   test("wizard sets template preset", async () => {
-    const dir = setupTempDir();
-    try {
+    await withTempDir("wizard", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({ keytar: null });
       let selectCalls = 0;
@@ -111,14 +92,11 @@ describe("ConfigWizard", () => {
       await runConfigWizard({ config, credentialStore, prompts });
       const preset = await config.get("template.preset");
       expect(preset).toBe("compact");
-    } finally {
-      cleanupTempDir(dir);
-    }
+    });
   });
 
   test("wizard sets default values for all config keys", async () => {
-    const dir = setupTempDir();
-    try {
+    await withTempDir("wizard", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({ keytar: null });
       let selectCalls = 0;
@@ -136,14 +114,11 @@ describe("ConfigWizard", () => {
       expect(await config.get("extensions")).toBe(".mkv,.mp4");
       expect(await config.get("exclude-patterns")).toBe(".part,.crdownload");
       expect(await config.get("template.preset")).toBe("standard");
-    } finally {
-      cleanupTempDir(dir);
-    }
+    });
   });
 
   test("wizard prompts for secondary databases and stores value", async () => {
-    const dir = setupTempDir();
-    try {
+    await withTempDir("wizard", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({ keytar: null });
       let textCalls = 0;
@@ -160,14 +135,11 @@ describe("ConfigWizard", () => {
       await runConfigWizard({ config, credentialStore, prompts });
       expect(await config.get("secondary-dbs")).toBe("anidb,opensubtitles");
       expect(config.getList("secondary-dbs")).toEqual(["anidb", "opensubtitles"]);
-    } finally {
-      cleanupTempDir(dir);
-    }
+    });
   });
 
   test("wizard warns with correct env var when credential store throws", async () => {
-    const dir = setupTempDir();
-    try {
+    await withTempDir("wizard", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({
         keytar: {
@@ -189,14 +161,11 @@ describe("ConfigWizard", () => {
 
       await runConfigWizard({ config, credentialStore, prompts });
       expect(outroMessages.some((m) => m.includes("KOGORO_TVDB_KEY"))).toBe(true);
-    } finally {
-      cleanupTempDir(dir);
-    }
+    });
   });
 
   test("wizard accepts empty secondary databases", async () => {
-    const dir = setupTempDir();
-    try {
+    await withTempDir("wizard", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({ keytar: null });
       const prompts = makePrompts({
@@ -207,8 +176,6 @@ describe("ConfigWizard", () => {
       await runConfigWizard({ config, credentialStore, prompts });
       expect(await config.get("secondary-dbs")).toBe("");
       expect(config.getList("secondary-dbs")).toEqual([]);
-    } finally {
-      cleanupTempDir(dir);
-    }
+    });
   });
 });

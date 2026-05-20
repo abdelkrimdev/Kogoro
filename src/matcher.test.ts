@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { Matcher } from "./matcher";
 import { OverrideStore } from "./override-store";
 import type { ParsedResult } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
+import { withTempDir } from "./test-helpers";
 
 interface MockAnime {
   animeId: string;
@@ -385,17 +383,8 @@ describe("Matcher", () => {
   });
 
   describe("with OverrideStore", () => {
-    function setupTempDir(): string {
-      return mkdtempSync(join(tmpdir(), "kogoro-matcher-override-"));
-    }
-
-    function cleanupTempDir(dir: string) {
-      rmSync(dir, { recursive: true, force: true });
-    }
-
     test("returns override match when override exists for file hash", async () => {
-      const dir = setupTempDir();
-      try {
+      await withTempDir("matcher-override", async (dir) => {
         const overrideStore = new OverrideStore(dir);
         overrideStore.set("abc123", {
           animeId: "tvdb-99",
@@ -426,14 +415,11 @@ describe("Matcher", () => {
         expect(results[0]?.episode?.id).toBe("ep-5");
         expect(results[0]?.score).toBe(1);
         expect(results[0]?.failureReason).toBeUndefined();
-      } finally {
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("falls through to DB when no override exists for hash", async () => {
-      const dir = setupTempDir();
-      try {
+      await withTempDir("matcher-override", async (dir) => {
         const overrideStore = new OverrideStore(dir);
         overrideStore.set("other-hash", { animeId: "tvdb-99" });
 
@@ -459,9 +445,7 @@ describe("Matcher", () => {
         expect(results[0]?.anime.title).toBe("Jujutsu Kaisen");
         expect(results[0]?.episode?.id).toBe("101");
         expect(results[0]?.score).toBeGreaterThan(0);
-      } finally {
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("falls through to DB when no OverrideStore provided", async () => {
@@ -487,8 +471,7 @@ describe("Matcher", () => {
     });
 
     test("override with animeId only returns anime match without episode", async () => {
-      const dir = setupTempDir();
-      try {
+      await withTempDir("matcher-override", async (dir) => {
         const overrideStore = new OverrideStore(dir);
         overrideStore.set("abc123", { animeId: "tvdb-99" });
 
@@ -513,14 +496,11 @@ describe("Matcher", () => {
         expect(results[0]?.anime.id).toBe("tvdb-99");
         expect(results[0]?.episode).toBeUndefined();
         expect(results[0]?.score).toBe(1);
-      } finally {
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("entryType-only override queries DB then overrides entryType in results", async () => {
-      const dir = setupTempDir();
-      try {
+      await withTempDir("matcher-override", async (dir) => {
         const overrideStore = new OverrideStore(dir);
         overrideStore.set("abc123", { entryType: "special" });
 
@@ -546,9 +526,7 @@ describe("Matcher", () => {
         expect(results[0]?.anime.id).toBe("1");
         expect(results[0]?.anime.entryType).toBe("special");
         expect(results[0]?.episode?.entryType).toBe("special");
-      } finally {
-        cleanupTempDir(dir);
-      }
+      });
     });
   });
 });

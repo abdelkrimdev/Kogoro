@@ -1,41 +1,21 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { type CachedMatch, MatchCache } from "./match-cache";
+import { MatchCache } from "./match-cache";
 import { MetadataWriter } from "./metadata-writer";
-
-function createTempDir(): string {
-  return mkdtempSync(join(tmpdir(), "kogoro-metadata-test-"));
-}
-
-function cleanupTempDir(dir: string) {
-  rmSync(dir, { recursive: true, force: true });
-}
-
-function createTempDb(): string {
-  const dir = mkdtempSync(join(tmpdir(), "kogoro-metadata-db-"));
-  return join(dir, "cache.db");
-}
-
-function cleanupTempDb(dbPath: string) {
-  const dir = join(dbPath, "..");
-  rmSync(dir, { recursive: true, force: true });
-}
+import { createCache, createMockDb, makeCachedMatch, withTempDir } from "./test-helpers";
 
 describe("MetadataWriter", () => {
   describe("generateEpisodeNfo", () => {
     test("produces valid Kodi episode XML with all required fields", () => {
-      const match: CachedMatch = {
+      const match = makeCachedMatch({
         animeId: "12345",
         episodeId: "67890",
-        entryType: "tv",
         season: 1,
         episode: 13,
         title: "The Test Episode",
         animeTitle: "Test Anime",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      };
+      });
 
       const writer = new MetadataWriter({ cache: null as never });
       const xml = writer.generateEpisodeNfo(match);
@@ -53,15 +33,11 @@ describe("MetadataWriter", () => {
 
   describe("generateMovieNfo", () => {
     test("produces movie-style NFO with movie root element", () => {
-      const match: CachedMatch = {
+      const match = makeCachedMatch({
         animeId: "999",
-        episodeId: null,
         entryType: "movie",
-        season: null,
-        episode: null,
         title: "Test Movie",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      };
+      });
 
       const writer = new MetadataWriter({ cache: null as never });
       const xml = writer.generateMovieNfo(match);
@@ -76,50 +52,40 @@ describe("MetadataWriter", () => {
 
   describe("enriched NFO with optional DatabasePlugin", () => {
     test("populates showtitle, plot, and aired when database plugin provided", async () => {
-      const dir = createTempDir();
-      const dbPath = createTempDb();
-      try {
+      await withTempDir("metadata", async (dir) => {
         const videoPath = join(dir, "Test Anime - 1x01.mkv");
         writeFileSync(videoPath, "fake video content");
 
         const hash = await MatchCache.hashFile(videoPath);
-        const cache = new MatchCache({ dbPath });
-        cache.set(hash, {
-          animeId: "42",
-          episodeId: "101",
-          entryType: "tv",
-          season: 1,
-          episode: 1,
-          title: "First Episode",
-          animeTitle: "Test Anime",
-          timestamp: "2026-01-01T00:00:00.000Z",
-        });
+        const cache = createCache(dir);
+        cache.set(
+          hash,
+          makeCachedMatch({
+            animeId: "42",
+            episodeId: "101",
+            season: 1,
+            episode: 1,
+            title: "First Episode",
+            animeTitle: "Test Anime",
+          }),
+        );
 
-        const mockDb = {
-          async searchAnime() {
-            return [{ id: "42", title: "Test Anime", entryType: "tv" as const }];
-          },
-          async getAnime() {
-            return { id: "42", title: "Test Anime", entryType: "tv" as const };
-          },
-          async getEpisodes() {
-            return [
-              {
-                id: "101",
-                animeId: "42",
-                season: 1,
-                episode: 1,
-                title: "First Episode",
-                overview: "A thrilling start",
-                airDate: "2026-01-15",
-                entryType: "tv" as const,
-              },
-            ];
-          },
-          async getArtwork() {
-            return [];
-          },
-        };
+        const mockDb = createMockDb({
+          searchAnime: () => [{ id: "42", title: "Test Anime", entryType: "tv" as const }],
+          getAnime: () => ({ id: "42", title: "Test Anime", entryType: "tv" as const }),
+          getEpisodes: () => [
+            {
+              id: "101",
+              animeId: "42",
+              season: 1,
+              episode: 1,
+              title: "First Episode",
+              overview: "A thrilling start",
+              airDate: "2026-01-15",
+              entryType: "tv" as const,
+            },
+          ],
+        });
 
         const writer = new MetadataWriter({ cache, database: mockDb });
         const summary = await writer.write(dir);
@@ -134,57 +100,44 @@ describe("MetadataWriter", () => {
 
         expect(summary.total).toBe(1);
         expect(summary.written).toBe(1);
-      } finally {
-        cleanupTempDb(dbPath);
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("showtitle comes from database getAnime, not just from cache", async () => {
-      const dir = createTempDir();
-      const dbPath = createTempDb();
-      try {
+      await withTempDir("metadata", async (dir) => {
         const videoPath = join(dir, "Anime - 1x01.mkv");
         writeFileSync(videoPath, "content");
 
         const hash = await MatchCache.hashFile(videoPath);
-        const cache = new MatchCache({ dbPath });
-        cache.set(hash, {
-          animeId: "99",
-          episodeId: "5",
-          entryType: "tv",
-          season: 1,
-          episode: 1,
-          title: "Ep Title",
-          animeTitle: "Cached Anime Title",
-          timestamp: "2026-01-01T00:00:00.000Z",
-        });
+        const cache = createCache(dir);
+        cache.set(
+          hash,
+          makeCachedMatch({
+            animeId: "99",
+            episodeId: "5",
+            season: 1,
+            episode: 1,
+            title: "Ep Title",
+            animeTitle: "Cached Anime Title",
+          }),
+        );
 
-        const mockDb = {
-          async searchAnime() {
-            return [{ id: "99", title: "DB Anime Title", entryType: "tv" as const }];
-          },
-          async getAnime() {
-            return { id: "99", title: "DB Anime Title", entryType: "tv" as const };
-          },
-          async getEpisodes() {
-            return [
-              {
-                id: "5",
-                animeId: "99",
-                season: 1,
-                episode: 1,
-                title: "Ep Title",
-                overview: "DB overview",
-                airDate: "2025-01-01",
-                entryType: "tv" as const,
-              },
-            ];
-          },
-          async getArtwork() {
-            return [];
-          },
-        };
+        const mockDb = createMockDb({
+          searchAnime: () => [{ id: "99", title: "DB Anime Title", entryType: "tv" as const }],
+          getAnime: () => ({ id: "99", title: "DB Anime Title", entryType: "tv" as const }),
+          getEpisodes: () => [
+            {
+              id: "5",
+              animeId: "99",
+              season: 1,
+              episode: 1,
+              title: "Ep Title",
+              overview: "DB overview",
+              airDate: "2025-01-01",
+              entryType: "tv" as const,
+            },
+          ],
+        });
 
         const writer = new MetadataWriter({ cache, database: mockDb });
         await writer.write(dir);
@@ -192,22 +145,17 @@ describe("MetadataWriter", () => {
         const nfoContent = readFileSync(join(dir, "Anime - 1x01.nfo"), "utf-8");
         expect(nfoContent).toContain("<showtitle>DB Anime Title</showtitle>");
         expect(nfoContent).not.toContain("<showtitle>Cached Anime Title</showtitle>");
-      } finally {
-        cleanupTempDb(dbPath);
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("still writes NFO without database plugin (empty showtitle/plot/aired)", async () => {
-      const match: CachedMatch = {
+      const match = makeCachedMatch({
         animeId: "12345",
         episodeId: "67890",
-        entryType: "tv",
         season: 1,
         episode: 13,
         title: "The Test Episode",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      };
+      });
 
       const writer = new MetadataWriter({ cache: null as never });
       const xml = writer.generateEpisodeNfo(match);
@@ -220,23 +168,22 @@ describe("MetadataWriter", () => {
 
   describe("write", () => {
     test("writes NFO sidecar next to cached video file", async () => {
-      const dir = createTempDir();
-      const dbPath = createTempDb();
-      try {
+      await withTempDir("metadata", async (dir) => {
         const videoPath = join(dir, "Test Anime - 1x01.mkv");
         writeFileSync(videoPath, "fake video content");
 
         const hash = await MatchCache.hashFile(videoPath);
-        const cache = new MatchCache({ dbPath });
-        cache.set(hash, {
-          animeId: "42",
-          episodeId: "101",
-          entryType: "tv",
-          season: 1,
-          episode: 1,
-          title: "First Episode",
-          timestamp: "2026-01-01T00:00:00.000Z",
-        });
+        const cache = createCache(dir);
+        cache.set(
+          hash,
+          makeCachedMatch({
+            animeId: "42",
+            episodeId: "101",
+            season: 1,
+            episode: 1,
+            title: "First Episode",
+          }),
+        );
 
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir);
@@ -254,32 +201,28 @@ describe("MetadataWriter", () => {
         expect(summary.written).toBe(1);
         expect(summary.skipped).toBe(0);
         expect(summary.failed).toBe(0);
-      } finally {
-        cleanupTempDb(dbPath);
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("skips files that already have NFO (no overwrite)", async () => {
-      const dir = createTempDir();
-      const dbPath = createTempDb();
-      try {
+      await withTempDir("metadata", async (dir) => {
         const videoPath = join(dir, "SkipTest.mkv");
         const nfoPath = join(dir, "SkipTest.nfo");
         writeFileSync(videoPath, "content");
         writeFileSync(nfoPath, "old metadata");
 
         const hash = await MatchCache.hashFile(videoPath);
-        const cache = new MatchCache({ dbPath });
-        cache.set(hash, {
-          animeId: "1",
-          episodeId: "2",
-          entryType: "tv",
-          season: 1,
-          episode: 1,
-          title: "Should Not Overwrite",
-          timestamp: "2026-01-01T00:00:00.000Z",
-        });
+        const cache = createCache(dir);
+        cache.set(
+          hash,
+          makeCachedMatch({
+            animeId: "1",
+            episodeId: "2",
+            season: 1,
+            episode: 1,
+            title: "Should Not Overwrite",
+          }),
+        );
 
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir);
@@ -289,32 +232,28 @@ describe("MetadataWriter", () => {
         expect(summary.total).toBe(1);
         expect(summary.written).toBe(0);
         expect(summary.skipped).toBe(1);
-      } finally {
-        cleanupTempDb(dbPath);
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("--force overwrites existing NFO file", async () => {
-      const dir = createTempDir();
-      const dbPath = createTempDb();
-      try {
+      await withTempDir("metadata", async (dir) => {
         const videoPath = join(dir, "ForceTest.mkv");
         const nfoPath = join(dir, "ForceTest.nfo");
         writeFileSync(videoPath, "content");
         writeFileSync(nfoPath, "old metadata");
 
         const hash = await MatchCache.hashFile(videoPath);
-        const cache = new MatchCache({ dbPath });
-        cache.set(hash, {
-          animeId: "1",
-          episodeId: "2",
-          entryType: "tv",
-          season: 1,
-          episode: 5,
-          title: "New Episode",
-          timestamp: "2026-01-01T00:00:00.000Z",
-        });
+        const cache = createCache(dir);
+        cache.set(
+          hash,
+          makeCachedMatch({
+            animeId: "1",
+            episodeId: "2",
+            season: 1,
+            episode: 5,
+            title: "New Episode",
+          }),
+        );
 
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir, { force: true });
@@ -325,20 +264,15 @@ describe("MetadataWriter", () => {
         expect(summary.total).toBe(1);
         expect(summary.written).toBe(1);
         expect(summary.skipped).toBe(0);
-      } finally {
-        cleanupTempDb(dbPath);
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("skips video files not in cache", async () => {
-      const dir = createTempDir();
-      const dbPath = createTempDb();
-      try {
+      await withTempDir("metadata", async (dir) => {
         const videoPath = join(dir, "NoMatch.mkv");
         writeFileSync(videoPath, "uncached content");
 
-        const cache = new MatchCache({ dbPath });
+        const cache = createCache(dir);
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir);
 
@@ -347,17 +281,12 @@ describe("MetadataWriter", () => {
         expect(summary.total).toBe(1);
         expect(summary.written).toBe(0);
         expect(summary.skipped).toBe(1);
-      } finally {
-        cleanupTempDb(dbPath);
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("handles empty directory", async () => {
-      const dir = createTempDir();
-      const dbPath = createTempDb();
-      try {
-        const cache = new MatchCache({ dbPath });
+      await withTempDir("metadata", async (dir) => {
+        const cache = createCache(dir);
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir);
 
@@ -365,30 +294,24 @@ describe("MetadataWriter", () => {
         expect(summary.written).toBe(0);
         expect(summary.skipped).toBe(0);
         expect(summary.failed).toBe(0);
-      } finally {
-        cleanupTempDb(dbPath);
-        cleanupTempDir(dir);
-      }
+      });
     });
 
     test("writes movie-style NFO for movie entry type", async () => {
-      const dir = createTempDir();
-      const dbPath = createTempDb();
-      try {
+      await withTempDir("metadata", async (dir) => {
         const videoPath = join(dir, "My Movie.mkv");
         writeFileSync(videoPath, "movie content");
 
         const hash = await MatchCache.hashFile(videoPath);
-        const cache = new MatchCache({ dbPath });
-        cache.set(hash, {
-          animeId: "99",
-          episodeId: null,
-          entryType: "movie",
-          season: null,
-          episode: null,
-          title: "Great Movie",
-          timestamp: "2026-01-01T00:00:00.000Z",
-        });
+        const cache = createCache(dir);
+        cache.set(
+          hash,
+          makeCachedMatch({
+            animeId: "99",
+            entryType: "movie",
+            title: "Great Movie",
+          }),
+        );
 
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir);
@@ -401,10 +324,7 @@ describe("MetadataWriter", () => {
         expect(nfoContent).not.toContain("<episodedetails>");
         expect(nfoContent).not.toContain("<season>");
         expect(summary.written).toBe(1);
-      } finally {
-        cleanupTempDb(dbPath);
-        cleanupTempDir(dir);
-      }
+      });
     });
   });
 });

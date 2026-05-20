@@ -1,14 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { mockJsonFetch } from "../../test-helpers";
 import { OpenSubtitlesPlugin } from "./opensubtitles-plugin";
-
-function mockFetch(data: unknown, status = 200) {
-  return async (_url: string | URL, _init?: RequestInit) => {
-    return new Response(JSON.stringify(data), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    });
-  };
-}
 
 describe("OpenSubtitlesPlugin", () => {
   test("search returns subtitle results for a query", async () => {
@@ -29,7 +21,7 @@ describe("OpenSubtitlesPlugin", () => {
 
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
-      fetch: mockFetch(searchResponse),
+      fetch: mockJsonFetch(searchResponse),
     });
 
     const results = await plugin.search("Jujutsu Kaisen", 1, 1, "en");
@@ -44,7 +36,7 @@ describe("OpenSubtitlesPlugin", () => {
 
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
-      fetch: mockFetch(searchResponse),
+      fetch: mockJsonFetch(searchResponse),
     });
 
     const results = await plugin.search("Unknown Anime", 1, 1, "en");
@@ -54,7 +46,7 @@ describe("OpenSubtitlesPlugin", () => {
   test("search returns empty array on API error", async () => {
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
-      fetch: mockFetch(null, 401),
+      fetch: mockJsonFetch(null, 401),
     });
 
     const results = await plugin.search("Jujutsu Kaisen", 1, 1, "en");
@@ -91,7 +83,7 @@ describe("OpenSubtitlesPlugin", () => {
   test("download returns empty string on API error", async () => {
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
-      fetch: mockFetch(null, 500),
+      fetch: mockJsonFetch(null, 500),
     });
 
     const content = await plugin.download(101);

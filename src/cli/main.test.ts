@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { buildSecondaryDatabases, run } from "../cli/main";
 import { ConfigManager } from "../config/config-manager";
 import { CredentialStore } from "../config/credential-store";
 import type { PluginInfo } from "../plugin-registry";
+import { withTempDir } from "../test-helpers";
 
 describe("kogoro CLI", () => {
   test("project bootstrap is set up", () => {
@@ -62,20 +61,16 @@ describe("kogoro CLI", () => {
   });
 
   test("buildSecondaryDatabases returns empty array when config has no secondary-dbs", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-build-secondary-"));
-    try {
+    await withTempDir("build-secondary", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const credentialStore = new CredentialStore({ keytar: null });
       const dbs = await buildSecondaryDatabases(config, credentialStore);
       expect(dbs).toEqual([]);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("buildSecondaryDatabases returns anidb when configured", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-build-secondary-"));
-    try {
+    await withTempDir("build-secondary", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       config.set("secondary-dbs", "anidb");
       const credentialStore = new CredentialStore({ keytar: null });
@@ -83,28 +78,22 @@ describe("kogoro CLI", () => {
       const dbs = await buildSecondaryDatabases(config, credentialStore);
       expect(dbs).toHaveLength(1);
       expect(dbs[0]?.constructor.name).toBe("AniDBPlugin");
-    } finally {
       // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
       delete process.env["KOGORO_ANIDB_KEY"];
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("buildSecondaryDatabases skips databases without credentials", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-build-secondary-"));
-    try {
+    await withTempDir("build-secondary", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       config.set("secondary-dbs", "anidb,tvdb");
       const credentialStore = new CredentialStore({ keytar: null });
-      // Only set anidb credentials, not tvdb
       await credentialStore.setCredential("anidb", "testclient:1");
       const dbs = await buildSecondaryDatabases(config, credentialStore);
       expect(dbs).toHaveLength(1);
       expect(dbs[0]?.constructor.name).toBe("AniDBPlugin");
-    } finally {
       // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
       delete process.env["KOGORO_ANIDB_KEY"];
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 });

@@ -4,28 +4,17 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../cli/scan-commands";
 import { ConfigManager } from "../config/config-manager";
-import { MatchCache } from "../match-cache";
 import { OverrideStore } from "../override-store";
-import type { DatabasePlugin } from "../plugins/database/plugin";
 import { computeFileHash } from "../scanner";
+import { createMockDb as _createMockDb, createCache, makeThrowingDb } from "../test-helpers";
 
-function createMockDb(): DatabasePlugin {
-  return {
-    async searchAnime(title: string) {
-      return [{ id: "1", title, entryType: "tv" as const }];
-    },
-    async getEpisodes(_animeId: string) {
-      return [
-        { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
-      ];
-    },
-    async getArtwork() {
-      return [];
-    },
-    async getAnime() {
-      return null;
-    },
-  };
+function createMockDb() {
+  return _createMockDb({
+    searchAnime: (title: string) => [{ id: "1", title, entryType: "tv" as const }],
+    getEpisodes: (_animeId: string) => [
+      { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
+    ],
+  });
 }
 
 describe("scan CLI commands", () => {
@@ -89,7 +78,7 @@ describe("scan CLI commands", () => {
     try {
       const filePath = join(dir, "[Group] Anime - 01.mkv");
       writeFileSync(filePath, "same content");
-      const cache = new MatchCache({ dbPath: join(dir, "cache.db") });
+      const cache = createCache(dir);
 
       const handlers = createScanHandlers({ database: createMockDb(), cache });
       // First scan — resolves match
@@ -111,7 +100,7 @@ describe("scan CLI commands", () => {
     try {
       const filePath = join(dir, "[Group] Anime - 01.mkv");
       writeFileSync(filePath, "content");
-      const cache = new MatchCache({ dbPath: join(dir, "cache.db") });
+      const cache = createCache(dir);
 
       const handlers = createScanHandlers({ database: createMockDb(), cache });
       // First scan
@@ -150,26 +139,16 @@ describe("scan CLI commands", () => {
       const filePath = join(dir, "Some Anime - 01.mkv");
       writeFileSync(filePath, "content");
 
-      const ambiguousDb: DatabasePlugin = {
-        async searchAnime(_title: string) {
-          return [
-            { id: "1", title: "Anime One", entryType: "tv" as const },
-            { id: "2", title: "Anime Two", entryType: "tv" as const },
-          ];
-        },
-        async getEpisodes(animeId: string) {
-          return [
-            { id: "101", animeId, season: 1, episode: 1, title: `Ep 1`, entryType: "tv" as const },
-            { id: "102", animeId, season: 1, episode: 1, title: `Ep 1`, entryType: "tv" as const },
-          ];
-        },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
+      const ambiguousDb = _createMockDb({
+        searchAnime: (_title: string) => [
+          { id: "1", title: "Anime One", entryType: "tv" as const },
+          { id: "2", title: "Anime Two", entryType: "tv" as const },
+        ],
+        getEpisodes: (animeId: string) => [
+          { id: "101", animeId, season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
+          { id: "102", animeId, season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
+        ],
+      });
 
       const handlers = createScanHandlers({ database: ambiguousDb });
       const output = await handlers.scan(filePath, { yes: true, dryRun: true });
@@ -190,8 +169,8 @@ describe("scan CLI commands", () => {
       writeFileSync(join(dir, "Some Anime - 01.mkv"), "");
       writeFileSync(join(dir, "randomfile.mkv"), "");
 
-      const mixedDb: DatabasePlugin = {
-        async searchAnime(title: string) {
+      const mixedDb = _createMockDb({
+        searchAnime: (title: string) => {
           if (title.toLowerCase().includes("some")) {
             return [
               { id: "1", title: "Anime One", entryType: "tv" as const },
@@ -200,33 +179,25 @@ describe("scan CLI commands", () => {
           }
           return [{ id: "1", title, entryType: "tv" as const }];
         },
-        async getEpisodes(_animeId: string) {
-          return [
-            {
-              id: "101",
-              animeId: "1",
-              season: 1,
-              episode: 1,
-              title: "Ep 1",
-              entryType: "tv" as const,
-            },
-            {
-              id: "102",
-              animeId: "1",
-              season: 1,
-              episode: 2,
-              title: "Ep 2",
-              entryType: "tv" as const,
-            },
-          ];
-        },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
+        getEpisodes: (_animeId: string) => [
+          {
+            id: "101",
+            animeId: "1",
+            season: 1,
+            episode: 1,
+            title: "Ep 1",
+            entryType: "tv" as const,
+          },
+          {
+            id: "102",
+            animeId: "1",
+            season: 1,
+            episode: 2,
+            title: "Ep 2",
+            entryType: "tv" as const,
+          },
+        ],
+      });
 
       const handlers = createScanHandlers({ database: mixedDb });
       const output = await handlers.scan(dir, { yes: true, dryRun: true });
@@ -354,20 +325,7 @@ describe("scan CLI commands", () => {
         entryType: "movie",
       });
 
-      const throwingDb: DatabasePlugin = {
-        async searchAnime() {
-          throw new Error("Should not be called");
-        },
-        async getEpisodes() {
-          throw new Error("Should not be called");
-        },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
+      const throwingDb = makeThrowingDb();
 
       const handlers = createScanHandlers({ database: throwingDb, overrideStore });
       const output = await handlers.scan(filePath, { yes: true });
