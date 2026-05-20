@@ -1,7 +1,7 @@
 import { extname } from "node:path";
 import type { MatchResult } from "../matcher";
 import { parse } from "../parser";
-import type { EntryType } from "../plugins/types";
+import type { EntryType } from "../plugins/database/types";
 import { type FileAction, Renamer } from "../renamer";
 
 export interface RenameHandlerOptions {

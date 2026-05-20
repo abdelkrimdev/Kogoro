@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSubtitleHandlers } from "../cli/subtitle-commands";
 import { MatchCache } from "../match-cache";
-import type { SubtitlePlugin } from "../subtitle/subtitle-plugin";
-import type { SubtitleResult } from "../subtitle/types";
+import type { SubtitlePlugin } from "../plugins/subtitle/plugin";
+import type { SubtitleResult } from "../plugins/subtitle/types";
 
 function createTempDir(): string {
   return mkdtempSync(join(tmpdir(), "kogoro-subtitle-test-"));

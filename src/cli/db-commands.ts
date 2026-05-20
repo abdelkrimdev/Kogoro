@@ -1,4 +1,4 @@
-import type { DatabasePlugin } from "../plugins/database-plugin";
+import type { DatabasePlugin } from "../plugins/database/plugin";
 
 export function createDBCommands(adapter: DatabasePlugin) {
   return {

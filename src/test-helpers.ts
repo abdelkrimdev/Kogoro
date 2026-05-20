@@ -1,5 +1,5 @@
-import type { DatabasePlugin } from "./plugins/database-plugin";
-import type { ArtworkResult } from "./plugins/types";
+import type { DatabasePlugin } from "./plugins/database/plugin";
+import type { ArtworkResult } from "./plugins/database/types";
 
 export function mockFetch(
   data: string,

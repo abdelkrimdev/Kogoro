@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createArtworkHandlers } from "../cli/artwork-commands";
 import { MatchCache } from "../match-cache";
-import type { DatabasePlugin } from "../plugins/database-plugin";
+import type { DatabasePlugin } from "../plugins/database/plugin";
 import { createMockDb, mockFetch, testImageBytes } from "../test-helpers";
 
 function setup() {

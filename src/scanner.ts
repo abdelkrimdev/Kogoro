@@ -4,8 +4,8 @@ import { MatchCache } from "./match-cache";
 import { Matcher, type MatchResult } from "./matcher";
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
-import type { DatabasePlugin } from "./plugins/database-plugin";
-import type { EntryType } from "./plugins/types";
+import type { DatabasePlugin } from "./plugins/database/plugin";
+import type { EntryType } from "./plugins/database/types";
 import type { FileAction, RenamePlan, RenameResult, Renamer } from "./renamer";
 
 export type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";

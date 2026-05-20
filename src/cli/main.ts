@@ -10,11 +10,11 @@ import type { NumberingScheme } from "../numbering-converter";
 import { OverrideStore } from "../override-store";
 import { parse } from "../parser";
 import { PluginRegistry } from "../plugin-registry";
-import { AniDBPlugin } from "../plugins/anidb-plugin";
-import type { DatabasePlugin } from "../plugins/database-plugin";
-import { TVDBPlugin } from "../plugins/tvdb-plugin";
+import { AniDBPlugin } from "../plugins/database/anidb-plugin";
+import type { DatabasePlugin } from "../plugins/database/plugin";
+import { TVDBPlugin } from "../plugins/database/tvdb-plugin";
+import { OpenSubtitlesPlugin } from "../plugins/subtitle/opensubtitles-plugin";
 import type { FileAction } from "../renamer";
-import { OpenSubtitlesAdapter } from "../subtitle/opensubtitles-adapter";
 import { render } from "../template-engine";
 import { createArtworkHandlers } from "./artwork-commands";
 import { createCacheHandlers } from "./cache-commands";
@@ -216,7 +216,7 @@ async function createSubtitleWithCredentials(debug?: boolean) {
     minDelay: 200,
     ...withOptionalDebug(debug),
   });
-  const adapter = new OpenSubtitlesAdapter({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+  const adapter = new OpenSubtitlesPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
   const cache = new MatchCache();
   return createSubtitleHandlers({ subtitlePlugin: adapter, cache });
 }

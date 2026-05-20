@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Matcher } from "./matcher";
 import { OverrideStore } from "./override-store";
 import type { ParsedResult } from "./parser";
-import type { DatabasePlugin } from "./plugins/database-plugin";
+import type { DatabasePlugin } from "./plugins/database/plugin";
 
 interface MockAnime {
   animeId: string;

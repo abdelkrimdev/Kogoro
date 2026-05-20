@@ -13,7 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MatchResult } from "./matcher";
-import type { EpisodeResult } from "./plugins/types";
+import type { EpisodeResult } from "./plugins/database/types";
 import { Renamer } from "./renamer";
 
 function makeTvMatch(): MatchResult {

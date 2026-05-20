@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { MatchCache } from "./match-cache";
 import { OverrideStore } from "./override-store";
-import type { DatabasePlugin } from "./plugins/database-plugin";
-import type { AnimeResult, EpisodeResult } from "./plugins/types";
+import type { DatabasePlugin } from "./plugins/database/plugin";
+import type { AnimeResult, EpisodeResult } from "./plugins/database/types";
 import { Renamer } from "./renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
 

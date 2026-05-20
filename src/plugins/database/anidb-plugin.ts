@@ -1,5 +1,5 @@
-import { HttpClient } from "../http-client";
-import type { DatabasePlugin } from "./database-plugin";
+import { HttpClient } from "../../http-client";
+import type { DatabasePlugin } from "./plugin";
 import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types";
 
 const BASE_URL = "http://api.anidb.net:9001/httpapi";

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
 import { MatchCache } from "../match-cache";
-import type { SubtitlePlugin } from "../subtitle/subtitle-plugin";
+import type { SubtitlePlugin } from "../plugins/subtitle/plugin";
 
 const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm"]);
 

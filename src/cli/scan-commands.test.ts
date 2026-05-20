@@ -6,7 +6,7 @@ import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../cli/sc
 import { ConfigManager } from "../config/config-manager";
 import { MatchCache } from "../match-cache";
 import { OverrideStore } from "../override-store";
-import type { DatabasePlugin } from "../plugins/database-plugin";
+import type { DatabasePlugin } from "../plugins/database/plugin";
 import { computeFileHash } from "../scanner";
 
 function createMockDb(): DatabasePlugin {

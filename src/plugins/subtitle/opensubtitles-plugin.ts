@@ -1,4 +1,4 @@
-import type { SubtitlePlugin } from "./subtitle-plugin";
+import type { SubtitlePlugin } from "./plugin";
 import type { SubtitleResult } from "./types";
 
 const BASE_URL = "https://api.opensubtitles.com/api/v1";
@@ -25,7 +25,7 @@ interface OSDownloadResponse {
   file_name: string;
 }
 
-export class OpenSubtitlesAdapter implements SubtitlePlugin {
+export class OpenSubtitlesPlugin implements SubtitlePlugin {
   private fetchFn: (url: string | URL, init?: RequestInit) => Promise<Response>;
 
   constructor(

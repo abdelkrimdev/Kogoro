@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
 import { MatchCache } from "./match-cache";
-import type { DatabasePlugin } from "./plugins/database-plugin";
-import type { ArtworkResult } from "./plugins/types";
+import type { DatabasePlugin } from "./plugins/database/plugin";
+import type { ArtworkResult } from "./plugins/database/types";
 
 export type UrlFetch = (url: string | URL, init?: RequestInit) => Promise<Response>;
 

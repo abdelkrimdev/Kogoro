@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { OpenSubtitlesAdapter } from "../subtitle/opensubtitles-adapter";
+import { OpenSubtitlesPlugin } from "./opensubtitles-plugin";
 
 function mockFetch(data: unknown, status = 200) {
   return async (_url: string | URL, _init?: RequestInit) => {
@@ -10,7 +10,7 @@ function mockFetch(data: unknown, status = 200) {
   };
 }
 
-describe("OpenSubtitlesAdapter", () => {
+describe("OpenSubtitlesPlugin", () => {
   test("search returns subtitle results for a query", async () => {
     const searchResponse = {
       data: [
@@ -27,7 +27,7 @@ describe("OpenSubtitlesAdapter", () => {
       ],
     };
 
-    const adapter = new OpenSubtitlesAdapter({
+    const adapter = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: mockFetch(searchResponse),
     });
@@ -42,7 +42,7 @@ describe("OpenSubtitlesAdapter", () => {
   test("search returns empty array for no results", async () => {
     const searchResponse = { data: [] };
 
-    const adapter = new OpenSubtitlesAdapter({
+    const adapter = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: mockFetch(searchResponse),
     });
@@ -52,7 +52,7 @@ describe("OpenSubtitlesAdapter", () => {
   });
 
   test("search returns empty array on API error", async () => {
-    const adapter = new OpenSubtitlesAdapter({
+    const adapter = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: mockFetch(null, 401),
     });
@@ -69,7 +69,7 @@ describe("OpenSubtitlesAdapter", () => {
     const contentResponse = "1\n00:00:01,000 --> 00:00:05,000\nHello world\n";
 
     let callCount = 0;
-    const adapter = new OpenSubtitlesAdapter({
+    const adapter = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: async (_url: string | URL, _init?: RequestInit) => {
         callCount++;
@@ -89,7 +89,7 @@ describe("OpenSubtitlesAdapter", () => {
   });
 
   test("download returns empty string on API error", async () => {
-    const adapter = new OpenSubtitlesAdapter({
+    const adapter = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: mockFetch(null, 500),
     });

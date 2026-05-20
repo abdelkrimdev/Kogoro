@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ArtworkFetcher } from "./artwork-fetcher";
 import { MatchCache } from "./match-cache";
-import { TVDBPlugin } from "./plugins/tvdb-plugin";
+import { TVDBPlugin } from "./plugins/database/tvdb-plugin";
 import { createMockDb, mockFetch, testImageBytes } from "./test-helpers";
 
 function urlString(url: string | URL): string {

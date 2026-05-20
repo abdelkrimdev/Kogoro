@@ -7,7 +7,7 @@ import type { MatchResult } from "../matcher";
 import type { NumberingScheme } from "../numbering-converter";
 import type { OverrideStore } from "../override-store";
 import { createEmptyResult, type ParsedResult } from "../parser";
-import type { DatabasePlugin } from "../plugins/database-plugin";
+import type { DatabasePlugin } from "../plugins/database/plugin";
 import { type FileAction, Renamer } from "../renamer";
 import { Scanner, type ScanProgress, type ScanResult } from "../scanner";
 

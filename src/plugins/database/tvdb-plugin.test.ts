@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { DatabasePlugin } from "./database-plugin";
+import type { DatabasePlugin } from "./plugin";
 import { TVDBPlugin } from "./tvdb-plugin";
 import type { AnimeResult } from "./types";
 

@@ -4,7 +4,7 @@ import {
   convertEpisodeNumbering,
   relativeToAbsolute,
 } from "./numbering-converter";
-import type { EpisodeResult } from "./plugins/types";
+import type { EpisodeResult } from "./plugins/database/types";
 
 function makeEpisodes(perSeason: number, seasonCount: number): EpisodeResult[] {
   const result: EpisodeResult[] = [];
