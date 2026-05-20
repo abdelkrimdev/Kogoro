@@ -6,25 +6,25 @@
   "private": true,
   "scripts": {
     "build": "bun build src/cli/index.ts --outdir dist --target bun",
-    "build:binary": "bun build --compile src/cli/index.ts --outfile dist/kogoro",
+    "build:bin": "bun build --compile src/cli/index.ts --outfile dist/kogoro",
     "check": "bun x tsc --noEmit",
     "test": "bun test",
     "lint": "biome lint .",
     "format": "biome format --write .",
-    "check-all": "biome check . && bun run check && bun test",
+    "check:all": "biome check . && bun run check && bun test",
     "sandcastle": "npx tsx .sandcastle/main.ts",
     "start": "bun run src/cli/index.ts"
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.5.10",
     "@biomejs/biome": "^2.4.15",
-    "@types/bun": "latest",
+    "@types/bun": "^1.3.14",
     "@types/node": "^25.9.1",
     "@types/yargs": "^17.0.35",
     "lefthook": "^2.1.6"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@clack/prompts": "^1.4.0",

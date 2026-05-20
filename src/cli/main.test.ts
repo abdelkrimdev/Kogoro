@@ -35,13 +35,13 @@ describe("kogoro CLI", () => {
     expect(result).toBe("Hello World");
   });
 
-  test("package.json has build:binary script for standalone binary", () => {
+  test("package.json has build:bin script for standalone binary", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf-8")) as {
       scripts?: Record<string, string>;
     };
-    expect(pkg.scripts?.["build:binary"]).toBeDefined();
-    expect(pkg.scripts?.["build:binary"]).toContain("bun build --compile");
-    expect(pkg.scripts?.["build:binary"]).toContain("kogoro");
+    expect(pkg.scripts?.["build:bin"]).toBeDefined();
+    expect(pkg.scripts?.["build:bin"]).toContain("bun build --compile");
+    expect(pkg.scripts?.["build:bin"]).toContain("kogoro");
   });
 
   test("plugins list command returns JSON with built-in plugins", () => {
