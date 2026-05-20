@@ -13,6 +13,17 @@ export interface ParsedResult {
   tags: ParsedTags;
 }
 
+interface SeasonEpisodeResult {
+  season: number | null;
+  episode: number | null;
+  titleEnd: number;
+}
+
+interface EpisodeResult {
+  episode: number | null;
+  titleEnd: number;
+}
+
 export function stripExtension(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
@@ -379,18 +390,23 @@ function extractTrailingGroup(
 
 // ---- Episode extraction ----
 
-function extractSeasonEpisode(cleanName: string): {
-  season: number | null;
-  episode: number | null;
-} {
+function extractSeasonEpisode(cleanName: string): SeasonEpisodeResult {
   const sMatch = /\bS(\d+)E(\d+)(?:v\d+)?\b/i.exec(cleanName);
   if (sMatch) {
-    return { season: Number(sMatch[1]), episode: Number(sMatch[2]) };
+    return { season: Number(sMatch[1]), episode: Number(sMatch[2]), titleEnd: sMatch.index };
   }
-  return { season: null, episode: null };
+  const sDashMatch = /\bS(\d+)\s+-\s+(\d+)(?:v\d+)?\b/i.exec(cleanName);
+  if (sDashMatch) {
+    return {
+      season: Number(sDashMatch[1]),
+      episode: Number(sDashMatch[2]),
+      titleEnd: sDashMatch.index,
+    };
+  }
+  return { season: null, episode: null, titleEnd: -1 };
 }
 
-function extractEpisode(cleanName: string): { episode: number | null; titleEnd: number } {
+function extractEpisode(cleanName: string): EpisodeResult {
   const epDash = /\s+-\s+(\d+)(?:v\d+)?(?:\s+.+)?$/.exec(cleanName);
   if (epDash) {
     return { episode: Number(epDash[1]), titleEnd: cleanName.search(/\s+-\s+\d+/) };
@@ -455,18 +471,11 @@ function parseWithPipeline(filename: string): ParsedResult {
 
   cleanName = cleanTrailingTokens(cleanName);
 
-  const { season, episode } = extractSeasonEpisode(cleanName);
-  const { episode: extraEpisode, titleEnd } = extractEpisode(cleanName);
+  const { season, episode, titleEnd: seasonTitleEnd } = extractSeasonEpisode(cleanName);
+  const { episode: extraEpisode, titleEnd: epTitleEnd } = extractEpisode(cleanName);
   const finalEpisode = episode ?? extraEpisode;
-  let title = cleanName;
-  if (titleEnd > 0) {
-    title = cleanName.slice(0, titleEnd).trim().replace(/-$/, "").trim();
-  } else if (season !== null) {
-    const idx = cleanName.search(/\bS\d+E\d+(?:v\d+)?\b/i);
-    if (idx > 0) {
-      title = cleanName.slice(0, idx).trim().replace(/-$/, "").trim();
-    }
-  }
+  const cutAt = seasonTitleEnd > 0 ? seasonTitleEnd : epTitleEnd > 0 ? epTitleEnd : -1;
+  const title = cutAt > 0 ? cleanName.slice(0, cutAt).trim().replace(/-$/, "").trim() : cleanName;
 
   if (shouldReturnEmpty(filename, { season, episode: finalEpisode, group: tags.group }, tags)) {
     return createEmptyResult();

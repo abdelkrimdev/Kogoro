@@ -188,7 +188,8 @@ describe("Filename parsing", () => {
 
     test("parses [Group] Title S# - ## [res] [v#] (season marker in title, separate version bracket)", () => {
       const result = parse("[ReDEJA] Bungo Stray Dogs S5 - 01 [1080p] [v2].mkv");
-      expect(result.title).toBe("Bungo Stray Dogs S5");
+      expect(result.title).toBe("Bungo Stray Dogs");
+      expect(result.season).toBe(5);
       expect(result.episode).toBe(1);
     });
 
