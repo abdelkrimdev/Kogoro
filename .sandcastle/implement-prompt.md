@@ -48,6 +48,8 @@ Keep it concise.
 
 # THE ISSUE
 
+Check the boxes of the completed acceptance criteria.
+
 If the task is not complete, leave a comment on the issue with what was done.
 
 Do not close the issue - this will be done later.
