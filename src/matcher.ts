@@ -1,13 +1,80 @@
+import type { CachedMatch } from "./match-cache";
 import type { OverrideData, OverrideStore } from "./override-store";
 import type { ParsedResult } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
-import type { AnimeResult, EpisodeResult } from "./plugins/database/types";
+import type { AnimeResult, EntryType, EpisodeResult } from "./plugins/database/types";
 
 export interface MatchResult {
   anime: AnimeResult;
   episode?: EpisodeResult;
   score: number;
   failureReason?: string;
+}
+
+export function matchResultFromCache(cached: CachedMatch): MatchResult {
+  const entryType = cached.entryType as EntryType;
+  return {
+    anime: {
+      id: cached.animeId,
+      title: cached.animeTitle ?? "",
+      entryType,
+    },
+    episode:
+      cached.episodeId !== null && cached.episode !== null
+        ? {
+            id: cached.episodeId,
+            animeId: cached.animeId,
+            season: cached.season ?? 1,
+            episode: cached.episode,
+            title: cached.title ?? "",
+            entryType,
+          }
+        : undefined,
+    score: 1,
+  };
+}
+
+export function matchResultFromOverride(override: OverrideData): MatchResult {
+  const animeId = override.animeId ?? "";
+  const entryType = override.entryType ?? "tv";
+  return {
+    anime: {
+      id: animeId,
+      title: "(overridden)",
+      entryType,
+    },
+    episode:
+      override.episodeId !== undefined && override.animeId
+        ? {
+            id: override.episodeId,
+            animeId,
+            season: 0,
+            episode: 0,
+            title: "(overridden)",
+            entryType,
+          }
+        : undefined,
+    score: 1,
+  };
+}
+
+export function matchResultFromManual(
+  animeId: string,
+  episode: number,
+  entryType: EntryType,
+): MatchResult {
+  return {
+    anime: { id: animeId, title: "", entryType },
+    episode: {
+      id: "",
+      animeId,
+      season: 1,
+      episode,
+      title: "",
+      entryType,
+    },
+    score: 1,
+  };
 }
 
 export interface MatcherOptions {
@@ -66,7 +133,7 @@ export class Matcher {
   async match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]> {
     const override = fileHash !== undefined ? this.overrideStore?.get(fileHash) : undefined;
     if (override?.animeId) {
-      return this.buildOverrideMatch(override);
+      return [matchResultFromOverride(override)];
     }
 
     if (!parsed.title) {
@@ -145,27 +212,6 @@ export class Matcher {
       matchResults.sort((a, b) => b.score - a.score);
       return matchResults[0] ?? noMatchResult("No anime found");
     });
-  }
-
-  private buildOverrideMatch(override: OverrideData): MatchResult[] {
-    const entryType = override.entryType ?? "tv";
-    const anime: AnimeResult = {
-      id: override.animeId ?? "",
-      title: "(overridden)",
-      entryType,
-    };
-    let episode: EpisodeResult | undefined;
-    if (override.episodeId !== undefined && override.animeId) {
-      episode = {
-        id: override.episodeId,
-        animeId: override.animeId,
-        season: 0,
-        episode: 0,
-        title: "(overridden)",
-        entryType,
-      };
-    }
-    return [{ anime, episode, score: 1 }];
   }
 
   private applyOverrideEntryType(results: MatchResult[], override?: OverrideData): MatchResult[] {

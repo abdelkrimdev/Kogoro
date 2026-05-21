@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { Matcher } from "./matcher";
+import type { CachedMatch } from "./match-cache";
+import {
+  Matcher,
+  matchResultFromCache,
+  matchResultFromManual,
+  matchResultFromOverride,
+} from "./matcher";
+import type { OverrideData } from "./override-store";
 import { OverrideStore } from "./override-store";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import {
@@ -8,6 +15,149 @@ import {
   makeParsedResult,
   withTempDir,
 } from "./test-fixtures";
+
+describe("matchResultFromCache", () => {
+  const baseCached: CachedMatch = {
+    animeId: "anime-1",
+    animeTitle: "Jujutsu Kaisen",
+    episodeId: "ep-101",
+    entryType: "tv",
+    season: 1,
+    episode: 1,
+    title: "Ryomen Sukuna",
+    timestamp: "2026-01-01T00:00:00.000Z",
+  };
+
+  test("returns MatchResult with anime and episode from cache", () => {
+    const result = matchResultFromCache(baseCached);
+
+    expect(result.anime.id).toBe("anime-1");
+    expect(result.anime.title).toBe("Jujutsu Kaisen");
+    expect(result.anime.entryType).toBe("tv");
+    expect(result.episode?.id).toBe("ep-101");
+    expect(result.episode?.animeId).toBe("anime-1");
+    expect(result.episode?.season).toBe(1);
+    expect(result.episode?.episode).toBe(1);
+    expect(result.episode?.title).toBe("Ryomen Sukuna");
+    expect(result.score).toBe(1);
+    expect(result.failureReason).toBeUndefined();
+  });
+
+  test("returns no episode when episodeId is null", () => {
+    const cached = { ...baseCached, episodeId: null, episode: null };
+    const result = matchResultFromCache(cached);
+
+    expect(result.anime.id).toBe("anime-1");
+    expect(result.episode).toBeUndefined();
+    expect(result.score).toBe(1);
+  });
+
+  test("returns no episode when episode is null", () => {
+    const cached = { ...baseCached, episode: null };
+    const result = matchResultFromCache(cached);
+
+    expect(result.episode).toBeUndefined();
+  });
+
+  test("falls back to empty string when animeTitle is undefined", () => {
+    const cached = { ...baseCached, animeTitle: undefined };
+    const result = matchResultFromCache(cached);
+
+    expect(result.anime.title).toBe("");
+  });
+
+  test("persists score=1 invariant", () => {
+    const result = matchResultFromCache(baseCached);
+
+    expect(result.score).toBe(1);
+  });
+});
+
+describe("matchResultFromOverride", () => {
+  test("returns MatchResult with anime and episode from full override", () => {
+    const override: OverrideData = {
+      animeId: "tvdb-99",
+      episodeId: "ep-5",
+      entryType: "special",
+    };
+    const result = matchResultFromOverride(override);
+
+    expect(result.anime.id).toBe("tvdb-99");
+    expect(result.anime.title).toBe("(overridden)");
+    expect(result.anime.entryType).toBe("special");
+    expect(result.episode?.id).toBe("ep-5");
+    expect(result.episode?.animeId).toBe("tvdb-99");
+    expect(result.episode?.season).toBe(0);
+    expect(result.episode?.episode).toBe(0);
+    expect(result.episode?.title).toBe("(overridden)");
+    expect(result.score).toBe(1);
+    expect(result.failureReason).toBeUndefined();
+  });
+
+  test("returns anime-only match when no episodeId", () => {
+    const override: OverrideData = { animeId: "tvdb-99", entryType: "movie" };
+    const result = matchResultFromOverride(override);
+
+    expect(result.anime.id).toBe("tvdb-99");
+    expect(result.anime.title).toBe("(overridden)");
+    expect(result.episode).toBeUndefined();
+    expect(result.score).toBe(1);
+  });
+
+  test("omits episode when animeId is missing despite episodeId being set", () => {
+    const override: OverrideData = { episodeId: "ep-5" };
+    const result = matchResultFromOverride(override);
+
+    expect(result.anime.id).toBe("");
+    expect(result.episode).toBeUndefined();
+    expect(result.score).toBe(1);
+  });
+
+  test("defaults entryType to tv", () => {
+    const override: OverrideData = { animeId: "tvdb-99" };
+    const result = matchResultFromOverride(override);
+
+    expect(result.anime.entryType).toBe("tv");
+  });
+
+  test("sets (overridden) title markers", () => {
+    const override: OverrideData = { animeId: "tvdb-99", episodeId: "ep-5" };
+    const result = matchResultFromOverride(override);
+
+    expect(result.anime.title).toBe("(overridden)");
+    expect(result.episode?.title).toBe("(overridden)");
+  });
+});
+
+describe("matchResultFromManual", () => {
+  test("returns MatchResult for animeId, episode, and entryType", () => {
+    const result = matchResultFromManual("anime-42", 3, "tv");
+
+    expect(result.anime.id).toBe("anime-42");
+    expect(result.anime.title).toBe("");
+    expect(result.anime.entryType).toBe("tv");
+    expect(result.episode?.id).toBe("");
+    expect(result.episode?.animeId).toBe("anime-42");
+    expect(result.episode?.season).toBe(1);
+    expect(result.episode?.episode).toBe(3);
+    expect(result.episode?.title).toBe("");
+    expect(result.score).toBe(1);
+    expect(result.failureReason).toBeUndefined();
+  });
+
+  test("accepts movie entryType", () => {
+    const result = matchResultFromManual("anime-99", 1, "movie");
+
+    expect(result.anime.entryType).toBe("movie");
+    expect(result.episode?.entryType).toBe("movie");
+  });
+
+  test("persists score=1 invariant", () => {
+    const result = matchResultFromManual("anime-1", 5, "ova");
+
+    expect(result.score).toBe(1);
+  });
+});
 
 describe("Matcher", () => {
   test("returns match when anime found and episode number matches", async () => {
