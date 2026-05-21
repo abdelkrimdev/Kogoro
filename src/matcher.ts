@@ -30,23 +30,24 @@ export function matchResultFromOverride(override: OverrideData): MatchResult {
 
 export function matchResultFromCache(cached: CachedMatch): MatchResult {
   const entryType = cached.entryType as EntryType;
+  let episode: EpisodeResult | undefined;
+  if (cached.episodeId && cached.episode !== null) {
+    episode = {
+      id: cached.episodeId,
+      animeId: cached.animeId,
+      season: cached.season ?? 1,
+      episode: cached.episode,
+      title: cached.title ?? "",
+      entryType,
+    };
+  }
   return {
     anime: {
       id: cached.animeId,
       title: cached.title ?? "",
       entryType,
     },
-    episode:
-      cached.episodeId && cached.episode !== null
-        ? {
-            id: cached.episodeId,
-            animeId: cached.animeId,
-            season: cached.season ?? 1,
-            episode: cached.episode,
-            title: cached.title ?? "",
-            entryType,
-          }
-        : undefined,
+    episode,
     score: 1,
   };
 }
@@ -126,7 +127,7 @@ export class Matcher {
   async match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]> {
     const override = fileHash !== undefined ? this.overrideStore?.get(fileHash) : undefined;
     if (override?.animeId) {
-      return this.buildOverrideMatch(override);
+      return [matchResultFromOverride(override)];
     }
 
     if (!parsed.title) {
@@ -205,10 +206,6 @@ export class Matcher {
       matchResults.sort((a, b) => b.score - a.score);
       return matchResults[0] ?? noMatchResult("No anime found");
     });
-  }
-
-  private buildOverrideMatch(override: OverrideData): MatchResult[] {
-    return [matchResultFromOverride(override)];
   }
 
   private applyOverrideEntryType(results: MatchResult[], override?: OverrideData): MatchResult[] {

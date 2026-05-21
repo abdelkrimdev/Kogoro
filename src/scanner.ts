@@ -174,11 +174,7 @@ export class Scanner {
           filePath,
           hash,
           parsed,
-          matchResultFromManual({
-            animeId: manual.animeId,
-            episode: manual.episode,
-            entryType: manual.entryType as EntryType,
-          }),
+          matchResultFromManual(manual),
           options,
           true,
           overrideKey,
@@ -208,11 +204,7 @@ export class Scanner {
           filePath,
           hash,
           parsed,
-          matchResultFromManual({
-            animeId: manual.animeId,
-            episode: manual.episode,
-            entryType: manual.entryType as EntryType,
-          }),
+          matchResultFromManual(manual),
           options,
           true,
           overrideKey,
@@ -257,9 +249,11 @@ export class Scanner {
   private async tryResolveFailed(
     parsed: ParsedResult,
     options?: ScanFileOptions,
-  ): Promise<{ animeId: string; episode: number; entryType: string } | null> {
+  ): Promise<{ animeId: string; episode: number; entryType: EntryType } | null> {
     if (!options?.onFailed) return null;
-    return await options.onFailed(parsed);
+    const result = await options.onFailed(parsed);
+    if (!result) return null;
+    return { ...result, entryType: result.entryType as EntryType };
   }
 
   private async cacheAndPlan(
@@ -400,11 +394,7 @@ export class Scanner {
           if (matchResult.failureReason) {
             const manual = await this.tryResolveFailed(entry.parsed, options);
             if (manual) {
-              entry.match = matchResultFromManual({
-                animeId: manual.animeId,
-                episode: manual.episode,
-                entryType: manual.entryType as EntryType,
-              });
+              entry.match = matchResultFromManual(manual);
             }
           } else {
             entry.match = matchResult;
