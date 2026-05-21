@@ -66,7 +66,7 @@ export class AniDBPlugin implements DatabasePlugin {
     return `client=${this.client}&clientver=${this.clientver}&protover=1`;
   }
 
-  private throwIfAniDBError(xml: string): void {
+  private checkAniDBError(xml: string): void {
     const match = xml.match(/<error(?:\s+code="([^"]*)")?>([^<]*)<\/error>/);
     if (!match) return;
     const code = match[1] || "unknown";
@@ -80,7 +80,7 @@ export class AniDBPlugin implements DatabasePlugin {
     );
     if (!response.ok) return null;
     const xml = await response.text();
-    this.throwIfAniDBError(xml);
+    this.checkAniDBError(xml);
     return xml;
   }
 
@@ -90,7 +90,7 @@ export class AniDBPlugin implements DatabasePlugin {
     );
     if (!response.ok) return [];
     const xml = await response.text();
-    this.throwIfAniDBError(xml);
+    this.checkAniDBError(xml);
     const results: AnimeResult[] = [];
     const lowerTitle = title.toLowerCase();
     const animeRegex = /<anime\s+([^>]*)>([\s\S]*?)<\/anime>/g;
