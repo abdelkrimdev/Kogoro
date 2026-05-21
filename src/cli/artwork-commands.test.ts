@@ -3,8 +3,8 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createArtworkHandlers } from "../cli/artwork-commands";
 import {
+  createArtworkDb,
   createLogCapture,
-  createMockDb,
   makeThrowingDb,
   mockFetch,
   seedCacheEntry,
@@ -26,7 +26,7 @@ describe("artwork CLI commands", () => {
       });
 
       const handlers = createArtworkHandlers({
-        primaryDb: createMockDb([
+        primaryDb: createArtworkDb([
           { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
         ]),
         cache,
@@ -56,7 +56,7 @@ describe("artwork CLI commands", () => {
       });
 
       const handlers = createArtworkHandlers({
-        primaryDb: createMockDb([
+        primaryDb: createArtworkDb([
           { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
         ]),
         cache,

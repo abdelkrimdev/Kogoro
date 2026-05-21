@@ -68,34 +68,31 @@ export function createCache(dir: string): MatchCache {
 
 export const testImageBytes = "\xff\xd8\xff\xe0\u0000\u0010JFIF\u0000\u0001";
 
-export interface MockDbOptions {
+interface MockDbOptions {
   searchAnime?: (title: string) => AnimeResult[];
   getEpisodes?: (animeId: string) => EpisodeResult[];
   getArtwork?: ArtworkResult[];
   getAnime?: () => AnimeResult | null;
 }
 
-export function createMockDb(
-  artworksOrOptions: ArtworkResult[] | MockDbOptions = [],
-): DatabasePlugin {
-  if (Array.isArray(artworksOrOptions)) {
-    const artworks = artworksOrOptions;
-    return {
-      async searchAnime() {
-        return [];
-      },
-      async getEpisodes() {
-        return [];
-      },
-      async getArtwork() {
-        return artworks;
-      },
-      async getAnime() {
-        return null;
-      },
-    };
-  }
-  const opts = artworksOrOptions;
+export function createArtworkDb(artworks: ArtworkResult[] = []): DatabasePlugin {
+  return {
+    async searchAnime() {
+      return [];
+    },
+    async getEpisodes() {
+      return [];
+    },
+    async getArtwork() {
+      return artworks;
+    },
+    async getAnime() {
+      return null;
+    },
+  };
+}
+
+export function createMockDb(opts: MockDbOptions = {}): DatabasePlugin {
   return {
     async searchAnime(title: string) {
       return opts.searchAnime?.(title) ?? [];
@@ -326,7 +323,7 @@ export function createStandardMockDb(overrides?: Partial<MockDbOptions>): Databa
   });
 }
 
-export interface MockSubtitlePluginOptions {
+interface MockSubtitlePluginOptions {
   searchResults?: SubtitleResult[];
   downloadContent?: string;
 }
@@ -363,10 +360,6 @@ export function createCallCounter() {
   };
 }
 
-export function makeEmptyTags(): ParsedTags {
-  return { group: null, resolution: null, source: null, codec: null, audio: null };
-}
-
 export function makeParsedResult(
   title: string | null,
   season: number | null = null,
@@ -377,11 +370,11 @@ export function makeParsedResult(
     title,
     season,
     episode,
-    tags: { ...makeEmptyTags(), ...tags },
+    tags: { group: null, resolution: null, source: null, codec: null, audio: null, ...tags },
   };
 }
 
-export interface MockAnime {
+interface MockAnime {
   animeId: string;
   title: string;
   entryType?: "tv" | "movie" | "ova" | "special";

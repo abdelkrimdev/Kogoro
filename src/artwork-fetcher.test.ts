@@ -6,8 +6,8 @@ import { ArtworkFetcher } from "./artwork-fetcher";
 import { MatchCache } from "./match-cache";
 import { TVDBPlugin } from "./plugins/database/tvdb-plugin";
 import {
+  createArtworkDb,
   createCache,
-  createMockDb,
   createTrackingFetch,
   makeCachedMatch,
   mockFetch,
@@ -54,7 +54,7 @@ describe("ArtworkFetcher", () => {
     try {
       await seedCache();
 
-      const mockDb = createMockDb([
+      const mockDb = createArtworkDb([
         { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
       ]);
 
@@ -80,7 +80,7 @@ describe("ArtworkFetcher", () => {
 
       await seedCache();
 
-      const mockDb = createMockDb([
+      const mockDb = createArtworkDb([
         { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
       ]);
 
@@ -105,7 +105,7 @@ describe("ArtworkFetcher", () => {
 
       await seedCache();
 
-      const mockDb = createMockDb([
+      const mockDb = createArtworkDb([
         { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
       ]);
 
@@ -130,8 +130,8 @@ describe("ArtworkFetcher", () => {
     try {
       await seedCache();
 
-      const primaryDb = createMockDb([]);
-      const secondaryDb = createMockDb([
+      const primaryDb = createArtworkDb([]);
+      const secondaryDb = createArtworkDb([
         { id: "2", type: "poster", url: "https://secondary.example.com/poster.jpg" },
       ]);
 
@@ -156,8 +156,8 @@ describe("ArtworkFetcher", () => {
     try {
       await seedCache();
 
-      const primaryDb = createMockDb([]);
-      const secondaryDb = createMockDb([]);
+      const primaryDb = createArtworkDb([]);
+      const secondaryDb = createArtworkDb([]);
 
       const fetcher = new ArtworkFetcher({
         primaryDb,
@@ -179,7 +179,7 @@ describe("ArtworkFetcher", () => {
     try {
       await seedCache();
 
-      const mockDb = createMockDb([
+      const mockDb = createArtworkDb([
         { id: "1", type: "poster", url: "https://example.com/small.jpg", width: 200, height: 300 },
         {
           id: "2",
@@ -214,7 +214,7 @@ describe("ArtworkFetcher", () => {
     try {
       await seedCache();
 
-      const mockDb = createMockDb([
+      const mockDb = createArtworkDb([
         { id: "1", type: "poster", url: "https://example.com/first.jpg" },
         { id: "2", type: "poster", url: "https://example.com/second.jpg" },
       ]);
@@ -266,7 +266,7 @@ describe("ArtworkFetcher", () => {
   test("reports total 0 when no cache entries for files in directory", async () => {
     const { dir, cache, cleanup } = setup();
     try {
-      const mockDb = createMockDb([
+      const mockDb = createArtworkDb([
         { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
       ]);
 
