@@ -54,8 +54,9 @@ export function discoverFiles(
   excludePatterns?: string[],
 ): string[] {
   if (lstatSync(rootPath).isDirectory()) {
-    const patterns = excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS;
-    return walk(rootPath, extensions, { excludePatterns: patterns });
+    return walk(rootPath, extensions, {
+      excludePatterns: excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS,
+    });
   }
   return [rootPath];
 }
