@@ -12,8 +12,6 @@ export interface MatchResult {
 }
 
 export function matchResultFromCache(cached: CachedMatch): MatchResult {
-  const entryType = cached.entryType as EntryType;
-
   let episode: EpisodeResult | undefined;
   if (cached.episodeId !== null && cached.episode !== null) {
     episode = {
@@ -22,7 +20,7 @@ export function matchResultFromCache(cached: CachedMatch): MatchResult {
       season: cached.season ?? 1,
       episode: cached.episode,
       title: cached.title ?? "",
-      entryType,
+      entryType: cached.entryType as EntryType,
     };
   }
 
@@ -30,7 +28,7 @@ export function matchResultFromCache(cached: CachedMatch): MatchResult {
     anime: {
       id: cached.animeId,
       title: cached.animeTitle ?? "",
-      entryType,
+      entryType: cached.entryType as EntryType,
     },
     episode,
     score: 1,
@@ -67,18 +65,17 @@ export function matchResultFromOverride(override: OverrideData): MatchResult {
 export function matchResultFromManual(
   animeId: string,
   episode: number,
-  entryType: string,
+  entryType: EntryType,
 ): MatchResult {
-  const typedEntryType = entryType as EntryType;
   return {
-    anime: { id: animeId, title: "", entryType: typedEntryType },
+    anime: { id: animeId, title: "", entryType },
     episode: {
       id: "",
       animeId,
       season: 1,
       episode,
       title: "",
-      entryType: typedEntryType,
+      entryType,
     },
     score: 1,
   };
