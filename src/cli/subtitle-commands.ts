@@ -1,9 +1,8 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { extname, join, relative, sep } from "node:path";
+import { existsSync } from "node:fs";
+import { relative, sep } from "node:path";
+import { VIDEO_EXTENSIONS, walk } from "../directory-walker";
 import { MatchCache } from "../match-cache";
 import type { SubtitlePlugin } from "../plugins/subtitle/plugin";
-
-const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm"]);
 
 export interface SubtitleHandlerOptions {
   subtitlePlugin: SubtitlePlugin;
@@ -31,7 +30,7 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
     let failed = 0;
 
     try {
-      const files = findVideoFiles(dirPath);
+      const files = walk(dirPath, VIDEO_EXTENSIONS);
 
       for (const filePath of files) {
         const hash = await MatchCache.hashFile(filePath);
@@ -89,26 +88,6 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
   }
 
   return { fetch };
-}
-
-function findVideoFiles(dirPath: string): string[] {
-  const files: string[] = [];
-
-  function walk(currentPath: string) {
-    const entries = readdirSync(currentPath);
-    for (const entry of entries) {
-      const fullPath = join(currentPath, entry);
-      const stats = statSync(fullPath);
-      if (stats.isDirectory()) {
-        walk(fullPath);
-      } else if (stats.isFile() && VIDEO_EXTENSIONS.has(extname(fullPath).toLowerCase())) {
-        files.push(fullPath);
-      }
-    }
-  }
-
-  walk(dirPath);
-  return files;
 }
 
 function extractAnimeTitle(basePath: string, filePath: string): string | undefined {

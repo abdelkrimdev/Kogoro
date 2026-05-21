@@ -1,11 +1,9 @@
-import { existsSync, readdirSync, writeFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { existsSync, writeFileSync } from "node:fs";
+import { VIDEO_EXTENSIONS, walk } from "./directory-walker";
 import { type CachedMatch, MatchCache } from "./match-cache";
 import { stripExtension } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { EpisodeResult } from "./plugins/database/types";
-
-export const VIDEO_EXTENSIONS = [".mkv", ".mp4", ".avi", ".mov"];
 
 export interface MetadataSummary {
   total: number;
@@ -17,7 +15,6 @@ export interface MetadataSummary {
 export interface MetadataWriterOptions {
   cache: MatchCache;
   database?: DatabasePlugin;
-  extensions?: string[];
 }
 
 function escapeXml(str: string): string {
@@ -32,12 +29,10 @@ function escapeXml(str: string): string {
 export class MetadataWriter {
   private cache: MatchCache;
   private database?: DatabasePlugin;
-  private extensions: string[];
 
   constructor(options: MetadataWriterOptions) {
     this.cache = options.cache;
     this.database = options.database;
-    this.extensions = options.extensions ?? [...VIDEO_EXTENSIONS];
   }
 
   async write(dirPath: string, options?: { force?: boolean }): Promise<MetadataSummary> {
@@ -47,7 +42,7 @@ export class MetadataWriter {
     let skipped = 0;
     let failed = 0;
 
-    const videoFiles = this.walkDir(dirPath);
+    const videoFiles = walk(dirPath, VIDEO_EXTENSIONS);
     const episodeCache = new Map<string, Map<number, EpisodeResult>>();
     const animeCache = new Map<string, string | undefined>();
 
@@ -110,20 +105,6 @@ export class MetadataWriter {
     }
 
     return { total, written, skipped, failed };
-  }
-
-  private walkDir(dirPath: string): string[] {
-    const files: string[] = [];
-    const entries = readdirSync(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = join(dirPath, entry.name);
-      if (entry.isDirectory()) {
-        files.push(...this.walkDir(fullPath));
-      } else if (entry.isFile() && this.extensions.includes(extname(fullPath).toLowerCase())) {
-        files.push(fullPath);
-      }
-    }
-    return files;
   }
 
   generateEpisodeNfo(match: CachedMatch, episodeData?: EpisodeResult, showTitle?: string): string {

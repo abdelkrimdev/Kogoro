@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
-import { dirname, extname, join, sep } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname, join, sep } from "node:path";
+import { VIDEO_EXTENSIONS, walk } from "./directory-walker";
 import { MatchCache } from "./match-cache";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { ArtworkResult } from "./plugins/database/types";
@@ -10,7 +11,6 @@ export interface ArtworkFetcherOptions {
   primaryDb: DatabasePlugin;
   secondaryDbs?: DatabasePlugin[];
   cache: MatchCache;
-  extensions?: string[];
   fetch?: UrlFetch;
 }
 
@@ -25,14 +25,12 @@ export class ArtworkFetcher {
   private primaryDb: DatabasePlugin;
   private secondaryDbs: DatabasePlugin[];
   private cache: MatchCache;
-  private extensions: string[];
   private fetchFn: UrlFetch;
 
   constructor(options: ArtworkFetcherOptions) {
     this.primaryDb = options.primaryDb;
     this.secondaryDbs = options.secondaryDbs ?? [];
     this.cache = options.cache;
-    this.extensions = options.extensions ?? [".mkv", ".mp4", ".avi", ".mov"];
     this.fetchFn = options.fetch ?? globalThis.fetch;
   }
 
@@ -41,7 +39,7 @@ export class ArtworkFetcher {
     options?: { force?: boolean },
     onLog?: (msg: string) => void,
   ): Promise<ArtworkSummary> {
-    const videoFiles = this.findVideoFiles(rootPath);
+    const videoFiles = walk(rootPath, VIDEO_EXTENSIONS);
 
     const animeMap = new Map<string, string[]>();
 
@@ -86,20 +84,6 @@ export class ArtworkFetcher {
     }
 
     return { total, downloaded, skipped, noArtwork };
-  }
-
-  private findVideoFiles(dir: string): string[] {
-    const files: string[] = [];
-    const entries = readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        files.push(...this.findVideoFiles(fullPath));
-      } else if (entry.isFile() && this.extensions.includes(extname(entry.name).toLowerCase())) {
-        files.push(fullPath);
-      }
-    }
-    return files;
   }
 
   private pickBestPoster(artworks: ArtworkResult[]): ArtworkResult | undefined {
