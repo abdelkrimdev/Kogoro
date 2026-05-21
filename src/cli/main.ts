@@ -10,6 +10,7 @@ import { OverrideStore } from "../override-store";
 import { parse } from "../parser";
 import { PluginFactory } from "../plugin-factory";
 import { PluginRegistry } from "../plugin-registry";
+import type { DatabasePlugin } from "../plugins/database/plugin";
 import type { FileAction } from "../renamer";
 import { render } from "../template-engine";
 import { createArtworkHandlers } from "./artwork-commands";
@@ -27,14 +28,26 @@ export function run(argv: string[]): string | undefined {
   const credentialStore = createCredentialStore();
 
   function createFactory(debug?: boolean): PluginFactory {
-    return new PluginFactory(config, credentialStore, debug ?? false);
+    return new PluginFactory(config, credentialStore, debug);
+  }
+
+  async function withDatabase<T>(
+    debug: boolean | undefined,
+    getDatabase: (factory: PluginFactory) => Promise<DatabasePlugin | undefined>,
+    buildHandlers: (database: DatabasePlugin) => T,
+  ): Promise<T | undefined> {
+    const factory = createFactory(debug);
+    const database = await getDatabase(factory);
+    if (!database) return undefined;
+    return buildHandlers(database);
   }
 
   async function createDatabaseCommandsWithCredentials(name: string, debug?: boolean) {
-    const factory = createFactory(debug);
-    const database = await factory.database(name);
-    if (!database) return undefined;
-    return createDatabaseCommands(database);
+    return withDatabase(
+      debug,
+      (factory) => factory.database(name),
+      (database) => createDatabaseCommands(database),
+    );
   }
 
   async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
@@ -55,25 +68,27 @@ export function run(argv: string[]): string | undefined {
   }
 
   async function createMatchWithCredentials(debug?: boolean) {
-    const factory = createFactory(debug);
-    const database = await factory.primaryDatabase();
-    if (!database) return undefined;
-    return createMatchHandlers({ database });
+    return withDatabase(
+      debug,
+      (factory) => factory.primaryDatabase(),
+      (database) => createMatchHandlers({ database }),
+    );
   }
 
   async function createMetadataWithCredentials(debug?: boolean) {
-    const factory = createFactory(debug);
-    const database = await factory.primaryDatabase();
-    if (!database) return undefined;
-    return createMetadataHandlers({ database });
+    return withDatabase(
+      debug,
+      (factory) => factory.primaryDatabase(),
+      (database) => createMetadataHandlers({ database }),
+    );
   }
 
   async function createArtworkWithCredentials(debug?: boolean) {
     const factory = createFactory(debug);
-    const primaryDb = await factory.primaryDatabase();
-    if (!primaryDb) return undefined;
-    const secondaryDbs = await factory.secondaryDatabases();
-    return createArtworkHandlers({ primaryDb, secondaryDbs });
+    const database = await factory.primaryDatabase();
+    if (!database) return undefined;
+    const fallbackDatabases = await factory.secondaryDatabases();
+    return createArtworkHandlers({ primaryDb: database, secondaryDbs: fallbackDatabases });
   }
 
   async function createSubtitleWithCredentials(debug?: boolean) {
@@ -653,7 +668,6 @@ export function run(argv: string[]): string | undefined {
             () => {},
             () => {
               const registry = new PluginRegistry();
-              const config = new ConfigManager();
               registry.setDisabled(config.getDisabledPlugins());
               const plugins = registry.list();
               console.log(JSON.stringify(plugins, null, 2));
