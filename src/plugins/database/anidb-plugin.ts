@@ -63,7 +63,7 @@ export class AniDBPlugin implements DatabasePlugin {
   }
 
   private checkAniDBError(xml: string): void {
-    const match = xml.match(/<error(?:\s+code="([^"]*)")?>(.*?)<\/error>/);
+    const match = xml.match(/<error\b[^>]*?(?:\s+code="([^"]*)")?[^>]*>([\s\S]*?)<\/error>/);
     if (match) {
       const code = match[1] ?? "unknown";
       const message = match[2] ?? "";

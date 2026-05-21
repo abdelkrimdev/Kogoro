@@ -437,68 +437,47 @@ describe("AniDBPlugin", () => {
     const errorXml =
       '<?xml version="1.0" encoding="UTF-8"?>\n<error code="310">illegal input or access denied</error>';
 
-    test("returns empty array on API failure for searchAnime", async () => {
-      const plugin = new AniDBPlugin({
+    function pluginWithXml(xml: string, status = 200): AniDBPlugin {
+      return new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
-        httpClient: mockHttpClient("", 500),
+        httpClient: mockHttpClient(xml, status),
       });
+    }
+
+    test("returns empty array on API failure for searchAnime", async () => {
+      const plugin = pluginWithXml("", 500);
       const results = await plugin.searchAnime("Jujutsu Kaisen");
       expect(results).toEqual([]);
     });
 
-    test("throws on error XML response in searchAnime", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml, 200),
-      });
-      await expect(plugin.searchAnime("Jujutsu Kaisen")).rejects.toThrow(
+    test("searchAnime throws on error XML", async () => {
+      await expect(pluginWithXml(errorXml).searchAnime("Jujutsu Kaisen")).rejects.toThrow(
         "AniDB error 310: illegal input or access denied",
       );
     });
 
-    test("throws with unknown code when error XML has no code attribute", async () => {
+    test("uses unknown code when error XML lacks code attribute", async () => {
       const noCodeErrorXml = '<?xml version="1.0" encoding="UTF-8"?>\n<error>banned</error>';
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(noCodeErrorXml, 200),
-      });
-      await expect(plugin.searchAnime("Jujutsu Kaisen")).rejects.toThrow(
+      await expect(pluginWithXml(noCodeErrorXml).searchAnime("Jujutsu Kaisen")).rejects.toThrow(
         "AniDB error unknown: banned",
       );
     });
 
-    test("throws on error XML response in getEpisodes", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml, 200),
-      });
-      await expect(plugin.getEpisodes("99999")).rejects.toThrow(
+    test("getEpisodes throws on error XML", async () => {
+      await expect(pluginWithXml(errorXml).getEpisodes("99999")).rejects.toThrow(
         "AniDB error 310: illegal input or access denied",
       );
     });
 
-    test("throws on error XML response in getAnime", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml, 200),
-      });
-      await expect(plugin.getAnime("99999")).rejects.toThrow(
+    test("getAnime throws on error XML", async () => {
+      await expect(pluginWithXml(errorXml).getAnime("99999")).rejects.toThrow(
         "AniDB error 310: illegal input or access denied",
       );
     });
 
-    test("throws on error XML response in getArtwork", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml, 200),
-      });
-      await expect(plugin.getArtwork("99999", "poster")).rejects.toThrow(
+    test("getArtwork throws on error XML", async () => {
+      await expect(pluginWithXml(errorXml).getArtwork("99999", "poster")).rejects.toThrow(
         "AniDB error 310: illegal input or access denied",
       );
     });
