@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { Matcher } from "./matcher";
+import {
+  Matcher,
+  matchResultFromCache,
+  matchResultFromManual,
+  matchResultFromOverride,
+} from "./matcher";
 import { OverrideStore } from "./override-store";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import {
@@ -411,6 +416,156 @@ describe("Matcher", () => {
         expect(results[0]?.anime.entryType).toBe("special");
         expect(results[0]?.episode?.entryType).toBe("special");
       });
+    });
+  });
+
+  describe("matchResultFromOverride", () => {
+    test("returns match with overridden data when animeId and episodeId provided", () => {
+      const result = matchResultFromOverride({
+        animeId: "tvdb-99",
+        episodeId: "ep-5",
+        entryType: "special",
+      });
+
+      expect(result.anime.id).toBe("tvdb-99");
+      expect(result.anime.title).toBe("(overridden)");
+      expect(result.anime.entryType).toBe("special");
+      expect(result.episode?.id).toBe("ep-5");
+      expect(result.episode?.animeId).toBe("tvdb-99");
+      expect(result.episode?.season).toBe(0);
+      expect(result.episode?.episode).toBe(0);
+      expect(result.episode?.title).toBe("(overridden)");
+      expect(result.score).toBe(1);
+    });
+
+    test("returns anime-only match when only animeId provided", () => {
+      const result = matchResultFromOverride({ animeId: "tvdb-99" });
+
+      expect(result.anime.id).toBe("tvdb-99");
+      expect(result.episode).toBeUndefined();
+      expect(result.score).toBe(1);
+    });
+
+    test("returns empty anime when no fields provided", () => {
+      const result = matchResultFromOverride({});
+
+      expect(result.anime.id).toBe("");
+      expect(result.anime.entryType).toBe("tv");
+      expect(result.episode).toBeUndefined();
+      expect(result.score).toBe(1);
+    });
+
+    test("does not attach episode when episodeId is undefined even if animeId present", () => {
+      const result = matchResultFromOverride({
+        animeId: "tvdb-99",
+        entryType: "movie",
+      });
+
+      expect(result.anime.id).toBe("tvdb-99");
+      expect(result.anime.entryType).toBe("movie");
+      expect(result.episode).toBeUndefined();
+    });
+  });
+
+  describe("matchResultFromCache", () => {
+    test("returns match with episode when cached data has episodeId and episode number", () => {
+      const result = matchResultFromCache({
+        animeId: "1",
+        episodeId: "101",
+        entryType: "tv",
+        season: 1,
+        episode: 5,
+        title: "Episode Title",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      });
+
+      expect(result.anime.id).toBe("1");
+      expect(result.anime.title).toBe("Episode Title");
+      expect(result.anime.entryType).toBe("tv");
+      expect(result.episode?.id).toBe("101");
+      expect(result.episode?.animeId).toBe("1");
+      expect(result.episode?.season).toBe(1);
+      expect(result.episode?.episode).toBe(5);
+      expect(result.episode?.title).toBe("Episode Title");
+      expect(result.score).toBe(1);
+    });
+
+    test("returns anime-only match when episodeId is null", () => {
+      const result = matchResultFromCache({
+        animeId: "1",
+        episodeId: null,
+        entryType: "movie",
+        season: null,
+        episode: null,
+        title: "Movie Title",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      });
+
+      expect(result.anime.id).toBe("1");
+      expect(result.anime.title).toBe("Movie Title");
+      expect(result.episode).toBeUndefined();
+      expect(result.score).toBe(1);
+    });
+
+    test("defaults null season to 1 when episode is present", () => {
+      const result = matchResultFromCache({
+        animeId: "1",
+        episodeId: "101",
+        entryType: "tv",
+        season: null,
+        episode: 3,
+        title: "Ep 3",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      });
+
+      expect(result.episode?.season).toBe(1);
+      expect(result.episode?.episode).toBe(3);
+    });
+
+    test("defaults null title to empty string", () => {
+      const result = matchResultFromCache({
+        animeId: "1",
+        episodeId: null,
+        entryType: "tv",
+        season: null,
+        episode: null,
+        title: null,
+        timestamp: "2026-01-01T00:00:00.000Z",
+      });
+
+      expect(result.anime.title).toBe("");
+    });
+  });
+
+  describe("matchResultFromManual", () => {
+    test("returns match with manual data using EntryType", () => {
+      const result = matchResultFromManual({
+        animeId: "99",
+        episode: 5,
+        entryType: "special" as const,
+      });
+
+      expect(result.anime.id).toBe("99");
+      expect(result.anime.title).toBe("");
+      expect(result.anime.entryType).toBe("special");
+      expect(result.episode?.id).toBe("");
+      expect(result.episode?.animeId).toBe("99");
+      expect(result.episode?.season).toBe(1);
+      expect(result.episode?.episode).toBe(5);
+      expect(result.episode?.title).toBe("");
+      expect(result.episode?.entryType).toBe("special");
+      expect(result.score).toBe(1);
+    });
+
+    test("accepts tv entryType", () => {
+      const result = matchResultFromManual({
+        animeId: "1",
+        episode: 1,
+        entryType: "tv" as const,
+      });
+
+      expect(result.anime.entryType).toBe("tv");
+      expect(result.episode?.entryType).toBe("tv");
     });
   });
 });
