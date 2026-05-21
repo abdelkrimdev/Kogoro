@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { buildSecondaryDatabases, run } from "../cli/main";
-import { ConfigManager } from "../config/config-manager";
-import { CredentialStore } from "../config/credential-store";
+import { run } from "../cli/main";
 import type { PluginInfo } from "../plugin-registry";
-import { captureConsoleLog, withTempDir } from "../test-fixtures";
+import { captureConsoleLog } from "../test-fixtures";
 
 describe("kogoro CLI", () => {
   test("CLI module loads without error", () => {
@@ -51,42 +49,5 @@ describe("kogoro CLI", () => {
     expect(tvdb).toBeDefined();
     expect(tvdb?.type).toBe("database");
     expect(tvdb?.source).toBe("built-in");
-  });
-
-  test("buildSecondaryDatabases returns empty array when config has no secondary-dbs", async () => {
-    await withTempDir("build-secondary", async (dir) => {
-      const config = new ConfigManager({ configDir: dir });
-      const credentialStore = new CredentialStore({ keytar: null });
-      const dbs = await buildSecondaryDatabases(config, credentialStore);
-      expect(dbs).toEqual([]);
-    });
-  });
-
-  test("buildSecondaryDatabases returns anidb when configured", async () => {
-    await withTempDir("build-secondary", async (dir) => {
-      const config = new ConfigManager({ configDir: dir });
-      config.set("secondary-dbs", "anidb");
-      const credentialStore = new CredentialStore({ keytar: null });
-      await credentialStore.setCredential("anidb", "testclient:1");
-      const dbs = await buildSecondaryDatabases(config, credentialStore);
-      expect(dbs).toHaveLength(1);
-      expect(dbs[0]?.constructor.name).toBe("AniDBPlugin");
-      // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
-      delete process.env["KOGORO_ANIDB_KEY"];
-    });
-  });
-
-  test("buildSecondaryDatabases skips databases without credentials", async () => {
-    await withTempDir("build-secondary", async (dir) => {
-      const config = new ConfigManager({ configDir: dir });
-      config.set("secondary-dbs", "anidb,tvdb");
-      const credentialStore = new CredentialStore({ keytar: null });
-      await credentialStore.setCredential("anidb", "testclient:1");
-      const dbs = await buildSecondaryDatabases(config, credentialStore);
-      expect(dbs).toHaveLength(1);
-      expect(dbs[0]?.constructor.name).toBe("AniDBPlugin");
-      // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
-      delete process.env["KOGORO_ANIDB_KEY"];
-    });
   });
 });

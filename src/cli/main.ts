@@ -3,17 +3,14 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { ConfigManager } from "../config/config-manager";
 import { getDefaultPrompts } from "../config/config-wizard";
-import { type CredentialStore, createCredentialStore } from "../config/credential-store";
-import { type DebugEntry, HttpClient, type HttpClientOptions } from "../http-client";
+import { createCredentialStore } from "../config/credential-store";
+import type { DebugEntry } from "../http-client";
 import { MatchCache } from "../match-cache";
 import type { NumberingScheme } from "../numbering-converter";
 import { OverrideStore } from "../override-store";
 import { parse } from "../parser";
+import { PluginFactory } from "../plugin-factory";
 import { PluginRegistry } from "../plugin-registry";
-import { AniDBPlugin } from "../plugins/database/anidb-plugin";
-import type { DatabasePlugin } from "../plugins/database/plugin";
-import { TVDBPlugin } from "../plugins/database/tvdb-plugin";
-import { OpenSubtitlesPlugin } from "../plugins/subtitle/opensubtitles-plugin";
 import type { FileAction } from "../renamer";
 import { render } from "../template-engine";
 import { createArtworkHandlers } from "./artwork-commands";
@@ -26,151 +23,6 @@ import { createRenameHandlers } from "./rename-commands";
 import { createScanHandlers } from "./scan-commands";
 import { createSubtitleHandlers } from "./subtitle-commands";
 
-function withOptionalDebug(debug: boolean | undefined): Pick<HttpClientOptions, "onDebug"> {
-  return { onDebug: debug ? createDebugCallback() : undefined };
-}
-
-async function getTVDBPlugin(debug?: boolean): Promise<TVDBPlugin | undefined> {
-  const credentialStore = createCredentialStore();
-  const apiKey = await credentialStore.getCredential("tvdb");
-  if (!apiKey) {
-    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-    return undefined;
-  }
-  const httpClient = new HttpClient({
-    minDelay: 200,
-    ...withOptionalDebug(debug),
-  });
-  return new TVDBPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
-}
-
-async function createTVDBCommandsWithCredentials(debug?: boolean) {
-  const plugin = await getTVDBPlugin(debug);
-  if (!plugin) return undefined;
-  return createDatabaseCommands(plugin);
-}
-
-function buildAniDBPlugin(credential: string, debug?: boolean): AniDBPlugin {
-  const [client, clientver] = credential.split(":", 2);
-  return new AniDBPlugin({
-    client: client ?? credential,
-    clientver: clientver ?? "1",
-    httpClient: new HttpClient({
-      minDelay: 2000,
-      onDebug: debug ? createDebugCallback() : undefined,
-    }),
-  });
-}
-
-async function createAniDBCommandsWithCredentials(debug?: boolean) {
-  const credentialStore = createCredentialStore();
-  const credential = await credentialStore.getCredential("anidb");
-  if (!credential) {
-    console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
-    return undefined;
-  }
-  return createDatabaseCommands(buildAniDBPlugin(credential, debug));
-}
-
-async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
-  const config = new ConfigManager();
-  const registry = new PluginRegistry();
-  const credentialStore = createCredentialStore();
-
-  registry.setDisabled(config.getDisabledPlugins());
-
-  const primaryDbName = config.get("primary-db") ?? "tvdb";
-  const apiDelay = Number(config.get("api-delay")) || 200;
-
-  let database: DatabasePlugin | undefined;
-
-  if (primaryDbName === "anidb") {
-    const cred = await credentialStore.getCredential("anidb");
-    if (!cred) {
-      console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
-    } else {
-      database = buildAniDBPlugin(cred, debug);
-    }
-  } else if (primaryDbName === "tvdb") {
-    database = await buildTVDBPlugin(credentialStore, apiDelay, debug);
-  } else {
-    const plugin = await registry.instantiate(primaryDbName, debug ? { debug: true } : {});
-    if (plugin) {
-      database = plugin;
-    } else {
-      console.warn(`Primary database "${primaryDbName}" not available, falling back to TVDB`);
-      database = await buildTVDBPlugin(credentialStore, apiDelay, debug);
-    }
-  }
-
-  if (!database) return undefined;
-
-  const fallbackDatabases = await buildSecondaryDatabases(config, credentialStore, debug, registry);
-  const cache = new MatchCache();
-  const overrideStore = new OverrideStore(process.cwd());
-
-  return createScanHandlers({
-    database,
-    fallbackDatabases,
-    cache,
-    config,
-    episodeNumbering,
-    overrideStore,
-  });
-}
-
-async function buildTVDBPlugin(
-  credentialStore: CredentialStore,
-  apiDelay: number,
-  debug?: boolean,
-): Promise<TVDBPlugin | undefined> {
-  const apiKey = await credentialStore.getCredential("tvdb");
-  if (!apiKey) {
-    console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-    return undefined;
-  }
-  const httpClient = new HttpClient({
-    minDelay: apiDelay,
-    onDebug: debug ? createDebugCallback() : undefined,
-  });
-  return new TVDBPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
-}
-
-export async function buildSecondaryDatabases(
-  config: ConfigManager,
-  credentialStore: CredentialStore,
-  debug?: boolean,
-  registry?: PluginRegistry,
-): Promise<DatabasePlugin[]> {
-  const dbNames = config.getList("secondary-dbs");
-  const dbs: DatabasePlugin[] = [];
-  const pluginRegistry = registry ?? new PluginRegistry();
-  pluginRegistry.setDisabled(config.getDisabledPlugins());
-
-  for (const name of dbNames) {
-    if (name === "anidb") {
-      const cred = await credentialStore.getCredential("anidb");
-      if (!cred) continue;
-      dbs.push(buildAniDBPlugin(cred, debug));
-    } else if (name === "tvdb") {
-      const cred = await credentialStore.getCredential("tvdb");
-      if (!cred) continue;
-      const tvdbClient = new HttpClient({
-        minDelay: 200,
-        ...withOptionalDebug(debug),
-      });
-      dbs.push(new TVDBPlugin({ apiKey: cred, fetch: tvdbClient.fetch.bind(tvdbClient) }));
-    } else {
-      const plugin = await pluginRegistry.instantiate(name, debug ? { debug: true } : {});
-      if (plugin) {
-        dbs.push(plugin);
-      }
-    }
-  }
-
-  return dbs;
-}
-
 function createDebugCallback() {
   return (entry: DebugEntry) => {
     if (entry.type === "request") {
@@ -182,43 +34,67 @@ function createDebugCallback() {
   };
 }
 
+function createFactory(debug?: boolean, config?: ConfigManager): PluginFactory {
+  return new PluginFactory({
+    config: config ?? new ConfigManager(),
+    credentialStore: createCredentialStore(),
+    onDebug: debug ? createDebugCallback() : undefined,
+  });
+}
+
+async function createDatabaseCommandsWithCredentials(name: string, debug?: boolean) {
+  const factory = createFactory(debug);
+  const database = await factory.database(name);
+  if (!database) return undefined;
+  return createDatabaseCommands(database);
+}
+
+async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
+  const config = new ConfigManager();
+  const factory = createFactory(debug, config);
+  const database = await factory.primaryDatabase();
+  if (!database) return undefined;
+  const fallbackDatabases = await factory.secondaryDatabases();
+  const cache = new MatchCache();
+  const overrideStore = new OverrideStore(process.cwd());
+  return createScanHandlers({
+    database,
+    fallbackDatabases,
+    cache,
+    config,
+    episodeNumbering,
+    overrideStore,
+  });
+}
+
 async function createMatchWithCredentials(debug?: boolean) {
-  const plugin = await getTVDBPlugin(debug);
-  if (!plugin) return undefined;
-  return createMatchHandlers({ database: plugin });
+  const factory = createFactory(debug);
+  const database = await factory.primaryDatabase();
+  if (!database) return undefined;
+  return createMatchHandlers({ database });
 }
 
 async function createMetadataWithCredentials(debug?: boolean) {
-  const plugin = await getTVDBPlugin(debug);
-  if (!plugin) return undefined;
-  return createMetadataHandlers({ database: plugin });
+  const factory = createFactory(debug);
+  const database = await factory.primaryDatabase();
+  if (!database) return undefined;
+  return createMetadataHandlers({ database });
 }
 
 async function createArtworkWithCredentials(debug?: boolean) {
-  const config = new ConfigManager();
-  const credentialStore = createCredentialStore();
-  const primaryDb = await getTVDBPlugin(debug);
+  const factory = createFactory(debug);
+  const primaryDb = await factory.primaryDatabase();
   if (!primaryDb) return undefined;
-
-  const secondaryDbs = await buildSecondaryDatabases(config, credentialStore, debug);
-
+  const secondaryDbs = await factory.secondaryDatabases();
   return createArtworkHandlers({ primaryDb, secondaryDbs });
 }
 
 async function createSubtitleWithCredentials(debug?: boolean) {
-  const credentialStore = createCredentialStore();
-  const apiKey = await credentialStore.getCredential("opensubtitles");
-  if (!apiKey) {
-    console.error("No OpenSubtitles API key configured. Run 'kogoro config init' first.");
-    return undefined;
-  }
-  const httpClient = new HttpClient({
-    minDelay: 200,
-    ...withOptionalDebug(debug),
-  });
-  const plugin = new OpenSubtitlesPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+  const factory = createFactory(debug);
+  const subtitlePlugin = await factory.subtitle();
+  if (!subtitlePlugin) return undefined;
   const cache = new MatchCache();
-  return createSubtitleHandlers({ subtitlePlugin: plugin, cache });
+  return createSubtitleHandlers({ subtitlePlugin, cache });
 }
 
 export function run(argv: string[]): string | undefined {
@@ -562,7 +438,7 @@ export function run(argv: string[]): string | undefined {
                   describe: "Dump API requests and responses",
                 }),
             async (argv) => {
-              const commands = await createTVDBCommandsWithCredentials(argv.debug);
+              const commands = await createDatabaseCommandsWithCredentials("tvdb", argv.debug);
               if (!commands) return;
               await commands.search(argv.title, console.log, console.error);
             },
@@ -583,7 +459,7 @@ export function run(argv: string[]): string | undefined {
                   describe: "Dump API requests and responses",
                 }),
             async (argv) => {
-              const commands = await createTVDBCommandsWithCredentials(argv.debug);
+              const commands = await createDatabaseCommandsWithCredentials("tvdb", argv.debug);
               if (!commands) return;
               await commands.episodes(argv.animeId, console.log, console.error);
             },
@@ -609,7 +485,10 @@ export function run(argv: string[]): string | undefined {
                         describe: "Dump API requests and responses",
                       }),
                   async (argv) => {
-                    const commands = await createAniDBCommandsWithCredentials(argv.debug);
+                    const commands = await createDatabaseCommandsWithCredentials(
+                      "anidb",
+                      argv.debug,
+                    );
                     if (!commands) return;
                     await commands.search(argv.title, console.log, console.error);
                   },
@@ -630,7 +509,10 @@ export function run(argv: string[]): string | undefined {
                         describe: "Dump API requests and responses",
                       }),
                   async (argv) => {
-                    const commands = await createAniDBCommandsWithCredentials(argv.debug);
+                    const commands = await createDatabaseCommandsWithCredentials(
+                      "anidb",
+                      argv.debug,
+                    );
                     if (!commands) return;
                     await commands.episodes(argv.animeId, console.log, console.error);
                   },
