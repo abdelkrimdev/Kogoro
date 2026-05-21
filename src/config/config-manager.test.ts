@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { ConfigManager } from "../config/config-manager";
-import { withTestConfig } from "../test-helpers";
+import { withTestConfig } from "../test-fixtures";
 
 describe("ConfigManager", () => {
   test("set then get persists and retrieves a value", async () => {

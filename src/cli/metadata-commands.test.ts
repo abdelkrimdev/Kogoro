@@ -8,7 +8,7 @@ import {
   seedCacheEntry,
   withTempDir,
   writeTempFile,
-} from "../test-helpers";
+} from "../test-fixtures";
 
 describe("metadata CLI commands", () => {
   test("write generates NFO and returns summary JSON", async () => {

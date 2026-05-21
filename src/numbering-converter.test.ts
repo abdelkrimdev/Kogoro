@@ -4,7 +4,7 @@ import {
   convertEpisodeNumbering,
   relativeToAbsolute,
 } from "./numbering-converter";
-import { makeEpisodes } from "./test-helpers";
+import { makeEpisodes } from "./test-fixtures";
 
 describe("relativeToAbsolute", () => {
   test("converts season-relative to absolute for 2-season anime (24 eps each)", () => {

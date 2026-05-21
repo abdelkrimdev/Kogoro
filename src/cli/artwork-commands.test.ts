@@ -10,7 +10,7 @@ import {
   seedCacheEntry,
   testImageBytes,
   withTempDir,
-} from "../test-helpers";
+} from "../test-fixtures";
 
 describe("artwork CLI commands", () => {
   test("process downloads cover and outputs summary", async () => {

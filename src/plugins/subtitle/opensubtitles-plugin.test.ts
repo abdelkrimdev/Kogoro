@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createCallCounter, mockJsonFetch } from "../../test-helpers";
+import { createCallCounter, mockJsonFetch } from "../../test-fixtures";
 import { OpenSubtitlesPlugin } from "./opensubtitles-plugin";
 
 describe("OpenSubtitlesPlugin", () => {

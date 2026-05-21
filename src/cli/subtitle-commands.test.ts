@@ -9,7 +9,7 @@ import {
   seedCacheEntry,
   withTempDir,
   writeTempFile,
-} from "../test-helpers";
+} from "../test-fixtures";
 
 describe("subtitle CLI commands", () => {
   test("subtitle downloads subtitles for cached entries", async () => {

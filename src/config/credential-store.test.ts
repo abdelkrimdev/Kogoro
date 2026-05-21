@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { CredentialStore, createCredentialStore } from "../config/credential-store";
-import { createMockKeytar, silentBunSecrets, stubBunSecrets } from "../test-helpers";
+import { createMockKeytar, silentBunSecrets, stubBunSecrets } from "../test-fixtures";
 
 describe("CredentialStore", () => {
   let mockKeytar: ReturnType<typeof createMockKeytar>;

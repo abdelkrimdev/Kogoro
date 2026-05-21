@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { createScanHandlers } from "./cli/scan-commands";
 import { isDatabasePlugin, isSubtitlePlugin, PluginRegistry } from "./plugin-registry";
 import type { DatabasePlugin } from "./plugins/database/plugin";
-import { createCache, withTempDir, writeTempFile } from "./test-helpers";
+import { createCache, withTempDir, writeTempFile } from "./test-fixtures";
 
 describe("isDatabasePlugin", () => {
   test("returns true for object implementing DatabasePlugin", () => {

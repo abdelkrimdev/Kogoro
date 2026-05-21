@@ -6,7 +6,7 @@ import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { AnimeResult, EpisodeResult } from "./plugins/database/types";
 import { Renamer } from "./renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
-import { createCache, makeThrowingDb, withTempDir, writeTempFile } from "./test-helpers";
+import { createCache, makeThrowingDb, withTempDir, writeTempFile } from "./test-fixtures";
 
 const STD_EPISODES: EpisodeResult[] = [
   { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },

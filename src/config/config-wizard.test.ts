@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { type PromptsAPI, runConfigWizard } from "../config/config-wizard";
-import { createMockKeytar, withTestConfig } from "../test-helpers";
+import { createMockKeytar, withTestConfig } from "../test-fixtures";
 
 describe("ConfigWizard", () => {
   function makePrompts(overrides: Partial<PromptsAPI> = {}): PromptsAPI {

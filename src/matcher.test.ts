@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { Matcher } from "./matcher";
 import { OverrideStore } from "./override-store";
 import type { DatabasePlugin } from "./plugins/database/plugin";
-import { createCallCounter, createDataMockDb, makeParsedResult, withTempDir } from "./test-helpers";
+import {
+  createCallCounter,
+  createDataMockDb,
+  makeParsedResult,
+  withTempDir,
+} from "./test-fixtures";
 
 describe("Matcher", () => {
   test("returns match when anime found and episode number matches", async () => {

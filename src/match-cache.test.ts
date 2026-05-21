@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { MatchCache } from "./match-cache";
-import { createCache, makeCachedMatch, withTempDir } from "./test-helpers";
+import { createCache, makeCachedMatch, withTempDir } from "./test-fixtures";
 
 describe("MatchCache", () => {
   test("set stores a match and get retrieves it", async () => {

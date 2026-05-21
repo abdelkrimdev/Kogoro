@@ -9,7 +9,7 @@ import {
   seedCacheEntry,
   withTempDir,
   writeTempFile,
-} from "./test-helpers";
+} from "./test-fixtures";
 
 describe("MetadataWriter", () => {
   describe("generateEpisodeNfo", () => {

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { OverrideStore } from "./override-store";
-import { withTempDir } from "./test-helpers";
+import { withTempDir } from "./test-fixtures";
 
 describe("OverrideStore", () => {
   test("set stores an override and get retrieves it", async () => {

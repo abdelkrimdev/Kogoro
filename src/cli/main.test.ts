@@ -4,7 +4,7 @@ import { buildSecondaryDatabases, run } from "../cli/main";
 import { ConfigManager } from "../config/config-manager";
 import { CredentialStore } from "../config/credential-store";
 import type { PluginInfo } from "../plugin-registry";
-import { captureConsoleLog, withTempDir } from "../test-helpers";
+import { captureConsoleLog, withTempDir } from "../test-fixtures";
 
 describe("kogoro CLI", () => {
   test("project bootstrap is set up", () => {

@@ -12,7 +12,7 @@ import {
   makeThrowingDb,
   withTempDir,
   writeTempFile,
-} from "../test-helpers";
+} from "../test-fixtures";
 
 describe("scan CLI commands", () => {
   test("scan directory with -y returns JSON with matched files", async () => {

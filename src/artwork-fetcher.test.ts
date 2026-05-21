@@ -14,7 +14,7 @@ import {
   testImageBytes,
   toUrlString,
   writeTempFile,
-} from "./test-helpers";
+} from "./test-fixtures";
 
 describe("ArtworkFetcher", () => {
   function setup() {

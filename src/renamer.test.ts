@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { Renamer } from "./renamer";
-import { makeMatchResult, withTempDir } from "./test-helpers";
+import { makeMatchResult, withTempDir } from "./test-fixtures";
 
 describe("Renamer", () => {
   test("plans rename for TV episode with filename and directory templates", () => {
