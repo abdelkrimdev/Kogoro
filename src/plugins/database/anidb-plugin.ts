@@ -62,6 +62,15 @@ export class AniDBPlugin implements DatabasePlugin {
     this.clientver = options.clientver;
   }
 
+  private checkAniDBError(xml: string): void {
+    const match = xml.match(/<error(?:\s+code="([^"]*)")?>(.*?)<\/error>/);
+    if (match) {
+      const code = match[1] ?? "unknown";
+      const message = match[2] ?? "";
+      throw new Error(`AniDB error ${code}: ${message}`);
+    }
+  }
+
   private commonParams(): string {
     return `client=${this.client}&clientver=${this.clientver}&protover=1`;
   }
@@ -71,7 +80,9 @@ export class AniDBPlugin implements DatabasePlugin {
       `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
     );
     if (!response.ok) return null;
-    return response.text();
+    const xml = await response.text();
+    this.checkAniDBError(xml);
+    return xml;
   }
 
   async searchAnime(title: string): Promise<AnimeResult[]> {
@@ -80,6 +91,7 @@ export class AniDBPlugin implements DatabasePlugin {
     );
     if (!response.ok) return [];
     const xml = await response.text();
+    this.checkAniDBError(xml);
     const results: AnimeResult[] = [];
     const lowerTitle = title.toLowerCase();
     const animeRegex = /<anime\s+([^>]*)>([\s\S]*?)<\/anime>/g;
