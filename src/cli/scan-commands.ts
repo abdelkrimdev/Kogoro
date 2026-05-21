@@ -1,7 +1,8 @@
-import { lstatSync, readdirSync } from "node:fs";
-import { extname, join, sep } from "node:path";
+import { lstatSync } from "node:fs";
+import { sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../config/config-manager";
+import { walk } from "../directory-walker";
 import type { MatchCache } from "../match-cache";
 import type { MatchResult } from "../matcher";
 import type { NumberingScheme } from "../numbering-converter";
@@ -48,32 +49,15 @@ export function isAlreadyOrganized(filePath: string): boolean {
   return false;
 }
 
-function walkDir(dir: string, extensions: string[], excludePatterns: string[]): string[] {
-  const results: string[] = [];
-  const entries = readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = join(dir, entry.name);
-    if (entry.isSymbolicLink()) continue;
-    if (entry.isDirectory()) {
-      results.push(...walkDir(fullPath, extensions, excludePatterns));
-    } else if (entry.isFile()) {
-      const ext = extname(entry.name).toLowerCase();
-      if (!extensions.includes(ext)) continue;
-      if (excludePatterns.some((p) => entry.name.includes(p))) continue;
-      results.push(fullPath);
-    }
-  }
-  return results;
-}
-
 export function discoverFiles(
   rootPath: string,
   extensions: string[],
   excludePatterns?: string[],
 ): string[] {
   if (lstatSync(rootPath).isDirectory()) {
-    const patterns = excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS;
-    return walkDir(rootPath, extensions, patterns);
+    return walk(rootPath, extensions, {
+      excludePatterns: excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS,
+    });
   }
   return [rootPath];
 }
