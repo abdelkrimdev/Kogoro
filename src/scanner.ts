@@ -225,7 +225,7 @@ export class Scanner {
       plan: null,
       cached: false,
       skipped: false,
-      status: "ambiguous" as ScanStatus,
+      status: "ambiguous",
     };
   }
 
@@ -387,9 +387,9 @@ export class Scanner {
       const needsMatch = entries.filter((e) => !e.cached && e.match === null);
       if (needsMatch.length > 0) {
         const matchResults = await this.matcher.matchBatch(needsMatch.map((e) => e.parsed));
-        for (let i = 0; i < needsMatch.length; i++) {
-          const entry = needsMatch[i];
-          const matchResult = matchResults[i];
+        for (let idx = 0; idx < needsMatch.length; idx++) {
+          const entry = needsMatch[idx];
+          const matchResult = matchResults[idx];
           if (!entry || !matchResult) continue;
 
           if (matchResult.failureReason) {

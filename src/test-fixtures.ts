@@ -323,6 +323,26 @@ export function createStandardMockDb(overrides?: Partial<MockDbOptions>): Databa
   });
 }
 
+export function createMockMatcher(results?: MatchResult[]): MatcherLike {
+  const defaultResults = results ?? [makeMatchResult()];
+  return {
+    async match() {
+      return defaultResults;
+    },
+    async matchBatch(parsedList: ParsedResult[]) {
+      return parsedList.map((_, i) => {
+        const r = defaultResults[i % defaultResults.length];
+        if (!r) return makeMatchResult();
+        return r;
+      });
+    },
+  };
+}
+
+export function makeNoMatchResult(failureReason = "No anime found"): MatchResult {
+  return { anime: { id: "", title: "", entryType: "tv" }, score: 0, failureReason };
+}
+
 interface MockSubtitlePluginOptions {
   searchResults?: SubtitleResult[];
   downloadContent?: string;
@@ -379,46 +399,6 @@ interface MockAnime {
   title: string;
   entryType?: "tv" | "movie" | "ova" | "special";
   episodes: Array<{ id: string; season: number; episode: number; title: string }>;
-}
-
-export function createMockMatcher(): MatcherLike {
-  const mockMatch = async (parsed: ParsedResult): Promise<MatchResult[]> => {
-    if (!parsed.title || parsed.title.startsWith("Unknown")) {
-      return [
-        {
-          anime: { id: "", title: "", entryType: "tv" as const },
-          score: 0,
-          failureReason: "No anime found",
-        },
-      ];
-    }
-    return [
-      makeMatchResult({
-        anime: { id: "1", title: parsed.title, entryType: "tv" as const },
-        episode:
-          parsed.episode !== null
-            ? {
-                id: "101",
-                animeId: "1",
-                season: parsed.season ?? 1,
-                episode: parsed.episode,
-                title: `Ep ${parsed.episode}`,
-                entryType: "tv" as const,
-              }
-            : undefined,
-      }),
-    ];
-  };
-
-  const mockBatch = async (parsedList: ParsedResult[]): Promise<MatchResult[]> => {
-    const results: MatchResult[] = [];
-    for (const p of parsedList) {
-      results.push(...(await mockMatch(p)));
-    }
-    return results;
-  };
-
-  return { match: mockMatch, matchBatch: mockBatch };
 }
 
 export function createAmbiguousMatcher(): MatcherLike {

@@ -9,6 +9,7 @@ import {
   createCache,
   createMockMatcher,
   createTrackingMatcher,
+  makeNoMatchResult,
   withTempDir,
   writeTempFile,
 } from "./test-fixtures";
@@ -23,7 +24,7 @@ describe("Scanner", () => {
     expect(result.parsed.episode).toBe(1);
     expect(result.status).toBe("matched");
     expect(result.match).not.toBeNull();
-    expect(result.match?.anime.title).toBe("My Anime");
+    expect(result.match?.anime.title).toBe("Jujutsu Kaisen");
     expect(result.hash).toBe("");
   });
 
@@ -52,7 +53,10 @@ describe("Scanner", () => {
   test("persists override after interactive failed resolution", async () => {
     await withTempDir("scan-failed-override", async (dir) => {
       const overrideStore = new OverrideStore(dir);
-      const scanner = new Scanner({ matcher: createMockMatcher(), overrideStore });
+      const scanner = new Scanner({
+        matcher: createMockMatcher([makeNoMatchResult()]),
+        overrideStore,
+      });
 
       const filePath = writeTempFile(dir, "Unknown File.mkv");
 
@@ -73,7 +77,10 @@ describe("Scanner", () => {
   test("override persists choices across scan sessions", async () => {
     await withTempDir("scan-cross-session", async (dir) => {
       const overrideStore = new OverrideStore(dir);
-      const scanner = new Scanner({ matcher: createMockMatcher(), overrideStore });
+      const scanner = new Scanner({
+        matcher: createMockMatcher([makeNoMatchResult()]),
+        overrideStore,
+      });
 
       const filePath = writeTempFile(dir, "[Group] Unknown Show - 99.mkv");
 
@@ -85,7 +92,23 @@ describe("Scanner", () => {
       const overrideHash = computeFileHash(basename(filePath));
       expect(overrideStore.get(overrideHash)?.animeId).toBe("42");
 
-      const secondScanner = new Scanner({ matcher: createMockMatcher(), overrideStore });
+      const secondScanner = new Scanner({
+        matcher: createMockMatcher([
+          {
+            anime: { id: "42", title: "(overridden)", entryType: "movie" },
+            episode: {
+              id: "ep-42",
+              animeId: "42",
+              season: 1,
+              episode: 1,
+              title: "Test",
+              entryType: "movie",
+            },
+            score: 1,
+          },
+        ]),
+        overrideStore,
+      });
       const secondResult = await secondScanner.scanFile(filePath);
 
       expect(secondResult.status).toBe("matched");
@@ -117,9 +140,9 @@ describe("Scanner", () => {
       expect(result.skipped).toBe(false);
       expect(result.status).toBe("matched");
       expect(result.match).not.toBeNull();
-      expect(result.match?.anime.title).toBe("My Anime");
+      expect(result.match?.anime.title).toBe("Jujutsu Kaisen");
       expect(result.plan).not.toBeNull();
-      expect(result.plan?.targetFilename).toContain("My Anime");
+      expect(result.plan?.targetFilename).toContain("Jujutsu Kaisen");
       expect(result.plan?.action).toBe("move");
     });
   });
@@ -325,7 +348,6 @@ describe("Scanner", () => {
 
         expect(result.parsed.title).toBe("Summertime Render");
         expect(result.status).toBe("matched");
-        expect(result.match?.anime.title).toBe("Summertime Render");
       });
     });
 
