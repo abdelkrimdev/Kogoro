@@ -86,7 +86,7 @@ export class PluginFactory {
     return plugin ?? undefined;
   }
 
-  async subtitle(_name?: string): Promise<SubtitlePlugin | undefined> {
+  async subtitle(): Promise<SubtitlePlugin | undefined> {
     const apiKey = await this.credentialStore.getCredential("opensubtitles");
     if (!apiKey) {
       console.error("No OpenSubtitles API key configured. Run 'kogoro config init' first.");

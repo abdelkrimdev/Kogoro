@@ -34,12 +34,16 @@ function createDebugCallback() {
   };
 }
 
-async function createDatabaseCommandsWithCredentials(name: string, debug?: boolean) {
-  const factory = new PluginFactory({
-    config: new ConfigManager(),
+function createFactory(debug?: boolean, config?: ConfigManager): PluginFactory {
+  return new PluginFactory({
+    config: config ?? new ConfigManager(),
     credentialStore: createCredentialStore(),
     onDebug: debug ? createDebugCallback() : undefined,
   });
+}
+
+async function createDatabaseCommandsWithCredentials(name: string, debug?: boolean) {
+  const factory = createFactory(debug);
   const database = await factory.database(name);
   if (!database) return undefined;
   return createDatabaseCommands(database);
@@ -47,11 +51,7 @@ async function createDatabaseCommandsWithCredentials(name: string, debug?: boole
 
 async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
   const config = new ConfigManager();
-  const factory = new PluginFactory({
-    config,
-    credentialStore: createCredentialStore(),
-    onDebug: debug ? createDebugCallback() : undefined,
-  });
+  const factory = createFactory(debug, config);
   const database = await factory.primaryDatabase();
   if (!database) return undefined;
   const fallbackDatabases = await factory.secondaryDatabases();
@@ -68,34 +68,21 @@ async function createScanWithCredentials(episodeNumbering?: NumberingScheme, deb
 }
 
 async function createMatchWithCredentials(debug?: boolean) {
-  const factory = new PluginFactory({
-    config: new ConfigManager(),
-    credentialStore: createCredentialStore(),
-    onDebug: debug ? createDebugCallback() : undefined,
-  });
+  const factory = createFactory(debug);
   const database = await factory.primaryDatabase();
   if (!database) return undefined;
   return createMatchHandlers({ database });
 }
 
 async function createMetadataWithCredentials(debug?: boolean) {
-  const factory = new PluginFactory({
-    config: new ConfigManager(),
-    credentialStore: createCredentialStore(),
-    onDebug: debug ? createDebugCallback() : undefined,
-  });
+  const factory = createFactory(debug);
   const database = await factory.primaryDatabase();
   if (!database) return undefined;
   return createMetadataHandlers({ database });
 }
 
 async function createArtworkWithCredentials(debug?: boolean) {
-  const config = new ConfigManager();
-  const factory = new PluginFactory({
-    config,
-    credentialStore: createCredentialStore(),
-    onDebug: debug ? createDebugCallback() : undefined,
-  });
+  const factory = createFactory(debug);
   const primaryDb = await factory.primaryDatabase();
   if (!primaryDb) return undefined;
   const secondaryDbs = await factory.secondaryDatabases();
@@ -103,11 +90,7 @@ async function createArtworkWithCredentials(debug?: boolean) {
 }
 
 async function createSubtitleWithCredentials(debug?: boolean) {
-  const factory = new PluginFactory({
-    config: new ConfigManager(),
-    credentialStore: createCredentialStore(),
-    onDebug: debug ? createDebugCallback() : undefined,
-  });
+  const factory = createFactory(debug);
   const subtitlePlugin = await factory.subtitle();
   if (!subtitlePlugin) return undefined;
   const cache = new MatchCache();
