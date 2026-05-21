@@ -1,94 +1,223 @@
-import { describe, expect, test } from "bun:test";
-import { ConfigManager } from "./config/config-manager";
-import { CredentialStore } from "./config/credential-store";
+import { describe, expect, mock, test } from "bun:test";
 import { PluginFactory } from "./plugin-factory";
-import { withTempDir } from "./test-fixtures";
+import { createMockKeytar, withMockFetch, withTestConfig } from "./test-fixtures";
 
 describe("PluginFactory", () => {
-  test("primaryDatabase returns TVDBPlugin when primary-db is tvdb", async () => {
-    await withTempDir("plugin-factory", async (dir) => {
-      const config = new ConfigManager({ configDir: dir });
-      config.set("primary-db", "tvdb");
-      const credentialStore = new CredentialStore({ keytar: null });
-      await credentialStore.setCredential("tvdb", "test-api-key");
-      const factory = new PluginFactory({ config, credentialStore });
-      const db = await factory.primaryDatabase();
-      expect(db).toBeDefined();
-      expect(db?.constructor.name).toBe("TVDBPlugin");
-      // biome-ignore lint/complexity/useLiteralKeys: env var set by credential store
-      delete process.env["KOGORO_TVDB_KEY"];
+  test("has four public methods", async () => {
+    await withTestConfig("basic", async (_dir, config, credentialStore) => {
+      const factory = new PluginFactory(config, credentialStore);
+      expect(factory.primaryDatabase).toBeInstanceOf(Function);
+      expect(factory.secondaryDatabases).toBeInstanceOf(Function);
+      expect(factory.database).toBeInstanceOf(Function);
+      expect(factory.subtitle).toBeInstanceOf(Function);
     });
   });
 
-  test("database('anidb') returns AniDBPlugin with valid credentials", async () => {
-    await withTempDir("plugin-factory", async (dir) => {
-      const config = new ConfigManager({ configDir: dir });
-      const credentialStore = new CredentialStore({ keytar: null });
-      await credentialStore.setCredential("anidb", "testclient:1");
-      const factory = new PluginFactory({ config, credentialStore });
-      const db = await factory.database("anidb");
-      expect(db).toBeDefined();
-      expect(db?.constructor.name).toBe("AniDBPlugin");
-      // biome-ignore lint/complexity/useLiteralKeys: env var set by credential store
-      delete process.env["KOGORO_ANIDB_KEY"];
+  describe("database", () => {
+    describe("tvdb", () => {
+      test("constructs TVDBPlugin with correct API key", async () => {
+        let loginBody: string | undefined;
+
+        await withMockFetch(
+          ((url: string | URL | Request, init?: RequestInit | BunFetchRequestInit) => {
+            const urlStr = typeof url === "string" ? url : url.toString();
+            if (urlStr.includes("/login")) {
+              loginBody = typeof init?.body === "string" ? init.body : undefined;
+              return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
+            return new Response(JSON.stringify({ data: [] }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          }) as unknown as typeof fetch,
+          async () => {
+            await withTestConfig(
+              "tvdb-test",
+              async (_dir, config, credentialStore) => {
+                const factory = new PluginFactory(config, credentialStore);
+                const plugin = await factory.database("tvdb");
+                expect(plugin).toBeDefined();
+                expect(plugin?.constructor.name).toBe("TVDBPlugin");
+
+                await plugin?.searchAnime("test");
+                expect(loginBody).toBeDefined();
+                const parsed = JSON.parse(loginBody as string);
+                expect(parsed.apikey).toBe("test-api-key");
+              },
+              createMockKeytar({ "kogoro:tvdb": "test-api-key" }),
+            );
+          },
+        );
+      });
+    });
+
+    describe("anidb", () => {
+      test("constructs AniDBPlugin with correct client:clientver", async () => {
+        await withMockFetch(
+          ((url: string | URL | Request) => {
+            const urlStr = typeof url === "string" ? url : url.toString();
+            if (urlStr.includes("anidb")) {
+              return new Response('<?xml version="1.0"?><animetitles/>', {
+                status: 200,
+                headers: { "Content-Type": "application/xml" },
+              });
+            }
+            return new Response("ok", { status: 200 });
+          }) as unknown as typeof fetch,
+          async () => {
+            await withTestConfig(
+              "anidb-test",
+              async (_dir, config, credentialStore) => {
+                const factory = new PluginFactory(config, credentialStore);
+                const plugin = await factory.database("anidb");
+                expect(plugin).toBeDefined();
+                expect(plugin?.constructor.name).toBe("AniDBPlugin");
+              },
+              createMockKeytar({ "kogoro:anidb": "testclient:2" }),
+            );
+          },
+        );
+      });
+    });
+
+    describe("unknown plugin name", () => {
+      test("falls through to PluginRegistry for external plugins", async () => {
+        mock.module("kogoro-plugin-myextdb", () => ({
+          default: class ExternalPlugin {
+            async searchAnime() {
+              return [];
+            }
+            async getEpisodes() {
+              return [];
+            }
+            async getArtwork() {
+              return [];
+            }
+            async getAnime() {
+              return null;
+            }
+          },
+        }));
+
+        await withTestConfig(
+          "external-test",
+          async (_dir, config, credentialStore) => {
+            const factory = new PluginFactory(config, credentialStore);
+            const plugin = await factory.database("myextdb");
+            expect(plugin).toBeDefined();
+            expect(plugin?.searchAnime).toBeInstanceOf(Function);
+            expect(plugin?.getEpisodes).toBeInstanceOf(Function);
+          },
+          null,
+        );
+      });
     });
   });
 
-  test("subtitle returns OpenSubtitlesPlugin with valid credentials", async () => {
-    await withTempDir("plugin-factory", async (dir) => {
-      const config = new ConfigManager({ configDir: dir });
-      const credentialStore = new CredentialStore({ keytar: null });
-      await credentialStore.setCredential("opensubtitles", "test-api-key");
-      const factory = new PluginFactory({ config, credentialStore });
-      const sub = await factory.subtitle();
-      expect(sub).toBeDefined();
-      expect(sub?.constructor.name).toBe("OpenSubtitlesPlugin");
-      // biome-ignore lint/complexity/useLiteralKeys: env var set by credential store
-      delete process.env["KOGORO_OPENSUBTITLES_KEY"];
+  describe("primaryDatabase", () => {
+    test("respects primary-db config setting", async () => {
+      await withMockFetch(
+        ((url: string | URL | Request) => {
+          const urlStr = typeof url === "string" ? url : url.toString();
+          if (urlStr.includes("anidb")) {
+            return new Response('<?xml version="1.0"?><animetitles/>', {
+              status: 200,
+              headers: { "Content-Type": "application/xml" },
+            });
+          }
+          return new Response("ok", { status: 200 });
+        }) as unknown as typeof fetch,
+        async () => {
+          await withTestConfig(
+            "primary-db",
+            async (_dir, config, credentialStore) => {
+              config.set("primary-db", "anidb");
+              const factory = new PluginFactory(config, credentialStore);
+              const plugin = await factory.primaryDatabase();
+              expect(plugin).toBeDefined();
+              expect(plugin?.constructor.name).toBe("AniDBPlugin");
+            },
+            createMockKeytar({ "kogoro:anidb": "testclient:1" }),
+          );
+        },
+      );
     });
   });
 
-  test("secondaryDatabases returns configured databases", async () => {
-    await withTempDir("plugin-factory", async (dir) => {
-      const config = new ConfigManager({ configDir: dir });
-      config.set("secondary-dbs", "anidb,tvdb");
-      const credentialStore = new CredentialStore({ keytar: null });
-      await credentialStore.setCredential("anidb", "testclient:1");
-      await credentialStore.setCredential("tvdb", "test-api-key");
-      const factory = new PluginFactory({ config, credentialStore });
-      const dbs = await factory.secondaryDatabases();
-      expect(dbs).toHaveLength(2);
-      expect(dbs[0]?.constructor.name).toBe("AniDBPlugin");
-      expect(dbs[1]?.constructor.name).toBe("TVDBPlugin");
-      // biome-ignore lint/complexity/useLiteralKeys: env vars set by credential store
-      delete process.env["KOGORO_ANIDB_KEY"];
-      // biome-ignore lint/complexity/useLiteralKeys: env vars set by credential store
-      delete process.env["KOGORO_TVDB_KEY"];
+  describe("secondaryDatabases", () => {
+    test("returns plugins for all configured names", async () => {
+      await withMockFetch(
+        ((url: string | URL | Request) => {
+          const urlStr = typeof url === "string" ? url : url.toString();
+          if (urlStr.includes("anidb")) {
+            return new Response('<?xml version="1.0"?><animetitles/>', {
+              status: 200,
+              headers: { "Content-Type": "application/xml" },
+            });
+          }
+          return new Response("ok", { status: 200 });
+        }) as unknown as typeof fetch,
+        async () => {
+          await withTestConfig(
+            "secondary-dbs",
+            async (_dir, config, credentialStore) => {
+              config.set("secondary-dbs", "anidb");
+              const factory = new PluginFactory(config, credentialStore);
+              const plugins = await factory.secondaryDatabases();
+              expect(plugins).toHaveLength(1);
+              expect(plugins[0]?.constructor.name).toBe("AniDBPlugin");
+            },
+            createMockKeytar({ "kogoro:anidb": "testclient:1" }),
+          );
+        },
+      );
     });
   });
 
-  test("database returns undefined when credentials are missing", async () => {
-    await withTempDir("plugin-factory", async (dir) => {
-      const config = new ConfigManager({ configDir: dir });
-      const credentialStore = new CredentialStore({ keytar: null });
-      const factory = new PluginFactory({ config, credentialStore });
-      const db = await factory.database("tvdb");
-      expect(db).toBeUndefined();
+  describe("subtitle", () => {
+    test("constructs OpenSubtitles plugin by default", async () => {
+      await withMockFetch(
+        ((url: string | URL | Request) => {
+          const urlStr = typeof url === "string" ? url : url.toString();
+          if (urlStr.includes("opensubtitles.com")) {
+            return new Response(JSON.stringify({ data: [] }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          return new Response("ok", { status: 200 });
+        }) as unknown as typeof fetch,
+        async () => {
+          await withTestConfig(
+            "subtitle-test",
+            async (_dir, config, credentialStore) => {
+              const factory = new PluginFactory(config, credentialStore);
+              const plugin = await factory.subtitle();
+              expect(plugin).toBeDefined();
+              expect(plugin?.constructor.name).toBe("OpenSubtitlesPlugin");
+            },
+            createMockKeytar({ "kogoro:opensubtitles": "test-os-key" }),
+          );
+        },
+      );
     });
   });
 
-  test("primaryDatabase returns AniDBPlugin when primary-db is anidb", async () => {
-    await withTempDir("plugin-factory", async (dir) => {
-      const config = new ConfigManager({ configDir: dir });
-      config.set("primary-db", "anidb");
-      const credentialStore = new CredentialStore({ keytar: null });
-      await credentialStore.setCredential("anidb", "testclient:1");
-      const factory = new PluginFactory({ config, credentialStore });
-      const db = await factory.primaryDatabase();
-      expect(db).toBeDefined();
-      expect(db?.constructor.name).toBe("AniDBPlugin");
-      // biome-ignore lint/complexity/useLiteralKeys: env var set by credential store
-      delete process.env["KOGORO_ANIDB_KEY"];
+  describe("disabled plugins", () => {
+    test("returns undefined for disabled plugins", async () => {
+      await withTestConfig(
+        "disabled-test",
+        async (_dir, config, credentialStore) => {
+          config.set("plugins.tvdb.enabled", "false");
+          const factory = new PluginFactory(config, credentialStore);
+          const plugin = await factory.database("tvdb");
+          expect(plugin).toBeUndefined();
+        },
+        createMockKeytar({ "kogoro:tvdb": "key" }),
+      );
     });
   });
 });

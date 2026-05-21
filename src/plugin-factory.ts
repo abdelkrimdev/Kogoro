@@ -1,6 +1,6 @@
 import type { ConfigManager } from "./config/config-manager";
-import { type CredentialStore, createCredentialStore } from "./config/credential-store";
-import { type DebugCallback, HttpClient } from "./http-client";
+import type { CredentialStore } from "./config/credential-store";
+import { HttpClient } from "./http-client";
 import { PluginRegistry } from "./plugin-registry";
 import { AniDBPlugin } from "./plugins/database/anidb-plugin";
 import type { DatabasePlugin } from "./plugins/database/plugin";
@@ -8,29 +8,35 @@ import { TVDBPlugin } from "./plugins/database/tvdb-plugin";
 import { OpenSubtitlesPlugin } from "./plugins/subtitle/opensubtitles-plugin";
 import type { SubtitlePlugin } from "./plugins/subtitle/plugin";
 
+const CREDENTIAL_KEYS = {
+  tvdb: "tvdb",
+  anidb: "anidb",
+  opensubtitles: "opensubtitles",
+} as const;
+
 const RATE_LIMITS = {
   tvdb: 200,
   anidb: 2000,
 } as const;
 
-export interface PluginFactoryOptions {
-  config: ConfigManager;
-  credentialStore?: CredentialStore;
-  onDebug?: DebugCallback;
+interface DebugEntry {
+  type: string;
+  url: string;
+  method: string;
+  status?: number;
+  body?: string;
 }
 
 export class PluginFactory {
-  private config: ConfigManager;
-  private credentialStore: CredentialStore;
   private registry: PluginRegistry;
-  private onDebug: DebugCallback | undefined;
 
-  constructor(options: PluginFactoryOptions) {
-    this.config = options.config;
-    this.credentialStore = options.credentialStore ?? createCredentialStore();
+  constructor(
+    private config: ConfigManager,
+    private credentialStore: CredentialStore,
+    private debug?: boolean,
+  ) {
     this.registry = new PluginRegistry();
-    this.registry.setDisabled(this.config.getDisabledPlugins());
-    this.onDebug = options.onDebug;
+    this.registry.setDisabled(config.getDisabledPlugins());
   }
 
   async primaryDatabase(): Promise<DatabasePlugin | undefined> {
@@ -40,62 +46,84 @@ export class PluginFactory {
 
   async secondaryDatabases(): Promise<DatabasePlugin[]> {
     const names = this.config.getList("secondary-dbs");
-    const dbs: DatabasePlugin[] = [];
+    const plugins: DatabasePlugin[] = [];
     for (const name of names) {
-      const db = await this.database(name);
-      if (db) dbs.push(db);
+      const plugin = await this.database(name);
+      if (plugin) {
+        plugins.push(plugin);
+      }
     }
-    return dbs;
+    return plugins;
   }
 
   async database(name: string): Promise<DatabasePlugin | undefined> {
-    if (name === "tvdb") {
-      const apiKey = await this.credentialStore.getCredential("tvdb");
-      if (!apiKey) {
-        console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-        return undefined;
-      }
-      const httpClient = new HttpClient({
-        minDelay: RATE_LIMITS.tvdb,
-        onDebug: this.onDebug,
-      });
-      return new TVDBPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
-    }
-
-    if (name === "anidb") {
-      const credential = await this.credentialStore.getCredential("anidb");
-      if (!credential) {
-        console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
-        return undefined;
-      }
-      const [client, clientver] = credential.split(":", 2);
-      return new AniDBPlugin({
-        client: client ?? credential,
-        clientver: clientver ?? "1",
-        httpClient: new HttpClient({
-          minDelay: RATE_LIMITS.anidb,
-          onDebug: this.onDebug,
-        }),
-      });
-    }
-
-    const plugin = await this.registry.instantiate(name, this.onDebug ? { debug: true } : {});
-    if (!plugin) {
-      console.warn(`Database "${name}" not available`);
-    }
-    return plugin ?? undefined;
-  }
-
-  async subtitle(): Promise<SubtitlePlugin | undefined> {
-    const apiKey = await this.credentialStore.getCredential("opensubtitles");
-    if (!apiKey) {
-      console.error("No OpenSubtitles API key configured. Run 'kogoro config init' first.");
+    if (!this.registry.isEnabled(name)) {
+      console.warn(`Plugin "${name}" is disabled`);
       return undefined;
     }
-    const httpClient = new HttpClient({
-      minDelay: 200,
-      onDebug: this.onDebug,
-    });
+    switch (name) {
+      case "tvdb": {
+        const apiKey = await this.credentialStore.getCredential(CREDENTIAL_KEYS.tvdb);
+        if (!apiKey) {
+          console.error("No TVDB API key configured. Run 'kogoro config init' first.");
+          return undefined;
+        }
+        const httpClient = new HttpClient({
+          minDelay: RATE_LIMITS.tvdb,
+          ...this.debugOptions(),
+        });
+        return new TVDBPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+      }
+      case "anidb": {
+        const credential = await this.credentialStore.getCredential(CREDENTIAL_KEYS.anidb);
+        if (!credential) {
+          console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
+          return undefined;
+        }
+        const [client, clientver] = credential.split(":", 2);
+        const httpClient = new HttpClient({
+          minDelay: RATE_LIMITS.anidb,
+          ...this.debugOptions(),
+        });
+        return new AniDBPlugin({
+          client: client ?? credential,
+          clientver: clientver ?? "1",
+          httpClient,
+        });
+      }
+      default: {
+        const plugin = await this.registry.instantiate(name, this.debug ? { debug: true } : {});
+        return plugin ?? undefined;
+      }
+    }
+  }
+
+  async subtitle(name?: string): Promise<SubtitlePlugin | undefined> {
+    const pluginName = name ?? "opensubtitles";
+    if (!(pluginName in CREDENTIAL_KEYS)) return undefined;
+
+    const apiKey = await this.credentialStore.getCredential(
+      CREDENTIAL_KEYS[pluginName as keyof typeof CREDENTIAL_KEYS],
+    );
+    if (!apiKey) {
+      console.error(`No ${pluginName} API key configured. Run 'kogoro config init' first.`);
+      return undefined;
+    }
+    const httpClient = new HttpClient(this.debugOptions());
     return new OpenSubtitlesPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+  }
+
+  private debugOptions(): { onDebug?: (entry: DebugEntry) => void } {
+    if (!this.debug) return {};
+    return {
+      onDebug: (entry) => {
+        if (entry.type === "request") {
+          console.error(`→ ${entry.method} ${entry.url}`);
+        } else {
+          const bodySuffix = entry.body ? `\n   body: ${entry.body}` : "";
+          console.error(`← ${entry.status} ${entry.url}${bodySuffix}`);
+        }
+      },
+    };
   }
 }

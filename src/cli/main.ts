@@ -4,7 +4,6 @@ import { hideBin } from "yargs/helpers";
 import { ConfigManager } from "../config/config-manager";
 import { getDefaultPrompts } from "../config/config-wizard";
 import { createCredentialStore } from "../config/credential-store";
-import type { DebugEntry } from "../http-client";
 import { MatchCache } from "../match-cache";
 import type { NumberingScheme } from "../numbering-converter";
 import { OverrideStore } from "../override-store";
@@ -23,23 +22,8 @@ import { createRenameHandlers } from "./rename-commands";
 import { createScanHandlers } from "./scan-commands";
 import { createSubtitleHandlers } from "./subtitle-commands";
 
-function createDebugCallback() {
-  return (entry: DebugEntry) => {
-    if (entry.type === "request") {
-      console.error(`→ ${entry.method} ${entry.url}`);
-    } else {
-      const bodySuffix = entry.body ? `\n   body: ${entry.body}` : "";
-      console.error(`← ${entry.status} ${entry.url}${bodySuffix}`);
-    }
-  };
-}
-
 function createFactory(debug?: boolean, config?: ConfigManager): PluginFactory {
-  return new PluginFactory({
-    config: config ?? new ConfigManager(),
-    credentialStore: createCredentialStore(),
-    onDebug: debug ? createDebugCallback() : undefined,
-  });
+  return new PluginFactory(config ?? new ConfigManager(), createCredentialStore(), debug ?? false);
 }
 
 async function createDatabaseCommandsWithCredentials(name: string, debug?: boolean) {
