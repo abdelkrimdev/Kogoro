@@ -1,11 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import type { IMatcher, MatchResult } from "./matcher";
 import { OverrideStore } from "./override-store";
 import { Renamer } from "./renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
-import { createCache, createMockMatcher, withTempDir, writeTempFile } from "./test-fixtures";
+import {
+  createAmbiguousMatcher,
+  createCache,
+  createMockMatcher,
+  createTrackingMatcher,
+  withTempDir,
+  writeTempFile,
+} from "./test-fixtures";
 
 describe("Scanner", () => {
   test("scanFile parses filename and returns auto-resolved match", async () => {
@@ -23,47 +29,7 @@ describe("Scanner", () => {
 
   test("persists override after interactive ambiguous resolution", async () => {
     await withTempDir("scan-override", async (dir) => {
-      const ambiguousMatcher: IMatcher = {
-        async match(parsed) {
-          return [
-            {
-              anime: { id: "1", title: parsed.title ?? "", entryType: "tv" as const },
-              episode: {
-                id: "101",
-                animeId: "1",
-                season: 1,
-                episode: 1,
-                title: "Ep 1",
-                entryType: "tv" as const,
-              },
-              score: 1,
-            },
-            {
-              anime: {
-                id: "2",
-                title: `${parsed.title ?? ""} Special`,
-                entryType: "special" as const,
-              },
-              episode: {
-                id: "201",
-                animeId: "2",
-                season: 1,
-                episode: 1,
-                title: "Special",
-                entryType: "special" as const,
-              },
-              score: 0.8,
-            },
-          ];
-        },
-        async matchBatch(parsedList) {
-          const results: MatchResult[][] = [];
-          for (const p of parsedList) {
-            results.push(await this.match(p));
-          }
-          return results.flat();
-        },
-      };
+      const ambiguousMatcher = createAmbiguousMatcher();
 
       const overrideStore = new OverrideStore(dir);
       const scanner = new Scanner({ matcher: ambiguousMatcher, overrideStore });
@@ -284,43 +250,7 @@ describe("Scanner", () => {
   });
 
   test("calls matchBatch once for batch scan", async () => {
-    const batchCallTitles: string[][] = [];
-    const trackingMatcher: IMatcher = {
-      async match(parsed) {
-        return [
-          {
-            anime: { id: "1", title: parsed.title ?? "", entryType: "tv" as const },
-            episode: {
-              id: "101",
-              animeId: "1",
-              season: parsed.season ?? 1,
-              episode: parsed.episode ?? 1,
-              title: `Ep ${parsed.episode ?? 1}`,
-              entryType: "tv" as const,
-            },
-            score: 1,
-          },
-        ];
-      },
-      async matchBatch(parsedList) {
-        batchCallTitles.push(parsedList.map((p) => p.title ?? ""));
-        return parsedList.map((p) => ({
-          anime: { id: "1", title: p.title ?? "", entryType: "tv" as const },
-          episode:
-            p.episode !== null
-              ? {
-                  id: "101",
-                  animeId: "1",
-                  season: p.season ?? 1,
-                  episode: p.episode,
-                  title: `Ep ${p.episode}`,
-                  entryType: "tv" as const,
-                }
-              : undefined,
-          score: 1,
-        }));
-      },
-    };
+    const { matcher: trackingMatcher, batchCallTitles } = createTrackingMatcher();
 
     const scanner = new Scanner({ matcher: trackingMatcher });
     const results = await scanner.scanBatch(

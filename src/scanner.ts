@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import { MatchCache } from "./match-cache";
-import type { IMatcher, MatchResult } from "./matcher";
+import type { MatcherLike, MatchResult } from "./matcher";
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
@@ -22,7 +22,7 @@ export interface ScanResult {
 }
 
 export interface ScannerOptions {
-  matcher: IMatcher;
+  matcher: MatcherLike;
   cache?: MatchCache;
   renamer?: Renamer;
   overrideStore?: OverrideStore;
@@ -164,7 +164,7 @@ interface BatchEntry {
 }
 
 export class Scanner {
-  private matcher: IMatcher;
+  private matcher: MatcherLike;
   private cache?: MatchCache;
   private renamer?: Renamer;
   private overrideStore?: OverrideStore;

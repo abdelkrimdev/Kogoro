@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ConfigManager } from "./config/config-manager";
 import { CredentialStore, type KeytarLike } from "./config/credential-store";
 import { type CachedMatch, MatchCache } from "./match-cache";
-import type { IMatcher, MatchResult } from "./matcher";
+import type { MatcherLike, MatchResult } from "./matcher";
 import type { ParsedResult, ParsedTags } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { AnimeResult, ArtworkResult, EpisodeResult } from "./plugins/database/types";
@@ -381,7 +381,7 @@ interface MockAnime {
   episodes: Array<{ id: string; season: number; episode: number; title: string }>;
 }
 
-export function createMockMatcher(): IMatcher {
+export function createMockMatcher(): MatcherLike {
   const mockMatch = async (parsed: ParsedResult): Promise<MatchResult[]> => {
     if (!parsed.title || parsed.title.startsWith("Unknown")) {
       return [
@@ -419,6 +419,71 @@ export function createMockMatcher(): IMatcher {
   };
 
   return { match: mockMatch, matchBatch: mockBatch };
+}
+
+export function createAmbiguousMatcher(): MatcherLike {
+  return {
+    async match(parsed) {
+      return [
+        {
+          anime: { id: "1", title: parsed.title ?? "", entryType: "tv" as const },
+          episode: {
+            id: "101",
+            animeId: "1",
+            season: 1,
+            episode: 1,
+            title: "Ep 1",
+            entryType: "tv" as const,
+          },
+          score: 1,
+        },
+        {
+          anime: {
+            id: "2",
+            title: `${parsed.title ?? ""} Special`,
+            entryType: "special" as const,
+          },
+          episode: {
+            id: "201",
+            animeId: "2",
+            season: 1,
+            episode: 1,
+            title: "Special",
+            entryType: "special" as const,
+          },
+          score: 0.8,
+        },
+      ];
+    },
+    async matchBatch(parsedList) {
+      const results: MatchResult[][] = [];
+      for (const p of parsedList) {
+        results.push(await this.match(p));
+      }
+      return results.flat();
+    },
+  };
+}
+
+export function createTrackingMatcher(): {
+  matcher: MatcherLike;
+  batchCallTitles: string[][];
+} {
+  const batchCallTitles: string[][] = [];
+  const baseMatcher = createMockMatcher();
+
+  return {
+    batchCallTitles,
+    matcher: {
+      async match(parsed) {
+        return baseMatcher.match(parsed);
+      },
+      async matchBatch(parsedList) {
+        batchCallTitles.push(parsedList.map((p) => p.title ?? ""));
+        return baseMatcher.matchBatch(parsedList);
+      },
+    },
+  };
 }
 
 export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {

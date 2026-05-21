@@ -101,7 +101,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
     });
 
   function buildScanner(database: DatabasePlugin): Scanner {
-    const matcher = new Matcher({ database, overrideStore: options.overrideStore });
+    const matcher = new Matcher({ database });
     return new Scanner({
       matcher,
       cache: options.cache,

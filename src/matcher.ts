@@ -10,7 +10,7 @@ export interface MatchResult {
   failureReason?: string;
 }
 
-export interface IMatcher {
+export interface MatcherLike {
   match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]>;
   matchBatch(parsedList: ParsedResult[]): Promise<MatchResult[]>;
 }
@@ -59,7 +59,7 @@ function findMatchingEpisode(
   return episodes.find((e) => e.episode === episode && (season === null || e.season === season));
 }
 
-export class Matcher implements IMatcher {
+export class Matcher implements MatcherLike {
   private db: DatabasePlugin;
   private overrideStore?: OverrideStore;
 
