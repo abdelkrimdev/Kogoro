@@ -2,6 +2,7 @@ import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import { MatchCache } from "./match-cache";
 import type { MatcherLike, MatchResult } from "./matcher";
+import { matchResultFromCache, matchResultFromManual, matchResultFromOverride } from "./matcher";
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
@@ -49,83 +50,6 @@ export interface ScanFileOptions {
   onFailed?: (
     parsed: ParsedResult,
   ) => Promise<{ animeId: string; episode: number; entryType: string } | null>;
-}
-
-function buildManualMatch(manual: {
-  animeId: string;
-  episode: number;
-  entryType: string;
-}): MatchResult {
-  const entryType = manual.entryType as EntryType;
-  return {
-    anime: { id: manual.animeId, title: "", entryType },
-    episode: {
-      id: "",
-      animeId: manual.animeId,
-      season: 1,
-      episode: manual.episode,
-      title: "",
-      entryType,
-    },
-    score: 1,
-  };
-}
-
-function matchFromCache(cached: {
-  animeId: string;
-  episodeId: string | null;
-  entryType: string;
-  season: number | null;
-  episode: number | null;
-  title: string | null;
-}): MatchResult {
-  const entryType = cached.entryType as EntryType;
-  return {
-    anime: {
-      id: cached.animeId,
-      title: cached.title ?? "",
-      entryType,
-    },
-    episode:
-      cached.episodeId && cached.episode !== null
-        ? {
-            id: cached.episodeId,
-            animeId: cached.animeId,
-            season: cached.season ?? 1,
-            episode: cached.episode,
-            title: cached.title ?? "",
-            entryType,
-          }
-        : undefined,
-    score: 1,
-  };
-}
-
-function matchFromOverride(override: {
-  animeId?: string;
-  episodeId?: string;
-  entryType?: EntryType;
-}): MatchResult {
-  const animeId = override.animeId ?? "";
-  const entryType = override.entryType ?? "tv";
-  return {
-    anime: {
-      id: animeId,
-      title: "(overridden)",
-      entryType,
-    },
-    episode: override.episodeId
-      ? {
-          id: override.episodeId,
-          animeId,
-          season: 0,
-          episode: 0,
-          title: "(overridden)",
-          entryType,
-        }
-      : undefined,
-    score: 1,
-  };
 }
 
 export function computeFileHash(input: string): string {
@@ -210,7 +134,7 @@ export class Scanner {
             file: filePath,
             hash,
             parsed: createEmptyResult(),
-            match: matchFromCache(cached),
+            match: matchResultFromCache(cached),
             plan: null,
             cached: true,
             skipped: true,
@@ -228,7 +152,7 @@ export class Scanner {
         filePath,
         hash,
         parsed,
-        matchFromOverride(override),
+        matchResultFromOverride(override),
         options,
         false,
         overrideKey,
@@ -256,7 +180,7 @@ export class Scanner {
           filePath,
           hash,
           parsed,
-          buildManualMatch(manual),
+          matchResultFromManual(manual),
           options,
           true,
           overrideKey,
@@ -286,7 +210,7 @@ export class Scanner {
           filePath,
           hash,
           parsed,
-          buildManualMatch(manual),
+          matchResultFromManual(manual),
           options,
           true,
           overrideKey,
@@ -331,9 +255,11 @@ export class Scanner {
   private async tryResolveFailed(
     parsed: ParsedResult,
     options?: ScanFileOptions,
-  ): Promise<{ animeId: string; episode: number; entryType: string } | null> {
+  ): Promise<{ animeId: string; episode: number; entryType: EntryType } | null> {
     if (!options?.onFailed) return null;
-    return await options.onFailed(parsed);
+    const result = await options.onFailed(parsed);
+    if (!result) return null;
+    return { ...result, entryType: result.entryType as EntryType };
   }
 
   private async cacheAndPlan(
@@ -429,7 +355,7 @@ export class Scanner {
                 return {
                   filePath,
                   hash,
-                  match: matchFromCache(cached),
+                  match: matchResultFromCache(cached),
                   overrideKey,
                   parsed: createEmptyResult(),
                   cached: true,
@@ -445,7 +371,7 @@ export class Scanner {
             return {
               filePath,
               hash,
-              match: matchFromOverride(override),
+              match: matchResultFromOverride(override),
               overrideKey,
               parsed,
               cached: false,
@@ -474,7 +400,7 @@ export class Scanner {
           if (matchResult.failureReason) {
             const manual = await this.tryResolveFailed(entry.parsed, options);
             if (manual) {
-              entry.match = buildManualMatch(manual);
+              entry.match = matchResultFromManual(manual);
             }
           } else {
             entry.match = matchResult;
