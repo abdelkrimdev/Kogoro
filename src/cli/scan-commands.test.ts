@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
-import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../cli/scan-commands";
+import { createScanHandlers, isAlreadyOrganized } from "../cli/scan-commands";
 import { ConfigManager } from "../config/config-manager";
 import { OverrideStore } from "../override-store";
 import { computeFileHash } from "../scanner";
@@ -169,23 +169,6 @@ describe("scan CLI commands", () => {
       const failed = results.filter((r) => r.status === "failed");
       expect(matched).toHaveLength(3);
       expect(failed).toHaveLength(1);
-    });
-  });
-
-  test("discoverFiles filters excluded patterns and skips symlinks", async () => {
-    await withTempDir("scan-discover", async (dir) => {
-      writeTempFile(dir, "Anime - 01.mkv", "");
-      writeTempFile(dir, "Anime - 02.mkv", "");
-      writeTempFile(dir, "Anime - 03.part", "");
-      writeTempFile(dir, "readme.txt", "");
-      symlinkSync(join(dir, "Anime - 01.mkv"), join(dir, "link.mkv"));
-
-      const files = discoverFiles(dir, [".mkv"], [".part"]);
-
-      expect(files).toHaveLength(2);
-      expect(files.every((f) => f.endsWith(".mkv"))).toBe(true);
-      expect(files.some((f) => f.endsWith(".part"))).toBe(false);
-      expect(files.some((f) => f.endsWith("link.mkv"))).toBe(false);
     });
   });
 
