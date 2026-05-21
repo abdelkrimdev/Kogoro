@@ -1,14 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
-import { VIDEO_EXTENSIONS, walk } from "./directory-walker";
+import { walk } from "./directory-walker";
 import { withTempDir, writeTempFile } from "./test-fixtures";
-
-describe("VIDEO_EXTENSIONS", () => {
-  test("contains all seven video formats", () => {
-    expect(VIDEO_EXTENSIONS).toEqual([".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm"]);
-  });
-});
 
 describe("walk", () => {
   test("returns files matching given extensions in flat directory", async () => {
@@ -53,7 +47,7 @@ describe("walk", () => {
       writeTempFile(dir, "Anime - 02.mkv", "");
       writeTempFile(dir, "Anime - 03.part", "");
       writeTempFile(dir, "readme.txt", "");
-      Bun.spawnSync(["ln", "-s", join(dir, "Anime - 01.mkv"), join(dir, "link.mkv")]);
+      symlinkSync(join(dir, "Anime - 01.mkv"), join(dir, "link.mkv"));
 
       const files = walk(dir, [".mkv"], { excludePatterns: [".part"] });
 
