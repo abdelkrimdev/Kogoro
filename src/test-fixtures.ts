@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ConfigManager } from "./config/config-manager";
 import { CredentialStore, type KeytarLike } from "./config/credential-store";
 import { type CachedMatch, MatchCache } from "./match-cache";
-import type { Matcher, MatchResult } from "./matcher";
+import type { MatcherLike, MatchResult } from "./matcher";
 import type { ParsedResult, ParsedTags } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { AnimeResult, ArtworkResult, EpisodeResult } from "./plugins/database/types";
@@ -323,7 +323,7 @@ export function createStandardMockDb(overrides?: Partial<MockDbOptions>): Databa
   });
 }
 
-export function createMockMatcher(results?: MatchResult[]): Matcher {
+export function createMockMatcher(results?: MatchResult[]): MatcherLike {
   const defaultResults = results ?? [makeMatchResult()];
   return {
     async match() {
@@ -336,7 +336,11 @@ export function createMockMatcher(results?: MatchResult[]): Matcher {
         return r;
       });
     },
-  } as unknown as Matcher;
+  };
+}
+
+export function makeNoMatchResult(failureReason = "No anime found"): MatchResult {
+  return { anime: { id: "", title: "", entryType: "tv" }, score: 0, failureReason };
 }
 
 interface MockSubtitlePluginOptions {

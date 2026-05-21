@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import type { MatchResult } from "./matcher";
 import { OverrideStore } from "./override-store";
 import { Renamer } from "./renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
@@ -9,13 +8,10 @@ import {
   createCache,
   createMockMatcher,
   makeMatchResult,
+  makeNoMatchResult,
   withTempDir,
   writeTempFile,
 } from "./test-fixtures";
-
-function noMatchResult(failureReason = "No anime found"): MatchResult {
-  return { anime: { id: "", title: "", entryType: "tv" }, score: 0, failureReason };
-}
 
 describe("Scanner", () => {
   test("scanFile parses filename and returns auto-resolved match", async () => {
@@ -79,7 +75,10 @@ describe("Scanner", () => {
   test("persists override after interactive failed resolution", async () => {
     await withTempDir("scan-failed-override", async (dir) => {
       const overrideStore = new OverrideStore(dir);
-      const scanner = new Scanner({ matcher: createMockMatcher([noMatchResult()]), overrideStore });
+      const scanner = new Scanner({
+        matcher: createMockMatcher([makeNoMatchResult()]),
+        overrideStore,
+      });
 
       const filePath = writeTempFile(dir, "Unknown File.mkv");
 
@@ -100,7 +99,10 @@ describe("Scanner", () => {
   test("override persists choices across scan sessions", async () => {
     await withTempDir("scan-cross-session", async (dir) => {
       const overrideStore = new OverrideStore(dir);
-      const scanner = new Scanner({ matcher: createMockMatcher([noMatchResult()]), overrideStore });
+      const scanner = new Scanner({
+        matcher: createMockMatcher([makeNoMatchResult()]),
+        overrideStore,
+      });
 
       const filePath = writeTempFile(dir, "[Group] Unknown Show - 99.mkv");
 

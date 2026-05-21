@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import { MatchCache } from "./match-cache";
-import type { Matcher, MatchResult } from "./matcher";
+import type { MatcherLike as Matcher, MatchResult } from "./matcher";
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
@@ -236,29 +236,7 @@ export class Scanner {
   ): Promise<ScanResult> {
     if (!parsed.title || matches.length === 0 || matches[0]?.failureReason) {
       const failureReason = matches[0]?.failureReason ?? "No title parsed";
-      const manual = await this.tryResolveFailed(parsed, options);
-      if (manual) {
-        return this.cacheAndPlan(
-          filePath,
-          hash,
-          parsed,
-          buildManualMatch(manual),
-          options,
-          true,
-          overrideKey,
-        );
-      }
-      return {
-        file: filePath,
-        hash,
-        parsed,
-        match: null,
-        plan: null,
-        cached: false,
-        skipped: false,
-        status: "failed",
-        failureReason,
-      };
+      return this.handleFailedMatch(filePath, hash, parsed, failureReason, options, overrideKey);
     }
 
     const hasEpisode = parsed.episode !== null;
@@ -266,29 +244,14 @@ export class Scanner {
     const goodMatches = scoredMatches.filter((m) => (hasEpisode ? m.episode !== undefined : true));
 
     if (goodMatches.length === 0) {
-      const manual = await this.tryResolveFailed(parsed, options);
-      if (manual) {
-        return this.cacheAndPlan(
-          filePath,
-          hash,
-          parsed,
-          buildManualMatch(manual),
-          options,
-          true,
-          overrideKey,
-        );
-      }
-      return {
-        file: filePath,
+      return this.handleFailedMatch(
+        filePath,
         hash,
         parsed,
-        match: null,
-        plan: null,
-        cached: false,
-        skipped: false,
-        status: "failed",
-        failureReason: "No matching episode found",
-      };
+        "No matching episode found",
+        options,
+        overrideKey,
+      );
     }
 
     if (goodMatches.length === 1 && goodMatches[0]) {
@@ -310,7 +273,7 @@ export class Scanner {
       plan: null,
       cached: false,
       skipped: false,
-      status: "ambiguous" as ScanStatus,
+      status: "ambiguous",
     };
   }
 
@@ -320,6 +283,39 @@ export class Scanner {
   ): Promise<{ animeId: string; episode: number; entryType: string } | null> {
     if (!options?.onFailed) return null;
     return await options.onFailed(parsed);
+  }
+
+  private async handleFailedMatch(
+    filePath: string,
+    hash: string,
+    parsed: ParsedResult,
+    failureReason: string,
+    options?: ScanFileOptions,
+    overrideKey?: string,
+  ): Promise<ScanResult> {
+    const manual = await this.tryResolveFailed(parsed, options);
+    if (manual) {
+      return this.cacheAndPlan(
+        filePath,
+        hash,
+        parsed,
+        buildManualMatch(manual),
+        options,
+        true,
+        overrideKey,
+      );
+    }
+    return {
+      file: filePath,
+      hash,
+      parsed,
+      match: null,
+      plan: null,
+      cached: false,
+      skipped: false,
+      status: "failed",
+      failureReason,
+    };
   }
 
   private async cacheAndPlan(
@@ -452,9 +448,9 @@ export class Scanner {
       const needsMatch = entries.filter((e) => !e.cached && e.match === null);
       if (needsMatch.length > 0) {
         const matchResults = await this.matcher.matchBatch(needsMatch.map((e) => e.parsed));
-        for (let i = 0; i < needsMatch.length; i++) {
-          const entry = needsMatch[i];
-          const matchResult = matchResults[i];
+        for (let idx = 0; idx < needsMatch.length; idx++) {
+          const entry = needsMatch[idx];
+          const matchResult = matchResults[idx];
           if (!entry || !matchResult) continue;
 
           if (matchResult.failureReason) {

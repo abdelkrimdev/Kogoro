@@ -178,3 +178,5 @@ export class Matcher {
     }));
   }
 }
+
+export type MatcherLike = Pick<Matcher, "match" | "matchBatch">;
