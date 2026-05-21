@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { createCacheHandlers } from "../cli/cache-commands";
-import { createCache, makeCachedMatch, withTempDir } from "../test-helpers";
+import { createCache, createLogCapture, makeCachedMatch, withTempDir } from "../test-helpers";
 
 describe("cache CLI commands", () => {
   test("cache list returns JSON array of all cached entries", async () => {
@@ -23,15 +23,10 @@ describe("cache CLI commands", () => {
       );
 
       const handlers = createCacheHandlers({ dbPath });
-      let logOutput = "";
-      await handlers.list(
-        (msg: string) => {
-          logOutput = msg;
-        },
-        () => {},
-      );
+      const log = createLogCapture();
+      await handlers.list(log.onLog, () => {});
 
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(log.output);
       expect(parsed).toHaveLength(2);
       expect(parsed[0]?.hash).toBe("hash1");
       expect(parsed[0]?.match.animeId).toBe("1");
@@ -49,16 +44,10 @@ describe("cache CLI commands", () => {
       );
 
       const handlers = createCacheHandlers({ dbPath });
-      let logOutput = "";
-      await handlers.lookup(
-        "existhash",
-        (msg: string) => {
-          logOutput = msg;
-        },
-        () => {},
-      );
+      const log = createLogCapture();
+      await handlers.lookup("existhash", log.onLog, () => {});
 
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(log.output);
       expect(parsed.animeId).toBe("99");
       expect(parsed.entryType).toBe("ova");
     });
@@ -68,15 +57,9 @@ describe("cache CLI commands", () => {
     await withTempDir("cache", async (dir) => {
       const dbPath = join(dir, "cache.db");
       const handlers = createCacheHandlers({ dbPath });
-      let errOutput = "";
-      await handlers.lookup(
-        "nonexistent",
-        () => {},
-        (msg: string) => {
-          errOutput = msg;
-        },
-      );
-      expect(errOutput).toBe("No cached match for hash: nonexistent");
+      const log = createLogCapture();
+      await handlers.lookup("nonexistent", () => {}, log.onError);
+      expect(log.errorOutput).toBe("No cached match for hash: nonexistent");
     });
   });
 
@@ -88,15 +71,9 @@ describe("cache CLI commands", () => {
       expect(cache.has("a")).toBe(true);
 
       const handlers = createCacheHandlers({ dbPath });
-      let logOutput = "";
-      await handlers.clear(
-        true,
-        (msg: string) => {
-          logOutput = msg;
-        },
-        () => {},
-      );
-      expect(logOutput).toBe("Cache cleared");
+      const log = createLogCapture();
+      await handlers.clear(true, log.onLog, () => {});
+      expect(log.output).toBe("Cache cleared");
       expect(cache.has("a")).toBe(false);
     });
   });
@@ -108,15 +85,9 @@ describe("cache CLI commands", () => {
       cache.set("a", makeCachedMatch());
 
       const handlers = createCacheHandlers({ dbPath });
-      let logOutput = "";
-      await handlers.clear(
-        false,
-        (msg: string) => {
-          logOutput = msg;
-        },
-        () => {},
-      );
-      expect(logOutput).toBe("Cache clear cancelled");
+      const log = createLogCapture();
+      await handlers.clear(false, log.onLog, () => {});
+      expect(log.output).toBe("Cache clear cancelled");
       expect(cache.has("a")).toBe(true);
     });
   });

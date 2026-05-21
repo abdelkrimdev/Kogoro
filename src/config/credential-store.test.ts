@@ -1,26 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { CredentialStore, createCredentialStore } from "../config/credential-store";
+import { createMockKeytar, silentBunSecrets, stubBunSecrets } from "../test-helpers";
 
 describe("CredentialStore", () => {
-  const mockKeytar = {
-    store: new Map<string, string>(),
-    setPassword(_service: string, _account: string, password: string): Promise<void> {
-      this.store.set(`${_service}:${_account}`, password);
-      return Promise.resolve();
-    },
-    getPassword(_service: string, _account: string): Promise<string | null> {
-      return Promise.resolve(this.store.get(`${_service}:${_account}`) ?? null);
-    },
-    deletePassword(_service: string, _account: string): Promise<boolean> {
-      return Promise.resolve(this.store.delete(`${_service}:${_account}`));
-    },
-  };
+  let mockKeytar: ReturnType<typeof createMockKeytar>;
 
   const originalEnv = process.env;
 
   beforeEach(() => {
+    mockKeytar = createMockKeytar();
     process.env = { ...originalEnv };
-    mockKeytar.store.clear();
+    for (const k of Object.keys(process.env)) {
+      if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
+    }
   });
 
   afterEach(() => {
@@ -90,19 +82,6 @@ describe("CredentialStore", () => {
 describe("createCredentialStore", () => {
   const originalSecrets = Bun.secrets;
   const originalEnv = process.env;
-
-  function stubBunSecrets(impl: typeof Bun.secrets): void {
-    // biome-ignore lint/suspicious/noExplicitAny: test stub for Bun internals
-    (Bun as any).secrets = impl;
-  }
-
-  function silentBunSecrets(): typeof Bun.secrets {
-    return {
-      get: async () => null,
-      set: async () => {},
-      delete: async () => false,
-    };
-  }
 
   beforeEach(() => {
     process.env = { ...originalEnv };

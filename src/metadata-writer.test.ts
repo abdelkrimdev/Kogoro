@@ -1,9 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { MatchCache } from "./match-cache";
 import { MetadataWriter } from "./metadata-writer";
-import { createCache, createMockDb, makeCachedMatch, withTempDir } from "./test-helpers";
+import {
+  createCache,
+  createMockDb,
+  makeCachedMatch,
+  seedCacheEntry,
+  withTempDir,
+  writeTempFile,
+} from "./test-helpers";
 
 describe("MetadataWriter", () => {
   describe("generateEpisodeNfo", () => {
@@ -53,22 +59,14 @@ describe("MetadataWriter", () => {
   describe("enriched NFO with optional DatabasePlugin", () => {
     test("populates showtitle, plot, and aired when database plugin provided", async () => {
       await withTempDir("metadata", async (dir) => {
-        const videoPath = join(dir, "Test Anime - 1x01.mkv");
-        writeFileSync(videoPath, "fake video content");
-
-        const hash = await MatchCache.hashFile(videoPath);
-        const cache = createCache(dir);
-        cache.set(
-          hash,
-          makeCachedMatch({
-            animeId: "42",
-            episodeId: "101",
-            season: 1,
-            episode: 1,
-            title: "First Episode",
-            animeTitle: "Test Anime",
-          }),
-        );
+        const { cache } = await seedCacheEntry(dir, "Test Anime - 1x01.mkv", {
+          animeId: "42",
+          episodeId: "101",
+          season: 1,
+          episode: 1,
+          title: "First Episode",
+          animeTitle: "Test Anime",
+        });
 
         const mockDb = createMockDb({
           searchAnime: () => [{ id: "42", title: "Test Anime", entryType: "tv" as const }],
@@ -105,22 +103,14 @@ describe("MetadataWriter", () => {
 
     test("showtitle comes from database getAnime, not just from cache", async () => {
       await withTempDir("metadata", async (dir) => {
-        const videoPath = join(dir, "Anime - 1x01.mkv");
-        writeFileSync(videoPath, "content");
-
-        const hash = await MatchCache.hashFile(videoPath);
-        const cache = createCache(dir);
-        cache.set(
-          hash,
-          makeCachedMatch({
-            animeId: "99",
-            episodeId: "5",
-            season: 1,
-            episode: 1,
-            title: "Ep Title",
-            animeTitle: "Cached Anime Title",
-          }),
-        );
+        const { cache } = await seedCacheEntry(dir, "Anime - 1x01.mkv", {
+          animeId: "99",
+          episodeId: "5",
+          season: 1,
+          episode: 1,
+          title: "Ep Title",
+          animeTitle: "Cached Anime Title",
+        });
 
         const mockDb = createMockDb({
           searchAnime: () => [{ id: "99", title: "DB Anime Title", entryType: "tv" as const }],
@@ -169,21 +159,13 @@ describe("MetadataWriter", () => {
   describe("write", () => {
     test("writes NFO sidecar next to cached video file", async () => {
       await withTempDir("metadata", async (dir) => {
-        const videoPath = join(dir, "Test Anime - 1x01.mkv");
-        writeFileSync(videoPath, "fake video content");
-
-        const hash = await MatchCache.hashFile(videoPath);
-        const cache = createCache(dir);
-        cache.set(
-          hash,
-          makeCachedMatch({
-            animeId: "42",
-            episodeId: "101",
-            season: 1,
-            episode: 1,
-            title: "First Episode",
-          }),
-        );
+        const { cache } = await seedCacheEntry(dir, "Test Anime - 1x01.mkv", {
+          animeId: "42",
+          episodeId: "101",
+          season: 1,
+          episode: 1,
+          title: "First Episode",
+        });
 
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir);
@@ -206,23 +188,15 @@ describe("MetadataWriter", () => {
 
     test("skips files that already have NFO (no overwrite)", async () => {
       await withTempDir("metadata", async (dir) => {
-        const videoPath = join(dir, "SkipTest.mkv");
+        const { cache } = await seedCacheEntry(dir, "SkipTest.mkv", {
+          animeId: "1",
+          episodeId: "2",
+          season: 1,
+          episode: 1,
+          title: "Should Not Overwrite",
+        });
         const nfoPath = join(dir, "SkipTest.nfo");
-        writeFileSync(videoPath, "content");
         writeFileSync(nfoPath, "old metadata");
-
-        const hash = await MatchCache.hashFile(videoPath);
-        const cache = createCache(dir);
-        cache.set(
-          hash,
-          makeCachedMatch({
-            animeId: "1",
-            episodeId: "2",
-            season: 1,
-            episode: 1,
-            title: "Should Not Overwrite",
-          }),
-        );
 
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir);
@@ -237,23 +211,15 @@ describe("MetadataWriter", () => {
 
     test("--force overwrites existing NFO file", async () => {
       await withTempDir("metadata", async (dir) => {
-        const videoPath = join(dir, "ForceTest.mkv");
+        const { cache } = await seedCacheEntry(dir, "ForceTest.mkv", {
+          animeId: "1",
+          episodeId: "2",
+          season: 1,
+          episode: 5,
+          title: "New Episode",
+        });
         const nfoPath = join(dir, "ForceTest.nfo");
-        writeFileSync(videoPath, "content");
         writeFileSync(nfoPath, "old metadata");
-
-        const hash = await MatchCache.hashFile(videoPath);
-        const cache = createCache(dir);
-        cache.set(
-          hash,
-          makeCachedMatch({
-            animeId: "1",
-            episodeId: "2",
-            season: 1,
-            episode: 5,
-            title: "New Episode",
-          }),
-        );
 
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir, { force: true });
@@ -269,8 +235,7 @@ describe("MetadataWriter", () => {
 
     test("skips video files not in cache", async () => {
       await withTempDir("metadata", async (dir) => {
-        const videoPath = join(dir, "NoMatch.mkv");
-        writeFileSync(videoPath, "uncached content");
+        writeTempFile(dir, "NoMatch.mkv", "uncached content");
 
         const cache = createCache(dir);
         const writer = new MetadataWriter({ cache });
@@ -299,19 +264,11 @@ describe("MetadataWriter", () => {
 
     test("writes movie-style NFO for movie entry type", async () => {
       await withTempDir("metadata", async (dir) => {
-        const videoPath = join(dir, "My Movie.mkv");
-        writeFileSync(videoPath, "movie content");
-
-        const hash = await MatchCache.hashFile(videoPath);
-        const cache = createCache(dir);
-        cache.set(
-          hash,
-          makeCachedMatch({
-            animeId: "99",
-            entryType: "movie",
-            title: "Great Movie",
-          }),
-        );
+        const { cache } = await seedCacheEntry(dir, "My Movie.mkv", {
+          animeId: "99",
+          entryType: "movie",
+          title: "Great Movie",
+        });
 
         const writer = new MetadataWriter({ cache });
         const summary = await writer.write(dir);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mockJsonFetch } from "../../test-helpers";
+import { createCallCounter, mockJsonFetch } from "../../test-helpers";
 import { OpenSubtitlesPlugin } from "./opensubtitles-plugin";
 
 describe("OpenSubtitlesPlugin", () => {
@@ -60,12 +60,12 @@ describe("OpenSubtitlesPlugin", () => {
     };
     const contentResponse = "1\n00:00:01,000 --> 00:00:05,000\nHello world\n";
 
-    let callCount = 0;
+    const calls = createCallCounter();
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
       fetch: async (_url: string | URL, _init?: RequestInit) => {
-        callCount++;
-        if (callCount === 1) {
+        calls.inc();
+        if (calls.get() === 1) {
           return new Response(JSON.stringify(downloadResponse), {
             status: 200,
             headers: { "Content-Type": "application/json" },
@@ -77,7 +77,7 @@ describe("OpenSubtitlesPlugin", () => {
 
     const content = await plugin.download(101);
     expect(content).toBe(contentResponse);
-    expect(callCount).toBe(2);
+    expect(calls.get()).toBe(2);
   });
 
   test("download returns empty string on API error", async () => {

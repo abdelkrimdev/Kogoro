@@ -8,10 +8,12 @@ import { TVDBPlugin } from "./plugins/database/tvdb-plugin";
 import {
   createCache,
   createMockDb,
+  createTrackingFetch,
   makeCachedMatch,
   mockFetch,
   testImageBytes,
   toUrlString,
+  writeTempFile,
 } from "./test-helpers";
 
 describe("ArtworkFetcher", () => {
@@ -19,8 +21,7 @@ describe("ArtworkFetcher", () => {
     const dir = mkdtempSync(join(tmpdir(), "kogoro-artwork-test-"));
     const animeDir = join(dir, "TV", "Jujutsu Kaisen");
     mkdirSync(animeDir, { recursive: true });
-    const videoPath = join(animeDir, "ep1.mkv");
-    writeFileSync(videoPath, "dummy video content");
+    const videoPath = writeTempFile(animeDir, "ep1.mkv", "dummy video content");
 
     const cache = createCache(dir);
 
@@ -191,13 +192,7 @@ describe("ArtworkFetcher", () => {
       ]);
 
       const requestedUrls: string[] = [];
-      const trackingFetch = async (url: string | URL) => {
-        requestedUrls.push(toUrlString(url));
-        return new Response(testImageBytes, {
-          status: 200,
-          headers: { "Content-Type": "image/jpeg" },
-        });
-      };
+      const trackingFetch = createTrackingFetch(requestedUrls, testImageBytes);
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,

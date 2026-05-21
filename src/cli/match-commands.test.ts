@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createMatchHandlers } from "../cli/match-commands";
 import type { DatabasePlugin } from "../plugins/database/plugin";
-import { createMockDb as _createMockDb } from "../test-helpers";
+import { createMockDb as _createMockDb, createLogCapture } from "../test-helpers";
 
 function createMockDb(): DatabasePlugin {
   return _createMockDb({
@@ -28,15 +28,9 @@ function createMockDb(): DatabasePlugin {
 describe("match CLI commands", () => {
   test("match parses filename and returns JSON with candidates", async () => {
     const handlers = createMatchHandlers({ database: createMockDb() });
-    let output = "";
-    await handlers.match(
-      "[Subs] Jujutsu Kaisen - 01.mkv",
-      (msg) => {
-        output = msg;
-      },
-      () => {},
-    );
-    const parsed = JSON.parse(output);
+    const log = createLogCapture();
+    await handlers.match("[Subs] Jujutsu Kaisen - 01.mkv", log.onLog, () => {});
+    const parsed = JSON.parse(log.output);
     expect(parsed).toHaveLength(1);
     expect(parsed[0]?.anime.title).toBe("Jujutsu Kaisen");
     expect(typeof parsed[0]?.score).toBe("number");
@@ -44,15 +38,9 @@ describe("match CLI commands", () => {
 
   test("match returns empty anime results for garbage filename", async () => {
     const handlers = createMatchHandlers({ database: createMockDb() });
-    let output = "";
-    await handlers.match(
-      "asdfxyz.mkv",
-      (msg) => {
-        output = msg;
-      },
-      () => {},
-    );
-    const parsed = JSON.parse(output);
+    const log = createLogCapture();
+    await handlers.match("asdfxyz.mkv", log.onLog, () => {});
+    const parsed = JSON.parse(log.output);
     expect(parsed).toHaveLength(1);
     expect(parsed[0]?.failureReason).toBe("No title parsed");
   });

@@ -1,13 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { createRenameHandlers } from "../cli/rename-commands";
+import { createLogCapture } from "../test-helpers";
 
 describe("rename CLI commands", () => {
   test("rename command returns plan as JSON", async () => {
     const handlers = createRenameHandlers();
-    let output = "";
-    const onLog = (msg: string) => {
-      output = msg;
-    };
+    const log = createLogCapture();
 
     await handlers.rename(
       "/source/Episode.mkv",
@@ -19,11 +17,11 @@ describe("rename CLI commands", () => {
         title: "Tomorrow",
         action: "move",
       },
-      onLog,
+      log.onLog,
       () => {},
     );
 
-    const plan = JSON.parse(output);
+    const plan = JSON.parse(log.output);
     expect(plan.sourcePath).toBe("/source/Episode.mkv");
     expect(plan.targetPath).toBe("Jujutsu Kaisen/TV/Jujutsu Kaisen - 1x13 - Tomorrow.mkv");
     expect(plan.action).toBe("move");
@@ -31,10 +29,7 @@ describe("rename CLI commands", () => {
 
   test("rename command handles movie entry type", async () => {
     const handlers = createRenameHandlers();
-    let output = "";
-    const onLog = (msg: string) => {
-      output = msg;
-    };
+    const log = createLogCapture();
 
     await handlers.rename(
       "/source/Movie.mkv",
@@ -44,21 +39,18 @@ describe("rename CLI commands", () => {
         title: "Your Name",
         action: "copy",
       },
-      onLog,
+      log.onLog,
       () => {},
     );
 
-    const plan = JSON.parse(output);
+    const plan = JSON.parse(log.output);
     expect(plan.targetDir).toBe("Your Name/Movies");
     expect(plan.action).toBe("copy");
   });
 
   test("rename command falls back to TV for unknown entry type", async () => {
     const handlers = createRenameHandlers();
-    let output = "";
-    const onLog = (msg: string) => {
-      output = msg;
-    };
+    const log = createLogCapture();
 
     await handlers.rename(
       "/source/Episode.mkv",
@@ -67,11 +59,11 @@ describe("rename CLI commands", () => {
         entryType: "unknown",
         action: "move",
       },
-      onLog,
+      log.onLog,
       () => {},
     );
 
-    const plan = JSON.parse(output);
+    const plan = JSON.parse(log.output);
     expect(plan.targetDir).toBe("Test/TV");
   });
 
@@ -80,10 +72,7 @@ describe("rename CLI commands", () => {
       filenameTemplate: "{anime} - {episode:03}.{ext}",
       directoryTemplate: "Anime/{type}",
     });
-    let output = "";
-    const onLog = (msg: string) => {
-      output = msg;
-    };
+    const log = createLogCapture();
 
     await handlers.rename(
       "/source/Ep.mkv",
@@ -93,11 +82,11 @@ describe("rename CLI commands", () => {
         episode: 1,
         action: "symlink",
       },
-      onLog,
+      log.onLog,
       () => {},
     );
 
-    const plan = JSON.parse(output);
+    const plan = JSON.parse(log.output);
     expect(plan.targetDir).toBe("Anime/TV");
     expect(plan.targetFilename).toBe("Naruto - 001.mkv");
     expect(plan.action).toBe("symlink");

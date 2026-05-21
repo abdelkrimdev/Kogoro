@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { toUrlString } from "../../test-helpers";
+import { createCallCounter, toUrlString } from "../../test-helpers";
 import type { DatabasePlugin } from "./plugin";
 import { TVDBPlugin } from "./tvdb-plugin";
 import type { AnimeResult } from "./types";
@@ -377,10 +377,10 @@ describe("TVDBPlugin", () => {
     });
 
     test("returns empty array on API failure after login", async () => {
-      let callCount = 0;
+      const fetchCalls = createCallCounter();
       const fetch = async (url: string | URL, _init?: RequestInit) => {
         const urlStr = toUrlString(url);
-        callCount++;
+        fetchCalls.inc();
         if (urlStr.includes("/login")) {
           return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
             status: 200,
@@ -396,15 +396,15 @@ describe("TVDBPlugin", () => {
       const plugin = new TVDBPlugin({ apiKey: "test-key", fetch });
       const searchResults = await plugin.searchAnime("Unknown");
       expect(searchResults).toEqual([]);
-      expect(callCount).toBe(2);
+      expect(fetchCalls.get()).toBe(2);
     });
 
     test("caches login token across multiple API calls", async () => {
-      let loginCount = 0;
+      const loginCalls = createCallCounter();
       const fetch = async (url: string | URL, _init?: RequestInit) => {
         const urlStr = toUrlString(url);
         if (urlStr.includes("/login")) {
-          loginCount++;
+          loginCalls.inc();
           return new Response(JSON.stringify({ data: { token: "cached-token" } }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
@@ -419,7 +419,7 @@ describe("TVDBPlugin", () => {
       const plugin = new TVDBPlugin({ apiKey: "test-key", fetch });
       await plugin.searchAnime("One");
       await plugin.searchAnime("Two");
-      expect(loginCount).toBe(1);
+      expect(loginCalls.get()).toBe(1);
     });
   });
 });

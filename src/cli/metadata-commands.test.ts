@@ -1,41 +1,31 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createMetadataHandlers } from "../cli/metadata-commands";
-import { MatchCache } from "../match-cache";
-import { createCache, createMockDb, makeCachedMatch, withTempDir } from "../test-helpers";
+import {
+  createLogCapture,
+  createMockDb,
+  seedCacheEntry,
+  withTempDir,
+  writeTempFile,
+} from "../test-helpers";
 
 describe("metadata CLI commands", () => {
   test("write generates NFO and returns summary JSON", async () => {
     await withTempDir("cli-meta", async (dir) => {
+      await seedCacheEntry(dir, "Test.mkv", {
+        episodeId: "10",
+        season: 1,
+        episode: 2,
+        title: "Test Ep",
+      });
+
       const dbPath = join(dir, "cache.db");
-      const videoPath = join(dir, "Test.mkv");
-      writeFileSync(videoPath, "test content");
-
-      const hash = await MatchCache.hashFile(videoPath);
-      const cache = createCache(dir);
-      cache.set(
-        hash,
-        makeCachedMatch({
-          episodeId: "10",
-          season: 1,
-          episode: 2,
-          title: "Test Ep",
-        }),
-      );
-
       const handlers = createMetadataHandlers({ dbPath });
-      let logOutput = "";
-      await handlers.write(
-        dir,
-        false,
-        (msg: string) => {
-          logOutput = msg;
-        },
-        () => {},
-      );
+      const log = createLogCapture();
+      await handlers.write(dir, false, log.onLog, () => {});
 
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(log.output);
       expect(parsed.total).toBe(1);
       expect(parsed.written).toBe(1);
     });
@@ -43,24 +33,16 @@ describe("metadata CLI commands", () => {
 
   test("write with database enriches NFO with showtitle, plot, and aired", async () => {
     await withTempDir("cli-meta", async (dir) => {
+      await seedCacheEntry(dir, "Anime - 1x01.mkv", {
+        animeId: "42",
+        episodeId: "101",
+        season: 1,
+        episode: 1,
+        title: "First Episode",
+        animeTitle: "Test Anime",
+      });
+
       const dbPath = join(dir, "cache.db");
-      const videoPath = join(dir, "Anime - 1x01.mkv");
-      writeFileSync(videoPath, "content");
-
-      const hash = await MatchCache.hashFile(videoPath);
-      const cache = createCache(dir);
-      cache.set(
-        hash,
-        makeCachedMatch({
-          animeId: "42",
-          episodeId: "101",
-          season: 1,
-          episode: 1,
-          title: "First Episode",
-          animeTitle: "Test Anime",
-        }),
-      );
-
       const mockDb = createMockDb({
         searchAnime: () => [{ id: "42", title: "Test Anime", entryType: "tv" as const }],
         getAnime: () => ({ id: "42", title: "Test Anime", entryType: "tv" as const }),
@@ -96,36 +78,20 @@ describe("metadata CLI commands", () => {
 
   test("write with force overwrites existing NFO", async () => {
     await withTempDir("cli-meta", async (dir) => {
+      await seedCacheEntry(dir, "Force.mkv", {
+        episodeId: "10",
+        season: 1,
+        episode: 1,
+        title: "New",
+      });
+      writeTempFile(dir, "Force.nfo", "old");
+
       const dbPath = join(dir, "cache.db");
-      const videoPath = join(dir, "Force.mkv");
-      const nfoPath = join(dir, "Force.nfo");
-      writeFileSync(videoPath, "content");
-      writeFileSync(nfoPath, "old");
-
-      const hash = await MatchCache.hashFile(videoPath);
-      const cache = createCache(dir);
-      cache.set(
-        hash,
-        makeCachedMatch({
-          episodeId: "10",
-          season: 1,
-          episode: 1,
-          title: "New",
-        }),
-      );
-
       const handlers = createMetadataHandlers({ dbPath });
-      let logOutput = "";
-      await handlers.write(
-        dir,
-        true,
-        (msg: string) => {
-          logOutput = msg;
-        },
-        () => {},
-      );
+      const log = createLogCapture();
+      await handlers.write(dir, true, log.onLog, () => {});
 
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(log.output);
       expect(parsed.written).toBe(1);
       expect(parsed.skipped).toBe(0);
     });

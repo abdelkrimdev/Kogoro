@@ -1,18 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { OverrideStore } from "./override-store";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { AnimeResult, EpisodeResult } from "./plugins/database/types";
 import { Renamer } from "./renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
-import { createCache, makeThrowingDb, withTempDir } from "./test-helpers";
-
-function writeTempFile(dir: string, name: string, content = "content"): string {
-  const path = join(dir, name);
-  writeFileSync(path, content);
-  return path;
-}
+import { createCache, makeThrowingDb, withTempDir, writeTempFile } from "./test-helpers";
 
 const STD_EPISODES: EpisodeResult[] = [
   { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },

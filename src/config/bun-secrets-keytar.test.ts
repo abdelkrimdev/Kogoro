@@ -1,22 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { BunSecretsKeytar } from "../config/bun-secrets-keytar";
+import { silentBunSecrets, stubBunSecrets } from "../test-helpers";
 
 describe("BunSecretsKeytar", () => {
   const mockStore = new Map<string, string>();
   const originalSecrets = Bun.secrets;
-
-  function stubBunSecrets(impl: typeof Bun.secrets): void {
-    // biome-ignore lint/suspicious/noExplicitAny: test stub for Bun internals
-    (Bun as any).secrets = impl;
-  }
-
-  function silentBunSecrets(): typeof Bun.secrets {
-    return {
-      get: async () => null,
-      set: async () => {},
-      delete: async () => false,
-    };
-  }
 
   beforeEach(() => {
     mockStore.clear();

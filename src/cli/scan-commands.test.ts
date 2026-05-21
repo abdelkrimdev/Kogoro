@@ -1,143 +1,108 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, symlinkSync } from "node:fs";
 import { basename, join } from "node:path";
 import { createScanHandlers, discoverFiles, isAlreadyOrganized } from "../cli/scan-commands";
 import { ConfigManager } from "../config/config-manager";
 import { OverrideStore } from "../override-store";
 import { computeFileHash } from "../scanner";
-import { createMockDb as _createMockDb, createCache, makeThrowingDb } from "../test-helpers";
-
-function createMockDb() {
-  return _createMockDb({
-    searchAnime: (title: string) => [{ id: "1", title, entryType: "tv" as const }],
-    getEpisodes: (_animeId: string) => [
-      { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
-    ],
-  });
-}
+import {
+  createMockDb as _createMockDb,
+  createCache,
+  createStandardMockDb,
+  makeThrowingDb,
+  withTempDir,
+  writeTempFile,
+} from "../test-helpers";
 
 describe("scan CLI commands", () => {
   test("scan directory with -y returns JSON with matched files", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-scan-test-"));
-    try {
-      const filePath = join(dir, "[Group] Test Anime - 01.mkv");
-      writeFileSync(filePath, "");
+    await withTempDir("scan", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] Test Anime - 01.mkv", "");
 
-      const handlers = createScanHandlers({ database: createMockDb() });
+      const handlers = createScanHandlers({ database: createStandardMockDb() });
       const output = await handlers.scan(dir, { yes: true });
 
       const parsed = JSON.parse(output);
       expect(parsed).toHaveLength(1);
       expect(parsed[0]?.file).toBe(filePath);
       expect(parsed[0]?.status).toBe("matched");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan single file with -y returns matched status", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-scan-test-"));
-    try {
-      const filePath = join(dir, "[Group] My Anime - 01.mkv");
-      writeFileSync(filePath, "content");
+    await withTempDir("scan", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "content");
 
-      const handlers = createScanHandlers({ database: createMockDb() });
+      const handlers = createScanHandlers({ database: createStandardMockDb() });
       const output = await handlers.scan(filePath, { yes: true });
 
       const parsed = JSON.parse(output);
       expect(parsed).toHaveLength(1);
       expect(parsed[0]?.status).toBe("matched");
       expect(parsed[0]?.parsed.title).toBe("My Anime");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan with dry-run flag plans rename but does not move file", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-scan-test-"));
-    try {
-      const filePath = join(dir, "My Anime - 01.mkv");
-      writeFileSync(filePath, "content");
+    await withTempDir("scan", async (dir) => {
+      const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
-      const handlers = createScanHandlers({ database: createMockDb() });
+      const handlers = createScanHandlers({ database: createStandardMockDb() });
       const output = await handlers.scan(filePath, { yes: true, dryRun: true });
 
       const parsed = JSON.parse(output);
       expect(parsed[0]?.status).toBe("matched");
       expect(parsed[0]?.plan).not.toBeNull();
-      // File should still exist at original location (dry run)
       expect(existsSync(filePath)).toBe(true);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan with cache: second scan returns cached status", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-scan-test-"));
-    try {
-      const filePath = join(dir, "[Group] Anime - 01.mkv");
-      writeFileSync(filePath, "same content");
+    await withTempDir("scan", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "same content");
       const cache = createCache(dir);
 
-      const handlers = createScanHandlers({ database: createMockDb(), cache });
-      // First scan — resolves match
+      const handlers = createScanHandlers({ database: createStandardMockDb(), cache });
       const firstOutput = await handlers.scan(filePath, { yes: true, dryRun: true });
       const first = JSON.parse(firstOutput);
       expect(first[0]?.status).toBe("matched");
 
-      // Second scan — should be cached
       const secondOutput = await handlers.scan(filePath, { yes: true, dryRun: true });
       const second = JSON.parse(secondOutput);
       expect(second[0]?.status).toBe("cached");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan with --force ignores cache and re-matches", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-scan-test-"));
-    try {
-      const filePath = join(dir, "[Group] Anime - 01.mkv");
-      writeFileSync(filePath, "content");
+    await withTempDir("scan", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
       const cache = createCache(dir);
 
-      const handlers = createScanHandlers({ database: createMockDb(), cache });
-      // First scan
+      const handlers = createScanHandlers({ database: createStandardMockDb(), cache });
       await handlers.scan(filePath, { yes: true, dryRun: true });
-      // Force scan — ignores cache
       const output = await handlers.scan(filePath, { yes: true, dryRun: true, force: true });
       const parsed = JSON.parse(output);
       expect(parsed[0]?.status).toBe("matched");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan with --action copy copies the file", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-scan-test-"));
-    try {
-      const filePath = join(dir, "My Anime - 01.mkv");
-      writeFileSync(filePath, "content");
+    await withTempDir("scan", async (dir) => {
+      const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
-      const handlers = createScanHandlers({ database: createMockDb() });
+      const handlers = createScanHandlers({ database: createStandardMockDb() });
       const output = await handlers.scan(filePath, { yes: true, action: "copy" });
 
       const parsed = JSON.parse(output);
       expect(parsed[0]?.status).toBe("matched");
       expect(parsed[0]?.plan?.action).toBe("copy");
-      // Original file should still exist after copy
       expect(existsSync(filePath)).toBe(true);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan with ambiguous mock DB is auto-resolved by matchBatch in -y mode", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-scan-test-"));
-    try {
-      const filePath = join(dir, "Some Anime - 01.mkv");
-      writeFileSync(filePath, "content");
+    await withTempDir("scan", async (dir) => {
+      const filePath = writeTempFile(dir, "Some Anime - 01.mkv", "content");
 
       const ambiguousDb = _createMockDb({
         searchAnime: (_title: string) => [
@@ -155,19 +120,15 @@ describe("scan CLI commands", () => {
 
       const parsed = JSON.parse(output);
       expect(parsed[0]?.status).toBe("matched");
-      // matchBatch auto-selects the best candidate; ambiguity is not surfaced in batch mode
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan directory with mixed outcomes returns correct statuses", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-mixed-"));
-    try {
-      writeFileSync(join(dir, "[Group] One Piece - 01.mkv"), "");
-      writeFileSync(join(dir, "[Group] One Piece - 02.mkv"), "");
-      writeFileSync(join(dir, "Some Anime - 01.mkv"), "");
-      writeFileSync(join(dir, "randomfile.mkv"), "");
+    await withTempDir("scan-mixed", async (dir) => {
+      writeTempFile(dir, "[Group] One Piece - 01.mkv", "");
+      writeTempFile(dir, "[Group] One Piece - 02.mkv", "");
+      writeTempFile(dir, "Some Anime - 01.mkv", "");
+      writeTempFile(dir, "randomfile.mkv", "");
 
       const mixedDb = _createMockDb({
         searchAnime: (title: string) => {
@@ -206,21 +167,17 @@ describe("scan CLI commands", () => {
       expect(results).toHaveLength(4);
       const matched = results.filter((r) => r.status === "matched");
       const failed = results.filter((r) => r.status === "failed");
-      // matchBatch auto-resolves ambiguity; "Some Anime" picks best candidate
       expect(matched).toHaveLength(3);
       expect(failed).toHaveLength(1);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("discoverFiles filters excluded patterns and skips symlinks", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-discover-"));
-    try {
-      writeFileSync(join(dir, "Anime - 01.mkv"), "");
-      writeFileSync(join(dir, "Anime - 02.mkv"), "");
-      writeFileSync(join(dir, "Anime - 03.part"), "");
-      writeFileSync(join(dir, "readme.txt"), "");
+    await withTempDir("scan-discover", async (dir) => {
+      writeTempFile(dir, "Anime - 01.mkv", "");
+      writeTempFile(dir, "Anime - 02.mkv", "");
+      writeTempFile(dir, "Anime - 03.part", "");
+      writeTempFile(dir, "readme.txt", "");
       symlinkSync(join(dir, "Anime - 01.mkv"), join(dir, "link.mkv"));
 
       const files = discoverFiles(dir, [".mkv"], [".part"]);
@@ -229,9 +186,7 @@ describe("scan CLI commands", () => {
       expect(files.every((f) => f.endsWith(".mkv"))).toBe(true);
       expect(files.some((f) => f.endsWith(".part"))).toBe(false);
       expect(files.some((f) => f.endsWith("link.mkv"))).toBe(false);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("isAlreadyOrganized detects files in organized directory structure", () => {
@@ -244,14 +199,13 @@ describe("scan CLI commands", () => {
   });
 
   test("scan skips already-organized files without hashing or DB lookup", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-organized-skip-"));
-    try {
+    await withTempDir("scan-organized", async (dir) => {
       const tvDir = join(dir, "Jujutsu Kaisen", "TV");
       mkdirSync(tvDir, { recursive: true });
-      writeFileSync(join(tvDir, "Jujutsu Kaisen - 1x01.mkv"), "content");
-      writeFileSync(join(dir, "[Group] Unorganized - 01.mkv"), "content");
+      writeTempFile(tvDir, "Jujutsu Kaisen - 1x01.mkv", "content");
+      writeTempFile(dir, "[Group] Unorganized - 01.mkv", "content");
 
-      const handlers = createScanHandlers({ database: createMockDb() });
+      const handlers = createScanHandlers({ database: createStandardMockDb() });
       const output = await handlers.scan(dir, { yes: true, dryRun: true });
       const results = JSON.parse(output) as Array<{ status: string; file: string }>;
 
@@ -260,62 +214,50 @@ describe("scan CLI commands", () => {
 
       expect(organized?.status).toBe("skipped");
       expect(unorganized?.status).toBe("matched");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan uses template.preset for filename template via ConfigManager", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-preset-"));
-    try {
-      const filePath = join(dir, "[Group] Anime - 01.mkv");
-      writeFileSync(filePath, "content");
+    await withTempDir("scan-preset", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
 
-      const configDir = mkdtempSync(join(tmpdir(), "kogoro-cli-preset-config-"));
+      const configDir = join(dir, "config");
+      mkdirSync(configDir);
       const config = new ConfigManager({ configDir });
       config.set("template.preset", "plex");
 
-      const handlers = createScanHandlers({ database: createMockDb(), config });
+      const handlers = createScanHandlers({ database: createStandardMockDb(), config });
       const output = await handlers.scan(filePath, { yes: true, dryRun: true });
 
       const parsed = JSON.parse(output);
       expect(parsed).toHaveLength(1);
       expect(parsed[0]?.status).toBe("matched");
-      // Plex template: {anime} - s{season:02}e{episode:02} - {title}.{ext}
       expect(parsed[0]?.plan?.targetFilename).toMatch(/^Anime - s01e01 - /);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan uses template.string over template.preset when both set", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-preset-override-"));
-    try {
-      const filePath = join(dir, "[Group] Anime - 01.mkv");
-      writeFileSync(filePath, "content");
+    await withTempDir("scan-preset-override", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
 
-      const configDir = mkdtempSync(join(tmpdir(), "kogoro-cli-preset-config-"));
+      const configDir = join(dir, "config");
+      mkdirSync(configDir);
       const config = new ConfigManager({ configDir });
       config.set("template.preset", "plex");
       config.set("template.string", "{anime} - E{episode:02}");
 
-      const handlers = createScanHandlers({ database: createMockDb(), config });
+      const handlers = createScanHandlers({ database: createStandardMockDb(), config });
       const output = await handlers.scan(filePath, { yes: true, dryRun: true });
 
       const parsed = JSON.parse(output);
       expect(parsed[0]?.status).toBe("matched");
-      // Custom template.string should override preset; .{ext} appended automatically
       expect(parsed[0]?.plan?.targetFilename).toMatch(/^Anime - E01\.mkv$/);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 
   test("scan with OverrideStore uses pre-existing override and skips DB query", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-override-"));
-    try {
-      const filePath = join(dir, "[Group] Some Show - 01.mkv");
-      writeFileSync(filePath, "content");
+    await withTempDir("scan-override", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] Some Show - 01.mkv", "content");
 
       const overrideStore = new OverrideStore(dir);
       const fileHash = computeFileHash(basename(filePath));
@@ -335,8 +277,6 @@ describe("scan CLI commands", () => {
       expect(results[0]?.status).toBe("matched");
       expect(results[0]?.match?.anime.id).toBe("99");
       expect(results[0]?.match?.anime.entryType).toBe("movie");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
 });

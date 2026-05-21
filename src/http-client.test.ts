@@ -1,41 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { type DebugEntry, HttpClient } from "./http-client";
-
-function mockResponse(body: string, init?: ResponseInit): Response {
-  return new Response(body, init);
-}
-
-function makeMockFetch() {
-  let callCount = 0;
-  return {
-    getCallCount: () => callCount,
-    fn: (_url: string | URL, _init?: RequestInit) => {
-      callCount++;
-      return Promise.resolve(mockResponse("ok", { status: 200 }));
-    },
-  };
-}
-
-function makeMockFetchSequence(...responses: Response[]) {
-  let callCount = 0;
-  return {
-    getCallCount: () => callCount,
-    fn: (_url: string | URL, _init?: RequestInit) => {
-      if (callCount >= responses.length) {
-        return Promise.resolve(mockResponse("ok", { status: 200 }));
-      }
-      const r = responses[callCount];
-      if (r === undefined) return Promise.resolve(mockResponse("ok", { status: 200 }));
-      callCount++;
-      return Promise.resolve(r);
-    },
-  };
-}
+import { createCountingFetch, createMockResponse, createSequenceFetch } from "./test-helpers";
 
 describe("HttpClient", () => {
   describe("rate limiting", () => {
     test("enforces minimum delay between consecutive requests", async () => {
-      const mock = makeMockFetch();
+      const mock = createCountingFetch();
 
       const client = new HttpClient({
         minDelay: 100,
@@ -52,7 +22,7 @@ describe("HttpClient", () => {
     });
 
     test("does not delay the first request", async () => {
-      const mock = makeMockFetch();
+      const mock = createCountingFetch();
 
       const client = new HttpClient({
         minDelay: 5000,
@@ -70,10 +40,10 @@ describe("HttpClient", () => {
 
   describe("retry", () => {
     test("retries 429 response up to maxRetries with Retry-After delay", async () => {
-      const seq = makeMockFetchSequence(
-        mockResponse("rate limited", { status: 429, headers: { "Retry-After": "0" } }),
-        mockResponse("rate limited", { status: 429, headers: { "Retry-After": "0" } }),
-        mockResponse("rate limited", { status: 429, headers: { "Retry-After": "0" } }),
+      const seq = createSequenceFetch(
+        createMockResponse("rate limited", { status: 429, headers: { "Retry-After": "0" } }),
+        createMockResponse("rate limited", { status: 429, headers: { "Retry-After": "0" } }),
+        createMockResponse("rate limited", { status: 429, headers: { "Retry-After": "0" } }),
       );
 
       const client = new HttpClient({
@@ -89,9 +59,9 @@ describe("HttpClient", () => {
     });
 
     test("succeeds on retry when 429 then 200", async () => {
-      const seq = makeMockFetchSequence(
-        mockResponse("rate limited", { status: 429, headers: { "Retry-After": "0" } }),
-        mockResponse("ok", { status: 200 }),
+      const seq = createSequenceFetch(
+        createMockResponse("rate limited", { status: 429, headers: { "Retry-After": "0" } }),
+        createMockResponse("ok", { status: 200 }),
       );
 
       const client = new HttpClient({
@@ -108,11 +78,11 @@ describe("HttpClient", () => {
 
     test("retries 5xx response with exponential backoff", async () => {
       const timings: number[] = [];
-      const seq = makeMockFetchSequence(
-        mockResponse("server error", { status: 500 }),
-        mockResponse("server error", { status: 500 }),
-        mockResponse("server error", { status: 500 }),
-        mockResponse("server error", { status: 500 }),
+      const seq = createSequenceFetch(
+        createMockResponse("server error", { status: 500 }),
+        createMockResponse("server error", { status: 500 }),
+        createMockResponse("server error", { status: 500 }),
+        createMockResponse("server error", { status: 500 }),
       );
 
       const client = new HttpClient({
@@ -135,7 +105,7 @@ describe("HttpClient", () => {
     });
 
     test("non-retryable 4xx returns immediately without retry", async () => {
-      const seq = makeMockFetchSequence(mockResponse("not found", { status: 404 }));
+      const seq = createSequenceFetch(createMockResponse("not found", { status: 404 }));
 
       const client = new HttpClient({
         minDelay: 0,
@@ -150,7 +120,7 @@ describe("HttpClient", () => {
     });
 
     test("403 returns immediately without retry", async () => {
-      const seq = makeMockFetchSequence(mockResponse("forbidden", { status: 403 }));
+      const seq = createSequenceFetch(createMockResponse("forbidden", { status: 403 }));
 
       const client = new HttpClient({
         minDelay: 0,
@@ -170,7 +140,7 @@ describe("HttpClient", () => {
       const entries: DebugEntry[] = [];
       const client = new HttpClient({
         minDelay: 0,
-        fetch: () => Promise.resolve(mockResponse('{"key": "value"}', { status: 200 })),
+        fetch: () => Promise.resolve(createMockResponse('{"key": "value"}', { status: 200 })),
         onDebug: (entry) => {
           entries.push(entry);
         },
@@ -193,7 +163,7 @@ describe("HttpClient", () => {
       const entries: DebugEntry[] = [];
       const client = new HttpClient({
         minDelay: 0,
-        fetch: () => Promise.resolve(mockResponse(longBody, { status: 200 })),
+        fetch: () => Promise.resolve(createMockResponse(longBody, { status: 200 })),
         onDebug: (entry) => {
           entries.push(entry);
         },
@@ -210,7 +180,7 @@ describe("HttpClient", () => {
     test("no debug callback provided does not throw", async () => {
       const client = new HttpClient({
         minDelay: 0,
-        fetch: () => Promise.resolve(mockResponse("ok", { status: 200 })),
+        fetch: () => Promise.resolve(createMockResponse("ok", { status: 200 })),
       });
 
       await expect(client.fetch("http://test.com/noop")).resolves.toBeDefined();
@@ -220,7 +190,7 @@ describe("HttpClient", () => {
       const entries: DebugEntry[] = [];
       const client = new HttpClient({
         minDelay: 0,
-        fetch: () => Promise.resolve(mockResponse("hello world", { status: 200 })),
+        fetch: () => Promise.resolve(createMockResponse("hello world", { status: 200 })),
         onDebug: (entry) => {
           entries.push(entry);
         },

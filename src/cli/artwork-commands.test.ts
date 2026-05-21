@@ -1,55 +1,29 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createArtworkHandlers } from "../cli/artwork-commands";
-import { MatchCache } from "../match-cache";
 import {
-  createCache,
+  createLogCapture,
   createMockDb,
-  makeCachedMatch,
   makeThrowingDb,
   mockFetch,
+  seedCacheEntry,
   testImageBytes,
+  withTempDir,
 } from "../test-helpers";
-
-function setup() {
-  const dir = mkdtempSync(join(tmpdir(), "kogoro-cli-artwork-test-"));
-  const animeDir = join(dir, "TV", "Jujutsu Kaisen");
-  mkdirSync(animeDir, { recursive: true });
-  const videoPath = join(animeDir, "ep1.mkv");
-  writeFileSync(videoPath, "dummy content");
-
-  const cache = createCache(dir);
-
-  return {
-    dir,
-    animeDir,
-    videoPath,
-    cache,
-    cleanup: () => rmSync(dir, { recursive: true, force: true }),
-  };
-}
-
-async function seedCache(cache: MatchCache, videoPath: string): Promise<void> {
-  const hash = await MatchCache.hashFile(videoPath);
-  cache.set(
-    hash,
-    makeCachedMatch({
-      animeId: "12345",
-      episodeId: "101",
-      season: 1,
-      episode: 1,
-      title: "Test Episode",
-    }),
-  );
-}
 
 describe("artwork CLI commands", () => {
   test("process downloads cover and outputs summary", async () => {
-    const { dir, animeDir, videoPath, cache, cleanup } = setup();
-    try {
-      await seedCache(cache, videoPath);
+    await withTempDir("artwork", async (dir) => {
+      const animeDir = join(dir, "TV", "Jujutsu Kaisen");
+      mkdirSync(animeDir, { recursive: true });
+      const { cache } = await seedCacheEntry(animeDir, "ep1.mkv", {
+        animeId: "12345",
+        episodeId: "101",
+        season: 1,
+        episode: 1,
+        title: "Test Episode",
+      });
 
       const handlers = createArtworkHandlers({
         primaryDb: createMockDb([
@@ -59,32 +33,27 @@ describe("artwork CLI commands", () => {
         fetch: mockFetch(testImageBytes),
       });
 
-      let output = "";
-      let errorOutput = "";
-      await handlers.process(
-        dir,
-        {},
-        (msg) => {
-          output = msg;
-        },
-        (msg) => {
-          errorOutput = msg;
-        },
-      );
+      const log = createLogCapture();
+      await handlers.process(dir, {}, log.onLog, log.onError);
 
-      expect(errorOutput).toBe("");
-      expect(output).toContain("1 anime processed");
-      expect(output).toContain("1 covers downloaded");
+      expect(log.errorOutput).toBe("");
+      expect(log.output).toContain("1 anime processed");
+      expect(log.output).toContain("1 covers downloaded");
       expect(existsSync(join(animeDir, "cover.jpg"))).toBe(true);
-    } finally {
-      cleanup();
-    }
+    });
   });
 
   test("process with verbose flag includes per-anime log messages", async () => {
-    const { dir, videoPath, cache, cleanup } = setup();
-    try {
-      await seedCache(cache, videoPath);
+    await withTempDir("artwork", async (dir) => {
+      const animeDir = join(dir, "TV", "Jujutsu Kaisen");
+      mkdirSync(animeDir, { recursive: true });
+      const { cache } = await seedCacheEntry(animeDir, "ep1.mkv", {
+        animeId: "12345",
+        episodeId: "101",
+        season: 1,
+        episode: 1,
+        title: "Test Episode",
+      });
 
       const handlers = createArtworkHandlers({
         primaryDb: createMockDb([
@@ -116,15 +85,20 @@ describe("artwork CLI commands", () => {
       expect(logs.length).toBeGreaterThan(0);
       expect(logs[0]).toContain("[download]");
       expect(summary).toContain("1 covers downloaded");
-    } finally {
-      cleanup();
-    }
+    });
   });
 
   test("process handles errors gracefully", async () => {
-    const { dir, videoPath, cache, cleanup } = setup();
-    try {
-      await seedCache(cache, videoPath);
+    await withTempDir("artwork", async (dir) => {
+      const animeDir = join(dir, "TV", "Jujutsu Kaisen");
+      mkdirSync(animeDir, { recursive: true });
+      const { cache } = await seedCacheEntry(animeDir, "ep1.mkv", {
+        animeId: "12345",
+        episodeId: "101",
+        season: 1,
+        episode: 1,
+        title: "Test Episode",
+      });
 
       const failingDb = makeThrowingDb();
 
@@ -133,23 +107,11 @@ describe("artwork CLI commands", () => {
         cache,
       });
 
-      let output = "";
-      let errorOutput = "";
-      await handlers.process(
-        dir,
-        {},
-        (msg) => {
-          output = msg;
-        },
-        (msg) => {
-          errorOutput = msg;
-        },
-      );
+      const log = createLogCapture();
+      await handlers.process(dir, {}, log.onLog, log.onError);
 
-      expect(output).toContain("no artwork found");
-      expect(errorOutput).toBe("");
-    } finally {
-      cleanup();
-    }
+      expect(log.output).toContain("no artwork found");
+      expect(log.errorOutput).toBe("");
+    });
   });
 });

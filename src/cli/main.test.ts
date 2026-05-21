@@ -4,7 +4,7 @@ import { buildSecondaryDatabases, run } from "../cli/main";
 import { ConfigManager } from "../config/config-manager";
 import { CredentialStore } from "../config/credential-store";
 import type { PluginInfo } from "../plugin-registry";
-import { withTempDir } from "../test-helpers";
+import { captureConsoleLog, withTempDir } from "../test-helpers";
 
 describe("kogoro CLI", () => {
   test("project bootstrap is set up", () => {
@@ -44,20 +44,13 @@ describe("kogoro CLI", () => {
   });
 
   test("plugins list command returns JSON with built-in plugins", () => {
-    const origLog = console.log;
-    const logs: string[] = [];
-    console.log = (msg: string) => logs.push(msg);
-    try {
-      run(["node", "kogoro", "plugins", "list"]);
-      expect(logs.length).toBeGreaterThan(0);
-      const parsed = JSON.parse(logs[0] ?? "[]") as Array<PluginInfo>;
-      const tvdb = parsed.find((p) => p.name === "tvdb");
-      expect(tvdb).toBeDefined();
-      expect(tvdb?.type).toBe("database");
-      expect(tvdb?.source).toBe("built-in");
-    } finally {
-      console.log = origLog;
-    }
+    const { logs } = captureConsoleLog(() => run(["node", "kogoro", "plugins", "list"]));
+    expect(logs.length).toBeGreaterThan(0);
+    const parsed = JSON.parse(logs[0] ?? "[]") as Array<PluginInfo>;
+    const tvdb = parsed.find((p) => p.name === "tvdb");
+    expect(tvdb).toBeDefined();
+    expect(tvdb?.type).toBe("database");
+    expect(tvdb?.source).toBe("built-in");
   });
 
   test("buildSecondaryDatabases returns empty array when config has no secondary-dbs", async () => {

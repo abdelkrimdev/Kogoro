@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createDatabaseCommands } from "../cli/database-commands";
 import type { DatabasePlugin } from "../plugins/database/plugin";
 import type { AnimeResult, EpisodeResult } from "../plugins/database/types";
-import { createMockDb as _createMockDb, makeThrowingDb } from "../test-helpers";
+import { createMockDb as _createMockDb, createLogCapture, makeThrowingDb } from "../test-helpers";
 
 function createMockPlugin(): DatabasePlugin {
   return _createMockDb({
@@ -44,15 +44,9 @@ describe("DB CLI commands", () => {
   test("db search outputs anime results as JSON", async () => {
     const plugin = createMockPlugin();
     const commands = createDatabaseCommands(plugin);
-    let output = "";
-    await commands.search(
-      "Jujutsu Kaisen",
-      (msg) => {
-        output = msg;
-      },
-      () => {},
-    );
-    const parsed = JSON.parse(output);
+    const log = createLogCapture();
+    await commands.search("Jujutsu Kaisen", log.onLog, () => {});
+    const parsed = JSON.parse(log.output);
     expect(parsed).toHaveLength(1);
     expect(parsed[0]?.title).toBe("Jujutsu Kaisen");
   });
@@ -60,29 +54,17 @@ describe("DB CLI commands", () => {
   test("db search outputs empty array for no results", async () => {
     const plugin = createMockPlugin();
     const commands = createDatabaseCommands(plugin);
-    let output = "";
-    await commands.search(
-      "Unknown",
-      (msg) => {
-        output = msg;
-      },
-      () => {},
-    );
-    expect(JSON.parse(output)).toEqual([]);
+    const log = createLogCapture();
+    await commands.search("Unknown", log.onLog, () => {});
+    expect(JSON.parse(log.output)).toEqual([]);
   });
 
   test("db episodes outputs episode results as JSON", async () => {
     const plugin = createMockPlugin();
     const commands = createDatabaseCommands(plugin);
-    let output = "";
-    await commands.episodes(
-      "12345",
-      (msg) => {
-        output = msg;
-      },
-      () => {},
-    );
-    const parsed = JSON.parse(output);
+    const log = createLogCapture();
+    await commands.episodes("12345", log.onLog, () => {});
+    const parsed = JSON.parse(log.output);
     expect(parsed).toHaveLength(1);
     expect(parsed[0]?.title).toBe("Ryomen Sukuna");
   });
@@ -90,28 +72,16 @@ describe("DB CLI commands", () => {
   test("db episodes outputs empty array for unknown ID", async () => {
     const plugin = createMockPlugin();
     const commands = createDatabaseCommands(plugin);
-    let output = "";
-    await commands.episodes(
-      "99999",
-      (msg) => {
-        output = msg;
-      },
-      () => {},
-    );
-    expect(JSON.parse(output)).toEqual([]);
+    const log = createLogCapture();
+    await commands.episodes("99999", log.onLog, () => {});
+    expect(JSON.parse(log.output)).toEqual([]);
   });
 
   test("db search handles plugin error gracefully", async () => {
     const failingPlugin = makeThrowingDb();
     const commands = createDatabaseCommands(failingPlugin);
-    let errorOutput = "";
-    await commands.search(
-      "Anything",
-      () => {},
-      (msg) => {
-        errorOutput = msg;
-      },
-    );
-    expect(errorOutput).toBe("Search failed");
+    const log = createLogCapture();
+    await commands.search("Anything", () => {}, log.onError);
+    expect(log.errorOutput).toBe("Search failed");
   });
 });
