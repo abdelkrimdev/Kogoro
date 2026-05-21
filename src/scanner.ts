@@ -241,15 +241,10 @@ export class Scanner {
       const failureReason = matches[0]?.failureReason ?? "No title parsed";
       const manual = await this.tryResolveFailed(parsed, options);
       if (manual) {
-        return this.cacheAndPlan(
-          filePath,
-          hash,
-          parsed,
-          buildManualMatch(manual),
-          options,
-          true,
-          overrideKey,
-        );
+        const manualMatch = buildManualMatch(manual);
+        const resolvedHash = await this.persistMatch(filePath, hash, manualMatch);
+        this.persistOverride(overrideKey, manualMatch);
+        return this.renameFile(filePath, resolvedHash, manualMatch, parsed, options);
       }
       return {
         file: filePath,
@@ -271,15 +266,10 @@ export class Scanner {
     if (goodMatches.length === 0) {
       const manual = await this.tryResolveFailed(parsed, options);
       if (manual) {
-        return this.cacheAndPlan(
-          filePath,
-          hash,
-          parsed,
-          buildManualMatch(manual),
-          options,
-          true,
-          overrideKey,
-        );
+        const manualMatch = buildManualMatch(manual);
+        const resolvedHash = await this.persistMatch(filePath, hash, manualMatch);
+        this.persistOverride(overrideKey, manualMatch);
+        return this.renameFile(filePath, resolvedHash, manualMatch, parsed, options);
       }
       return {
         file: filePath,
@@ -295,13 +285,16 @@ export class Scanner {
     }
 
     if (goodMatches.length === 1 && goodMatches[0]) {
-      return this.cacheAndPlan(filePath, hash, parsed, goodMatches[0], options);
+      const h = await this.persistMatch(filePath, hash, goodMatches[0]);
+      return this.renameFile(filePath, h, goodMatches[0], parsed, options);
     }
 
     if (options?.onAmbiguous) {
       const resolved = await options.onAmbiguous(goodMatches, parsed);
       if (resolved) {
-        return this.cacheAndPlan(filePath, hash, parsed, resolved, options, true, overrideKey);
+        const h = await this.persistMatch(filePath, hash, resolved);
+        this.persistOverride(overrideKey, resolved);
+        return this.renameFile(filePath, h, resolved, parsed, options);
       }
     }
 
@@ -325,42 +318,46 @@ export class Scanner {
     return await options.onFailed(parsed);
   }
 
-  private async cacheAndPlan(
+  private async persistMatch(filePath: string, hash: string, match: MatchResult): Promise<string> {
+    if (!this.cache) return hash;
+
+    if (!hash) {
+      hash = await MatchCache.hashFile(filePath);
+    }
+
+    this.cache.set(hash, {
+      animeId: match.anime.id,
+      animeTitle: match.anime.title,
+      episodeId: match.episode?.id ?? null,
+      entryType: match.anime.entryType,
+      season: match.episode?.season ?? null,
+      episode: match.episode?.episode ?? null,
+      title: match.episode?.title ?? null,
+      timestamp: new Date().toISOString(),
+    });
+
+    return hash;
+  }
+
+  private persistOverride(overrideHash: string | undefined, match: MatchResult): void {
+    if (!this.overrideStore || !overrideHash) return;
+
+    this.overrideStore.set(overrideHash, {
+      animeId: match.anime.id,
+      episodeId: match.episode?.id,
+      entryType: match.anime.entryType,
+    });
+  }
+
+  private async renameFile(
     filePath: string,
-    contentHash: string,
-    parsed: ParsedResult,
+    hash: string,
     match: MatchResult,
+    parsed: ParsedResult,
     options?: ScanFileOptions,
-    persistOverride?: boolean,
-    overrideHash?: string,
   ): Promise<ScanResult> {
-    let hash = contentHash;
-
-    if (this.cache) {
-      if (!hash) {
-        hash = await MatchCache.hashFile(filePath);
-      }
-      this.cache.set(hash, {
-        animeId: match.anime.id,
-        animeTitle: match.anime.title,
-        episodeId: match.episode?.id ?? null,
-        entryType: match.anime.entryType,
-        season: match.episode?.season ?? null,
-        episode: match.episode?.episode ?? null,
-        title: match.episode?.title ?? null,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    if (persistOverride && this.overrideStore && overrideHash) {
-      this.overrideStore.set(overrideHash, {
-        animeId: match.anime.id,
-        episodeId: match.episode?.id,
-        entryType: match.anime.entryType,
-      });
-    }
-
     let plan: RenamePlan | null = null;
+
     if (this.renamer) {
       const extension = extname(filePath).replace(".", "") || "mkv";
       plan = this.renamer.plan(filePath, match, extension, parsed.tags);
@@ -488,15 +485,8 @@ export class Scanner {
             status: "cached",
           };
         } else if (entry.match && !entry.match.failureReason) {
-          result = await this.cacheAndPlan(
-            entry.filePath,
-            entry.hash,
-            entry.parsed,
-            entry.match,
-            options,
-            false,
-            entry.overrideKey,
-          );
+          const h = await this.persistMatch(entry.filePath, entry.hash, entry.match);
+          result = await this.renameFile(entry.filePath, h, entry.match, entry.parsed, options);
         } else {
           const failureReason = entry.match?.failureReason ?? "No title parsed";
           result = {
