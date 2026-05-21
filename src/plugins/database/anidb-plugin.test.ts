@@ -95,6 +95,42 @@ describe("AniDBPlugin", () => {
       expect(results).toHaveLength(1);
       expect(results[0]?.id).toBe("12345");
     });
+
+    test("returns empty array on API failure", async () => {
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient("", 500),
+      });
+      const results = await plugin.searchAnime("Jujutsu Kaisen");
+      expect(results).toEqual([]);
+    });
+
+    test("throws on AniDB error XML", async () => {
+      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
+<error code="310">illegal input or access denied</error>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(errorXml),
+      });
+      await expect(plugin.searchAnime("Jujutsu Kaisen")).rejects.toThrow(
+        "AniDB error 310: illegal input or access denied",
+      );
+    });
+
+    test("throws with unknown code when error has no code attribute", async () => {
+      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
+<error>internal server error</error>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(errorXml),
+      });
+      await expect(plugin.searchAnime("Jujutsu Kaisen")).rejects.toThrow(
+        "AniDB error unknown: internal server error",
+      );
+    });
   });
 
   describe("getEpisodes", () => {
@@ -370,6 +406,17 @@ describe("AniDBPlugin", () => {
       expect(results[0]?.season).toBe(1);
       expect(results[0]?.episode).toBe(1);
     });
+
+    test("throws on AniDB error XML", async () => {
+      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
+<error code="500">Banned</error>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(errorXml),
+      });
+      await expect(plugin.getEpisodes("12345")).rejects.toThrow("AniDB error 500: Banned");
+    });
   });
 
   describe("getArtwork", () => {
@@ -431,57 +478,8 @@ describe("AniDBPlugin", () => {
       const results = await plugin.getArtwork("99999", "poster");
       expect(results).toEqual([]);
     });
-  });
 
-  describe("error handling", () => {
-    test("returns empty array on API failure for searchAnime", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient("", 500),
-      });
-      const results = await plugin.searchAnime("Jujutsu Kaisen");
-      expect(results).toEqual([]);
-    });
-
-    test("searchAnime throws on AniDB error XML", async () => {
-      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
-<error code="310">illegal input or access denied</error>`;
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml),
-      });
-      await expect(plugin.searchAnime("Jujutsu Kaisen")).rejects.toThrow(
-        "AniDB error 310: illegal input or access denied",
-      );
-    });
-
-    test("getEpisodes throws on AniDB error XML", async () => {
-      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
-<error code="500">Banned</error>`;
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml),
-      });
-      await expect(plugin.getEpisodes("12345")).rejects.toThrow("AniDB error 500: Banned");
-    });
-
-    test("getAnime throws on AniDB error XML", async () => {
-      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
-<error code="310">illegal input or access denied</error>`;
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml),
-      });
-      await expect(plugin.getAnime("12345")).rejects.toThrow(
-        "AniDB error 310: illegal input or access denied",
-      );
-    });
-
-    test("getArtwork throws on AniDB error XML", async () => {
+    test("throws on AniDB error XML", async () => {
       const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
 <error code="320">no such anime</error>`;
       const plugin = new AniDBPlugin({
@@ -491,19 +489,6 @@ describe("AniDBPlugin", () => {
       });
       await expect(plugin.getArtwork("99999", "poster")).rejects.toThrow(
         "AniDB error 320: no such anime",
-      );
-    });
-
-    test("uses unknown code when error has no code attribute", async () => {
-      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
-<error>internal server error</error>`;
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml),
-      });
-      await expect(plugin.searchAnime("Jujutsu Kaisen")).rejects.toThrow(
-        "AniDB error unknown: internal server error",
       );
     });
   });
@@ -545,6 +530,19 @@ describe("AniDBPlugin", () => {
       });
       const result = await plugin.getAnime("99999");
       expect(result).toBeNull();
+    });
+
+    test("throws on AniDB error XML", async () => {
+      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
+<error code="310">illegal input or access denied</error>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(errorXml),
+      });
+      await expect(plugin.getAnime("12345")).rejects.toThrow(
+        "AniDB error 310: illegal input or access denied",
+      );
     });
   });
 
