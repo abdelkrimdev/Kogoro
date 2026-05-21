@@ -22,66 +22,68 @@ import { createRenameHandlers } from "./rename-commands";
 import { createScanHandlers } from "./scan-commands";
 import { createSubtitleHandlers } from "./subtitle-commands";
 
-function createFactory(debug?: boolean, config?: ConfigManager): PluginFactory {
-  return new PluginFactory(config ?? new ConfigManager(), createCredentialStore(), debug ?? false);
-}
-
-async function createDatabaseCommandsWithCredentials(name: string, debug?: boolean) {
-  const factory = createFactory(debug);
-  const database = await factory.database(name);
-  if (!database) return undefined;
-  return createDatabaseCommands(database);
-}
-
-async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
-  const config = new ConfigManager();
-  const factory = createFactory(debug, config);
-  const database = await factory.primaryDatabase();
-  if (!database) return undefined;
-  const fallbackDatabases = await factory.secondaryDatabases();
-  const cache = new MatchCache();
-  const overrideStore = new OverrideStore(process.cwd());
-  return createScanHandlers({
-    database,
-    fallbackDatabases,
-    cache,
-    config,
-    episodeNumbering,
-    overrideStore,
-  });
-}
-
-async function createMatchWithCredentials(debug?: boolean) {
-  const factory = createFactory(debug);
-  const database = await factory.primaryDatabase();
-  if (!database) return undefined;
-  return createMatchHandlers({ database });
-}
-
-async function createMetadataWithCredentials(debug?: boolean) {
-  const factory = createFactory(debug);
-  const database = await factory.primaryDatabase();
-  if (!database) return undefined;
-  return createMetadataHandlers({ database });
-}
-
-async function createArtworkWithCredentials(debug?: boolean) {
-  const factory = createFactory(debug);
-  const primaryDb = await factory.primaryDatabase();
-  if (!primaryDb) return undefined;
-  const secondaryDbs = await factory.secondaryDatabases();
-  return createArtworkHandlers({ primaryDb, secondaryDbs });
-}
-
-async function createSubtitleWithCredentials(debug?: boolean) {
-  const factory = createFactory(debug);
-  const subtitlePlugin = await factory.subtitle();
-  if (!subtitlePlugin) return undefined;
-  const cache = new MatchCache();
-  return createSubtitleHandlers({ subtitlePlugin, cache });
-}
-
 export function run(argv: string[]): string | undefined {
+  const config = new ConfigManager();
+  const credentialStore = createCredentialStore();
+
+  function createFactory(debug?: boolean): PluginFactory {
+    return new PluginFactory(config, credentialStore, debug ?? false);
+  }
+
+  async function createDatabaseCommandsWithCredentials(name: string, debug?: boolean) {
+    const factory = createFactory(debug);
+    const database = await factory.database(name);
+    if (!database) return undefined;
+    return createDatabaseCommands(database);
+  }
+
+  async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
+    const factory = createFactory(debug);
+    const database = await factory.primaryDatabase();
+    if (!database) return undefined;
+    const fallbackDatabases = await factory.secondaryDatabases();
+    const cache = new MatchCache();
+    const overrideStore = new OverrideStore(process.cwd());
+    return createScanHandlers({
+      database,
+      fallbackDatabases,
+      cache,
+      config,
+      episodeNumbering,
+      overrideStore,
+    });
+  }
+
+  async function createMatchWithCredentials(debug?: boolean) {
+    const factory = createFactory(debug);
+    const database = await factory.primaryDatabase();
+    if (!database) return undefined;
+    return createMatchHandlers({ database });
+  }
+
+  async function createMetadataWithCredentials(debug?: boolean) {
+    const factory = createFactory(debug);
+    const database = await factory.primaryDatabase();
+    if (!database) return undefined;
+    return createMetadataHandlers({ database });
+  }
+
+  async function createArtworkWithCredentials(debug?: boolean) {
+    const factory = createFactory(debug);
+    const primaryDb = await factory.primaryDatabase();
+    if (!primaryDb) return undefined;
+    const secondaryDbs = await factory.secondaryDatabases();
+    return createArtworkHandlers({ primaryDb, secondaryDbs });
+  }
+
+  async function createSubtitleWithCredentials(debug?: boolean) {
+    const factory = createFactory(debug);
+    const subtitlePlugin = await factory.subtitle();
+    if (!subtitlePlugin) return undefined;
+    const cache = new MatchCache();
+    return createSubtitleHandlers({ subtitlePlugin, cache });
+  }
+
   let result: string | undefined;
 
   const parser = yargs(hideBin(argv))
