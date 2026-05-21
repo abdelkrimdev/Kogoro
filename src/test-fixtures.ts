@@ -186,6 +186,19 @@ export async function seedCacheEntry(
   return { cache, videoPath, hash };
 }
 
+export async function withMockFetch(
+  mockImpl: typeof globalThis.fetch,
+  fn: () => Promise<void>,
+): Promise<void> {
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = mockImpl;
+  try {
+    await fn();
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+}
+
 export function createCountingFetch(
   fn?: (url: string | URL, init?: RequestInit) => Promise<Response>,
 ) {

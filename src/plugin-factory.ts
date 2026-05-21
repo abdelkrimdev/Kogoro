@@ -19,6 +19,14 @@ const RATE_LIMITS = {
   anidb: 2000,
 } as const;
 
+interface DebugEntry {
+  type: string;
+  url: string;
+  method: string;
+  status?: number;
+  body?: string;
+}
+
 export class PluginFactory {
   private registry: PluginRegistry;
 
@@ -101,21 +109,11 @@ export class PluginFactory {
       console.error(`No ${pluginName} API key configured. Run 'kogoro config init' first.`);
       return undefined;
     }
-    const httpClient = new HttpClient({
-      ...this.debugOptions(),
-    });
+    const httpClient = new HttpClient(this.debugOptions());
     return new OpenSubtitlesPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
   }
 
-  private debugOptions(): {
-    onDebug?: (entry: {
-      type: string;
-      url: string;
-      method: string;
-      status?: number;
-      body?: string;
-    }) => void;
-  } {
+  private debugOptions(): { onDebug?: (entry: DebugEntry) => void } {
     if (!this.debug) return {};
     return {
       onDebug: (entry) => {
