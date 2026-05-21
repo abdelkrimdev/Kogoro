@@ -239,13 +239,8 @@ export class Scanner {
   ): Promise<ScanResult> {
     if (!parsed.title || matches.length === 0 || matches[0]?.failureReason) {
       const failureReason = matches[0]?.failureReason ?? "No title parsed";
-      const manual = await this.tryResolveFailed(parsed, options);
-      if (manual) {
-        const manualMatch = buildManualMatch(manual);
-        const resolvedHash = await this.persistMatch(filePath, hash, manualMatch);
-        this.persistOverride(overrideKey, manualMatch);
-        return this.renameFile(filePath, resolvedHash, manualMatch, parsed, options);
-      }
+      const manualResult = await this.resolveManual(filePath, hash, parsed, options, overrideKey);
+      if (manualResult) return manualResult;
       return {
         file: filePath,
         hash,
@@ -264,13 +259,8 @@ export class Scanner {
     const goodMatches = scoredMatches.filter((m) => (hasEpisode ? m.episode !== undefined : true));
 
     if (goodMatches.length === 0) {
-      const manual = await this.tryResolveFailed(parsed, options);
-      if (manual) {
-        const manualMatch = buildManualMatch(manual);
-        const resolvedHash = await this.persistMatch(filePath, hash, manualMatch);
-        this.persistOverride(overrideKey, manualMatch);
-        return this.renameFile(filePath, resolvedHash, manualMatch, parsed, options);
-      }
+      const manualResult = await this.resolveManual(filePath, hash, parsed, options, overrideKey);
+      if (manualResult) return manualResult;
       return {
         file: filePath,
         hash,
@@ -285,16 +275,16 @@ export class Scanner {
     }
 
     if (goodMatches.length === 1 && goodMatches[0]) {
-      const h = await this.persistMatch(filePath, hash, goodMatches[0]);
-      return this.renameFile(filePath, h, goodMatches[0], parsed, options);
+      const resolvedHash = await this.persistMatch(filePath, hash, goodMatches[0]);
+      return this.renameFile(filePath, resolvedHash, goodMatches[0], parsed, options);
     }
 
     if (options?.onAmbiguous) {
       const resolved = await options.onAmbiguous(goodMatches, parsed);
       if (resolved) {
-        const h = await this.persistMatch(filePath, hash, resolved);
+        const resolvedHash = await this.persistMatch(filePath, hash, resolved);
         this.persistOverride(overrideKey, resolved);
-        return this.renameFile(filePath, h, resolved, parsed, options);
+        return this.renameFile(filePath, resolvedHash, resolved, parsed, options);
       }
     }
 
@@ -318,14 +308,28 @@ export class Scanner {
     return await options.onFailed(parsed);
   }
 
+  private async resolveManual(
+    filePath: string,
+    hash: string,
+    parsed: ParsedResult,
+    options: ScanFileOptions | undefined,
+    overrideKey: string | undefined,
+  ): Promise<ScanResult | null> {
+    const manual = await this.tryResolveFailed(parsed, options);
+    if (!manual) return null;
+
+    const manualMatch = buildManualMatch(manual);
+    const resolvedHash = await this.persistMatch(filePath, hash, manualMatch);
+    this.persistOverride(overrideKey, manualMatch);
+    return this.renameFile(filePath, resolvedHash, manualMatch, parsed, options);
+  }
+
   private async persistMatch(filePath: string, hash: string, match: MatchResult): Promise<string> {
     if (!this.cache) return hash;
 
-    if (!hash) {
-      hash = await MatchCache.hashFile(filePath);
-    }
+    const resolvedHash = hash || (await MatchCache.hashFile(filePath));
 
-    this.cache.set(hash, {
+    this.cache.set(resolvedHash, {
       animeId: match.anime.id,
       animeTitle: match.anime.title,
       episodeId: match.episode?.id ?? null,
@@ -336,13 +340,13 @@ export class Scanner {
       timestamp: new Date().toISOString(),
     });
 
-    return hash;
+    return resolvedHash;
   }
 
-  private persistOverride(overrideHash: string | undefined, match: MatchResult): void {
-    if (!this.overrideStore || !overrideHash) return;
+  private persistOverride(overrideKey: string | undefined, match: MatchResult): void {
+    if (!this.overrideStore || !overrideKey) return;
 
-    this.overrideStore.set(overrideHash, {
+    this.overrideStore.set(overrideKey, {
       animeId: match.anime.id,
       episodeId: match.episode?.id,
       entryType: match.anime.entryType,
@@ -485,8 +489,14 @@ export class Scanner {
             status: "cached",
           };
         } else if (entry.match && !entry.match.failureReason) {
-          const h = await this.persistMatch(entry.filePath, entry.hash, entry.match);
-          result = await this.renameFile(entry.filePath, h, entry.match, entry.parsed, options);
+          const resolvedHash = await this.persistMatch(entry.filePath, entry.hash, entry.match);
+          result = await this.renameFile(
+            entry.filePath,
+            resolvedHash,
+            entry.match,
+            entry.parsed,
+            options,
+          );
         } else {
           const failureReason = entry.match?.failureReason ?? "No title parsed";
           result = {
