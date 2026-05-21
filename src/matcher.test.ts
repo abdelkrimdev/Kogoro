@@ -127,7 +127,7 @@ describe("Matcher", () => {
     expect(scoreA).toBeGreaterThan(scoreB);
   });
 
-  test("applies whichever DatabasePlugin is injected (config-driven selection)", async () => {
+  test("uses the injected DatabasePlugin to resolve matches", async () => {
     const tvDb = createDataMockDb([
       {
         animeId: "1",
@@ -185,7 +185,7 @@ describe("Matcher", () => {
   });
 
   describe("matchBatch", () => {
-    test("deduplicates searchAnime calls for duplicate titles and getEpisodes for duplicate anime IDs", async () => {
+    test("deduplicates searchAnime calls for repeated titles and getEpisodes for repeated anime IDs", async () => {
       const searchCalls = createCallCounter();
       const episodeCalls = createCallCounter();
       const searchTitles: string[] = [];
@@ -261,7 +261,7 @@ describe("Matcher", () => {
       expect(results).toEqual([]);
     });
 
-    test("handles titles with no episode number gracefully", async () => {
+    test("returns match without episode when no episode number in parsed title", async () => {
       const searchCalls = createCallCounter();
 
       const trackingDb: DatabasePlugin = {

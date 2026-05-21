@@ -15,7 +15,7 @@ import {
 } from "../test-fixtures";
 
 describe("scan CLI commands", () => {
-  test("scan directory with -y returns JSON with matched files", async () => {
+  test("directory scan with -y returns JSON with matched files", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Test Anime - 01.mkv", "");
 
@@ -29,7 +29,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan single file with -y returns matched status", async () => {
+  test("single file with -y returns matched status", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "content");
 
@@ -43,7 +43,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan with dry-run flag plans rename but does not move file", async () => {
+  test("dry-run flag plans rename but does not move file", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
@@ -57,7 +57,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan with cache: second scan returns cached status", async () => {
+  test("second scan of same file returns cached status", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "same content");
       const cache = createCache(dir);
@@ -73,7 +73,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan with --force ignores cache and re-matches", async () => {
+  test("--force ignores cache and re-matches", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
       const cache = createCache(dir);
@@ -86,7 +86,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan with --action copy copies the file", async () => {
+  test("--action copy copies the file and preserves original", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
@@ -100,7 +100,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan with ambiguous mock DB is auto-resolved by matchBatch in -y mode", async () => {
+  test("auto-resolves ambiguous DB results in non-interactive mode", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "Some Anime - 01.mkv", "content");
 
@@ -123,7 +123,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan directory with mixed outcomes returns correct statuses", async () => {
+  test("directory scan with mixed outcomes returns correct statuses", async () => {
     await withTempDir("scan-mixed", async (dir) => {
       writeTempFile(dir, "[Group] One Piece - 01.mkv", "");
       writeTempFile(dir, "[Group] One Piece - 02.mkv", "");
@@ -198,7 +198,7 @@ describe("scan CLI commands", () => {
     expect(isAlreadyOrganized("/media/Anime/TV")).toBe(false);
   });
 
-  test("scan skips already-organized files without hashing or DB lookup", async () => {
+  test("skips already-organized files without hashing or DB lookup", async () => {
     await withTempDir("scan-organized", async (dir) => {
       const tvDir = join(dir, "Jujutsu Kaisen", "TV");
       mkdirSync(tvDir, { recursive: true });
@@ -217,7 +217,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan uses template.preset for filename template via ConfigManager", async () => {
+  test("uses template.preset for filename template via ConfigManager", async () => {
     await withTempDir("scan-preset", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
 
@@ -236,7 +236,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan uses template.string over template.preset when both set", async () => {
+  test("prefers template.string over template.preset when both are set", async () => {
     await withTempDir("scan-preset-override", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
 
@@ -255,7 +255,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("scan with OverrideStore uses pre-existing override and skips DB query", async () => {
+  test("uses pre-existing override and skips DB query", async () => {
     await withTempDir("scan-override", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Some Show - 01.mkv", "content");
 

@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ArtworkFetcher } from "./artwork-fetcher";
 import { MatchCache } from "./match-cache";
-import { TVDBPlugin } from "./plugins/database/tvdb-plugin";
 import {
   createArtworkDb,
   createCache,
@@ -12,7 +11,6 @@ import {
   makeCachedMatch,
   mockFetch,
   testImageBytes,
-  toUrlString,
   writeTempFile,
 } from "./test-fixtures";
 
@@ -98,7 +96,7 @@ describe("ArtworkFetcher", () => {
     }
   });
 
-  test("force overwrites existing cover.jpg", async () => {
+  test("force option overwrites existing cover.jpg", async () => {
     const { dir, animeDir, cache, seedCache, cleanup } = setup();
     try {
       writeFileSync(join(animeDir, "cover.jpg"), "old cover");
@@ -233,37 +231,7 @@ describe("ArtworkFetcher", () => {
     }
   });
 
-  test("TVDB artwork includes width and height in response", async () => {
-    const artworkResponse = [
-      { id: 1, image: "https://example.com/poster.jpg", type: 1, width: 680, height: 1000 },
-      { id: 2, image: "https://example.com/poster2.jpg", type: 14, width: 900, height: 1280 },
-    ];
-
-    const plugin = new TVDBPlugin({
-      apiKey: "test-key",
-      fetch: async (url: string | URL, _init?: RequestInit) => {
-        if (toUrlString(url).includes("/login")) {
-          return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify({ data: artworkResponse }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      },
-    });
-
-    const results = await plugin.getArtwork("12345", "poster");
-    expect(results).toHaveLength(2);
-    expect(results[0]?.width).toBe(680);
-    expect(results[0]?.height).toBe(1000);
-    expect(results[1]?.width).toBe(900);
-    expect(results[1]?.height).toBe(1280);
-  });
-
-  test("reports total 0 when no cache entries for files in directory", async () => {
+  test("reports total 0 when directory has no cached files", async () => {
     const { dir, cache, cleanup } = setup();
     try {
       const mockDb = createArtworkDb([

@@ -56,7 +56,7 @@ describe("MetadataWriter", () => {
     });
   });
 
-  describe("enriched NFO with optional DatabasePlugin", () => {
+  describe("NFO enrichment with DatabasePlugin", () => {
     test("populates showtitle, plot, and aired when database plugin provided", async () => {
       await withTempDir("metadata", async (dir) => {
         const { cache } = await seedCacheEntry(dir, "Test Anime - 1x01.mkv", {
@@ -209,7 +209,7 @@ describe("MetadataWriter", () => {
       });
     });
 
-    test("--force overwrites existing NFO file", async () => {
+    test("force option overwrites existing NFO file", async () => {
       await withTempDir("metadata", async (dir) => {
         const { cache } = await seedCacheEntry(dir, "ForceTest.mkv", {
           animeId: "1",

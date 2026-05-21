@@ -108,7 +108,7 @@ describe("Scanner", () => {
     });
   });
 
-  test("persists override after interactive failed resolution (manual entry)", async () => {
+  test("persists override after interactive failed resolution", async () => {
     await withTempDir("scan-failed-override", async (dir) => {
       const overrideStore = new OverrideStore(dir);
       const scanner = new Scanner({ database: createMockDb(), overrideStore });
@@ -153,7 +153,7 @@ describe("Scanner", () => {
     });
   });
 
-  test("scanFile with cache and renamer (dry-run) computes hash, matches, caches, and plans rename", async () => {
+  test("scanFile with cache and dry-run renamer computes hash, matches, caches, and plans rename", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
 

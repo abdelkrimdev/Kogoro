@@ -59,16 +59,14 @@ function mockFetchWithRoutes(
   };
 }
 
-describe("DatabasePlugin interface", () => {
-  test("interface is defined", () => {
+describe("TVDBPlugin", () => {
+  test("satisfies DatabasePlugin contract", () => {
     const plugin: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
     expect(plugin.searchAnime).toBeInstanceOf(Function);
     expect(plugin.getEpisodes).toBeInstanceOf(Function);
     expect(plugin.getArtwork).toBeInstanceOf(Function);
   });
-});
 
-describe("TVDBPlugin", () => {
   describe("searchAnime", () => {
     test("returns AnimeResult array from TVDB search API", async () => {
       const searchResponse = [
@@ -247,6 +245,24 @@ describe("TVDBPlugin", () => {
       expect(results).toEqual([]);
     });
 
+    test("includes width and height in artwork results", async () => {
+      const artworkResponse = [
+        { id: 1, image: "https://example.com/poster.jpg", type: 1, width: 680, height: 1000 },
+        { id: 2, image: "https://example.com/poster2.jpg", type: 14, width: 900, height: 1280 },
+      ];
+
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        fetch: mockFetch(artworkResponse),
+      });
+      const results = await plugin.getArtwork("12345", "poster");
+      expect(results).toHaveLength(2);
+      expect(results[0]?.width).toBe(680);
+      expect(results[0]?.height).toBe(1000);
+      expect(results[1]?.width).toBe(900);
+      expect(results[1]?.height).toBe(1280);
+    });
+
     test("returns empty array when no artwork exists", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
@@ -291,7 +307,7 @@ describe("TVDBPlugin", () => {
     });
   });
 
-  describe("translations integration with getEpisodes", () => {
+  describe("getEpisodes with translations", () => {
     test("populates titleEn and titleJa on episodes from translations", async () => {
       const episodesResponse = {
         series: { id: 12345, name: "Jujutsu Kaisen" },

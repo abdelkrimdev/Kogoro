@@ -70,7 +70,7 @@ describe("OverrideStore", () => {
     });
   });
 
-  test("kogoro.toml is written to disk", async () => {
+  test("persists overrides to disk", async () => {
     await withTempDir("override", async (dir) => {
       const store = new OverrideStore(dir);
       store.set("abc123", { animeId: "tvdb-42" });
@@ -79,7 +79,7 @@ describe("OverrideStore", () => {
     });
   });
 
-  test("override survives file removal then reload", async () => {
+  test("removing one override does not affect other persisted overrides", async () => {
     await withTempDir("override", async (dir) => {
       const store1 = new OverrideStore(dir);
       store1.set("hash1", { animeId: "tvdb-1" });

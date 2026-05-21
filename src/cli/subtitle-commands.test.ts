@@ -12,7 +12,7 @@ import {
 } from "../test-fixtures";
 
 describe("subtitle CLI commands", () => {
-  test("subtitle downloads subtitles for cached entries", async () => {
+  test("downloads subtitles for cached entries", async () => {
     await withTempDir("subtitle", async (tmpDir) => {
       const tvDir = join(tmpDir, "Jujutsu Kaisen", "TV");
       mkdirSync(tvDir, { recursive: true });
@@ -39,7 +39,7 @@ describe("subtitle CLI commands", () => {
     });
   });
 
-  test("subtitle skips when subtitle file already exists", async () => {
+  test("skips when subtitle file already exists", async () => {
     await withTempDir("subtitle", async (tmpDir) => {
       const tvDir = join(tmpDir, "Naruto", "TV");
       mkdirSync(tvDir, { recursive: true });
@@ -64,7 +64,7 @@ describe("subtitle CLI commands", () => {
     });
   });
 
-  test("subtitle force overwrites existing subtitle", async () => {
+  test("force option overwrites existing subtitle", async () => {
     await withTempDir("subtitle", async (tmpDir) => {
       const tvDir = join(tmpDir, "Naruto", "TV");
       mkdirSync(tvDir, { recursive: true });
@@ -89,7 +89,7 @@ describe("subtitle CLI commands", () => {
     });
   });
 
-  test("subtitle skips files not in cache", async () => {
+  test("skips files not in cache", async () => {
     await withTempDir("subtitle", async (tmpDir) => {
       const tvDir = join(tmpDir, "Unknown", "TV");
       mkdirSync(tvDir, { recursive: true });
@@ -107,7 +107,7 @@ describe("subtitle CLI commands", () => {
     });
   });
 
-  test("subtitle reports download failures", async () => {
+  test("reports download failures", async () => {
     await withTempDir("subtitle", async (tmpDir) => {
       const tvDir = join(tmpDir, "Jujutsu Kaisen", "TV");
       mkdirSync(tvDir, { recursive: true });

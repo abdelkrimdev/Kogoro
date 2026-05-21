@@ -4,7 +4,7 @@ import { createCacheHandlers } from "../cli/cache-commands";
 import { createCache, createLogCapture, makeCachedMatch, withTempDir } from "../test-fixtures";
 
 describe("cache CLI commands", () => {
-  test("cache list returns JSON array of all cached entries", async () => {
+  test("list returns JSON array of all cached entries", async () => {
     await withTempDir("cache", async (dir) => {
       const dbPath = join(dir, "cache.db");
       const cache = createCache(dir);
@@ -34,7 +34,7 @@ describe("cache CLI commands", () => {
     });
   });
 
-  test("cache lookup returns match for existing hash", async () => {
+  test("lookup returns match for existing hash", async () => {
     await withTempDir("cache", async (dir) => {
       const dbPath = join(dir, "cache.db");
       const cache = createCache(dir);
@@ -53,7 +53,7 @@ describe("cache CLI commands", () => {
     });
   });
 
-  test("cache lookup returns message for missing hash", async () => {
+  test("lookup returns message for missing hash", async () => {
     await withTempDir("cache", async (dir) => {
       const dbPath = join(dir, "cache.db");
       const handlers = createCacheHandlers({ dbPath });
@@ -63,7 +63,7 @@ describe("cache CLI commands", () => {
     });
   });
 
-  test("cache clear removes all entries", async () => {
+  test("clear removes all entries", async () => {
     await withTempDir("cache", async (dir) => {
       const dbPath = join(dir, "cache.db");
       const cache = createCache(dir);
@@ -78,7 +78,7 @@ describe("cache CLI commands", () => {
     });
   });
 
-  test("cache clear skips when confirmation denied", async () => {
+  test("clear skips when confirmation denied", async () => {
     await withTempDir("cache", async (dir) => {
       const dbPath = join(dir, "cache.db");
       const cache = createCache(dir);

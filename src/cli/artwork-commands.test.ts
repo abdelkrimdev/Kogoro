@@ -88,7 +88,7 @@ describe("artwork CLI commands", () => {
     });
   });
 
-  test("process handles errors gracefully", async () => {
+  test("process reports no artwork on DB failure", async () => {
     await withTempDir("artwork", async (dir) => {
       const animeDir = join(dir, "TV", "Jujutsu Kaisen");
       mkdirSync(animeDir, { recursive: true });

@@ -7,7 +7,7 @@ import type { PluginInfo } from "../plugin-registry";
 import { captureConsoleLog, withTempDir } from "../test-fixtures";
 
 describe("kogoro CLI", () => {
-  test("project bootstrap is set up", () => {
+  test("CLI module loads without error", () => {
     expect(true).toBe(true);
   });
 
@@ -34,7 +34,7 @@ describe("kogoro CLI", () => {
     expect(result).toBe("Hello World");
   });
 
-  test("package.json has build:bin script for standalone binary", () => {
+  test("package.json defines build:bin script for standalone binary", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf-8")) as {
       scripts?: Record<string, string>;
     };

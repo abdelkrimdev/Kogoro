@@ -17,7 +17,7 @@ describe("ConfigWizard", () => {
     };
   }
 
-  test("wizard sets primary-db from user selection", async () => {
+  test("sets primary-db from user selection", async () => {
     await withTestConfig("wizard", async (_dir, config, credentialStore) => {
       const prompts = makePrompts({
         select: async () => "anidb",
@@ -28,7 +28,7 @@ describe("ConfigWizard", () => {
     });
   });
 
-  test("wizard creates config.toml file", async () => {
+  test("creates config.toml file", async () => {
     await withTestConfig("wizard", async (_dir, config, credentialStore) => {
       const prompts = makePrompts();
 
@@ -37,7 +37,7 @@ describe("ConfigWizard", () => {
     });
   });
 
-  test("wizard saves API key via credential store when provided", async () => {
+  test("saves API key via credential store when provided", async () => {
     const mockKeytar = createMockKeytar();
     await withTestConfig(
       "wizard",
@@ -60,7 +60,7 @@ describe("ConfigWizard", () => {
     );
   });
 
-  test("wizard sets template preset", async () => {
+  test("sets template preset", async () => {
     await withTestConfig("wizard", async (_dir, config, credentialStore) => {
       let selectCalls = 0;
       const prompts = makePrompts({
@@ -77,7 +77,7 @@ describe("ConfigWizard", () => {
     });
   });
 
-  test("wizard sets default values for all config keys", async () => {
+  test("sets default values for all config keys", async () => {
     await withTestConfig("wizard", async (_dir, config, credentialStore) => {
       let selectCalls = 0;
       const prompts = makePrompts({
@@ -97,7 +97,7 @@ describe("ConfigWizard", () => {
     });
   });
 
-  test("wizard prompts for secondary databases and stores value", async () => {
+  test("prompts for secondary databases and stores value", async () => {
     await withTestConfig("wizard", async (_dir, config, credentialStore) => {
       let textCalls = 0;
       const prompts = makePrompts({
@@ -116,7 +116,7 @@ describe("ConfigWizard", () => {
     });
   });
 
-  test("wizard warns with correct env var when credential store throws", async () => {
+  test("warns with correct env var when credential store throws", async () => {
     const throwingKeytar = {
       setPassword: async () => {
         throw new Error("keyring down");
@@ -143,7 +143,7 @@ describe("ConfigWizard", () => {
     );
   });
 
-  test("wizard accepts empty secondary databases", async () => {
+  test("accepts empty secondary databases", async () => {
     await withTestConfig("wizard", async (_dir, config, credentialStore) => {
       const prompts = makePrompts({
         select: async () => "tvdb",

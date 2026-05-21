@@ -304,7 +304,7 @@ describe("AniDBPlugin", () => {
       expect(results[1]?.episode).toBe(26);
     });
 
-    test("parses season from episode XML element", async () => {
+    test("parses season boundaries across multiple seasons", async () => {
       const multiSeasonXml = `<?xml version="1.0"?>
 <anime>
   <id>12345</id>
@@ -330,7 +330,7 @@ describe("AniDBPlugin", () => {
       expect(results[2]?.episode).toBe(3);
     });
 
-    test("defaults season to 1 when season element is absent", async () => {
+    test("defaults missing season to 1 while preserving explicit season values", async () => {
       const noSeasonXml = `<?xml version="1.0"?>
 <anime>
   <id>12345</id>
@@ -444,11 +444,10 @@ describe("AniDBPlugin", () => {
       expect(results).toEqual([]);
     });
   });
-});
 
-describe("getAnime", () => {
-  test("returns AnimeResult from anime XML for a valid ID", async () => {
-    const animeXml = `<?xml version="1.0" encoding="UTF-8"?>
+  describe("getAnime", () => {
+    test("returns AnimeResult from anime XML for a valid ID", async () => {
+      const animeXml = `<?xml version="1.0" encoding="UTF-8"?>
 <anime>
   <id>12345</id>
   <type>TV Series</type>
@@ -460,34 +459,33 @@ describe("getAnime", () => {
   <description>A boy fights curses.</description>
 </anime>`;
 
-    const plugin = new AniDBPlugin({
-      client: "kogoro",
-      clientver: "1",
-      httpClient: mockHttpClient(animeXml),
-    });
-    const result = await plugin.getAnime("12345");
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(animeXml),
+      });
+      const result = await plugin.getAnime("12345");
 
-    expect(result).not.toBeNull();
-    expect(result?.id).toBe("12345");
-    expect(result?.title).toBe("Jujutsu Kaisen");
-    expect(result?.originalTitle).toBe("呪術廻戦");
-    expect(result?.overview).toBe("A boy fights curses.");
-    expect(result?.entryType).toBe("tv");
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("12345");
+      expect(result?.title).toBe("Jujutsu Kaisen");
+      expect(result?.originalTitle).toBe("呪術廻戦");
+      expect(result?.overview).toBe("A boy fights curses.");
+      expect(result?.entryType).toBe("tv");
+    });
+
+    test("returns null on API failure", async () => {
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient("", 404),
+      });
+      const result = await plugin.getAnime("99999");
+      expect(result).toBeNull();
+    });
   });
 
-  test("returns null on API failure", async () => {
-    const plugin = new AniDBPlugin({
-      client: "kogoro",
-      clientver: "1",
-      httpClient: mockHttpClient("", 404),
-    });
-    const result = await plugin.getAnime("99999");
-    expect(result).toBeNull();
-  });
-});
-
-describe("DatabasePlugin interface", () => {
-  test("interface is defined", () => {
+  test("satisfies DatabasePlugin contract", () => {
     const plugin: DatabasePlugin = new AniDBPlugin({
       client: "kogoro",
       clientver: "1",

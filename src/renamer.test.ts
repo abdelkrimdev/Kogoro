@@ -139,7 +139,7 @@ describe("Renamer", () => {
     );
   });
 
-  test("appends numeric suffix when no tags on collision", () => {
+  test("appends numeric suffix on collision when tags are absent", () => {
     const renamer = new Renamer({
       filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
       directoryTemplate: "{anime}/{type}",
@@ -154,7 +154,7 @@ describe("Renamer", () => {
     expect(plan2.targetFilename).toBe("Jujutsu Kaisen - 1x13 - Tomorrow (2).mkv");
   });
 
-  test("appends numeric suffix when tagged path also collides", () => {
+  test("falls back to numeric suffix when tagged path also collides", () => {
     const renamer = new Renamer({
       filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
       directoryTemplate: "{anime}/{type}",
