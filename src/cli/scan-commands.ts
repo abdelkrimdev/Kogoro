@@ -3,7 +3,7 @@ import { extname, join, sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../config/config-manager";
 import type { MatchCache } from "../match-cache";
-import type { MatchResult } from "../matcher";
+import { Matcher, type MatchResult } from "../matcher";
 import type { NumberingScheme } from "../numbering-converter";
 import type { OverrideStore } from "../override-store";
 import { createEmptyResult, type ParsedResult } from "../parser";
@@ -102,7 +102,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
 
   function buildScanner(database: DatabasePlugin): Scanner {
     return new Scanner({
-      database,
+      matcher: new Matcher({ database, overrideStore: options.overrideStore }),
       cache: options.cache,
       renamer,
       overrideStore: options.overrideStore,
