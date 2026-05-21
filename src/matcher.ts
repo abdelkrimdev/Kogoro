@@ -13,23 +13,26 @@ export interface MatchResult {
 
 export function matchResultFromCache(cached: CachedMatch): MatchResult {
   const entryType = cached.entryType as EntryType;
+
+  let episode: EpisodeResult | undefined;
+  if (cached.episodeId !== null && cached.episode !== null) {
+    episode = {
+      id: cached.episodeId,
+      animeId: cached.animeId,
+      season: cached.season ?? 1,
+      episode: cached.episode,
+      title: cached.title ?? "",
+      entryType,
+    };
+  }
+
   return {
     anime: {
       id: cached.animeId,
       title: cached.animeTitle ?? "",
       entryType,
     },
-    episode:
-      cached.episodeId !== null && cached.episode !== null
-        ? {
-            id: cached.episodeId,
-            animeId: cached.animeId,
-            season: cached.season ?? 1,
-            episode: cached.episode,
-            title: cached.title ?? "",
-            entryType,
-          }
-        : undefined,
+    episode,
     score: 1,
   };
 }
@@ -37,23 +40,26 @@ export function matchResultFromCache(cached: CachedMatch): MatchResult {
 export function matchResultFromOverride(override: OverrideData): MatchResult {
   const animeId = override.animeId ?? "";
   const entryType = override.entryType ?? "tv";
+
+  let episode: EpisodeResult | undefined;
+  if (override.episodeId !== undefined && override.animeId) {
+    episode = {
+      id: override.episodeId,
+      animeId,
+      season: 0,
+      episode: 0,
+      title: "(overridden)",
+      entryType,
+    };
+  }
+
   return {
     anime: {
       id: animeId,
       title: "(overridden)",
       entryType,
     },
-    episode:
-      override.episodeId !== undefined && override.animeId
-        ? {
-            id: override.episodeId,
-            animeId,
-            season: 0,
-            episode: 0,
-            title: "(overridden)",
-            entryType,
-          }
-        : undefined,
+    episode,
     score: 1,
   };
 }
@@ -61,17 +67,18 @@ export function matchResultFromOverride(override: OverrideData): MatchResult {
 export function matchResultFromManual(
   animeId: string,
   episode: number,
-  entryType: EntryType,
+  entryType: string,
 ): MatchResult {
+  const typedEntryType = entryType as EntryType;
   return {
-    anime: { id: animeId, title: "", entryType },
+    anime: { id: animeId, title: "", entryType: typedEntryType },
     episode: {
       id: "",
       animeId,
       season: 1,
       episode,
       title: "",
-      entryType,
+      entryType: typedEntryType,
     },
     score: 1,
   };

@@ -11,7 +11,7 @@ import {
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
-import type { EntryType } from "./plugins/database/types";
+
 import type { FileAction, RenamePlan, RenameResult, Renamer } from "./renamer";
 
 export type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
@@ -174,7 +174,7 @@ export class Scanner {
           filePath,
           hash,
           parsed,
-          matchResultFromManual(manual.animeId, manual.episode, manual.entryType as EntryType),
+          matchResultFromManual(manual.animeId, manual.episode, manual.entryType),
           options,
           true,
           overrideKey,
@@ -204,7 +204,7 @@ export class Scanner {
           filePath,
           hash,
           parsed,
-          matchResultFromManual(manual.animeId, manual.episode, manual.entryType as EntryType),
+          matchResultFromManual(manual.animeId, manual.episode, manual.entryType),
           options,
           true,
           overrideKey,
@@ -392,11 +392,7 @@ export class Scanner {
           if (matchResult.failureReason) {
             const manual = await this.tryResolveFailed(entry.parsed, options);
             if (manual) {
-              entry.match = matchResultFromManual(
-                manual.animeId,
-                manual.episode,
-                manual.entryType as EntryType,
-              );
+              entry.match = matchResultFromManual(manual.animeId, manual.episode, manual.entryType);
             }
           } else {
             entry.match = matchResult;

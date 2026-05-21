@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { CachedMatch } from "./match-cache";
 import {
   Matcher,
   matchResultFromCache,
@@ -12,23 +11,22 @@ import type { DatabasePlugin } from "./plugins/database/plugin";
 import {
   createCallCounter,
   createDataMockDb,
+  makeCachedMatch,
   makeParsedResult,
   withTempDir,
 } from "./test-fixtures";
 
 describe("matchResultFromCache", () => {
-  const baseCached: CachedMatch = {
+  const baseCached = makeCachedMatch({
     animeId: "anime-1",
     animeTitle: "Jujutsu Kaisen",
     episodeId: "ep-101",
-    entryType: "tv",
     season: 1,
     episode: 1,
     title: "Ryomen Sukuna",
-    timestamp: "2026-01-01T00:00:00.000Z",
-  };
+  });
 
-  test("returns MatchResult with anime and episode from cache", () => {
+  test("returns anime and episode from cache", () => {
     const result = matchResultFromCache(baseCached);
 
     expect(result.anime.id).toBe("anime-1");
@@ -66,7 +64,7 @@ describe("matchResultFromCache", () => {
     expect(result.anime.title).toBe("");
   });
 
-  test("persists score=1 invariant", () => {
+  test("has score of 1", () => {
     const result = matchResultFromCache(baseCached);
 
     expect(result.score).toBe(1);
@@ -74,7 +72,7 @@ describe("matchResultFromCache", () => {
 });
 
 describe("matchResultFromOverride", () => {
-  test("returns MatchResult with anime and episode from full override", () => {
+  test("returns anime and episode from full override", () => {
     const override: OverrideData = {
       animeId: "tvdb-99",
       episodeId: "ep-5",
@@ -130,7 +128,7 @@ describe("matchResultFromOverride", () => {
 });
 
 describe("matchResultFromManual", () => {
-  test("returns MatchResult for animeId, episode, and entryType", () => {
+  test("returns match for animeId, episode, and entryType", () => {
     const result = matchResultFromManual("anime-42", 3, "tv");
 
     expect(result.anime.id).toBe("anime-42");
@@ -152,7 +150,7 @@ describe("matchResultFromManual", () => {
     expect(result.episode?.entryType).toBe("movie");
   });
 
-  test("persists score=1 invariant", () => {
+  test("has score of 1", () => {
     const result = matchResultFromManual("anime-1", 5, "ova");
 
     expect(result.score).toBe(1);
