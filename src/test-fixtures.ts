@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ConfigManager } from "./config/config-manager";
 import { CredentialStore, type KeytarLike } from "./config/credential-store";
 import { type CachedMatch, MatchCache } from "./match-cache";
-import type { MatchResult } from "./matcher";
+import type { IMatcher, MatchResult } from "./matcher";
 import type { ParsedResult, ParsedTags } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { AnimeResult, ArtworkResult, EpisodeResult } from "./plugins/database/types";
@@ -379,6 +379,46 @@ interface MockAnime {
   title: string;
   entryType?: "tv" | "movie" | "ova" | "special";
   episodes: Array<{ id: string; season: number; episode: number; title: string }>;
+}
+
+export function createMockMatcher(): IMatcher {
+  const mockMatch = async (parsed: ParsedResult): Promise<MatchResult[]> => {
+    if (!parsed.title || parsed.title.startsWith("Unknown")) {
+      return [
+        {
+          anime: { id: "", title: "", entryType: "tv" as const },
+          score: 0,
+          failureReason: "No anime found",
+        },
+      ];
+    }
+    return [
+      makeMatchResult({
+        anime: { id: "1", title: parsed.title, entryType: "tv" as const },
+        episode:
+          parsed.episode !== null
+            ? {
+                id: "101",
+                animeId: "1",
+                season: parsed.season ?? 1,
+                episode: parsed.episode,
+                title: `Ep ${parsed.episode}`,
+                entryType: "tv" as const,
+              }
+            : undefined,
+      }),
+    ];
+  };
+
+  const mockBatch = async (parsedList: ParsedResult[]): Promise<MatchResult[]> => {
+    const results: MatchResult[] = [];
+    for (const p of parsedList) {
+      results.push(...(await mockMatch(p)));
+    }
+    return results;
+  };
+
+  return { match: mockMatch, matchBatch: mockBatch };
 }
 
 export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {
