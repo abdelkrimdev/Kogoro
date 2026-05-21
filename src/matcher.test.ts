@@ -471,6 +471,7 @@ describe("Matcher", () => {
     test("returns match with episode when cached data has episodeId and episode number", () => {
       const result = matchResultFromCache({
         animeId: "1",
+        animeTitle: "Anime Title",
         episodeId: "101",
         entryType: "tv",
         season: 1,
@@ -480,7 +481,7 @@ describe("Matcher", () => {
       });
 
       expect(result.anime.id).toBe("1");
-      expect(result.anime.title).toBe("Episode Title");
+      expect(result.anime.title).toBe("Anime Title");
       expect(result.anime.entryType).toBe("tv");
       expect(result.episode?.id).toBe("101");
       expect(result.episode?.animeId).toBe("1");
@@ -493,11 +494,12 @@ describe("Matcher", () => {
     test("returns anime-only match when episodeId is null", () => {
       const result = matchResultFromCache({
         animeId: "1",
+        animeTitle: "Movie Title",
         episodeId: null,
         entryType: "movie",
         season: null,
         episode: null,
-        title: "Movie Title",
+        title: null,
         timestamp: "2026-01-01T00:00:00.000Z",
       });
 
@@ -539,11 +541,7 @@ describe("Matcher", () => {
 
   describe("matchResultFromManual", () => {
     test("returns match with manual data using EntryType", () => {
-      const result = matchResultFromManual({
-        animeId: "99",
-        episode: 5,
-        entryType: "special" as const,
-      });
+      const result = matchResultFromManual("99", 5, "special");
 
       expect(result.anime.id).toBe("99");
       expect(result.anime.title).toBe("");
@@ -558,11 +556,7 @@ describe("Matcher", () => {
     });
 
     test("accepts tv entryType", () => {
-      const result = matchResultFromManual({
-        animeId: "1",
-        episode: 1,
-        entryType: "tv" as const,
-      });
+      const result = matchResultFromManual("1", 1, "tv");
 
       expect(result.anime.entryType).toBe("tv");
       expect(result.episode?.entryType).toBe("tv");

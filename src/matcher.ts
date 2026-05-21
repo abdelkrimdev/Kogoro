@@ -11,14 +11,36 @@ export interface MatchResult {
   failureReason?: string;
 }
 
-export interface MatcherLike {
-  match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]>;
-  matchBatch(parsedList: ParsedResult[]): Promise<MatchResult[]>;
+export function matchResultFromCache(cached: CachedMatch): MatchResult {
+  const entryType = cached.entryType as EntryType;
+
+  let episode: EpisodeResult | undefined;
+  if (cached.episodeId !== null && cached.episode !== null) {
+    episode = {
+      id: cached.episodeId,
+      animeId: cached.animeId,
+      season: cached.season ?? 1,
+      episode: cached.episode,
+      title: cached.title ?? "",
+      entryType,
+    };
+  }
+
+  return {
+    anime: {
+      id: cached.animeId,
+      title: cached.animeTitle ?? "",
+      entryType,
+    },
+    episode,
+    score: 1,
+  };
 }
 
 export function matchResultFromOverride(override: OverrideData): MatchResult {
   const animeId = override.animeId ?? "";
   const entryType = override.entryType ?? "tv";
+
   let episode: EpisodeResult | undefined;
   if (override.episodeId !== undefined && override.animeId) {
     episode = {
@@ -30,26 +52,11 @@ export function matchResultFromOverride(override: OverrideData): MatchResult {
       entryType,
     };
   }
-  return { anime: { id: animeId, title: "(overridden)", entryType }, episode, score: 1 };
-}
 
-export function matchResultFromCache(cached: CachedMatch): MatchResult {
-  const entryType = cached.entryType as EntryType;
-  let episode: EpisodeResult | undefined;
-  if (cached.episodeId && cached.episode !== null) {
-    episode = {
-      id: cached.episodeId,
-      animeId: cached.animeId,
-      season: cached.season ?? 1,
-      episode: cached.episode,
-      title: cached.title ?? "",
-      entryType,
-    };
-  }
   return {
     anime: {
-      id: cached.animeId,
-      title: cached.title ?? "",
+      id: animeId,
+      title: "(overridden)",
       entryType,
     },
     episode,
@@ -57,23 +64,29 @@ export function matchResultFromCache(cached: CachedMatch): MatchResult {
   };
 }
 
-export function matchResultFromManual(manual: {
-  animeId: string;
-  episode: number;
-  entryType: EntryType;
-}): MatchResult {
+export function matchResultFromManual(
+  animeId: string,
+  episode: number,
+  entryType: string,
+): MatchResult {
+  const typedEntryType = entryType as EntryType;
   return {
-    anime: { id: manual.animeId, title: "", entryType: manual.entryType },
+    anime: { id: animeId, title: "", entryType: typedEntryType },
     episode: {
       id: "",
-      animeId: manual.animeId,
+      animeId,
       season: 1,
-      episode: manual.episode,
+      episode,
       title: "",
-      entryType: manual.entryType,
+      entryType: typedEntryType,
     },
     score: 1,
   };
+}
+
+export interface MatcherLike {
+  match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]>;
+  matchBatch(parsedList: ParsedResult[]): Promise<MatchResult[]>;
 }
 
 export interface MatcherOptions {

@@ -249,7 +249,7 @@ export class Scanner {
     const manual = await this.tryResolveFailed(parsed, options);
     if (!manual) return null;
 
-    const manualMatch = matchResultFromManual(manual);
+    const manualMatch = matchResultFromManual(manual.animeId, manual.episode, manual.entryType);
     const resolvedHash = await this.persistMatch(filePath, hash, manualMatch);
     this.persistOverride(overrideKey, manualMatch);
     return this.renameFile(filePath, resolvedHash, manualMatch, parsed, options);
@@ -395,7 +395,7 @@ export class Scanner {
           if (matchResult.failureReason) {
             const manual = await this.tryResolveFailed(entry.parsed, options);
             if (manual) {
-              entry.match = matchResultFromManual(manual);
+              entry.match = matchResultFromManual(manual.animeId, manual.episode, manual.entryType);
             }
           } else {
             entry.match = matchResult;
