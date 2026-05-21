@@ -2,52 +2,20 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { OverrideStore } from "./override-store";
-import type { DatabasePlugin } from "./plugins/database/plugin";
-import type { AnimeResult, EpisodeResult } from "./plugins/database/types";
 import { Renamer } from "./renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
-import { createCache, makeThrowingDb, withTempDir, writeTempFile } from "./test-fixtures";
-
-const STD_EPISODES: EpisodeResult[] = [
-  { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
-  { id: "102", animeId: "1", season: 1, episode: 2, title: "Ep 2", entryType: "tv" as const },
-  { id: "103", animeId: "1", season: 1, episode: 3, title: "Ep 3", entryType: "tv" as const },
-];
-
-interface MockDbOptions {
-  searchResults?: (title: string) => AnimeResult[];
-  episodes?: (animeId: string) => EpisodeResult[];
-  trackCalls?: { search?: number[]; episodes?: number[] };
-}
-
-function createMockDb(opts: MockDbOptions = {}): DatabasePlugin {
-  const counters = opts.trackCalls;
-  const defaultSearch = (title: string) => {
-    if (title === "Unknown File" || title === "Unknown Show") return [];
-    return [{ id: "1", title, entryType: "tv" as const }];
-  };
-
-  return {
-    async searchAnime(title: string) {
-      counters?.search?.push(1);
-      return (opts.searchResults ?? defaultSearch)(title);
-    },
-    async getEpisodes(animeId: string) {
-      counters?.episodes?.push(1);
-      return (opts.episodes ?? (() => STD_EPISODES))(animeId);
-    },
-    async getArtwork() {
-      return [];
-    },
-    async getAnime() {
-      return null;
-    },
-  };
-}
+import {
+  createAmbiguousMatcher,
+  createCache,
+  createMockMatcher,
+  createTrackingMatcher,
+  withTempDir,
+  writeTempFile,
+} from "./test-fixtures";
 
 describe("Scanner", () => {
   test("scanFile parses filename and returns auto-resolved match", async () => {
-    const scanner = new Scanner({ database: createMockDb() });
+    const scanner = new Scanner({ matcher: createMockMatcher() });
     const result = await scanner.scanFile("[Group] My Anime - 01.mkv");
 
     expect(result.file).toBe("[Group] My Anime - 01.mkv");
@@ -61,37 +29,10 @@ describe("Scanner", () => {
 
   test("persists override after interactive ambiguous resolution", async () => {
     await withTempDir("scan-override", async (dir) => {
-      const ambiguousDb = createMockDb({
-        searchResults: (title) => [
-          { id: "1", title, entryType: "tv" as const },
-          { id: "2", title: `${title} Special`, entryType: "special" as const },
-        ],
-        episodes: (animeId) =>
-          animeId === "1"
-            ? [
-                {
-                  id: "101",
-                  animeId: "1",
-                  season: 1,
-                  episode: 1,
-                  title: "Ep 1",
-                  entryType: "tv" as const,
-                },
-              ]
-            : [
-                {
-                  id: "201",
-                  animeId: "2",
-                  season: 1,
-                  episode: 1,
-                  title: "Special",
-                  entryType: "special" as const,
-                },
-              ],
-      });
+      const ambiguousMatcher = createAmbiguousMatcher();
 
       const overrideStore = new OverrideStore(dir);
-      const scanner = new Scanner({ database: ambiguousDb, overrideStore });
+      const scanner = new Scanner({ matcher: ambiguousMatcher, overrideStore });
 
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake content");
 
@@ -111,7 +52,7 @@ describe("Scanner", () => {
   test("persists override after interactive failed resolution", async () => {
     await withTempDir("scan-failed-override", async (dir) => {
       const overrideStore = new OverrideStore(dir);
-      const scanner = new Scanner({ database: createMockDb(), overrideStore });
+      const scanner = new Scanner({ matcher: createMockMatcher(), overrideStore });
 
       const filePath = writeTempFile(dir, "Unknown File.mkv");
 
@@ -132,7 +73,7 @@ describe("Scanner", () => {
   test("override persists choices across scan sessions", async () => {
     await withTempDir("scan-cross-session", async (dir) => {
       const overrideStore = new OverrideStore(dir);
-      const scanner = new Scanner({ database: createMockDb(), overrideStore });
+      const scanner = new Scanner({ matcher: createMockMatcher(), overrideStore });
 
       const filePath = writeTempFile(dir, "[Group] Unknown Show - 99.mkv");
 
@@ -144,7 +85,7 @@ describe("Scanner", () => {
       const overrideHash = computeFileHash(basename(filePath));
       expect(overrideStore.get(overrideHash)?.animeId).toBe("42");
 
-      const secondScanner = new Scanner({ database: makeThrowingDb(), overrideStore });
+      const secondScanner = new Scanner({ matcher: createMockMatcher(), overrideStore });
       const secondResult = await secondScanner.scanFile(filePath);
 
       expect(secondResult.status).toBe("matched");
@@ -163,7 +104,7 @@ describe("Scanner", () => {
         directoryTemplate: "{anime}/{type}",
         action: "move",
       });
-      const scanner = new Scanner({ database: createMockDb(), cache, renamer });
+      const scanner = new Scanner({ matcher: createMockMatcher(), cache, renamer });
 
       const result = await scanner.scanFile(filePath, {
         onAmbiguous: async (candidates) => candidates[0] ?? null,
@@ -188,7 +129,7 @@ describe("Scanner", () => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
 
       const cache = createCache(dir);
-      const scanner = new Scanner({ database: createMockDb(), cache });
+      const scanner = new Scanner({ matcher: createMockMatcher(), cache });
 
       const first = await scanner.scanFile(filePath, {
         onAmbiguous: async (candidates) => candidates[0] ?? null,
@@ -212,7 +153,7 @@ describe("Scanner", () => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
 
       const cache = createCache(dir);
-      const scanner = new Scanner({ database: createMockDb(), cache });
+      const scanner = new Scanner({ matcher: createMockMatcher(), cache });
 
       const first = await scanner.scanFile(filePath, {
         onAmbiguous: async (candidates) => candidates[0] ?? null,
@@ -241,7 +182,7 @@ describe("Scanner", () => {
         directoryTemplate: "{anime}/{type}",
         action: "move",
       });
-      const scanner = new Scanner({ database: createMockDb(), cache, renamer });
+      const scanner = new Scanner({ matcher: createMockMatcher(), cache, renamer });
 
       const result = await scanner.scanFile(filePath, {
         onAmbiguous: async (candidates) => candidates[0] ?? null,
@@ -265,7 +206,7 @@ describe("Scanner", () => {
       writeTempFile(dir, "[SubsPlease] One Piece - 02.mkv", "");
       writeTempFile(dir, "readme.txt", "not a media file");
 
-      const scanner = new Scanner({ database: createMockDb() });
+      const scanner = new Scanner({ matcher: createMockMatcher() });
       const results = await scanner.scanDir(dir, [".mkv"]);
 
       expect(results).toHaveLength(2);
@@ -280,7 +221,7 @@ describe("Scanner", () => {
       writeTempFile(dir, "[Group] Anime - 02.mkv", "b");
       writeTempFile(dir, "[Group] Anime - 03.mkv", "c");
 
-      const scanner = new Scanner({ database: createMockDb() });
+      const scanner = new Scanner({ matcher: createMockMatcher() });
       const filePaths = [
         join(dir, "[Group] Anime - 01.mkv"),
         join(dir, "[Group] Anime - 02.mkv"),
@@ -308,15 +249,10 @@ describe("Scanner", () => {
     });
   });
 
-  test("groups files by anime title to reduce database lookups", async () => {
-    const searchCalls: number[] = [];
-    const episodeCalls: number[] = [];
+  test("calls matchBatch once for batch scan", async () => {
+    const { matcher: trackingMatcher, batchCallTitles } = createTrackingMatcher();
 
-    const trackingDb = createMockDb({
-      trackCalls: { search: searchCalls, episodes: episodeCalls },
-    });
-
-    const scanner = new Scanner({ database: trackingDb });
+    const scanner = new Scanner({ matcher: trackingMatcher });
     const results = await scanner.scanBatch(
       ["[Group] Anime - 01.mkv", "[Group] Anime - 02.mkv", "[Group] Anime - 03.mkv"],
       { concurrency: 3 },
@@ -326,8 +262,8 @@ describe("Scanner", () => {
     for (const r of results) {
       expect(r.status).toBe("matched");
     }
-    expect(searchCalls.length).toBe(1);
-    expect(episodeCalls.length).toBe(1);
+    expect(batchCallTitles).toHaveLength(1);
+    expect(batchCallTitles[0]).toEqual(["Anime", "Anime", "Anime"]);
   });
 
   test("stops processing remaining files when scanning is cancelled", async () => {
@@ -337,7 +273,7 @@ describe("Scanner", () => {
       writeTempFile(dir, "[Group] Anime - 03.mkv", "c");
       writeTempFile(dir, "[Group] Anime - 04.mkv", "d");
 
-      const scanner = new Scanner({ database: createMockDb() });
+      const scanner = new Scanner({ matcher: createMockMatcher() });
       const filePaths = [
         join(dir, "[Group] Anime - 01.mkv"),
         join(dir, "[Group] Anime - 02.mkv"),
@@ -384,7 +320,7 @@ describe("Scanner", () => {
         mkdirSync(animeDir);
         writeTempFile(animeDir, "[Group].mkv");
 
-        const scanner = new Scanner({ database: createMockDb() });
+        const scanner = new Scanner({ matcher: createMockMatcher() });
         const result = await scanner.scanFile(join(animeDir, "[Group].mkv"));
 
         expect(result.parsed.title).toBe("Summertime Render");
@@ -399,7 +335,7 @@ describe("Scanner", () => {
         mkdirSync(tvDir, { recursive: true });
         writeTempFile(tvDir, "[Group].mkv");
 
-        const scanner = new Scanner({ database: createMockDb() });
+        const scanner = new Scanner({ matcher: createMockMatcher() });
         const result = await scanner.scanFile(join(tvDir, "[Group].mkv"));
 
         expect(result.parsed.title).toBe("Jujutsu Kaisen");
@@ -413,7 +349,7 @@ describe("Scanner", () => {
         mkdirSync(animeDir);
         writeTempFile(animeDir, "[SubsPlease] Correct Name - 01.mkv");
 
-        const scanner = new Scanner({ database: createMockDb() });
+        const scanner = new Scanner({ matcher: createMockMatcher() });
         const result = await scanner.scanFile(join(animeDir, "[SubsPlease] Correct Name - 01.mkv"));
 
         expect(result.parsed.title).toBe("Correct Name");

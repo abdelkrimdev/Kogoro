@@ -4,7 +4,7 @@ import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../config/config-manager";
 import { VIDEO_EXTENSIONS, walk } from "../directory-walker";
 import type { MatchCache } from "../match-cache";
-import type { MatchResult } from "../matcher";
+import { Matcher, type MatchResult } from "../matcher";
 import type { NumberingScheme } from "../numbering-converter";
 import type { OverrideStore } from "../override-store";
 import { createEmptyResult, type ParsedResult } from "../parser";
@@ -83,8 +83,9 @@ export function createScanHandlers(options: ScanHandlerOptions) {
     });
 
   function buildScanner(database: DatabasePlugin): Scanner {
+    const matcher = new Matcher({ database });
     return new Scanner({
-      database,
+      matcher,
       cache: options.cache,
       renamer,
       overrideStore: options.overrideStore,

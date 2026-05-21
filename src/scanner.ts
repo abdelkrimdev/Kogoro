@@ -1,10 +1,9 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import { MatchCache } from "./match-cache";
-import { Matcher, type MatchResult } from "./matcher";
+import type { MatcherLike, MatchResult } from "./matcher";
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
-import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { EntryType } from "./plugins/database/types";
 import type { FileAction, RenamePlan, RenameResult, Renamer } from "./renamer";
 
@@ -23,7 +22,7 @@ export interface ScanResult {
 }
 
 export interface ScannerOptions {
-  database: DatabasePlugin;
+  matcher: MatcherLike;
   cache?: MatchCache;
   renamer?: Renamer;
   overrideStore?: OverrideStore;
@@ -165,15 +164,13 @@ interface BatchEntry {
 }
 
 export class Scanner {
-  private db: DatabasePlugin;
-  private matcher: Matcher;
+  private matcher: MatcherLike;
   private cache?: MatchCache;
   private renamer?: Renamer;
   private overrideStore?: OverrideStore;
 
   constructor(options: ScannerOptions) {
-    this.db = options.database;
-    this.matcher = new Matcher({ database: this.db, overrideStore: options.overrideStore });
+    this.matcher = options.matcher;
     this.cache = options.cache;
     this.renamer = options.renamer;
     this.overrideStore = options.overrideStore;
@@ -224,6 +221,20 @@ export class Scanner {
     }
 
     const parsed = this.parseFile(filePath);
+
+    const override = this.overrideStore?.get(overrideKey);
+    if (override?.animeId) {
+      return this.cacheAndPlan(
+        filePath,
+        hash,
+        parsed,
+        matchFromOverride(override),
+        options,
+        false,
+        overrideKey,
+      );
+    }
+
     const matches = await this.matcher.match(parsed, overrideKey);
 
     return this.resolveMatches(filePath, hash, parsed, matches, options, overrideKey);
