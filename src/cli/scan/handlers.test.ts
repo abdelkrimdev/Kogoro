@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
-import { createScanHandlers, isAlreadyOrganized } from "../cli/scan-commands";
-import { ConfigManager } from "../config/config-manager";
-import { OverrideStore } from "../override-store";
-import { computeFileHash } from "../scanner";
+import { ConfigManager } from "../../config/config-manager";
+import { OverrideStore } from "../../override-store";
+import { computeFileHash } from "../../scanner";
 import {
   createMockDb as _createMockDb,
   createCache,
@@ -12,7 +11,8 @@ import {
   makeThrowingDb,
   withTempDir,
   writeTempFile,
-} from "../test-fixtures";
+} from "../../test-fixtures";
+import { createScanHandlers, isAlreadyOrganized } from "./handlers";
 
 describe("scan CLI commands", () => {
   test("directory scan with -y returns JSON with matched files", async () => {

@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createMetadataHandlers } from "../cli/metadata-commands";
 import {
   createLogCapture,
   createMockDb,
   seedCacheEntry,
   withTempDir,
   writeTempFile,
-} from "../test-fixtures";
+} from "../../test-fixtures";
+import { createMetadataHandlers } from "./handlers";
 
 describe("metadata CLI commands", () => {
   test("write generates NFO and returns summary JSON", async () => {

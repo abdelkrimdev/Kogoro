@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { relative, sep } from "node:path";
-import { VIDEO_EXTENSIONS, walk } from "../directory-walker";
-import { MatchCache } from "../match-cache";
-import type { SubtitlePlugin } from "../plugins/subtitle/plugin";
+import { VIDEO_EXTENSIONS, walk } from "../../directory-walker";
+import { MatchCache } from "../../match-cache";
+import type { SubtitlePlugin } from "../../plugins/subtitle/plugin";
 
 export interface SubtitleHandlerOptions {
   subtitlePlugin: SubtitlePlugin;

@@ -1,7 +1,7 @@
-import type { UrlFetch } from "../artwork-fetcher";
-import { ArtworkFetcher } from "../artwork-fetcher";
-import { MatchCache } from "../match-cache";
-import type { DatabasePlugin } from "../plugins/database/plugin";
+import type { UrlFetch } from "../../artwork-fetcher";
+import { ArtworkFetcher } from "../../artwork-fetcher";
+import { MatchCache } from "../../match-cache";
+import type { DatabasePlugin } from "../../plugins/database/plugin";
 
 export interface ArtworkHandlerOptions {
   primaryDb: DatabasePlugin;

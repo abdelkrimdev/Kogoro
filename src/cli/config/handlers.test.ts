@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { createConfigHandlers } from "../cli/config-commands";
-import { ConfigManager } from "../config/config-manager";
-import { OverrideStore } from "../override-store";
-import { createLogCapture, withTempDir } from "../test-fixtures";
+import { ConfigManager } from "../../config/config-manager";
+import { OverrideStore } from "../../override-store";
+import { createLogCapture, withTempDir } from "../../test-fixtures";
+import { createConfigHandlers } from "./handlers";
 
 describe("Config CLI commands", () => {
   test("config get returns set value", async () => {

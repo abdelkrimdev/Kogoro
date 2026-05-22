@@ -1,6 +1,6 @@
-import { MatchCache } from "../match-cache";
-import { MetadataWriter } from "../metadata-writer";
-import type { DatabasePlugin } from "../plugins/database/plugin";
+import { MatchCache } from "../../match-cache";
+import { MetadataWriter } from "../../metadata-writer";
+import type { DatabasePlugin } from "../../plugins/database/plugin";
 
 export interface MetadataHandlerOptions {
   dbPath?: string;

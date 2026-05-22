@@ -1,4 +1,4 @@
-import { MatchCache } from "../match-cache";
+import { MatchCache } from "../../match-cache";
 
 export interface CacheHandlerOptions {
   dbPath?: string;

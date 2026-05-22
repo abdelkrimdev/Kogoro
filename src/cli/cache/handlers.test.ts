@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { createCacheHandlers } from "../cli/cache-commands";
-import { createCache, createLogCapture, makeCachedMatch, withTempDir } from "../test-fixtures";
+import { createCache, createLogCapture, makeCachedMatch, withTempDir } from "../../test-fixtures";
+import { createCacheHandlers } from "./handlers";
 
 describe("cache CLI commands", () => {
   test("list returns JSON array of all cached entries", async () => {

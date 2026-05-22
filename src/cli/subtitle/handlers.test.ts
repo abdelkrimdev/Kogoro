@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { createSubtitleHandlers } from "../cli/subtitle-commands";
 import {
   createCache,
   createLogCapture,
@@ -9,7 +8,8 @@ import {
   seedCacheEntry,
   withTempDir,
   writeTempFile,
-} from "../test-fixtures";
+} from "../../test-fixtures";
+import { createSubtitleHandlers } from "./handlers";
 
 describe("subtitle CLI commands", () => {
   test("downloads subtitles for cached entries", async () => {

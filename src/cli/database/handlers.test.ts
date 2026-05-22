@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { createDatabaseCommands } from "../cli/database-commands";
-import type { DatabasePlugin } from "../plugins/database/plugin";
-import type { AnimeResult, EpisodeResult } from "../plugins/database/types";
-import { createMockDb as _createMockDb, createLogCapture, makeThrowingDb } from "../test-fixtures";
+import type { DatabasePlugin } from "../../plugins/database/plugin";
+import type { AnimeResult, EpisodeResult } from "../../plugins/database/types";
+import {
+  createMockDb as _createMockDb,
+  createLogCapture,
+  makeThrowingDb,
+} from "../../test-fixtures";
+import { createDatabaseCommands } from "./handlers";
 
 function createMockPlugin(): DatabasePlugin {
   return _createMockDb({

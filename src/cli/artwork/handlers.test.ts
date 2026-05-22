@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { createArtworkHandlers } from "../cli/artwork-commands";
 import {
   createArtworkDb,
   createLogCapture,
@@ -10,7 +9,8 @@ import {
   seedCacheEntry,
   testImageBytes,
   withTempDir,
-} from "../test-fixtures";
+} from "../../test-fixtures";
+import { createArtworkHandlers } from "./handlers";
 
 describe("artwork CLI commands", () => {
   test("process downloads cover and outputs summary", async () => {

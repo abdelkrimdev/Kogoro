@@ -1,16 +1,16 @@
 import { lstatSync } from "node:fs";
 import { sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
-import type { ConfigManager } from "../config/config-manager";
-import { VIDEO_EXTENSIONS, walk } from "../directory-walker";
-import type { MatchCache } from "../match-cache";
-import { Matcher, type MatchResult } from "../matcher";
-import type { NumberingScheme } from "../numbering-converter";
-import type { OverrideStore } from "../override-store";
-import { createEmptyResult, type ParsedResult } from "../parser";
-import type { DatabasePlugin } from "../plugins/database/plugin";
-import { type FileAction, Renamer } from "../renamer";
-import { Scanner, type ScanProgress, type ScanResult } from "../scanner";
+import type { ConfigManager } from "../../config/config-manager";
+import { VIDEO_EXTENSIONS, walk } from "../../directory-walker";
+import type { MatchCache } from "../../match-cache";
+import { Matcher, type MatchResult } from "../../matcher";
+import type { NumberingScheme } from "../../numbering-converter";
+import type { OverrideStore } from "../../override-store";
+import { createEmptyResult, type ParsedResult } from "../../parser";
+import type { DatabasePlugin } from "../../plugins/database/plugin";
+import { type FileAction, Renamer } from "../../renamer";
+import { Scanner, type ScanProgress, type ScanResult } from "../../scanner";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
