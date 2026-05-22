@@ -25,12 +25,12 @@ export function registerDb(
 ): void {
   parser.command(
     "db",
-    "Query databases for Anime and Episode data",
+    "Query anime databases for search and episode listings",
     (yargs) =>
       yargs
         .command(
           "search <title>",
-          "Search for Anime by title on TVDB and print results as JSON",
+          "Search for anime by title and print results as JSON",
           (yargs) =>
             yargs
               .positional("title", {
@@ -51,13 +51,13 @@ export function registerDb(
         )
         .command(
           "episodes <animeId>",
-          "Get episodes for an Anime by TVDB ID and print as JSON",
+          "Get episodes for an anime by ID and print as JSON",
           (yargs) =>
             yargs
               .positional("animeId", {
                 type: "string",
                 demandOption: true,
-                describe: "TVDB Anime ID",
+                describe: "Anime ID in the primary database",
               })
               .option("debug", {
                 type: "boolean",
@@ -72,12 +72,12 @@ export function registerDb(
         )
         .command(
           "anidb",
-          "Query AniDB database for Anime and Episode data",
+          "Query AniDB for anime and episode data",
           (yargs) =>
             yargs
               .command(
                 "search <title>",
-                "Search for Anime by title on AniDB and print results as JSON",
+                "Search for anime by title on AniDB and print results as JSON",
                 (yargs) =>
                   yargs
                     .positional("title", {
@@ -98,13 +98,13 @@ export function registerDb(
               )
               .command(
                 "episodes <animeId>",
-                "Get episodes for an Anime by AniDB AID and print as JSON",
+                "Get episodes for an anime by AniDB ID and print as JSON",
                 (yargs) =>
                   yargs
                     .positional("animeId", {
                       type: "string",
                       demandOption: true,
-                      describe: "AniDB Anime ID",
+                      describe: "AniDB anime ID",
                     })
                     .option("debug", {
                       type: "boolean",
