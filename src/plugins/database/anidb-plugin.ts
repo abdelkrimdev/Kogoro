@@ -21,7 +21,7 @@ function toEntryType(animeType: string): EntryType {
 }
 
 function extractTag(xml: string, tag: string): string | undefined {
-  const match = xml.match(new RegExp(`<${tag}>([^<]*)<\\/${tag}>`));
+  const match = xml.match(new RegExp(`<${tag}[^>]*>([^<]*)<\\/${tag}>`));
   return match?.[1];
 }
 
@@ -125,8 +125,15 @@ export class AniDBPlugin implements DatabasePlugin {
     const animeType = extractTag(xml, "type") ?? "";
     const entryType = toEntryType(animeType);
     const episodes: EpisodeResult[] = [];
-    const episodeRegex = /<episode\s+id="(\d+)">([\s\S]*?)<\/episode>/g;
-    for (const match of xml.matchAll(episodeRegex)) {
+
+    const episodesMatch = xml.match(/<episodes>([\s\S]*?)<\/episodes>/);
+    if (!episodesMatch) return [];
+
+    const episodesContent = episodesMatch[1];
+    if (!episodesContent) return [];
+    const episodeRegex = /<episode\s+id="(\d+)"[^>]*>([\s\S]*?)<\/episode>/g;
+
+    for (const match of episodesContent.matchAll(episodeRegex)) {
       const epId = match[1];
       const content = match[2];
       if (!epId || !content) continue;
