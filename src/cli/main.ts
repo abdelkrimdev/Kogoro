@@ -11,16 +11,12 @@ import { registerArtwork } from "./artwork/register";
 import { registerCache } from "./cache/register";
 import { registerConfig } from "./config/register";
 import { registerDb } from "./database/register";
-import { registerMatch } from "./match/register";
 import { registerMetadata } from "./metadata/register";
-import { registerParse } from "./parse/register";
 import { registerPlugins } from "./plugins/register";
-import { registerRename } from "./rename/register";
 import { registerScan } from "./scan/register";
 import { registerSubtitle } from "./subtitle/register";
-import { registerTemplate } from "./template/register";
 
-export function run(argv: string[]): string | undefined {
+export function run(argv: string[]): void {
   const config = new ConfigManager();
   const credentialStore = createCredentialStore();
 
@@ -66,15 +62,6 @@ export function run(argv: string[]): string | undefined {
     });
   }
 
-  async function createMatchWithCredentials(debug?: boolean) {
-    const { createMatchHandlers } = await import("./match/handlers");
-    return withDatabase(
-      debug,
-      (factory) => factory.primaryDatabase(),
-      (database) => createMatchHandlers({ database }),
-    );
-  }
-
   async function createMetadataWithCredentials(debug?: boolean) {
     const { createMetadataHandlers } = await import("./metadata/handlers");
     return withDatabase(
@@ -102,21 +89,15 @@ export function run(argv: string[]): string | undefined {
     return createSubtitleHandlers({ subtitlePlugin, cache });
   }
 
-  const templateResult = { value: undefined as string | undefined };
-
   const parser = yargs(hideBin(argv)).scriptName("kogoro").usage("$0 <command> [options]");
 
   registerScan(parser, createScanWithCredentials);
   registerArtwork(parser, createArtworkWithCredentials);
   registerSubtitle(parser, createSubtitleWithCredentials);
   registerMetadata(parser, createMetadataWithCredentials);
-  registerParse(parser);
   registerConfig(parser);
   registerDb(parser, createDatabaseCommandsWithCredentials);
-  registerMatch(parser, createMatchWithCredentials);
   registerCache(parser);
-  registerRename(parser);
-  registerTemplate(parser, templateResult);
   registerPlugins(parser, config);
 
   parser
@@ -127,6 +108,4 @@ export function run(argv: string[]): string | undefined {
     .alias("v", "version")
     .strict()
     .parse();
-
-  return templateResult.value;
 }

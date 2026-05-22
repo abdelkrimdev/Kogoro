@@ -9,29 +9,6 @@ describe("kogoro CLI", () => {
     expect(true).toBe(true);
   });
 
-  test("template command renders pattern with variables", () => {
-    const result = run([
-      "node",
-      "kogoro",
-      "template",
-      "{anime} - {season}x{episode:02} - {title}",
-      "--anime",
-      "JJK",
-      "--season",
-      "1",
-      "--episode",
-      "13",
-      "--title",
-      "Tomorrow",
-    ]);
-    expect(result).toBe("JJK - 1x13 - Tomorrow");
-  });
-
-  test("template command handles missing variables", () => {
-    const result = run(["node", "kogoro", "template", "Hello {name}", "--name", "World"]);
-    expect(result).toBe("Hello World");
-  });
-
   test("package.json defines build:bin script for standalone binary", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf-8")) as {
       scripts?: Record<string, string>;
