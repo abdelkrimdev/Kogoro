@@ -35,11 +35,11 @@ export function run(argv: string[]): void {
     return buildHandlers(database);
   }
 
-  async function createDatabaseCommandsWithCredentials(name: string, debug?: boolean) {
+  async function createDatabaseCommandsWithCredentials(debug?: boolean) {
     const { createDatabaseCommands } = await import("./database/handlers");
     return withDatabase(
       debug,
-      (factory) => factory.database(name),
+      (factory) => factory.primaryDatabase(),
       (database) => createDatabaseCommands(database),
     );
   }
