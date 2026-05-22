@@ -19,12 +19,12 @@ function mockHttpClient(data: string, status = 200): HttpClient {
 const animetitlesXml = `<?xml version="1.0" encoding="UTF-8"?>
 <animetitles>
   <anime aid="12345" year="2020">
-    <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
-    <title type="official" lang="ja" xml:lang="ja">呪術廻戦</title>
+    <title type="main" xml:lang="en">Jujutsu Kaisen</title>
+    <title type="official" xml:lang="ja">呪術廻戦</title>
   </anime>
   <anime aid="67890" year="2013">
-    <title type="main" lang="en" xml:lang="en">Attack on Titan</title>
-    <title type="official" lang="ja" xml:lang="ja">進撃の巨人</title>
+    <title type="main" xml:lang="en">Attack on Titan</title>
+    <title type="official" xml:lang="ja">進撃の巨人</title>
   </anime>
 </animetitles>`;
 
@@ -80,10 +80,10 @@ describe("AniDBPlugin", () => {
       const xmlWithNoEnglishTitle = `<?xml version="1.0" encoding="UTF-8"?>
 <animetitles>
   <anime aid="99999" year="2021">
-    <title type="main" lang="ja" xml:lang="ja">日本語のみ</title>
+    <title type="main" xml:lang="ja">日本語のみ</title>
   </anime>
   <anime aid="12345" year="2020">
-    <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
+    <title type="main" xml:lang="en">Jujutsu Kaisen</title>
   </anime>
 </animetitles>`;
       const plugin = new AniDBPlugin({
@@ -142,8 +142,8 @@ describe("AniDBPlugin", () => {
   <startdate>2020-10-03</startdate>
   <enddate>2020-10-10</enddate>
   <titles>
-    <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
-    <title type="official" lang="ja" xml:lang="ja">呪術廻戦</title>
+    <title type="main" xml:lang="en">Jujutsu Kaisen</title>
+    <title type="official" xml:lang="ja">呪術廻戦</title>
   </titles>
   <picture>12345.jpg</picture>
   <description>A boy fights curses.</description>
@@ -199,7 +199,7 @@ describe("AniDBPlugin", () => {
   <id>12345</id>
   <type>Movie</type>
   <titles>
-    <title type="main" lang="en" xml:lang="en">Some Movie</title>
+    <title type="main" xml:lang="en">Some Movie</title>
   </titles>
 </anime>`;
       const plugin = new AniDBPlugin({
@@ -481,8 +481,8 @@ describe("AniDBPlugin", () => {
   <type>TV Series</type>
   <startdate>2020-10-03</startdate>
   <titles>
-    <title type="main" lang="en" xml:lang="en">Jujutsu Kaisen</title>
-    <title type="official" lang="ja" xml:lang="ja">呪術廻戦</title>
+    <title type="main" xml:lang="en">Jujutsu Kaisen</title>
+    <title type="official" xml:lang="ja">呪術廻戦</title>
   </titles>
   <description>A boy fights curses.</description>
 </anime>`;

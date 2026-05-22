@@ -44,7 +44,7 @@ interface ParsedTitle {
 
 function parseTitles(xml: string): ParsedTitle[] {
   const titles: ParsedTitle[] = [];
-  const regex = /<title[^>]*lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
+  const regex = /<title[^>]*(?:xml:)?lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
   for (const match of xml.matchAll(regex)) {
     const lang = match[1] ?? "";
     const value = match[2];
@@ -177,7 +177,7 @@ export class AniDBPlugin implements DatabasePlugin {
       const aid = extractAttr(attrs, "aid");
       if (!aid) continue;
 
-      const titleRegex = /<title[^>]*lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
+      const titleRegex = /<title[^>]*(?:xml:)?lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
       const { title: mainTitle, originalTitle } = findMainTitles(
         Array.from(content.matchAll(titleRegex), (m) => ({ lang: m[1] ?? "", value: m[2] })),
       );
