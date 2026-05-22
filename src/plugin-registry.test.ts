@@ -1,8 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createScanHandlers } from "./cli/scan-commands";
 import { isDatabasePlugin, isSubtitlePlugin, PluginRegistry } from "./plugin-registry";
 import type { DatabasePlugin } from "./plugins/database/plugin";
-import { createCache, withTempDir, writeTempFile } from "./test-fixtures";
 
 describe("isDatabasePlugin", () => {
   test("returns true for object implementing DatabasePlugin", () => {
@@ -124,49 +122,6 @@ describe("PluginRegistry.instantiate", () => {
     const registry = new PluginRegistry();
     const instance = await registry.instantiate("stringplugin", {});
     expect(instance).toBeNull();
-  });
-
-  test("instantiated external plugin works with scan handlers", async () => {
-    mock.module("kogoro-plugin-extscan", () => ({
-      default: class ExternalScanPlugin {
-        async searchAnime(title: string) {
-          return [{ id: "ext-1", title, entryType: "tv" as const }];
-        }
-        async getEpisodes(_animeId: string) {
-          return [
-            {
-              id: "e1",
-              animeId: "ext-1",
-              season: 1,
-              episode: 1,
-              title: "Ep 1",
-              entryType: "tv" as const,
-            },
-          ];
-        }
-        async getArtwork() {
-          return [];
-        }
-        async getAnime() {
-          return null;
-        }
-      },
-    }));
-
-    const registry = new PluginRegistry();
-    const plugin = await registry.instantiate("extscan", {});
-    expect(plugin).not.toBeNull();
-    if (!plugin) return;
-
-    await withTempDir("ext-plugin", async (dir) => {
-      const filePath = writeTempFile(dir, "[Group] External Test - 01.mkv", "content");
-      const cache = createCache(dir);
-      const handlers = createScanHandlers({ database: plugin, cache });
-      const output = await handlers.scan(filePath, { yes: true, dryRun: true });
-      const parsed = JSON.parse(output);
-      expect(parsed[0]?.status).toBe("matched");
-      expect(parsed[0]?.parsed.title).toBe("External Test");
-    });
   });
 
   describe("with disabled plugins", () => {

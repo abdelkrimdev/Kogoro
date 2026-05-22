@@ -9,7 +9,7 @@
     "build:bin": "bun build --compile src/cli/index.ts --outfile dist/kogoro",
     "check": "bun x tsc --noEmit",
     "test": "bun test",
-    "lint": "biome lint .",
+    "lint": "biome lint --write .",
     "format": "biome format --write .",
     "check:all": "biome check . && bun run check && bun test",
     "sandcastle": "npx tsx .sandcastle/main.ts",

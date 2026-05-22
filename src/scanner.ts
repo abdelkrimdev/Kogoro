@@ -56,7 +56,7 @@ export function computeFileHash(input: string): string {
   return Bun.hash(input).toString(16);
 }
 
-const ORGANIZED_DIRS = new Set(["TV", "Movies", "OVA", "ONA", "Specials"]);
+const ORGANIZED_DIRS = new Set(["TV", "Movies", "OVA", "Specials"]);
 
 function isValidDirName(name: string): boolean {
   return name !== "" && name !== "." && name !== "..";
