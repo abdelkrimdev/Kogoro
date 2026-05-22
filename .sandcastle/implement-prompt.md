@@ -2,11 +2,11 @@
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
-Pull in the issue using `gh issue view <ID>`. If it has a parent PRD, pull that in too.
+Pull in the issue using `gh issue view <ID>`, with comments. If it has a parent PRD, pull that in too.
 
 Only work on the issue specified.
 
-Work on branch {{BRANCH}}. Make commits and run tests.
+Work on branch {{BRANCH}}. Make commits, run tests, and close the issue when done.
 
 # CONTEXT
 
@@ -26,7 +26,7 @@ Pay extra attention to test files that touch the relevant parts of the code.
 
 # EXECUTION
 
-Use the TDD skill (`.agents/skills/tdd/SKILL.md`) to implement the task.
+If applicable, use the TDD skill (`.agents/skills/tdd/SKILL.md`) to complete the task.
 
 Follow the skill's vertical-slice workflow: one test → one implementation → repeat. Do NOT write all tests first.
 
@@ -47,8 +47,6 @@ Make a git commit. The commit message must:
 Keep it concise.
 
 # THE ISSUE
-
-Check the boxes of the completed acceptance criteria.
 
 If the task is not complete, leave a comment on the issue with what was done.
 
