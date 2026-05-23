@@ -13,13 +13,8 @@ export interface ParsedResult {
   tags: ParsedTags;
 }
 
-interface SeasonEpisodeResult {
+interface EpisodeInfo {
   season: number | null;
-  episode: number | null;
-  titleEnd: number;
-}
-
-interface EpisodeResult {
   episode: number | null;
   titleEnd: number;
 }
@@ -28,14 +23,11 @@ export function stripExtension(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
 
-// ---- Tag extraction helpers ----
-
 const VIDEO_EXTS = /\.(mkv|mp4|avi|ogm|webm|flv|m4v)$/i;
 const SCENE_GROUP_PAT = /(?<!\s)-(?<group>[a-zA-Z0-9_.-]+)$/;
 const YEAR_PAT = /\b(19\d{2}|20\d{2})\b/;
 const CRC_PAT = /[0-9A-Fa-f]{8}/;
 
-/** Strip corrupted trailing extensions like `.mkv]` or `.mkv.mkv` */
 function stripCorruptedExtensions(name: string): string {
   let current = name;
   while (true) {
@@ -56,17 +48,14 @@ function stripCorruptedExtensions(name: string): string {
   return current;
 }
 
-/** Fix missing bracket and replace underscores */
 function normalizeName(name: string): string {
   let result = name.trim();
-  // e.g. "Mirai.ai] ..." -> "[Mirai.ai] ..."
   if (/^[^[\]]+\s*\]/.test(result) && !result.startsWith("[")) {
     result = `[${result}`;
   }
   return result.replace(/_/g, " ").trim();
 }
 
-/** Convert dots to spaces, preserving decimal dots and codec names */
 function replaceDotsWithSpaces(dotted: string): string {
   let result = dotted.replace(/(?<=\d)\.(?=\d\b)/g, "_DEC_");
   result = result.replace(/\b(h)\.(264|265)\b/gi, "$1_ENC_$2");
@@ -86,9 +75,6 @@ function normalizeDots(name: string): string {
   return replaceDotsWithSpaces(name);
 }
 
-// ---- Tag matching ----
-
-/** Normalize token for tag matching */
 function normalizeTag(token: string): string {
   return token.replace(/\./g, "").replace(/-/g, "").toLowerCase();
 }
@@ -106,10 +92,6 @@ const CODEC_SET = new Set([
   "divx",
   "xvid",
   "avc",
-  "10bit",
-  "8bit",
-  "hi10",
-  "hi10p",
 ]);
 const AUDIO_SET = new Set(["aac", "flac", "mp3", "opus", "ac3", "dts", "ddp51", "dd51", "ddp"]);
 const SOURCE_SET = new Set([
@@ -138,35 +120,21 @@ function parseResolution(token: string): string | null {
 }
 
 function parseCodec(token: string): string | null {
-  if (token === "x265" || token === "x264") return token;
   const normalized = normalizeTag(token);
-  if (normalized === "10bit" || normalized === "8bit") return null;
   return CODEC_SET.has(normalized) ? normalized : null;
 }
 
 function parseAudio(token: string): string | null {
   if (/^DDP5\.1$/i.test(token)) return "ddp5.1";
   if (/^DD5\.1$/i.test(token)) return "dd5.1";
-  if (/^DDP$/i.test(token)) return "ddp";
   const normalized = normalizeTag(token);
   return AUDIO_SET.has(normalized) ? normalized : null;
 }
 
 function parseSource(token: string): string | null {
   const normalized = normalizeTag(token);
-  if (normalized === "bluray") return "bluray";
   if (normalized === "webdl") return "web-dl";
   return SOURCE_SET.has(normalized) ? normalized : null;
-}
-
-// ---- Extract tags from brackets and tokens ----
-
-interface MutableTags {
-  group: string | null;
-  resolution: string | null;
-  codec: string | null;
-  source: string | null;
-  audio: string | null;
 }
 
 function extractBracketContents(name: string): string[] {
@@ -193,12 +161,12 @@ function getTrailingGroup(name: string): string | null {
   const m = /\[([^\]]+)\]$/.exec(name);
   if (!m?.[1]) return null;
   const content = m[1].trim();
-  if (/^(1080p|720p|480p|x264|x265|hevc|aac|flac|bdrip|bluray|web-dl)$/.test(content)) return null;
+  if (hasOnlyTags(content)) return null;
   if (CRC_PAT.test(content) && content.length === 8) return null;
   return content;
 }
 
-function extractTagsFromBrackets(name: string): MutableTags {
+function extractTagsFromBrackets(name: string): ParsedTags {
   let group: string | null = getLeadingGroup(name);
   let resolution: string | null = null;
   let codec: string | null = null;
@@ -222,71 +190,49 @@ function extractTagsFromBrackets(name: string): MutableTags {
   return { group, resolution, codec, source, audio };
 }
 
-function extractTagsFromTokens(name: string, existing: MutableTags): MutableTags {
+function extractTagsFromTokens(name: string, existing: ParsedTags): ParsedTags {
   let { group, resolution, codec, source, audio } = existing;
 
   for (const raw of name.split(/[\s()[\]]+/)) {
     const token = raw.trim().replace(/^-|-$/g, "");
     if (!token) continue;
 
-    const resMatch = /(\d+p)/i.exec(token);
+    const resMatch = token.match(/(\d+p)/i);
     if (resMatch?.[1]) {
-      resolution = resMatch[1].toLowerCase();
-      continue;
+      const parsed = parseResolution(resMatch[1]);
+      if (parsed) resolution = parsed;
     }
 
     const parsedRes = parseResolution(token);
     if (parsedRes) resolution = parsedRes;
 
-    const codecRe =
-      /\b(x265|x264|h\.?265|h\.?264|hevc|av1|vp9|avc|10bit|10-bit|8bit|hi10|hi10p)\b/gi;
-    let m = codecRe.exec(token);
-    while (m !== null) {
-      if (m[1]) {
-        const parsed = parseCodec(m[1]);
-        if (parsed) {
-          codec = parsed;
-          break;
-        }
-      }
-      m = codecRe.exec(token);
+    const codecRe = /\b(x265|x264|h\.?265|h\.?264|hevc|av1|vp9|divx|xvid|avc)\b/gi;
+    const m = codecRe.exec(token);
+    if (m?.[1]) {
+      const parsed = parseCodec(m[1]);
+      if (parsed) codec = parsed;
     }
 
-    const sourceRe = /\b(bluray|bdrip|bd|web-dl|webrip|web|hdtv|dvd|dvdrip)\b/gi;
-    let s = sourceRe.exec(token);
-    while (s !== null) {
-      if (s[1]) {
-        const parsed = parseSource(s[1]);
-        if (parsed) {
-          source = parsed;
-          break;
-        }
-      }
-      s = sourceRe.exec(token);
+    const sourceRe = /\b(bluray|bdrip|bd|web-dl|webrip|web|hdtv|dvd|dvdrip|webdl|ld)\b/gi;
+    const s = sourceRe.exec(token);
+    if (s?.[1]) {
+      const parsed = parseSource(s[1]);
+      if (parsed) source = parsed;
     }
 
-    const audioRe = /\b(aac|flac|mp3|opus|ac3|dts|ddp5\.1|dd5\.1|ddp)\b/gi;
-    let a = audioRe.exec(token);
-    while (a !== null) {
-      if (a[1]) {
-        const parsed = parseAudio(a[1]);
-        if (parsed) {
-          audio = parsed;
-          break;
-        }
-      }
-      a = audioRe.exec(token);
+    const audioRe = /\b(aac|flac|mp3|opus|ac3|dts|ddp5\.1|dd5\.1|ddp|ddp51|dd51)\b/gi;
+    const a = audioRe.exec(token);
+    if (a?.[1]) {
+      const parsed = parseAudio(a[1]);
+      if (parsed) audio = parsed;
     }
   }
 
   return { group, resolution, codec, source, audio };
 }
 
-// ---- Name cleaning ----
-
-/** Regex for known tag-like strings used in multiple places */
 const TAG_DISCARD_RE =
-  /^(1080p(?:mini)?|720p(?:mini)?|480p|2160p|576p|x264|x265|h\.?264|h\.?265|hevc|av1|vp9|avc|10bit|10-bit|8bit|hi10|hi10p|bluray|bdrip|bd|web-dl|webrip|web|hdtv|dvd|dvdrip|ld|aac|flac|mp3|opus|ac3|dts|ddp5\.1|dd5\.1|ddp|dd|v\d+|end|final|multi|weekly|dual|audio|nf|netflix|cr|crunchyroll|fun|funimation|amzn|amazon)$/i;
+  /^(1080p(?:mini)?|720p(?:mini)?|480p|2160p|576p|x264|x265|h\.?264|h\.?265|hevc|av1|vp9|avc|divx|xvid|10bit|10-bit|8bit|hi10|hi10p|bluray|bdrip|bd|web-dl|webrip|web|hdtv|dvd|dvdrip|ld|aac|flac|mp3|opus|ac3|dts|ddp5\.1|dd5\.1|ddp51|dd51|ddp|dd|v\d+|end|final|multi|weekly|dual|audio|nf|netflix|cr|crunchyroll|fun|funimation|amzn|amazon)$/i;
 const DIMENSION_DISCARD_RE = /^\d+x\d+p?$/i;
 const NUMBER_DISCARD_RE = /^\d+(?:\.\d+)?$/i;
 
@@ -345,8 +291,6 @@ function cleanTrailingTokens(cleanName: string): string {
   return tokens.join(" ").replace(/-$/, "").trim();
 }
 
-// ---- Group extraction from end ----
-
 function extractTrailingGroup(
   cleanName: string,
   existing: string | null,
@@ -388,9 +332,7 @@ function extractTrailingGroup(
   };
 }
 
-// ---- Episode extraction ----
-
-function extractSeasonEpisode(cleanName: string): SeasonEpisodeResult {
+function extractSeasonEpisode(cleanName: string): EpisodeInfo {
   const sMatch = /\bS(\d+)E(\d+)(?:v\d+)?\b/i.exec(cleanName);
   if (sMatch) {
     return { season: Number(sMatch[1]), episode: Number(sMatch[2]), titleEnd: sMatch.index };
@@ -406,22 +348,64 @@ function extractSeasonEpisode(cleanName: string): SeasonEpisodeResult {
   return { season: null, episode: null, titleEnd: -1 };
 }
 
-function extractEpisode(cleanName: string): EpisodeResult {
-  const epDash = /\s+-\s+(\d+)(?:v\d+)?(?:\s+.+)?$/.exec(cleanName);
+function extractEpisode(cleanName: string): EpisodeInfo {
+  const epDash = /\s+-\s*(\d+)(?:v\d+)?(?:\s+.+)?$/.exec(cleanName);
   if (epDash) {
-    return { episode: Number(epDash[1]), titleEnd: cleanName.search(/\s+-\s+\d+/) };
+    return {
+      season: null,
+      episode: Number(epDash[1]),
+      titleEnd: cleanName.search(/\s+-\s*\d+/),
+    };
   }
-  const epEnd = /(?:\s+|-)(\d+)$/.exec(cleanName);
+  const epEnd = /(?:\s+|-)(\d+)(?:v\d+)?$/.exec(cleanName);
   if (epEnd) {
     const num = Number(epEnd[1]);
     if (num < 1900 || num > 2100) {
-      return { episode: num, titleEnd: cleanName.search(/(?:\s+|-)\d+$/) };
+      return {
+        season: null,
+        episode: num,
+        titleEnd: cleanName.search(/(?:\s+|-)\d+(?:v\d+)?$/),
+      };
     }
   }
-  return { episode: null, titleEnd: -1 };
+  return { season: null, episode: null, titleEnd: -1 };
 }
 
-// ---- Main pipeline ----
+const SEASON_ORDINAL_WORDS: Record<string, number> = {
+  second: 2,
+  third: 3,
+  fourth: 4,
+  fifth: 5,
+};
+
+function extractSeasonFromTitle(title: string): {
+  title: string;
+  season: number | null;
+} {
+  const ordinalMatch = title.match(/\b(\d+)(?:st|nd|rd|th)\s+Season\b/i);
+  if (ordinalMatch?.[1]) {
+    const season = Number.parseInt(ordinalMatch[1], 10);
+    const cleaned = title.replace(/\s*\d+(?:st|nd|rd|th)\s+Season\b/i, "").trim();
+    return { title: cleaned, season };
+  }
+
+  const seasonNumMatch = title.match(/\bSeason\s+(\d+)\b/i);
+  if (seasonNumMatch?.[1]) {
+    const season = Number.parseInt(seasonNumMatch[1], 10);
+    const cleaned = title.replace(/\s*Season\s+\d+\b/i, "").trim();
+    return { title: cleaned, season };
+  }
+
+  const wordMatch = title.match(/\b(Second|Third|Fourth|Fifth)\s+Season\b/i);
+  if (wordMatch?.[1]) {
+    const key = wordMatch[1].toLowerCase();
+    const season = SEASON_ORDINAL_WORDS[key] ?? null;
+    const cleaned = title.replace(/\s*(?:Second|Third|Fourth|Fifth)\s+Season\b/i, "").trim();
+    return { title: cleaned, season };
+  }
+
+  return { title, season: null };
+}
 
 function shouldReturnEmpty(
   filename: string,
@@ -430,7 +414,7 @@ function shouldReturnEmpty(
     episode,
     group,
   }: { season: number | null; episode: number | null; group: string | null },
-  tags: MutableTags,
+  tags: ParsedTags,
 ): boolean {
   const hasSpaces = filename.includes(" ") || filename.includes("_");
   const hasTags =
@@ -445,7 +429,7 @@ function shouldReturnEmpty(
   );
 }
 
-function parseWithPipeline(filename: string): ParsedResult {
+export function parse(filename: string): ParsedResult {
   let name = stripExtension(filename);
 
   name = stripCorruptedExtensions(name);
@@ -475,15 +459,25 @@ function parseWithPipeline(filename: string): ParsedResult {
   const { episode: extraEpisode, titleEnd: epTitleEnd } = extractEpisode(cleanName);
   const finalEpisode = episode ?? extraEpisode;
   const cutAt = seasonTitleEnd > 0 ? seasonTitleEnd : epTitleEnd > 0 ? epTitleEnd : -1;
-  const title = cutAt > 0 ? cleanName.slice(0, cutAt).trim().replace(/-$/, "").trim() : cleanName;
+  const rawTitle =
+    cutAt > 0 ? cleanName.slice(0, cutAt).trim().replace(/-$/, "").trim() : cleanName;
 
-  if (shouldReturnEmpty(filename, { season, episode: finalEpisode, group: tags.group }, tags)) {
+  const { title: cleanedTitle, season: qualifierSeason } = extractSeasonFromTitle(rawTitle);
+  const finalSeason = season ?? qualifierSeason;
+
+  if (
+    shouldReturnEmpty(
+      filename,
+      { season: finalSeason, episode: finalEpisode, group: tags.group },
+      tags,
+    )
+  ) {
     return createEmptyResult();
   }
 
   return {
-    title: title || null,
-    season,
+    title: cleanedTitle || null,
+    season: finalSeason,
     episode: finalEpisode,
     tags: {
       group: tags.group || null,
@@ -493,10 +487,6 @@ function parseWithPipeline(filename: string): ParsedResult {
       audio: tags.audio || null,
     },
   };
-}
-
-export function parse(filename: string): ParsedResult {
-  return parseWithPipeline(filename);
 }
 
 export function createEmptyResult(): ParsedResult {
