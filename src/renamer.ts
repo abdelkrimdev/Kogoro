@@ -49,6 +49,8 @@ const ENTRY_TYPE_DIR_MAP: Record<EntryType, string> = {
   special: "Specials",
 };
 
+export const ORGANIZED_DIRS = new Set(Object.values(ENTRY_TYPE_DIR_MAP));
+
 function buildDisambiguator(tags: ParsedTags): string {
   const parts: string[] = [];
   for (const key of ["resolution", "group", "source", "codec", "audio"] as const) {

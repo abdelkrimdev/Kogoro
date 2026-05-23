@@ -5,11 +5,10 @@ import type { ConfigManager } from "../../config/config-manager";
 import { VIDEO_EXTENSIONS, walk } from "../../directory-walker";
 import type { MatchCache } from "../../match-cache";
 import { Matcher, type MatchResult } from "../../matcher";
-import type { NumberingScheme } from "../../numbering-converter";
 import type { OverrideStore } from "../../override-store";
 import { createEmptyResult, type ParsedResult } from "../../parser";
 import type { DatabasePlugin } from "../../plugins/database/plugin";
-import { type FileAction, Renamer } from "../../renamer";
+import { type FileAction, ORGANIZED_DIRS, Renamer } from "../../renamer";
 import { Scanner, type ScanProgress, type ScanResult } from "../../scanner";
 
 export interface ScanHandlerOptions {
@@ -19,7 +18,6 @@ export interface ScanHandlerOptions {
   renamer?: Renamer;
   config?: ConfigManager;
   extensions?: string[];
-  episodeNumbering?: NumberingScheme;
   overrideStore?: OverrideStore;
 }
 
@@ -39,7 +37,6 @@ const DEFAULT_FILENAME_TEMPLATE = "{anime} - {season}x{episode:02} - {title}.{ex
 const DEFAULT_DIRECTORY_TEMPLATE = "{anime}/{type}";
 
 const DEFAULT_EXCLUDE_PATTERNS = [".part", ".crdownload", "!qb"];
-const ORGANIZED_DIRS = new Set(["TV", "Movies", "OVA", "Specials"]);
 
 export function isAlreadyOrganized(filePath: string): boolean {
   for (const part of filePath.split(sep).slice(0, -1)) {

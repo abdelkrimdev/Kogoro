@@ -1,12 +1,8 @@
 import type yargs from "yargs";
-import type { NumberingScheme } from "../../numbering-converter";
 import type { FileAction } from "../../renamer";
 import type { ScanOptions } from "./handlers";
 
-export type ScanHandlerFactory = (
-  episodeNumbering?: NumberingScheme,
-  debug?: boolean,
-) => Promise<
+export type ScanHandlerFactory = (debug?: boolean) => Promise<
   | {
       scan(path: string, scanOptions?: ScanOptions): Promise<string>;
     }
@@ -81,10 +77,7 @@ export function registerScan(
           describe: "Number of files to process concurrently",
         }),
     async (argv) => {
-      const handlers = await createHandlers(
-        argv["episode-numbering"] as NumberingScheme | undefined,
-        argv.debug,
-      );
+      const handlers = await createHandlers(argv.debug);
       if (!handlers) return;
       try {
         const output = await handlers.scan(argv.path, {

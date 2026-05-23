@@ -3,7 +3,6 @@ import { hideBin } from "yargs/helpers";
 import { ConfigManager } from "../config/config-manager";
 import { createCredentialStore } from "../config/credential-store";
 import { MatchCache } from "../match-cache";
-import type { NumberingScheme } from "../numbering-converter";
 import { OverrideStore } from "../override-store";
 import { PluginFactory } from "../plugin-factory";
 import type { DatabasePlugin } from "../plugins/database/plugin";
@@ -44,7 +43,7 @@ export function run(argv: string[]): void {
     );
   }
 
-  async function createScanWithCredentials(episodeNumbering?: NumberingScheme, debug?: boolean) {
+  async function createScanWithCredentials(debug?: boolean) {
     const { createScanHandlers } = await import("./scan/handlers");
     const factory = createFactory(debug);
     const database = await factory.primaryDatabase();
@@ -57,7 +56,6 @@ export function run(argv: string[]): void {
       fallbackDatabases,
       cache,
       config,
-      episodeNumbering,
       overrideStore,
     });
   }

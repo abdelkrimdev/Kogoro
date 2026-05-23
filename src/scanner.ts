@@ -6,7 +6,13 @@ import { matchResultFromCache, matchResultFromManual, matchResultFromOverride } 
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
-import type { FileAction, RenamePlan, RenameResult, Renamer } from "./renamer";
+import {
+  type FileAction,
+  ORGANIZED_DIRS,
+  type RenamePlan,
+  type RenameResult,
+  type Renamer,
+} from "./renamer";
 
 export type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
 
@@ -55,8 +61,6 @@ export interface ScanFileOptions {
 export function computeFileHash(input: string): string {
   return Bun.hash(input).toString(16);
 }
-
-const ORGANIZED_DIRS = new Set(["TV", "Movies", "OVA", "Specials"]);
 
 function isValidDirName(name: string): boolean {
   return name !== "" && name !== "." && name !== "..";

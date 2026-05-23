@@ -41,7 +41,6 @@ describe("ConfigManager", () => {
       expect(config.get("exclude-patterns")).toBe(".part,.crdownload");
       expect(config.get("concurrency")).toBe("4");
       expect(config.get("api-delay")).toBe("200");
-      expect(config.get("episode-numbering")).toBe("relative");
     });
   });
 
