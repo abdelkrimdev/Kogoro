@@ -90,7 +90,7 @@ describe("TVDBPlugin", () => {
 
       expect(results).toHaveLength(1);
       expect(results[0]?.id).toBe("12345");
-      expect(results[0]?.title).toBe("Jujutsu Kaisen");
+      expect(results[0]?.titleEn).toBe("Jujutsu Kaisen");
       expect(results[0]?.slug).toBe("jujutsu-kaisen");
       expect(results[0]?.overview).toBe("A boy fights curses.");
       expect(results[0]?.year).toBe(2020);
@@ -108,7 +108,7 @@ describe("TVDBPlugin", () => {
       expect(results).toEqual([]);
     });
 
-    test("populates originalTitle from aliases", async () => {
+    test("populates titleJa from aliases", async () => {
       const searchResponse = [
         {
           id: 54321,
@@ -122,7 +122,7 @@ describe("TVDBPlugin", () => {
         fetch: mockFetch(searchResponse),
       });
       const results = await plugin.searchAnime("Attack on Titan");
-      expect(results[0]?.originalTitle).toBe("進撃の巨人");
+      expect(results[0]?.titleJa).toBe("進撃の巨人");
     });
   });
 
@@ -166,7 +166,7 @@ describe("TVDBPlugin", () => {
       expect(results[0]?.animeId).toBe("12345");
       expect(results[0]?.season).toBe(1);
       expect(results[0]?.episode).toBe(1);
-      expect(results[0]?.title).toBe("Ryomen Sukuna");
+      expect(results[0]?.titleEn).toBe("Ryomen Sukuna");
       expect(results[0]?.airDate).toBe("2020-10-03");
       expect(results[0]?.entryType).toBe("tv");
       expect(results[1]?.entryType).toBe("tv");
@@ -197,16 +197,16 @@ describe("TVDBPlugin", () => {
         apiKey: "test-key",
         fetch: mockFetchWithRoutes({
           "/episodes/default": episodesResponse,
-          "/translations": [],
+          "/episodes/official/jpn": { episodes: [] },
         }),
       });
       const results = await plugin.getEpisodes("100");
 
-      expect(results.find((e) => e.title === "TV Eps")?.entryType).toBe("tv");
-      expect(results.find((e) => e.title === "Movie")?.entryType).toBe("movie");
-      expect(results.find((e) => e.title === "OVA")?.entryType).toBe("ova");
-      expect(results.find((e) => e.title === "Special")?.entryType).toBe("special");
-      expect(results.find((e) => e.title === "Short")?.entryType).toBe("special");
+      expect(results.find((e) => e.titleEn === "TV Eps")?.entryType).toBe("tv");
+      expect(results.find((e) => e.titleEn === "Movie")?.entryType).toBe("movie");
+      expect(results.find((e) => e.titleEn === "OVA")?.entryType).toBe("ova");
+      expect(results.find((e) => e.titleEn === "Special")?.entryType).toBe("special");
+      expect(results.find((e) => e.titleEn === "Short")?.entryType).toBe("special");
     });
   });
 
@@ -324,23 +324,31 @@ describe("TVDBPlugin", () => {
         ],
       };
 
-      const translationsResponse = [
-        { language: "jpn", name: "呪術廻戦", overview: "" },
-        { language: "eng", name: "Jujutsu Kaisen", overview: "" },
-      ];
+      const jpnEpisodesResponse = {
+        episodes: [
+          {
+            id: 1001,
+            seasonNumber: 1,
+            number: 1,
+            name: "両面宿儺",
+            overview: "",
+            type: "series",
+          },
+        ],
+      };
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
         fetch: mockFetchWithRoutes({
           "/episodes/default": episodesResponse,
-          "/translations": translationsResponse,
+          "/episodes/official/jpn": jpnEpisodesResponse,
         }),
       });
       const results = await plugin.getEpisodes("12345");
 
       expect(results).toHaveLength(1);
-      expect(results[0]?.titleEn).toBe("Jujutsu Kaisen");
-      expect(results[0]?.titleJa).toBe("呪術廻戦");
+      expect(results[0]?.titleEn).toBe("Ryomen Sukuna");
+      expect(results[0]?.titleJa).toBe("両面宿儺");
     });
   });
 
@@ -365,7 +373,7 @@ describe("TVDBPlugin", () => {
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe("12345");
-      expect(result?.title).toBe("Jujutsu Kaisen");
+      expect(result?.titleEn).toBe("Jujutsu Kaisen");
       expect(result?.slug).toBe("jujutsu-kaisen");
       expect(result?.overview).toBe("A boy fights curses.");
       expect(result?.year).toBe(2020);

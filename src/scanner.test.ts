@@ -24,7 +24,7 @@ describe("Scanner", () => {
     expect(result.parsed.episode).toBe(1);
     expect(result.status).toBe("matched");
     expect(result.match).not.toBeNull();
-    expect(result.match?.anime.title).toBe("Jujutsu Kaisen");
+    expect(result.match?.anime.titleEn).toBe("Jujutsu Kaisen");
     expect(result.hash).toBe("");
   });
 
@@ -95,13 +95,13 @@ describe("Scanner", () => {
       const secondScanner = new Scanner({
         matcher: createMockMatcher([
           {
-            anime: { id: "42", title: "(overridden)", entryType: "movie" },
+            anime: { id: "42", titleEn: "(overridden)", entryType: "movie" },
             episode: {
               id: "ep-42",
               animeId: "42",
               season: 1,
               episode: 1,
-              title: "Test",
+              titleEn: "Test",
               entryType: "movie",
             },
             score: 1,
@@ -140,7 +140,7 @@ describe("Scanner", () => {
       expect(result.skipped).toBe(false);
       expect(result.status).toBe("matched");
       expect(result.match).not.toBeNull();
-      expect(result.match?.anime.title).toBe("Jujutsu Kaisen");
+      expect(result.match?.anime.titleEn).toBe("Jujutsu Kaisen");
       expect(result.plan).not.toBeNull();
       expect(result.plan?.targetFilename).toContain("Jujutsu Kaisen");
       expect(result.plan?.action).toBe("move");

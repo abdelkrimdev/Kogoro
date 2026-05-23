@@ -5,8 +5,8 @@ export type ArtworkType = "poster" | "banner" | "fanart" | "thumbnail";
 export interface AnimeResult {
   id: string;
   slug?: string;
-  title: string;
-  originalTitle?: string;
+  titleEn: string;
+  titleJa?: string;
   overview?: string;
   year?: number;
   image?: string;
@@ -19,9 +19,7 @@ export interface EpisodeResult {
   animeId: string;
   season: number;
   episode: number;
-  title: string;
-  originalTitle?: string;
-  titleEn?: string;
+  titleEn: string;
   titleJa?: string;
   airDate?: string;
   overview?: string;

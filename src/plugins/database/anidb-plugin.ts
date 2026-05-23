@@ -53,7 +53,7 @@ interface ParsedEpisode {
   id: string;
   epno: string | undefined;
   season: string | undefined;
-  title: string | undefined;
+  titles: ParsedTitle[];
   airdate: string | undefined;
 }
 
@@ -71,7 +71,7 @@ function parseEpisodes(xml: string): ParsedEpisode[] {
       id,
       epno: extractTag(content, "epno"),
       season: extractTag(content, "season"),
-      title: extractTag(content, "title"),
+      titles: parseTitles(content),
       airdate: extractTag(content, "airdate"),
     });
   }
@@ -99,18 +99,18 @@ function parseDocument(xml: string): AnimeDocument {
   };
 }
 
-function findMainTitles(titles: Iterable<{ lang: string; value: string | undefined }>): {
-  title: string | undefined;
-  originalTitle: string | undefined;
+function findTitles(titles: Iterable<{ lang: string; value: string | undefined }>): {
+  titleEn: string | undefined;
+  titleJa: string | undefined;
 } {
-  let title: string | undefined;
-  let originalTitle: string | undefined;
+  let titleEn: string | undefined;
+  let titleJa: string | undefined;
   for (const t of titles) {
-    if (t.lang === "en" && title === undefined) title = t.value;
-    if (t.lang === "ja" && originalTitle === undefined) originalTitle = t.value;
-    if (title !== undefined && originalTitle !== undefined) break;
+    if (t.lang === "en" && titleEn === undefined) titleEn = t.value;
+    if (t.lang === "ja" && titleJa === undefined) titleJa = t.value;
+    if (titleEn !== undefined && titleJa !== undefined) break;
   }
-  return { title, originalTitle };
+  return { titleEn, titleJa };
 }
 
 export class AniDBPlugin implements DatabasePlugin {
@@ -168,17 +168,19 @@ export class AniDBPlugin implements DatabasePlugin {
       if (!aid) continue;
 
       const titleRegex = /<title[^>]*(?:xml:)?lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
-      const { title: mainTitle, originalTitle } = findMainTitles(
-        Array.from(content.matchAll(titleRegex), (m) => ({ lang: m[1] ?? "", value: m[2] })),
-      );
+      const titles = Array.from(content.matchAll(titleRegex), (m) => ({
+        lang: m[1] ?? "",
+        value: m[2],
+      }));
+      const { titleEn, titleJa } = findTitles(titles);
 
-      if (!mainTitle?.toLowerCase().includes(lowerTitle)) continue;
+      if (!titleEn?.toLowerCase().includes(lowerTitle)) continue;
 
       const yearAttr = attrs.match(/year="(\d+)"/)?.[1];
       results.push({
         id: aid,
-        title: mainTitle,
-        originalTitle,
+        titleEn,
+        titleJa,
         year: yearAttr ? Number.parseInt(yearAttr, 10) : undefined,
         entryType: "tv",
       });
@@ -197,12 +199,15 @@ export class AniDBPlugin implements DatabasePlugin {
       if (Number.isNaN(episodeNum)) continue;
       const season = ep.season ? Number.parseInt(ep.season, 10) : 1;
 
+      const { titleEn, titleJa } = findTitles(ep.titles);
+
       episodes.push({
         id: ep.id,
         animeId,
         season,
         episode: episodeNum,
-        title: ep.title ?? "",
+        titleEn: titleEn ?? titleJa ?? "",
+        titleJa,
         airDate: ep.airdate,
         entryType,
       });
@@ -217,13 +222,13 @@ export class AniDBPlugin implements DatabasePlugin {
     const entryType = toEntryType(doc.animeType);
     const year = doc.startdate ? Number.parseInt(doc.startdate.slice(0, 4), 10) : undefined;
 
-    const { title, originalTitle } = findMainTitles(doc.titles);
-    if (!title) return null;
+    const { titleEn, titleJa } = findTitles(doc.titles);
+    if (!titleEn) return null;
 
     return {
       id: animeId,
-      title,
-      originalTitle,
+      titleEn,
+      titleJa,
       overview: doc.description,
       year,
       entryType,

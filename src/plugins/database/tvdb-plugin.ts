@@ -99,10 +99,13 @@ function toArtworkType(type: number): ArtworkType {
   }
 }
 
-function extractOriginalTitle(aliases: TVDBAlias[] | string[] | undefined): string | undefined {
-  const first = aliases?.[0];
-  if (first === undefined) return undefined;
-  return typeof first === "string" ? first : first.name;
+function extractTitleJa(aliases: TVDBAlias[] | string[] | undefined): string | undefined {
+  for (const alias of aliases ?? []) {
+    const name = typeof alias === "string" ? alias : alias.name;
+    const lang = typeof alias === "string" ? undefined : alias.lang;
+    if (lang === undefined || lang === "jpn") return name;
+  }
+  return undefined;
 }
 
 export class TVDBPlugin implements DatabasePlugin {
@@ -165,8 +168,8 @@ export class TVDBPlugin implements DatabasePlugin {
       (item): AnimeResult => ({
         id: String(item.id),
         slug: item.slug,
-        title: item.name,
-        originalTitle: extractOriginalTitle(item.aliases),
+        titleEn: item.name,
+        titleJa: extractTitleJa(item.aliases),
         overview: item.overview,
         year: item.year ? Number.parseInt(item.year, 10) : undefined,
         image: item.image,
@@ -184,8 +187,8 @@ export class TVDBPlugin implements DatabasePlugin {
     return {
       id: String(data.id),
       slug: data.slug,
-      title: data.name,
-      originalTitle: extractOriginalTitle(data.aliases),
+      titleEn: data.name,
+      titleJa: extractTitleJa(data.aliases),
       overview: data.overview,
       year: data.year ? Number.parseInt(data.year, 10) : undefined,
       image: data.image,
@@ -206,13 +209,21 @@ export class TVDBPlugin implements DatabasePlugin {
 
   async getEpisodes(animeId: string): Promise<EpisodeResult[]> {
     const data = await this.apiRequest<{
-      series?: TVDBSeriesResult;
       episodes?: TVDBEpisodeItem[];
     }>(`/series/${animeId}/episodes/default`);
 
     if (!data?.episodes) return [];
 
-    const translations = await this.getTranslations(animeId);
+    const jaData = await this.apiRequest<{
+      episodes?: TVDBEpisodeItem[];
+    }>(`/series/${animeId}/episodes/official/jpn`);
+
+    const jaNames = new Map<number, string>();
+    for (const ep of jaData?.episodes ?? []) {
+      if (ep.number !== undefined && ep.name) {
+        jaNames.set(ep.number, ep.name);
+      }
+    }
 
     return data.episodes.map(
       (item): EpisodeResult => ({
@@ -220,12 +231,8 @@ export class TVDBPlugin implements DatabasePlugin {
         animeId,
         season: item.seasonNumber ?? 1,
         episode: item.number ?? 0,
-        title: item.name ?? "",
-        originalTitle: undefined,
-        // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
-        titleEn: translations["eng"],
-        // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
-        titleJa: translations["jpn"],
+        titleEn: item.name ?? "",
+        titleJa: item.number !== undefined ? jaNames.get(item.number) : undefined,
         airDate: item.aired ?? undefined,
         overview: item.overview ?? undefined,
         image: item.image ?? undefined,

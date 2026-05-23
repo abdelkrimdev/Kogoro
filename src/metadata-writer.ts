@@ -82,7 +82,7 @@ export class MetadataWriter {
 
           if (!animeCache.has(match.animeId)) {
             const anime = await this.database.getAnime(match.animeId);
-            animeCache.set(match.animeId, anime?.title);
+            animeCache.set(match.animeId, anime?.titleEn);
           }
           dbAnimeTitle = animeCache.get(match.animeId);
         }

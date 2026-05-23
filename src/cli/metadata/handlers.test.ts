@@ -44,15 +44,15 @@ describe("metadata CLI commands", () => {
 
       const dbPath = join(dir, "cache.db");
       const mockDb = createMockDb({
-        searchAnime: () => [{ id: "42", title: "Test Anime", entryType: "tv" as const }],
-        getAnime: () => ({ id: "42", title: "Test Anime", entryType: "tv" as const }),
+        searchAnime: () => [{ id: "42", titleEn: "Test Anime", entryType: "tv" as const }],
+        getAnime: () => ({ id: "42", titleEn: "Test Anime", entryType: "tv" as const }),
         getEpisodes: () => [
           {
             id: "101",
             animeId: "42",
             season: 1,
             episode: 1,
-            title: "First Episode",
+            titleEn: "First Episode",
             overview: "A thrilling start",
             airDate: "2026-01-15",
             entryType: "tv" as const,

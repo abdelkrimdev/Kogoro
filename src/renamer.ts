@@ -83,7 +83,8 @@ export class Renamer {
     const { anime, episode } = match;
 
     const dirContext: Record<string, string | number> = {
-      anime: anime.title,
+      anime: anime.titleEn,
+      animeJa: anime.titleJa ?? anime.titleEn,
       type: ENTRY_TYPE_DIR_MAP[anime.entryType],
     };
 
@@ -93,11 +94,13 @@ export class Renamer {
     const episodeVal = numberingOverride?.episode ?? episode?.episode;
 
     const filenameContext = {
-      anime: anime.title,
+      anime: anime.titleEn,
+      animeJa: anime.titleJa ?? anime.titleEn,
       ext: extension,
       ...(seasonVal !== undefined ? { season: seasonVal } : {}),
       ...(episodeVal !== undefined ? { episode: episodeVal } : {}),
-      ...(episode?.title ? { title: episode.title } : {}),
+      ...(episode?.titleEn ? { title: episode.titleEn } : {}),
+      ...(episode?.titleJa ? { titleJa: episode.titleJa } : {}),
     } as Record<string, string | number>;
 
     let targetFilename = render(this.filenameTemplate, filenameContext);

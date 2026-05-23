@@ -39,8 +39,8 @@ describe("AniDBPlugin", () => {
       const results = await plugin.searchAnime("Jujutsu Kaisen");
       expect(results).toHaveLength(1);
       expect(results[0]?.id).toBe("12345");
-      expect(results[0]?.title).toBe("Jujutsu Kaisen");
-      expect(results[0]?.originalTitle).toBe("呪術廻戦");
+      expect(results[0]?.titleEn).toBe("Jujutsu Kaisen");
+      expect(results[0]?.titleJa).toBe("呪術廻戦");
       expect(results[0]?.year).toBe(2020);
     });
 
@@ -153,14 +153,14 @@ describe("AniDBPlugin", () => {
       <length>24</length>
       <airdate>2020-10-03</airdate>
       <rating>8.5</rating>
-      <title>Ryomen Sukuna</title>
+      <title xml:lang="en">Ryomen Sukuna</title>
     </episode>
     <episode id="1002">
       <epno>2</epno>
       <length>24</length>
       <airdate>2020-10-10</airdate>
       <rating>8.7</rating>
-      <title>For Myself</title>
+      <title xml:lang="en">For Myself</title>
     </episode>
   </episodes>
 </anime>`;
@@ -175,12 +175,12 @@ describe("AniDBPlugin", () => {
       expect(results).toHaveLength(2);
       expect(results[0]?.id).toBe("1001");
       expect(results[0]?.episode).toBe(1);
-      expect(results[0]?.title).toBe("Ryomen Sukuna");
+      expect(results[0]?.titleEn).toBe("Ryomen Sukuna");
       expect(results[0]?.airDate).toBe("2020-10-03");
       expect(results[0]?.entryType).toBe("tv");
       expect(results[1]?.id).toBe("1002");
       expect(results[1]?.episode).toBe(2);
-      expect(results[1]?.title).toBe("For Myself");
+      expect(results[1]?.titleEn).toBe("For Myself");
     });
 
     test("returns empty array on API failure", async () => {
@@ -496,8 +496,8 @@ describe("AniDBPlugin", () => {
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe("12345");
-      expect(result?.title).toBe("Jujutsu Kaisen");
-      expect(result?.originalTitle).toBe("呪術廻戦");
+      expect(result?.titleEn).toBe("Jujutsu Kaisen");
+      expect(result?.titleJa).toBe("呪術廻戦");
       expect(result?.overview).toBe("A boy fights curses.");
       expect(result?.entryType).toBe("tv");
     });

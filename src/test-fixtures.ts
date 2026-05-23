@@ -149,7 +149,7 @@ export function makeEpisodes(perSeason: number, seasonCount: number): EpisodeRes
         animeId: "1",
         season: s,
         episode: e,
-        title: `Ep ${id - 1}`,
+        titleEn: `Ep ${id - 1}`,
         entryType: "tv",
       });
     }
@@ -159,13 +159,13 @@ export function makeEpisodes(perSeason: number, seasonCount: number): EpisodeRes
 
 export function makeMatchResult(overrides?: Partial<MatchResult>): MatchResult {
   return {
-    anime: { id: "1", title: "Jujutsu Kaisen", entryType: "tv" },
+    anime: { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
     episode: {
       id: "101",
       animeId: "1",
       season: 1,
       episode: 13,
-      title: "Tomorrow",
+      titleEn: "Tomorrow",
       entryType: "tv",
     },
     score: 1,
@@ -320,14 +320,14 @@ export function captureConsoleLog<T>(fn: () => T): { result: T; logs: string[] }
 
 export function createStandardMockDb(overrides?: Partial<MockDbOptions>): DatabasePlugin {
   return createMockDb({
-    searchAnime: (title: string) => [{ id: "12345", title, entryType: "tv" as const }],
+    searchAnime: (title: string) => [{ id: "12345", titleEn: title, entryType: "tv" as const }],
     getEpisodes: () => [
       {
         id: "1001",
         animeId: "12345",
         season: 1,
         episode: 1,
-        title: "Ryomen Sukuna",
+        titleEn: "Ryomen Sukuna",
         airDate: "2020-10-03",
         entryType: "tv" as const,
       },
@@ -353,7 +353,7 @@ export function createMockMatcher(results?: MatchResult[]): MatcherLike {
 }
 
 export function makeNoMatchResult(failureReason = "No anime found"): MatchResult {
-  return { anime: { id: "", title: "", entryType: "tv" }, score: 0, failureReason };
+  return { anime: { id: "", titleEn: "", entryType: "tv" }, score: 0, failureReason };
 }
 
 interface MockSubtitlePluginOptions {
@@ -411,7 +411,7 @@ interface MockAnime {
   animeId: string;
   title: string;
   entryType?: "tv" | "movie" | "ova" | "special";
-  episodes: Array<{ id: string; season: number; episode: number; title: string }>;
+  episodes: Array<{ id: string; season: number; episode: number; titleEn: string }>;
 }
 
 export function createAmbiguousMatcher(): MatcherLike {
@@ -419,13 +419,13 @@ export function createAmbiguousMatcher(): MatcherLike {
     async match(parsed) {
       return [
         {
-          anime: { id: "1", title: parsed.title ?? "", entryType: "tv" as const },
+          anime: { id: "1", titleEn: parsed.title ?? "", entryType: "tv" as const },
           episode: {
             id: "101",
             animeId: "1",
             season: 1,
             episode: 1,
-            title: "Ep 1",
+            titleEn: "Ep 1",
             entryType: "tv" as const,
           },
           score: 1,
@@ -433,7 +433,7 @@ export function createAmbiguousMatcher(): MatcherLike {
         {
           anime: {
             id: "2",
-            title: `${parsed.title ?? ""} Special`,
+            titleEn: `${parsed.title ?? ""} Special`,
             entryType: "special" as const,
           },
           episode: {
@@ -441,7 +441,7 @@ export function createAmbiguousMatcher(): MatcherLike {
             animeId: "2",
             season: 1,
             episode: 1,
-            title: "Special",
+            titleEn: "Special",
             entryType: "special" as const,
           },
           score: 0.8,
@@ -484,12 +484,15 @@ export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {
     async searchAnime(title: string) {
       return animes
         .filter((a) => a.title.toLowerCase().includes(title.toLowerCase()))
-        .map((a) => ({ id: a.animeId, title: a.title, entryType: a.entryType ?? "tv" }));
+        .map((a) => ({ id: a.animeId, titleEn: a.title, entryType: a.entryType ?? "tv" }));
     },
     async getEpisodes(animeId: string) {
       const anime = animes.find((a) => a.animeId === animeId);
       return (anime?.episodes ?? []).map((e) => ({
-        ...e,
+        id: e.id,
+        season: e.season,
+        episode: e.episode,
+        titleEn: e.titleEn,
         animeId,
         entryType: anime?.entryType ?? "tv",
       }));

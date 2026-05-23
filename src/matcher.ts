@@ -19,7 +19,7 @@ export function matchResultFromCache(cached: CachedMatch): MatchResult {
       animeId: cached.animeId,
       season: cached.season ?? 1,
       episode: cached.episode,
-      title: cached.title ?? "",
+      titleEn: cached.title ?? "",
       entryType: cached.entryType as EntryType,
     };
   }
@@ -27,7 +27,7 @@ export function matchResultFromCache(cached: CachedMatch): MatchResult {
   return {
     anime: {
       id: cached.animeId,
-      title: cached.animeTitle ?? "",
+      titleEn: cached.animeTitle ?? "",
       entryType: cached.entryType as EntryType,
     },
     episode,
@@ -46,7 +46,7 @@ export function matchResultFromOverride(override: OverrideData): MatchResult {
       animeId,
       season: 0,
       episode: 0,
-      title: "(overridden)",
+      titleEn: "(overridden)",
       entryType,
     };
   }
@@ -54,7 +54,7 @@ export function matchResultFromOverride(override: OverrideData): MatchResult {
   return {
     anime: {
       id: animeId,
-      title: "(overridden)",
+      titleEn: "(overridden)",
       entryType,
     },
     episode,
@@ -68,13 +68,13 @@ export function matchResultFromManual(
   entryType: EntryType,
 ): MatchResult {
   return {
-    anime: { id: animeId, title: "", entryType },
+    anime: { id: animeId, titleEn: "", entryType },
     episode: {
       id: "",
       animeId,
       season: 1,
       episode,
-      title: "",
+      titleEn: "",
       entryType,
     },
     score: 1,
@@ -111,7 +111,7 @@ function diceSimilarity(a: string, b: string): number {
 }
 
 function emptyAnimeResult(): AnimeResult {
-  return { id: "", title: "", entryType: "tv" };
+  return { id: "", titleEn: "", entryType: "tv" };
 }
 
 function noMatchResult(failureReason: string): MatchResult {
@@ -157,7 +157,7 @@ export class Matcher implements MatcherLike {
     const results: MatchResult[] = [];
 
     for (const anime of animeList) {
-      const score = diceSimilarity(parsed.title, anime.title);
+      const score = diceSimilarity(parsed.title, anime.titleEn);
       if (parsed.episode !== null) {
         const episodes = await this.db.getEpisodes(anime.id);
         const matchingEpisode = findMatchingEpisode(episodes, parsed.season, parsed.episode);
@@ -208,7 +208,7 @@ export class Matcher implements MatcherLike {
 
       const matchResults: MatchResult[] = [];
       for (const anime of candidates) {
-        const score = diceSimilarity(parsed.title, anime.title);
+        const score = diceSimilarity(parsed.title, anime.titleEn);
         if (parsed.episode !== null) {
           const episodes = episodeCache.get(anime.id) ?? [];
           const matchingEpisode = findMatchingEpisode(episodes, parsed.season, parsed.episode);

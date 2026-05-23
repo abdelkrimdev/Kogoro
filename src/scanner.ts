@@ -262,12 +262,12 @@ export class Scanner {
 
     this.cache.set(resolvedHash, {
       animeId: match.anime.id,
-      animeTitle: match.anime.title,
+      animeTitle: match.anime.titleEn,
       episodeId: match.episode?.id ?? null,
       entryType: match.anime.entryType,
       season: match.episode?.season ?? null,
       episode: match.episode?.episode ?? null,
-      title: match.episode?.title ?? null,
+      title: match.episode?.titleEn ?? null,
       timestamp: new Date().toISOString(),
     });
 

@@ -106,12 +106,12 @@ describe("scan CLI commands", () => {
 
       const ambiguousDb = _createMockDb({
         searchAnime: (_title: string) => [
-          { id: "1", title: "Anime One", entryType: "tv" as const },
-          { id: "2", title: "Anime Two", entryType: "tv" as const },
+          { id: "1", titleEn: "Anime One", entryType: "tv" as const },
+          { id: "2", titleEn: "Anime Two", entryType: "tv" as const },
         ],
         getEpisodes: (animeId: string) => [
-          { id: "101", animeId, season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
-          { id: "102", animeId, season: 1, episode: 1, title: "Ep 1", entryType: "tv" as const },
+          { id: "101", animeId, season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" as const },
+          { id: "102", animeId, season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" as const },
         ],
       });
 
@@ -134,11 +134,11 @@ describe("scan CLI commands", () => {
         searchAnime: (title: string) => {
           if (title.toLowerCase().includes("some")) {
             return [
-              { id: "1", title: "Anime One", entryType: "tv" as const },
-              { id: "2", title: "Anime Two", entryType: "tv" as const },
+              { id: "1", titleEn: "Anime One", entryType: "tv" as const },
+              { id: "2", titleEn: "Anime Two", entryType: "tv" as const },
             ];
           }
-          return [{ id: "1", title, entryType: "tv" as const }];
+          return [{ id: "1", titleEn: title, entryType: "tv" as const }];
         },
         getEpisodes: (_animeId: string) => [
           {
@@ -146,7 +146,7 @@ describe("scan CLI commands", () => {
             animeId: "1",
             season: 1,
             episode: 1,
-            title: "Ep 1",
+            titleEn: "Ep 1",
             entryType: "tv" as const,
           },
           {
@@ -154,7 +154,7 @@ describe("scan CLI commands", () => {
             animeId: "1",
             season: 1,
             episode: 2,
-            title: "Ep 2",
+            titleEn: "Ep 2",
             entryType: "tv" as const,
           },
         ],

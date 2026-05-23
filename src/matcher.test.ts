@@ -20,7 +20,7 @@ describe("Matcher", () => {
       {
         animeId: "1",
         title: "Jujutsu Kaisen",
-        episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+        episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Ryomen Sukuna" }],
       },
     ]);
 
@@ -29,7 +29,7 @@ describe("Matcher", () => {
     const results = await matcher.match(parsed);
 
     expect(results).toHaveLength(1);
-    expect(results[0]?.anime.title).toBe("Jujutsu Kaisen");
+    expect(results[0]?.anime.titleEn).toBe("Jujutsu Kaisen");
     expect(results[0]?.episode?.episode).toBe(1);
     expect(results[0]?.episode?.season).toBe(1);
     expect(typeof results[0]?.score).toBe("number");
@@ -40,7 +40,7 @@ describe("Matcher", () => {
       {
         animeId: "1",
         title: "Jujutsu Kaisen 0",
-        episodes: [{ id: "101", season: 1, episode: 1, title: "Movie" }],
+        episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Movie" }],
       },
     ]);
 
@@ -49,7 +49,7 @@ describe("Matcher", () => {
     const results = await matcher.match(parsed);
 
     expect(results).toHaveLength(1);
-    expect(results[0]?.anime.title).toBe("Jujutsu Kaisen 0");
+    expect(results[0]?.anime.titleEn).toBe("Jujutsu Kaisen 0");
     expect(results[0]?.episode).toBeUndefined();
   });
 
@@ -70,12 +70,12 @@ describe("Matcher", () => {
       {
         animeId: "1",
         title: "One Piece",
-        episodes: [{ id: "101", season: 1, episode: 1, title: "Romance Dawn" }],
+        episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Romance Dawn" }],
       },
       {
         animeId: "2",
         title: "One Piece: Movie 1",
-        episodes: [{ id: "201", season: 1, episode: 1, title: "Movie" }],
+        episodes: [{ id: "201", season: 1, episode: 1, titleEn: "Movie" }],
       },
     ]);
 
@@ -84,8 +84,8 @@ describe("Matcher", () => {
     const results = await matcher.match(parsed);
 
     expect(results).toHaveLength(2);
-    expect(results[0]?.anime.title).toBe("One Piece");
-    expect(results[1]?.anime.title).toBe("One Piece: Movie 1");
+    expect(results[0]?.anime.titleEn).toBe("One Piece");
+    expect(results[1]?.anime.titleEn).toBe("One Piece: Movie 1");
   });
 
   test("returns movie candidate when no episode number parsed", async () => {
@@ -94,7 +94,7 @@ describe("Matcher", () => {
         animeId: "1",
         title: "Jujutsu Kaisen 0",
         entryType: "movie",
-        episodes: [{ id: "101", season: 1, episode: 1, title: "Jujutsu Kaisen 0 Movie" }],
+        episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Jujutsu Kaisen 0 Movie" }],
       },
     ]);
 
@@ -112,12 +112,12 @@ describe("Matcher", () => {
       {
         animeId: "2",
         title: "Solo Leveling: Special",
-        episodes: [{ id: "201", season: 1, episode: 1, title: "Special" }],
+        episodes: [{ id: "201", season: 1, episode: 1, titleEn: "Special" }],
       },
       {
         animeId: "1",
         title: "Solo Leveling",
-        episodes: [{ id: "101", season: 1, episode: 1, title: "Episode 1" }],
+        episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Episode 1" }],
       },
     ]);
 
@@ -126,7 +126,7 @@ describe("Matcher", () => {
     const results = await matcher.match(parsed);
 
     expect(results).toHaveLength(2);
-    expect(results[0]?.anime.title).toBe("Solo Leveling");
+    expect(results[0]?.anime.titleEn).toBe("Solo Leveling");
     const scoreA = results[0]?.score ?? 0;
     const scoreB = results[1]?.score ?? 0;
     expect(scoreA).toBeGreaterThan(scoreB);
@@ -137,12 +137,12 @@ describe("Matcher", () => {
       {
         animeId: "1",
         title: "Jujutsu Kaisen",
-        episodes: [{ id: "101", season: 1, episode: 1, title: "TVDB Ep" }],
+        episodes: [{ id: "101", season: 1, episode: 1, titleEn: "TVDB Ep" }],
       },
     ]);
     const movieDb: DatabasePlugin = {
       async searchAnime() {
-        return [{ id: "99", title: "Jujutsu Kaisen", entryType: "movie" as const }];
+        return [{ id: "99", titleEn: "Jujutsu Kaisen", entryType: "movie" as const }];
       },
       async getEpisodes() {
         return [
@@ -151,7 +151,7 @@ describe("Matcher", () => {
             animeId: "99",
             season: 1,
             episode: 1,
-            title: "MovieDB Ep",
+            titleEn: "MovieDB Ep",
             entryType: "movie" as const,
           },
         ];
@@ -172,9 +172,9 @@ describe("Matcher", () => {
     const movieResult = await movieMatcher.match(parsed);
 
     expect(tvResult[0]?.anime.entryType).toBe("tv");
-    expect(tvResult[0]?.episode?.title).toBe("TVDB Ep");
+    expect(tvResult[0]?.episode?.titleEn).toBe("TVDB Ep");
     expect(movieResult[0]?.anime.entryType).toBe("movie");
-    expect(movieResult[0]?.episode?.title).toBe("MovieDB Ep");
+    expect(movieResult[0]?.episode?.titleEn).toBe("MovieDB Ep");
   });
 
   test("returns failure reason when parsed title is null", async () => {
@@ -201,17 +201,17 @@ describe("Matcher", () => {
           searchCalls.inc();
           searchTitles.push(title);
           if (title === "Jujutsu Kaisen") {
-            return [{ id: "1", title: "Jujutsu Kaisen", entryType: "tv" }];
+            return [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }];
           }
-          return [{ id: "2", title: "One Piece", entryType: "tv" }];
+          return [{ id: "2", titleEn: "One Piece", entryType: "tv" }];
         },
         async getEpisodes(animeId: string) {
           episodeCalls.inc();
           episodesIds.push(animeId);
           if (animeId === "1") {
             return [
-              { id: "101", animeId: "1", season: 1, episode: 1, title: "Ep 1", entryType: "tv" },
-              { id: "102", animeId: "1", season: 1, episode: 2, title: "Ep 2", entryType: "tv" },
+              { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+              { id: "102", animeId: "1", season: 1, episode: 2, titleEn: "Ep 2", entryType: "tv" },
             ];
           }
           return [
@@ -220,7 +220,7 @@ describe("Matcher", () => {
               animeId: "2",
               season: 1,
               episode: 1,
-              title: "One Piece Ep 1",
+              titleEn: "One Piece Ep 1",
               entryType: "tv",
             },
           ];
@@ -249,12 +249,12 @@ describe("Matcher", () => {
       expect(episodeCalls.get()).toBe(2);
       expect(episodesIds).toEqual(["1", "2"]);
 
-      expect(results[0]?.anime.title).toBe("Jujutsu Kaisen");
+      expect(results[0]?.anime.titleEn).toBe("Jujutsu Kaisen");
       expect(results[0]?.episode?.episode).toBe(1);
-      expect(results[1]?.anime.title).toBe("Jujutsu Kaisen");
+      expect(results[1]?.anime.titleEn).toBe("Jujutsu Kaisen");
       expect(results[1]?.episode?.episode).toBe(2);
 
-      expect(results[2]?.anime.title).toBe("One Piece");
+      expect(results[2]?.anime.titleEn).toBe("One Piece");
       expect(results[2]?.episode?.episode).toBe(1);
     });
 
@@ -272,7 +272,7 @@ describe("Matcher", () => {
       const trackingDb: DatabasePlugin = {
         async searchAnime(title: string) {
           searchCalls.inc();
-          return [{ id: "1", title, entryType: "movie" }];
+          return [{ id: "1", titleEn: title, entryType: "movie" }];
         },
         async getEpisodes() {
           return [];
@@ -290,7 +290,7 @@ describe("Matcher", () => {
 
       const results = await matcher.matchBatch(parsedList);
       expect(results).toHaveLength(1);
-      expect(results[0]?.anime.title).toBe("Movie Title");
+      expect(results[0]?.anime.titleEn).toBe("Movie Title");
       expect(results[0]?.episode).toBeUndefined();
       expect(searchCalls.get()).toBe(1);
     });
@@ -310,7 +310,7 @@ describe("Matcher", () => {
           {
             animeId: "1",
             title: "Jujutsu Kaisen",
-            episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+            episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Ryomen Sukuna" }],
           },
         ]);
 
@@ -320,7 +320,7 @@ describe("Matcher", () => {
 
         expect(results).toHaveLength(1);
         expect(results[0]?.anime.id).toBe("tvdb-99");
-        expect(results[0]?.anime.title).toBeTruthy();
+        expect(results[0]?.anime.titleEn).toBeTruthy();
         expect(results[0]?.episode?.id).toBe("ep-5");
         expect(results[0]?.score).toBe(1);
         expect(results[0]?.failureReason).toBeUndefined();
@@ -336,7 +336,7 @@ describe("Matcher", () => {
           {
             animeId: "1",
             title: "Jujutsu Kaisen",
-            episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+            episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Ryomen Sukuna" }],
           },
         ]);
 
@@ -346,7 +346,7 @@ describe("Matcher", () => {
 
         expect(results).toHaveLength(1);
         expect(results[0]?.anime.id).toBe("1");
-        expect(results[0]?.anime.title).toBe("Jujutsu Kaisen");
+        expect(results[0]?.anime.titleEn).toBe("Jujutsu Kaisen");
         expect(results[0]?.episode?.id).toBe("101");
         expect(results[0]?.score).toBeGreaterThan(0);
       });
@@ -357,7 +357,7 @@ describe("Matcher", () => {
         {
           animeId: "1",
           title: "Jujutsu Kaisen",
-          episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+          episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Ryomen Sukuna" }],
         },
       ]);
 
@@ -378,7 +378,7 @@ describe("Matcher", () => {
           {
             animeId: "1",
             title: "Jujutsu Kaisen",
-            episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+            episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Ryomen Sukuna" }],
           },
         ]);
 
@@ -403,7 +403,7 @@ describe("Matcher", () => {
             animeId: "1",
             title: "Jujutsu Kaisen",
             entryType: "tv",
-            episodes: [{ id: "101", season: 1, episode: 1, title: "Ryomen Sukuna" }],
+            episodes: [{ id: "101", season: 1, episode: 1, titleEn: "Ryomen Sukuna" }],
           },
         ]);
 
@@ -428,13 +428,13 @@ describe("Matcher", () => {
       });
 
       expect(result.anime.id).toBe("tvdb-99");
-      expect(result.anime.title).toBe("(overridden)");
+      expect(result.anime.titleEn).toBe("(overridden)");
       expect(result.anime.entryType).toBe("special");
       expect(result.episode?.id).toBe("ep-5");
       expect(result.episode?.animeId).toBe("tvdb-99");
       expect(result.episode?.season).toBe(0);
       expect(result.episode?.episode).toBe(0);
-      expect(result.episode?.title).toBe("(overridden)");
+      expect(result.episode?.titleEn).toBe("(overridden)");
       expect(result.score).toBe(1);
     });
 
@@ -481,13 +481,13 @@ describe("Matcher", () => {
       });
 
       expect(result.anime.id).toBe("1");
-      expect(result.anime.title).toBe("Anime Title");
+      expect(result.anime.titleEn).toBe("Anime Title");
       expect(result.anime.entryType).toBe("tv");
       expect(result.episode?.id).toBe("101");
       expect(result.episode?.animeId).toBe("1");
       expect(result.episode?.season).toBe(1);
       expect(result.episode?.episode).toBe(5);
-      expect(result.episode?.title).toBe("Episode Title");
+      expect(result.episode?.titleEn).toBe("Episode Title");
       expect(result.score).toBe(1);
     });
 
@@ -504,7 +504,7 @@ describe("Matcher", () => {
       });
 
       expect(result.anime.id).toBe("1");
-      expect(result.anime.title).toBe("Movie Title");
+      expect(result.anime.titleEn).toBe("Movie Title");
       expect(result.episode).toBeUndefined();
       expect(result.score).toBe(1);
     });
@@ -535,7 +535,7 @@ describe("Matcher", () => {
         timestamp: "2026-01-01T00:00:00.000Z",
       });
 
-      expect(result.anime.title).toBe("");
+      expect(result.anime.titleEn).toBe("");
     });
   });
 
@@ -544,13 +544,13 @@ describe("Matcher", () => {
       const result = matchResultFromManual("99", 5, "special");
 
       expect(result.anime.id).toBe("99");
-      expect(result.anime.title).toBe("");
+      expect(result.anime.titleEn).toBe("");
       expect(result.anime.entryType).toBe("special");
       expect(result.episode?.id).toBe("");
       expect(result.episode?.animeId).toBe("99");
       expect(result.episode?.season).toBe(1);
       expect(result.episode?.episode).toBe(5);
-      expect(result.episode?.title).toBe("");
+      expect(result.episode?.titleEn).toBe("");
       expect(result.episode?.entryType).toBe("special");
       expect(result.score).toBe(1);
     });

@@ -15,8 +15,8 @@ function createMockPlugin(): DatabasePlugin {
         return [
           {
             id: "12345",
-            title: "Jujutsu Kaisen",
-            originalTitle: "呪術廻戦",
+            titleEn: "Jujutsu Kaisen",
+            titleJa: "呪術廻戦",
             overview: "A boy fights curses.",
             year: 2020,
             entryType: "tv",
@@ -33,7 +33,7 @@ function createMockPlugin(): DatabasePlugin {
             animeId: "12345",
             season: 1,
             episode: 1,
-            title: "Ryomen Sukuna",
+            titleEn: "Ryomen Sukuna",
             airDate: "2020-10-03",
             entryType: "tv",
           },
@@ -52,7 +52,7 @@ describe("DB CLI commands", () => {
     await commands.search("Jujutsu Kaisen", log.onLog, () => {});
     const parsed = JSON.parse(log.output);
     expect(parsed).toHaveLength(1);
-    expect(parsed[0]?.title).toBe("Jujutsu Kaisen");
+    expect(parsed[0]?.titleEn).toBe("Jujutsu Kaisen");
   });
 
   test("db search outputs empty array for no results", async () => {
@@ -70,7 +70,7 @@ describe("DB CLI commands", () => {
     await commands.episodes("12345", log.onLog, () => {});
     const parsed = JSON.parse(log.output);
     expect(parsed).toHaveLength(1);
-    expect(parsed[0]?.title).toBe("Ryomen Sukuna");
+    expect(parsed[0]?.titleEn).toBe("Ryomen Sukuna");
   });
 
   test("db episodes outputs empty array for unknown ID", async () => {

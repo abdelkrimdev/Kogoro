@@ -69,15 +69,15 @@ describe("MetadataWriter", () => {
         });
 
         const mockDb = createMockDb({
-          searchAnime: () => [{ id: "42", title: "Test Anime", entryType: "tv" as const }],
-          getAnime: () => ({ id: "42", title: "Test Anime", entryType: "tv" as const }),
+          searchAnime: () => [{ id: "42", titleEn: "Test Anime", entryType: "tv" as const }],
+          getAnime: () => ({ id: "42", titleEn: "Test Anime", entryType: "tv" as const }),
           getEpisodes: () => [
             {
               id: "101",
               animeId: "42",
               season: 1,
               episode: 1,
-              title: "First Episode",
+              titleEn: "First Episode",
               overview: "A thrilling start",
               airDate: "2026-01-15",
               entryType: "tv" as const,
@@ -113,15 +113,15 @@ describe("MetadataWriter", () => {
         });
 
         const mockDb = createMockDb({
-          searchAnime: () => [{ id: "99", title: "DB Anime Title", entryType: "tv" as const }],
-          getAnime: () => ({ id: "99", title: "DB Anime Title", entryType: "tv" as const }),
+          searchAnime: () => [{ id: "99", titleEn: "DB Anime Title", entryType: "tv" as const }],
+          getAnime: () => ({ id: "99", titleEn: "DB Anime Title", entryType: "tv" as const }),
           getEpisodes: () => [
             {
               id: "5",
               animeId: "99",
               season: 1,
               episode: 1,
-              title: "Ep Title",
+              titleEn: "Ep Title",
               overview: "DB overview",
               airDate: "2025-01-01",
               entryType: "tv" as const,

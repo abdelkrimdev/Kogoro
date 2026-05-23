@@ -55,13 +55,13 @@ describe("Renamer", () => {
     });
 
     const match = makeMatchResult({
-      anime: { id: "2", title: "Your Name", entryType: "movie" },
+      anime: { id: "2", titleEn: "Your Name", entryType: "movie" },
       episode: {
         id: "201",
         animeId: "2",
         season: 1,
         episode: 1,
-        title: "Your Name",
+        titleEn: "Your Name",
         entryType: "movie",
       },
     });
@@ -80,13 +80,13 @@ describe("Renamer", () => {
     });
 
     const match = makeMatchResult({
-      anime: { id: "3", title: "FLCL", entryType: "ova" },
+      anime: { id: "3", titleEn: "FLCL", entryType: "ova" },
       episode: {
         id: "301",
         animeId: "3",
         season: 1,
         episode: 1,
-        title: "Fooly Cooly",
+        titleEn: "Fooly Cooly",
         entryType: "ova",
       },
     });
@@ -104,13 +104,13 @@ describe("Renamer", () => {
     });
 
     const match = makeMatchResult({
-      anime: { id: "4", title: "Attack on Titan", entryType: "special" },
+      anime: { id: "4", titleEn: "Attack on Titan", entryType: "special" },
       episode: {
         id: "401",
         animeId: "4",
         season: 1,
         episode: 1,
-        title: "Special 1",
+        titleEn: "Special 1",
         entryType: "special",
       },
     });

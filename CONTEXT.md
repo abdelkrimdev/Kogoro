@@ -32,6 +32,14 @@ _Avoid_: fixup, correction, edit
 The category of an **Episode**: TV, Movie, OVA, or Special. Controls directory placement and naming.
 _Avoid_: kind, format, category
 
+**TitleEn**:
+The English title of an **Anime** or **Episode**. Always populated; used in `{title}` and `{anime}` template variables.
+_Avoid_: title, name
+
+**TitleJa**:
+The Japanese title of an **Anime** or **Episode**. Populated when available; accessed via `{titleJa}` and `{animeJa}` template variables.
+_Avoid_: originalTitle, japanese title
+
 ## Relationships
 
 - A **MediaFile** matches exactly one **Episode**

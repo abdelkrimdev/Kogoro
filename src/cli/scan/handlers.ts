@@ -101,7 +101,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
     const ep = m.episode;
     const epInfo = ep ? ` E${ep.episode}` : "";
     const seasonInfo = ep && ep.season > 1 ? ` S${ep.season}` : "";
-    return `${i + 1}. ${m.anime.title}${seasonInfo}${epInfo} (score: ${m.score.toFixed(2)})`;
+    return `${i + 1}. ${m.anime.titleEn}${seasonInfo}${epInfo} (score: ${m.score.toFixed(2)})`;
   }
 
   async function resolveAmbiguous(
