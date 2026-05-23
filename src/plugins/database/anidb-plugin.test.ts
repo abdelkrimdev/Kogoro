@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { HttpClient } from "../../http-client";
+import { withTempDir } from "../../test-fixtures";
 import { AniDBPlugin } from "./anidb-plugin";
 import type { DatabasePlugin } from "./plugin";
 
@@ -30,50 +33,62 @@ const animetitlesXml = `<?xml version="1.0" encoding="UTF-8"?>
 
 describe("AniDBPlugin", () => {
   describe("searchAnime", () => {
-    test("returns AnimeResult array from animetitles XML", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(animetitlesXml),
+    test("returns AnimeResult array from cached animetitles XML", async () => {
+      await withTempDir("anidb-cache", async (dir) => {
+        writeFileSync(join(dir, "anime-titles.xml"), animetitlesXml);
+        const plugin = new AniDBPlugin({
+          client: "kogoro",
+          clientver: "1",
+          cacheDir: dir,
+        });
+        const results = await plugin.searchAnime("Jujutsu Kaisen");
+        expect(results).toHaveLength(1);
+        expect(results[0]?.id).toBe("12345");
+        expect(results[0]?.titleEn).toBe("Jujutsu Kaisen");
+        expect(results[0]?.titleJa).toBe("呪術廻戦");
+        expect(results[0]?.year).toBe(2020);
       });
-      const results = await plugin.searchAnime("Jujutsu Kaisen");
-      expect(results).toHaveLength(1);
-      expect(results[0]?.id).toBe("12345");
-      expect(results[0]?.titleEn).toBe("Jujutsu Kaisen");
-      expect(results[0]?.titleJa).toBe("呪術廻戦");
-      expect(results[0]?.year).toBe(2020);
     });
 
     test("returns empty array for no matching title", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(animetitlesXml),
+      await withTempDir("anidb-cache", async (dir) => {
+        writeFileSync(join(dir, "anime-titles.xml"), animetitlesXml);
+        const plugin = new AniDBPlugin({
+          client: "kogoro",
+          clientver: "1",
+          cacheDir: dir,
+        });
+        const results = await plugin.searchAnime("Nonexistent Anime");
+        expect(results).toEqual([]);
       });
-      const results = await plugin.searchAnime("Nonexistent Anime");
-      expect(results).toEqual([]);
     });
 
     test("matches case-insensitively", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(animetitlesXml),
+      await withTempDir("anidb-cache", async (dir) => {
+        writeFileSync(join(dir, "anime-titles.xml"), animetitlesXml);
+        const plugin = new AniDBPlugin({
+          client: "kogoro",
+          clientver: "1",
+          cacheDir: dir,
+        });
+        const results = await plugin.searchAnime("attack on titan");
+        expect(results).toHaveLength(1);
+        expect(results[0]?.id).toBe("67890");
       });
-      const results = await plugin.searchAnime("attack on titan");
-      expect(results).toHaveLength(1);
-      expect(results[0]?.id).toBe("67890");
     });
 
     test("matches partial titles", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(animetitlesXml),
+      await withTempDir("anidb-cache", async (dir) => {
+        writeFileSync(join(dir, "anime-titles.xml"), animetitlesXml);
+        const plugin = new AniDBPlugin({
+          client: "kogoro",
+          clientver: "1",
+          cacheDir: dir,
+        });
+        const results = await plugin.searchAnime("Titan");
+        expect(results).toHaveLength(1);
+        expect(results[0]?.id).toBe("67890");
       });
-      const results = await plugin.searchAnime("Titan");
-      expect(results).toHaveLength(1);
-      expect(results[0]?.id).toBe("67890");
     });
 
     test("skips anime with no English title", async () => {
@@ -86,50 +101,30 @@ describe("AniDBPlugin", () => {
     <title type="main" xml:lang="en">Jujutsu Kaisen</title>
   </anime>
 </animetitles>`;
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(xmlWithNoEnglishTitle),
+      await withTempDir("anidb-cache", async (dir) => {
+        writeFileSync(join(dir, "anime-titles.xml"), xmlWithNoEnglishTitle);
+        const plugin = new AniDBPlugin({
+          client: "kogoro",
+          clientver: "1",
+          cacheDir: dir,
+        });
+        const results = await plugin.searchAnime("Jujutsu");
+        expect(results).toHaveLength(1);
+        expect(results[0]?.id).toBe("12345");
       });
-      const results = await plugin.searchAnime("Jujutsu");
-      expect(results).toHaveLength(1);
-      expect(results[0]?.id).toBe("12345");
     });
 
-    test("returns empty array on API failure", async () => {
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient("", 500),
+    test("returns empty array on cache download failure", async () => {
+      await withTempDir("anidb-cache", async (dir) => {
+        const plugin = new AniDBPlugin({
+          client: "kogoro",
+          clientver: "1",
+          cacheDir: dir,
+          httpClient: mockHttpClient("", 500),
+        });
+        const results = await plugin.searchAnime("Jujutsu Kaisen");
+        expect(results).toEqual([]);
       });
-      const results = await plugin.searchAnime("Jujutsu Kaisen");
-      expect(results).toEqual([]);
-    });
-
-    test("throws on AniDB error XML", async () => {
-      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
-<error code="310">illegal input or access denied</error>`;
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml),
-      });
-      await expect(plugin.searchAnime("Jujutsu Kaisen")).rejects.toThrow(
-        "AniDB error 310: illegal input or access denied",
-      );
-    });
-
-    test("throws with unknown code when error has no code attribute", async () => {
-      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
-<error>internal server error</error>`;
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(errorXml),
-      });
-      await expect(plugin.searchAnime("Jujutsu Kaisen")).rejects.toThrow(
-        "AniDB error unknown: internal server error",
-      );
     });
   });
 
