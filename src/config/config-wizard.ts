@@ -70,8 +70,8 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
     p.select({
       message: "Select your primary Database",
       options: [
-        { value: "tvdb", label: "TVDB (default, no API key required)" },
-        { value: "anidb", label: "AniDB (requires API key)" },
+        { value: "tvdb", label: "TVDB (default)" },
+        { value: "anidb", label: "AniDB" },
       ],
     }),
   );
@@ -79,13 +79,10 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
 
   config.set("primary-db", primaryDb);
 
-  const apiKeyPrompt =
-    primaryDb === "anidb"
-      ? {
-          message: "Enter your AniDB API key",
-          placeholder: "Optional, set later with 'kogoro config set'",
-        }
-      : { message: "Enter API key (optional)", placeholder: "Leave empty if none" };
+  const apiKeyPrompt = {
+    message: "Enter your API key",
+    placeholder: "Optional, set later with 'kogoro config set'",
+  };
 
   const apiKey = await prompt(p.text(apiKeyPrompt));
   if (apiKey === undefined) return;
@@ -105,7 +102,7 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
   const secondaryDbs = await prompt(
     p.text({
       message: "Enter secondary databases (comma-separated, optional)",
-      placeholder: "e.g. anidb,tvdb",
+      placeholder: "e.g. anidb,trakt",
     }),
   );
   if (secondaryDbs === undefined) return;
