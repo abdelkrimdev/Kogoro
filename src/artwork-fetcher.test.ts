@@ -7,6 +7,7 @@ import { MatchCache } from "./match-cache";
 import {
   createArtworkDb,
   createCache,
+  createMockHttpClient,
   createTrackingFetch,
   makeCachedMatch,
   mockFetch,
@@ -59,7 +60,7 @@ describe("ArtworkFetcher", () => {
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
         cache,
-        fetch: mockFetch(testImageBytes),
+        httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
       const summary = await fetcher.process(dir);
@@ -85,7 +86,7 @@ describe("ArtworkFetcher", () => {
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
         cache,
-        fetch: mockFetch(testImageBytes),
+        httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
       const summary = await fetcher.process(dir);
@@ -110,7 +111,7 @@ describe("ArtworkFetcher", () => {
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
         cache,
-        fetch: mockFetch(testImageBytes),
+        httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
       const summary = await fetcher.process(dir, { force: true });
@@ -137,7 +138,7 @@ describe("ArtworkFetcher", () => {
         primaryDb,
         secondaryDbs: [secondaryDb],
         cache,
-        fetch: mockFetch(testImageBytes),
+        httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
       const summary = await fetcher.process(dir);
@@ -195,7 +196,7 @@ describe("ArtworkFetcher", () => {
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
         cache,
-        fetch: trackingFetch,
+        httpClient: createMockHttpClient(trackingFetch),
       });
 
       const summary = await fetcher.process(dir);
@@ -220,7 +221,7 @@ describe("ArtworkFetcher", () => {
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
         cache,
-        fetch: mockFetch(testImageBytes),
+        httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
       const summary = await fetcher.process(dir);

@@ -72,7 +72,7 @@ export class PluginFactory {
           minDelay: RATE_LIMITS.tvdb,
           ...this.debugOptions(),
         });
-        return new TVDBPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+        return new TVDBPlugin({ apiKey, httpClient });
       }
       case "anidb": {
         const credential = await this.credentialStore.getCredential(CREDENTIAL_KEYS.anidb);
@@ -110,7 +110,7 @@ export class PluginFactory {
       return undefined;
     }
     const httpClient = new HttpClient(this.debugOptions());
-    return new OpenSubtitlesPlugin({ apiKey, fetch: httpClient.fetch.bind(httpClient) });
+    return new OpenSubtitlesPlugin({ apiKey, httpClient });
   }
 
   private debugOptions(): { onDebug?: (entry: DebugEntry) => void } {

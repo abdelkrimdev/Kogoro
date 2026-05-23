@@ -1,3 +1,4 @@
+import { HttpClient } from "../../http-client";
 import type { DatabasePlugin } from "./plugin";
 import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types";
 
@@ -105,20 +106,20 @@ function extractTitleJa(aliases: TVDBAlias[] | string[] | undefined): string | u
 export class TVDBPlugin implements DatabasePlugin {
   private token: string | null = null;
   private apiKey: string;
-  private fetchFn: (url: string | URL, init?: RequestInit) => Promise<Response>;
+  private httpClient: HttpClient;
 
   constructor(options: {
     apiKey?: string;
-    fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>;
+    httpClient?: HttpClient;
   }) {
     this.apiKey = options.apiKey ?? "";
-    this.fetchFn = options.fetch ?? globalThis.fetch;
+    this.httpClient = options.httpClient ?? new HttpClient();
   }
 
   private async ensureToken(): Promise<string | null> {
     if (this.token) return this.token;
 
-    const response = await this.fetchFn(`${BASE_URL}/login`, {
+    const response = await this.httpClient.fetch(`${BASE_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ apikey: this.apiKey }),
@@ -137,7 +138,7 @@ export class TVDBPlugin implements DatabasePlugin {
     const token = await this.ensureToken();
     if (!token) return null;
 
-    const response = await this.fetchFn(`${BASE_URL}${path}`, {
+    const response = await this.httpClient.fetch(`${BASE_URL}${path}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,

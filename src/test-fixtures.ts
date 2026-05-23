@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ConfigManager } from "./config/config-manager";
 import { CredentialStore, type KeytarLike } from "./config/credential-store";
+import { HttpClient } from "./http-client";
 import { type CachedMatch, MatchCache } from "./match-cache";
 import type { MatcherLike, MatchResult } from "./matcher";
 import type { ParsedResult, ParsedTags } from "./parser";
@@ -60,6 +61,13 @@ export function mockJsonFetch(
 
 export function createMockResponse(body: string, init?: ResponseInit): Response {
   return new Response(body, init);
+}
+
+export function createMockHttpClient(
+  fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>,
+  opts?: { minDelay?: number; maxRetries?: number },
+): HttpClient {
+  return new HttpClient({ fetch, minDelay: 0, maxRetries: 0, ...opts });
 }
 
 export function createCache(dir: string): MatchCache {

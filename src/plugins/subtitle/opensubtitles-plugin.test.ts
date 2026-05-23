@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createCallCounter, mockJsonFetch } from "../../test-fixtures";
+import { createCallCounter, createMockHttpClient, mockJsonFetch } from "../../test-fixtures";
 import { OpenSubtitlesPlugin } from "./opensubtitles-plugin";
 
 describe("OpenSubtitlesPlugin", () => {
@@ -21,7 +21,7 @@ describe("OpenSubtitlesPlugin", () => {
 
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
-      fetch: mockJsonFetch(searchResponse),
+      httpClient: createMockHttpClient(mockJsonFetch(searchResponse)),
     });
 
     const results = await plugin.search("Jujutsu Kaisen", 1, 1, "en");
@@ -36,7 +36,7 @@ describe("OpenSubtitlesPlugin", () => {
 
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
-      fetch: mockJsonFetch(searchResponse),
+      httpClient: createMockHttpClient(mockJsonFetch(searchResponse)),
     });
 
     const results = await plugin.search("Unknown Anime", 1, 1, "en");
@@ -46,7 +46,7 @@ describe("OpenSubtitlesPlugin", () => {
   test("search returns empty array on API error", async () => {
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
-      fetch: mockJsonFetch(null, 401),
+      httpClient: createMockHttpClient(mockJsonFetch(null, 500)),
     });
 
     const results = await plugin.search("Jujutsu Kaisen", 1, 1, "en");
@@ -63,7 +63,7 @@ describe("OpenSubtitlesPlugin", () => {
     const calls = createCallCounter();
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
-      fetch: async (_url: string | URL, _init?: RequestInit) => {
+      httpClient: createMockHttpClient(async (_url: string | URL, _init?: RequestInit) => {
         calls.inc();
         if (calls.get() === 1) {
           return new Response(JSON.stringify(downloadResponse), {
@@ -72,7 +72,7 @@ describe("OpenSubtitlesPlugin", () => {
           });
         }
         return new Response(contentResponse, { status: 200 });
-      },
+      }),
     });
 
     const content = await plugin.download(101);
@@ -83,7 +83,7 @@ describe("OpenSubtitlesPlugin", () => {
   test("download returns empty string on API error", async () => {
     const plugin = new OpenSubtitlesPlugin({
       apiKey: "test-key",
-      fetch: mockJsonFetch(null, 500),
+      httpClient: createMockHttpClient(mockJsonFetch(null, 500)),
     });
 
     const content = await plugin.download(101);

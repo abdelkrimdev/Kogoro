@@ -1,5 +1,5 @@
-import type { UrlFetch } from "../../artwork-fetcher";
 import { ArtworkFetcher } from "../../artwork-fetcher";
+import type { HttpClient } from "../../http-client";
 import { MatchCache } from "../../match-cache";
 import type { DatabasePlugin } from "../../plugins/database/plugin";
 
@@ -7,7 +7,7 @@ export interface ArtworkHandlerOptions {
   primaryDb: DatabasePlugin;
   secondaryDbs?: DatabasePlugin[];
   cache?: MatchCache;
-  fetch?: UrlFetch;
+  httpClient?: HttpClient;
 }
 
 export function createArtworkHandlers(options: ArtworkHandlerOptions) {
@@ -16,7 +16,7 @@ export function createArtworkHandlers(options: ArtworkHandlerOptions) {
     primaryDb: options.primaryDb,
     secondaryDbs: options.secondaryDbs,
     cache,
-    fetch: options.fetch,
+    httpClient: options.httpClient,
   });
 
   return {

@@ -1,21 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { HttpClient } from "../../http-client";
-import { withTempDir } from "../../test-fixtures";
+import { createMockHttpClient, withTempDir } from "../../test-fixtures";
 import { AniDBPlugin } from "./anidb-plugin";
 import type { DatabasePlugin } from "./plugin";
 
-function mockHttpClient(data: string, status = 200): HttpClient {
-  return new HttpClient({
-    minDelay: 0,
-    maxRetries: 0,
-    fetch: async (_url: string | URL, _init?: RequestInit) => {
-      return new Response(data, {
-        status,
-        headers: { "Content-Type": "application/xml" },
-      });
-    },
+function mockHttpClient(data: string, status = 200) {
+  return createMockHttpClient(async (_url: string | URL, _init?: RequestInit) => {
+    return new Response(data, {
+      status,
+      headers: { "Content-Type": "application/xml" },
+    });
   });
 }
 

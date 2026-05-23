@@ -1,3 +1,4 @@
+import { HttpClient } from "../../http-client";
 import type { SubtitlePlugin } from "./plugin";
 import type { SubtitleResult } from "./types";
 
@@ -26,15 +27,15 @@ interface OSDownloadResponse {
 }
 
 export class OpenSubtitlesPlugin implements SubtitlePlugin {
-  private fetchFn: (url: string | URL, init?: RequestInit) => Promise<Response>;
+  private httpClient: HttpClient;
 
   constructor(
     private options: {
       apiKey: string;
-      fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>;
+      httpClient?: HttpClient;
     },
   ) {
-    this.fetchFn = options.fetch ?? globalThis.fetch;
+    this.httpClient = options.httpClient ?? new HttpClient();
   }
 
   async search(
@@ -50,7 +51,7 @@ export class OpenSubtitlesPlugin implements SubtitlePlugin {
     if (season !== undefined) params.set("season_number", String(season));
     if (episode !== undefined) params.set("episode_number", String(episode));
 
-    const response = await this.fetchFn(`${BASE_URL}/subtitles?${params.toString()}`, {
+    const response = await this.httpClient.fetch(`${BASE_URL}/subtitles?${params.toString()}`, {
       headers: {
         "Api-Key": this.options.apiKey,
         "User-Agent": "Kogoro/0.1.0",
@@ -73,7 +74,7 @@ export class OpenSubtitlesPlugin implements SubtitlePlugin {
   }
 
   async download(fileId: number): Promise<string> {
-    const response = await this.fetchFn(`${BASE_URL}/download`, {
+    const response = await this.httpClient.fetch(`${BASE_URL}/download`, {
       method: "POST",
       headers: {
         "Api-Key": this.options.apiKey,
@@ -86,7 +87,7 @@ export class OpenSubtitlesPlugin implements SubtitlePlugin {
     if (!response.ok) return "";
 
     const json = (await response.json()) as OSDownloadResponse;
-    const contentResponse = await this.fetchFn(json.link);
+    const contentResponse = await this.httpClient.fetch(json.link);
     if (!contentResponse.ok) return "";
     return contentResponse.text();
   }

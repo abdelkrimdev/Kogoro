@@ -1,17 +1,16 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { VIDEO_EXTENSIONS, walk } from "./directory-walker";
+import { HttpClient } from "./http-client";
 import { MatchCache } from "./match-cache";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { ArtworkResult } from "./plugins/database/types";
-
-export type UrlFetch = (url: string | URL, init?: RequestInit) => Promise<Response>;
 
 export interface ArtworkFetcherOptions {
   primaryDb: DatabasePlugin;
   secondaryDbs?: DatabasePlugin[];
   cache: MatchCache;
-  fetch?: UrlFetch;
+  httpClient?: HttpClient;
 }
 
 export interface ArtworkSummary {
@@ -25,13 +24,13 @@ export class ArtworkFetcher {
   private primaryDb: DatabasePlugin;
   private secondaryDbs: DatabasePlugin[];
   private cache: MatchCache;
-  private fetchFn: UrlFetch;
+  private httpClient: HttpClient;
 
   constructor(options: ArtworkFetcherOptions) {
     this.primaryDb = options.primaryDb;
     this.secondaryDbs = options.secondaryDbs ?? [];
     this.cache = options.cache;
-    this.fetchFn = options.fetch ?? globalThis.fetch;
+    this.httpClient = options.httpClient ?? new HttpClient();
   }
 
   async process(
@@ -136,7 +135,7 @@ export class ArtworkFetcher {
   }
 
   private async downloadImage(url: string, destPath: string): Promise<void> {
-    const response = await this.fetchFn(url);
+    const response = await this.httpClient.fetch(url);
     if (!response.ok) throw new Error(`Failed to download image: ${response.status}`);
     const buffer = await response.arrayBuffer();
     const dir = dirname(destPath);

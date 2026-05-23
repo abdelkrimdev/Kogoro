@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   createArtworkDb,
   createLogCapture,
+  createMockHttpClient,
   makeThrowingDb,
   mockFetch,
   seedCacheEntry,
@@ -30,7 +31,7 @@ describe("artwork CLI commands", () => {
           { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
         ]),
         cache,
-        fetch: mockFetch(testImageBytes),
+        httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
       const log = createLogCapture();
@@ -60,7 +61,7 @@ describe("artwork CLI commands", () => {
           { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
         ]),
         cache,
-        fetch: mockFetch(testImageBytes),
+        httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
       const logs: string[] = [];
