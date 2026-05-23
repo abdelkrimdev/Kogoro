@@ -157,7 +157,7 @@ describe("TVDBPlugin", () => {
         apiKey: "test-key",
         fetch: mockFetchWithRoutes({
           "/episodes/default": episodesResponse,
-          "/translations": [],
+          "/episodes/official/jpn": { episodes: [] },
         }),
       });
       const results = await plugin.getEpisodes("12345");
@@ -273,41 +273,7 @@ describe("TVDBPlugin", () => {
     });
   });
 
-  describe("getTranslations", () => {
-    test("returns translation map from TVDB translations API", async () => {
-      const translationsResponse = [
-        { language: "jpn", name: "呪術廻戦", overview: "呪いを払う少年の物語" },
-        { language: "eng", name: "Jujutsu Kaisen", overview: "A boy fights curses." },
-      ];
-
-      const plugin = new TVDBPlugin({
-        apiKey: "test-key",
-        fetch: mockFetch(translationsResponse),
-      });
-      const results = await plugin.getTranslations?.("12345");
-
-      expect(results).toEqual({
-        jpn: "呪術廻戦",
-        eng: "Jujutsu Kaisen",
-      });
-    });
-
-    test("returns empty object when no translations exist", async () => {
-      const plugin = new TVDBPlugin({
-        apiKey: "test-key",
-        fetch: mockFetch([]),
-      });
-      const results = await plugin.getTranslations?.("99999");
-      expect(results).toEqual({});
-    });
-
-    test("getTranslations is an optional method on DatabasePlugin", () => {
-      const plugin: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
-      expect(plugin.getTranslations).toBeInstanceOf(Function);
-    });
-  });
-
-  describe("getEpisodes with translations", () => {
+  describe("getEpisodes with Japanese titles", () => {
     test("populates titleEn and titleJa on episodes from translations", async () => {
       const episodesResponse = {
         series: { id: 12345, name: "Jujutsu Kaisen" },

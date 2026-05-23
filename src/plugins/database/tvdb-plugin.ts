@@ -51,12 +51,6 @@ type TVDBEpisodeType =
   | "trailer"
   | "behind_the_scenes";
 
-interface TVDBTranslation {
-  language: string;
-  name: string;
-  overview: string;
-}
-
 interface TVDBArtworkItem {
   id: number;
   image: string;
@@ -195,16 +189,6 @@ export class TVDBPlugin implements DatabasePlugin {
       status: data.status,
       entryType: "tv",
     };
-  }
-
-  async getTranslations(animeId: string): Promise<Record<string, string>> {
-    const data = await this.apiRequest<TVDBTranslation[]>(`/series/${animeId}/translations`);
-    if (!data) return {};
-    const result: Record<string, string> = {};
-    for (const t of data) {
-      result[t.language] = t.name;
-    }
-    return result;
   }
 
   async getEpisodes(animeId: string): Promise<EpisodeResult[]> {

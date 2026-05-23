@@ -5,5 +5,4 @@ export interface DatabasePlugin {
   getAnime(animeId: string): Promise<AnimeResult | null>;
   getEpisodes(animeId: string): Promise<EpisodeResult[]>;
   getArtwork(animeId: string, type: ArtworkType): Promise<ArtworkResult[]>;
-  getTranslations?(animeId: string): Promise<Record<string, string>>;
 }
