@@ -4,8 +4,6 @@ import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult 
 
 const BASE_URL = "http://api.anidb.net:9001/httpapi";
 
-// --- Entry type mapping ---
-
 const ENTRY_TYPE_MAP: Record<string, EntryType> = {
   "TV Series": "tv",
   Movie: "movie",
@@ -17,8 +15,6 @@ const ENTRY_TYPE_MAP: Record<string, EntryType> = {
 function toEntryType(animeType: string): EntryType {
   return ENTRY_TYPE_MAP[animeType] ?? "tv";
 }
-
-// --- Low-level XML extraction ---
 
 function extractTag(xml: string, tag: string): string | undefined {
   const match = xml.match(new RegExp(`<${tag}[^>]*>([^<]*)<\\/${tag}>`));
@@ -34,8 +30,6 @@ function extractAttr(block: string, attr: string): string | undefined {
   const match = block.match(new RegExp(`${attr}="([^"]*)"`));
   return match?.[1];
 }
-
-// --- Document parser ---
 
 interface ParsedTitle {
   lang: string;
@@ -105,8 +99,6 @@ function parseDocument(xml: string): AnimeDocument {
   };
 }
 
-// --- Title extraction ---
-
 function findMainTitles(titles: Iterable<{ lang: string; value: string | undefined }>): {
   title: string | undefined;
   originalTitle: string | undefined;
@@ -120,8 +112,6 @@ function findMainTitles(titles: Iterable<{ lang: string; value: string | undefin
   }
   return { title, originalTitle };
 }
-
-// --- Plugin ---
 
 export class AniDBPlugin implements DatabasePlugin {
   private httpClient: HttpClient;
