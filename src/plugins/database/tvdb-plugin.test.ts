@@ -63,6 +63,7 @@ describe("TVDBPlugin", () => {
   test("satisfies DatabasePlugin contract", () => {
     const plugin: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
     expect(plugin.searchAnime).toBeInstanceOf(Function);
+    expect(plugin.getAnime).toBeInstanceOf(Function);
     expect(plugin.getEpisodes).toBeInstanceOf(Function);
     expect(plugin.getArtwork).toBeInstanceOf(Function);
   });
@@ -108,6 +109,26 @@ describe("TVDBPlugin", () => {
       expect(results).toEqual([]);
     });
 
+    test("resolves titleEn from translations when name is not English", async () => {
+      const searchResponse = [
+        {
+          id: 281270,
+          slug: "barakamon",
+          name: "ばらかもん",
+          translations: { eng: "Barakamon" },
+          name_translated: "Barakamon",
+          aliases: ["Barakamon", "ばらかもん"],
+        },
+      ];
+
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        httpClient: createMockHttpClient(mockFetch(searchResponse)),
+      });
+      const results = await plugin.searchAnime("barakamon");
+      expect(results[0]?.titleEn).toBe("Barakamon");
+    });
+
     test("populates titleJa from aliases", async () => {
       const searchResponse = [
         {
@@ -129,7 +150,8 @@ describe("TVDBPlugin", () => {
   describe("getEpisodes", () => {
     test("returns EpisodeResult array from TVDB episodes API", async () => {
       const episodesResponse = {
-        series: { id: 12345, name: "Jujutsu Kaisen" },
+        id: 12345,
+        name: "Jujutsu Kaisen",
         episodes: [
           {
             id: 1001,
@@ -139,7 +161,7 @@ describe("TVDBPlugin", () => {
             overview: "A boy swallows a cursed finger.",
             aired: "2020-10-03",
             image: "https://artworks.thetvdb.com/episodes/1001.jpg",
-            type: "series",
+            isMovie: 0,
           },
           {
             id: 1002,
@@ -148,7 +170,7 @@ describe("TVDBPlugin", () => {
             name: "For Myself",
             overview: "Yuji enrolls at Jujutsu High.",
             aired: "2020-10-10",
-            type: "series",
+            isMovie: 0,
           },
         ],
       };
@@ -157,8 +179,8 @@ describe("TVDBPlugin", () => {
         apiKey: "test-key",
         httpClient: createMockHttpClient(
           mockFetchWithRoutes({
-            "/episodes/default": episodesResponse,
-            "/episodes/official/jpn": { episodes: [] },
+            "/episodes/default/eng": episodesResponse,
+            "/episodes/default/jpn": { id: 12345, episodes: [] },
           }),
         ),
       });
@@ -177,21 +199,20 @@ describe("TVDBPlugin", () => {
     test("returns empty array when no episodes exist", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
-        httpClient: createMockHttpClient(mockFetch({ series: { id: 99999, name: "Unknown" } })),
+        httpClient: createMockHttpClient(mockFetch({ id: 99999, name: "Unknown" })),
       });
       const results = await plugin.getEpisodes("99999");
       expect(results).toEqual([]);
     });
 
-    test("maps TVDB episode types to EntryType correctly", async () => {
+    test("derives entry type from isMovie and seasonNumber", async () => {
       const episodesResponse = {
-        series: { id: 100, name: "Test" },
+        id: 100,
+        name: "Test",
         episodes: [
-          { id: 1, seasonNumber: 1, number: 1, name: "TV Eps", type: "series" },
-          { id: 2, seasonNumber: 1, number: 1, name: "Movie", type: "movie" },
-          { id: 3, seasonNumber: 1, number: 1, name: "OVA", type: "ova" },
-          { id: 4, seasonNumber: 1, number: 1, name: "Special", type: "special" },
-          { id: 5, seasonNumber: 1, number: 1, name: "Short", type: "short" },
+          { id: 1, seasonNumber: 1, number: 1, name: "TV Eps", isMovie: 0 },
+          { id: 2, seasonNumber: 1, number: 1, name: "Movie", isMovie: 1 },
+          { id: 3, seasonNumber: 0, number: 1, name: "Special", isMovie: 0 },
         ],
       };
 
@@ -199,8 +220,8 @@ describe("TVDBPlugin", () => {
         apiKey: "test-key",
         httpClient: createMockHttpClient(
           mockFetchWithRoutes({
-            "/episodes/default": episodesResponse,
-            "/episodes/official/jpn": { episodes: [] },
+            "/episodes/default/eng": episodesResponse,
+            "/episodes/default/jpn": { id: 100, episodes: [] },
           }),
         ),
       });
@@ -208,9 +229,57 @@ describe("TVDBPlugin", () => {
 
       expect(results.find((e) => e.titleEn === "TV Eps")?.entryType).toBe("tv");
       expect(results.find((e) => e.titleEn === "Movie")?.entryType).toBe("movie");
-      expect(results.find((e) => e.titleEn === "OVA")?.entryType).toBe("ova");
       expect(results.find((e) => e.titleEn === "Special")?.entryType).toBe("special");
-      expect(results.find((e) => e.titleEn === "Short")?.entryType).toBe("special");
+    });
+
+    describe("Japanese titles", () => {
+      test("merges English and Japanese titles from locale endpoints", async () => {
+        const engEpisodesResponse = {
+          id: 12345,
+          name: "Jujutsu Kaisen",
+          episodes: [
+            {
+              id: 1001,
+              seasonNumber: 1,
+              number: 1,
+              name: "Ryomen Sukuna",
+              overview: "A boy swallows a cursed finger.",
+              aired: "2020-10-03",
+              isMovie: 0,
+            },
+          ],
+        };
+
+        const jpnEpisodesResponse = {
+          id: 12345,
+          name: "呪術廻戦",
+          episodes: [
+            {
+              id: 1001,
+              seasonNumber: 1,
+              number: 1,
+              name: "両面宿儺",
+              overview: "",
+              isMovie: 0,
+            },
+          ],
+        };
+
+        const plugin = new TVDBPlugin({
+          apiKey: "test-key",
+          httpClient: createMockHttpClient(
+            mockFetchWithRoutes({
+              "/episodes/default/eng": engEpisodesResponse,
+              "/episodes/default/jpn": jpnEpisodesResponse,
+            }),
+          ),
+        });
+        const results = await plugin.getEpisodes("12345");
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.titleEn).toBe("Ryomen Sukuna");
+        expect(results[0]?.titleJa).toBe("両面宿儺");
+      });
     });
   });
 
@@ -277,60 +346,16 @@ describe("TVDBPlugin", () => {
     });
   });
 
-  describe("getEpisodes with Japanese titles", () => {
-    test("populates titleEn and titleJa on episodes from translations", async () => {
-      const episodesResponse = {
-        series: { id: 12345, name: "Jujutsu Kaisen" },
-        episodes: [
-          {
-            id: 1001,
-            seasonNumber: 1,
-            number: 1,
-            name: "Ryomen Sukuna",
-            overview: "A boy swallows a cursed finger.",
-            aired: "2020-10-03",
-            type: "series",
-          },
-        ],
-      };
-
-      const jpnEpisodesResponse = {
-        episodes: [
-          {
-            id: 1001,
-            seasonNumber: 1,
-            number: 1,
-            name: "両面宿儺",
-            overview: "",
-            type: "series",
-          },
-        ],
-      };
-
-      const plugin = new TVDBPlugin({
-        apiKey: "test-key",
-        httpClient: createMockHttpClient(
-          mockFetchWithRoutes({
-            "/episodes/default": episodesResponse,
-            "/episodes/official/jpn": jpnEpisodesResponse,
-          }),
-        ),
-      });
-      const results = await plugin.getEpisodes("12345");
-
-      expect(results).toHaveLength(1);
-      expect(results[0]?.titleEn).toBe("Ryomen Sukuna");
-      expect(results[0]?.titleJa).toBe("両面宿儺");
-    });
-  });
-
   describe("getAnime", () => {
-    test("returns AnimeResult from TVDB series API for a valid ID", async () => {
+    test("returns anime details for a valid ID", async () => {
       const seriesResponse = {
         id: 12345,
         slug: "jujutsu-kaisen",
         name: "Jujutsu Kaisen",
-        aliases: [{ name: "呪術廻戦", lang: "jpn" }],
+        aliases: [
+          { name: "Jujutsu Kaisen", lang: "eng" },
+          { name: "呪術廻戦", lang: "jpn" },
+        ],
         image: "https://artworks.thetvdb.com/series/12345/poster.jpg",
         year: "2020",
         overview: "A boy fights curses.",
