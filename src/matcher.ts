@@ -140,6 +140,7 @@ export class Matcher implements MatcherLike {
 
   private db: DatabasePlugin;
   private overrideStore?: OverrideStore;
+  private searchCache = new Map<string, AnimeResult[]>();
   private episodeCache = new Map<string, EpisodeResult[]>();
 
   constructor(options: MatcherOptions) {
@@ -157,7 +158,7 @@ export class Matcher implements MatcherLike {
       return noMatch("No title parsed");
     }
 
-    const animeList = await this.db.searchAnime(parsed.title);
+    const animeList = await this.fetchAnimeSearch(parsed.title);
     if (animeList.length === 0) {
       return noMatch("No anime found");
     }
@@ -191,7 +192,7 @@ export class Matcher implements MatcherLike {
       const key = parsed.title.toLowerCase();
       if (titleCandidates.has(key)) continue;
 
-      const animeList = await this.db.searchAnime(parsed.title);
+      const animeList = await this.fetchAnimeSearch(parsed.title);
       titleCandidates.set(key, { originalTitle: parsed.title, candidates: animeList });
     }
 
@@ -242,6 +243,16 @@ export class Matcher implements MatcherLike {
     return candidates
       .map((anime) => ({ anime, score: diceSimilarity(title, anime.titleEn) }))
       .filter(({ score }) => score > Matcher.MIN_SIMILARITY);
+  }
+
+  private async fetchAnimeSearch(title: string): Promise<AnimeResult[]> {
+    const key = title.toLowerCase();
+    let results = this.searchCache.get(key);
+    if (!results) {
+      results = await this.db.searchAnime(title);
+      this.searchCache.set(key, results);
+    }
+    return results;
   }
 
   private async batchFetchEpisodes(ids: string[]): Promise<void> {

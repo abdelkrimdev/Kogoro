@@ -254,6 +254,31 @@ describe("Matcher", () => {
     expect(episodeCalls.get()).toBe(1);
   });
 
+  test("shares search cache between match and matchBatch", async () => {
+    const searchCalls = createCallCounter();
+
+    const trackingDb = createMockDb({
+      searchAnime(title: string) {
+        searchCalls.inc();
+        return [{ id: "1", titleEn: title, entryType: "tv" }];
+      },
+      getEpisodes() {
+        return [
+          { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+        ];
+      },
+    });
+
+    const matcher = new Matcher({ database: trackingDb });
+    const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
+
+    await matcher.match(parsed);
+    expect(searchCalls.get()).toBe(1);
+
+    await matcher.matchBatch([parsed]);
+    expect(searchCalls.get()).toBe(1);
+  });
+
   describe("findMatchingEpisode (season preference)", () => {
     test("prefers season > 0 over season 0 (special) when parsed season is null", async () => {
       const db = createMockDb({
