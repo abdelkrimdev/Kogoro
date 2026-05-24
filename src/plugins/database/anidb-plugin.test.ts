@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createMockHttpClient, withTempDir } from "../../test-fixtures";
+import { createMockHttpClient, createSequenceHttpClient, withTempDir } from "../../test-fixtures";
 import { AniDBPlugin } from "./anidb-plugin";
 import type { DatabasePlugin } from "./plugin";
 
@@ -262,51 +262,101 @@ describe("AniDBPlugin", () => {
       expect((await tvSpecialPlugin.getEpisodes("444"))[0]?.entryType).toBe("special");
     });
 
-    test("parses season element from episode XML when present", async () => {
-      const multiSeasonXml = `<?xml version="1.0"?>
+    test("defaults to season 1 when no related anime", async () => {
+      const xml = `<?xml version="1.0"?>
 <anime>
   <id>12345</id>
   <type>TV Series</type>
   <episodes>
-    <episode id="1"><epno>1</epno><season>1</season><title>Episode 1</title></episode>
-    <episode id="2"><epno>2</epno><season>1</season><title>Episode 2</title></episode>
-    <episode id="3"><epno>25</epno><season>2</season><title>Season 2 Ep 1</title></episode>
+    <episode id="1"><epno>1</epno><title>Episode 1</title></episode>
   </episodes>
 </anime>`;
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
-        httpClient: mockHttpClient(multiSeasonXml),
+        httpClient: mockHttpClient(xml),
       });
       const results = await plugin.getEpisodes("12345");
-      expect(results).toHaveLength(3);
+      expect(results).toHaveLength(1);
       expect(results[0]?.season).toBe(1);
-      expect(results[0]?.episode).toBe(1);
-      expect(results[1]?.season).toBe(1);
-      expect(results[1]?.episode).toBe(2);
-      expect(results[2]?.season).toBe(2);
-      expect(results[2]?.episode).toBe(25);
     });
 
-    test("falls back to season 1 when no season element in episode", async () => {
-      const xmlWithoutSeason = `<?xml version="1.0"?>
+    test("walks Prequel chain to resolve season", async () => {
+      const prequelXml = `<?xml version="1.0"?>
 <anime>
-  <id>12345</id>
+  <id>111</id>
   <type>TV Series</type>
   <episodes>
-    <episode id="1"><epno>1</epno><title>No Season Tag</title></episode>
-    <episode id="2"><epno>2</epno><title>Also No Season</title></episode>
+    <episode id="1"><epno>1</epno><title>Old Ep</title></episode>
+  </episodes>
+</anime>`;
+      const currentXml = `<?xml version="1.0"?>
+<anime>
+  <id>222</id>
+  <type>TV Series</type>
+  <relatedanime>
+    <anime id="111" type="Prequel">Old</anime>
+  </relatedanime>
+  <episodes>
+    <episode id="2"><epno>1</epno><title>New Ep</title></episode>
   </episodes>
 </anime>`;
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
-        httpClient: mockHttpClient(xmlWithoutSeason),
+        httpClient: createSequenceHttpClient(
+          new Response(currentXml, { headers: { "Content-Type": "application/xml" } }),
+          new Response(prequelXml, { headers: { "Content-Type": "application/xml" } }),
+        ),
       });
-      const results = await plugin.getEpisodes("12345");
-      expect(results).toHaveLength(2);
-      expect(results[0]?.season).toBe(1);
-      expect(results[1]?.season).toBe(1);
+      const results = await plugin.getEpisodes("222");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.season).toBe(2);
+    });
+
+    test("walks deep Prequel chain across multiple hops", async () => {
+      const grandparentXml = `<?xml version="1.0"?>
+<anime>
+  <id>111</id>
+  <type>TV Series</type>
+  <episodes>
+    <episode id="1"><epno>1</epno><title>Grandparent Ep</title></episode>
+  </episodes>
+</anime>`;
+      const parentXml = `<?xml version="1.0"?>
+<anime>
+  <id>222</id>
+  <type>TV Series</type>
+  <relatedanime>
+    <anime id="111" type="Prequel">Grandparent</anime>
+  </relatedanime>
+  <episodes>
+    <episode id="2"><epno>1</epno><title>Parent Ep</title></episode>
+  </episodes>
+</anime>`;
+      const currentXml = `<?xml version="1.0"?>
+<anime>
+  <id>333</id>
+  <type>TV Series</type>
+  <relatedanime>
+    <anime id="222" type="Prequel">Parent</anime>
+  </relatedanime>
+  <episodes>
+    <episode id="3"><epno>1</epno><title>Current Ep</title></episode>
+  </episodes>
+</anime>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: createSequenceHttpClient(
+          new Response(currentXml, { headers: { "Content-Type": "application/xml" } }),
+          new Response(parentXml, { headers: { "Content-Type": "application/xml" } }),
+          new Response(grandparentXml, { headers: { "Content-Type": "application/xml" } }),
+        ),
+      });
+      const results = await plugin.getEpisodes("333");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.season).toBe(3);
     });
 
     test("uses absolute episode number from epno", async () => {
@@ -330,21 +380,21 @@ describe("AniDBPlugin", () => {
       expect(results[1]?.episode).toBe(26);
     });
 
-    test("parses season boundaries across multiple seasons", async () => {
-      const multiSeasonXml = `<?xml version="1.0"?>
+    test("assigns same season to all episodes", async () => {
+      const xml = `<?xml version="1.0"?>
 <anime>
   <id>12345</id>
   <type>TV Series</type>
   <episodes>
-    <episode id="1"><epno>1</epno><season>1</season><title>S1E1</title></episode>
-    <episode id="2"><epno>2</epno><season>1</season><title>S1E2</title></episode>
-    <episode id="3"><epno>3</epno><season>2</season><title>S2E1</title></episode>
+    <episode id="1"><epno>1</epno><title>S1E1</title></episode>
+    <episode id="2"><epno>2</epno><title>S1E2</title></episode>
+    <episode id="3"><epno>3</epno><title>S1E3</title></episode>
   </episodes>
 </anime>`;
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
-        httpClient: mockHttpClient(multiSeasonXml),
+        httpClient: mockHttpClient(xml),
       });
       const results = await plugin.getEpisodes("12345");
       expect(results).toHaveLength(3);
@@ -352,29 +402,8 @@ describe("AniDBPlugin", () => {
       expect(results[0]?.episode).toBe(1);
       expect(results[1]?.season).toBe(1);
       expect(results[1]?.episode).toBe(2);
-      expect(results[2]?.season).toBe(2);
+      expect(results[2]?.season).toBe(1);
       expect(results[2]?.episode).toBe(3);
-    });
-
-    test("defaults missing season to 1 while preserving explicit season values", async () => {
-      const noSeasonXml = `<?xml version="1.0"?>
-<anime>
-  <id>12345</id>
-  <type>TV Series</type>
-  <episodes>
-    <episode id="1"><epno>1</epno><title>No Season Tag</title></episode>
-    <episode id="2"><epno>2</epno><season>2</season><title>With Season Tag</title></episode>
-  </episodes>
-</anime>`;
-      const plugin = new AniDBPlugin({
-        client: "kogoro",
-        clientver: "1",
-        httpClient: mockHttpClient(noSeasonXml),
-      });
-      const results = await plugin.getEpisodes("12345");
-      expect(results).toHaveLength(2);
-      expect(results[0]?.season).toBe(1);
-      expect(results[1]?.season).toBe(2);
     });
 
     test("throws on AniDB error XML", async () => {

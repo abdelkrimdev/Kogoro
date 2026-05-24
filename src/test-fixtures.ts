@@ -237,6 +237,10 @@ export function createSequenceFetch(...responses: Response[]) {
   };
 }
 
+export function createSequenceHttpClient(...responses: Response[]): HttpClient {
+  return createMockHttpClient(createSequenceFetch(...responses).fn);
+}
+
 export function createTrackingFetch(urls: string[], responseBody?: string) {
   return async (url: string | URL) => {
     urls.push(toUrlString(url));

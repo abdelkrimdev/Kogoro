@@ -5,7 +5,7 @@ import { HttpClient } from "../../http-client";
 import type { DatabasePlugin } from "./plugin";
 import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types";
 
-const BASE_URL = "https://api.anidb.net:9001/httpapi";
+const BASE_URL = "http://api.anidb.net:9001/httpapi";
 
 const ENTRY_TYPE_MAP: Record<string, EntryType> = {
   "TV Series": "tv",
@@ -47,10 +47,14 @@ function parseTitles(xml: string): ParsedTitle[] {
   return titles;
 }
 
+interface RelatedAnimeEntry {
+  id: string;
+  type: string;
+}
+
 interface ParsedEpisode {
   id: string;
   epno: string | undefined;
-  season: string | undefined;
   titles: ParsedTitle[];
   airdate: string | undefined;
 }
@@ -68,7 +72,6 @@ function parseEpisodes(xml: string): ParsedEpisode[] {
     episodes.push({
       id,
       epno: extractTag(content, "epno"),
-      season: extractTag(content, "season"),
       titles: parseTitles(content),
       airdate: extractTag(content, "airdate"),
     });
@@ -83,6 +86,18 @@ interface AnimeDocument {
   picture: string | undefined;
   titles: ParsedTitle[];
   episodes: ParsedEpisode[];
+  relatedAnime: RelatedAnimeEntry[];
+}
+
+function parseRelatedAnime(xml: string): RelatedAnimeEntry[] {
+  const block = extractBlock(xml, "relatedanime");
+  if (!block) return [];
+  const entries: RelatedAnimeEntry[] = [];
+  const regex = /<anime\s+id="(\d+)"\s+type="([^"]*)">[^<]*<\/anime>/g;
+  for (const match of block.matchAll(regex)) {
+    entries.push({ id: match[1] ?? "", type: match[2] ?? "" });
+  }
+  return entries;
 }
 
 function parseDocument(xml: string): AnimeDocument {
@@ -94,6 +109,7 @@ function parseDocument(xml: string): AnimeDocument {
     picture: extractTag(xml, "picture"),
     titles: parseTitles(titlesBlock),
     episodes: parseEpisodes(xml),
+    relatedAnime: parseRelatedAnime(xml),
   };
 }
 
@@ -116,6 +132,8 @@ export class AniDBPlugin implements DatabasePlugin {
   private client: string;
   private clientver: string;
   private titleCache: AnidbTitleCache;
+  private seasonCache = new Map<string, number>();
+  private static readonly MAX_SEASON_DEPTH = 10;
 
   constructor(options: {
     client: string;
@@ -144,6 +162,25 @@ export class AniDBPlugin implements DatabasePlugin {
     throw new Error(`AniDB error ${code}: ${message}`);
   }
 
+  private async resolveSeason(animeId: string, doc: AnimeDocument, depth = 0): Promise<number> {
+    const cached = this.seasonCache.get(animeId);
+    if (cached !== undefined) return cached;
+    if (depth >= AniDBPlugin.MAX_SEASON_DEPTH) return depth + 1;
+
+    const prequel = doc.relatedAnime.find((r) => r.type === "Prequel");
+    if (!prequel) {
+      this.seasonCache.set(animeId, 1);
+      return 1;
+    }
+
+    const prequelDoc = await this.fetchDocument(prequel.id);
+    if (!prequelDoc) return depth + 1;
+    const prequelSeason = await this.resolveSeason(prequel.id, prequelDoc, depth + 1);
+    const season = prequelSeason + 1;
+    this.seasonCache.set(animeId, season);
+    return season;
+  }
+
   private async fetchDocument(animeId: string): Promise<AnimeDocument | null> {
     const response = await this.httpClient.fetch(
       `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
@@ -164,10 +201,11 @@ export class AniDBPlugin implements DatabasePlugin {
     const entryType = toEntryType(doc.animeType);
     const episodes: EpisodeResult[] = [];
 
+    const season = await this.resolveSeason(animeId, doc);
+
     for (const ep of doc.episodes) {
       const episodeNum = ep.epno ? Number.parseInt(ep.epno, 10) : NaN;
       if (Number.isNaN(episodeNum)) continue;
-      const season = ep.season ? Number.parseInt(ep.season, 10) : 1;
 
       const { titleEn, titleJa } = findTitles(ep.titles);
 
