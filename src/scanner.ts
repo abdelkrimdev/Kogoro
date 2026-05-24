@@ -52,6 +52,7 @@ export interface ScanFileOptions {
   force?: boolean;
   dryRun?: boolean;
   action?: FileAction;
+  baseDir?: string;
   onAmbiguous?: (candidates: MatchResult[], parsed: ParsedResult) => Promise<MatchResult | null>;
   onFailed?: (
     parsed: ParsedResult,
@@ -303,7 +304,7 @@ export class Scanner {
       plan.action = options?.action ?? "move";
 
       if (!options?.dryRun) {
-        const baseDir = dirname(filePath);
+        const baseDir = options?.baseDir ?? dirname(filePath);
         const result = this.renamer.execute(plan, baseDir);
         if (!result.success) {
           return {

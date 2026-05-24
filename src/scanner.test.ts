@@ -223,6 +223,32 @@ describe("Scanner", () => {
     });
   });
 
+  test("uses baseDir option to place renamed file relative to baseDir", async () => {
+    await withTempDir("scan", async (dir) => {
+      const subDir = join(dir, "subdir");
+      mkdirSync(subDir);
+      const filePath = writeTempFile(subDir, "[Group] My Anime - 01.mkv", "fake video content");
+
+      const renamer = new Renamer({
+        filenameTemplate: "{anime} - {episode:02}.{ext}",
+        directoryTemplate: "{anime}/{type}",
+        action: "move",
+      });
+      const scanner = new Scanner({ matcher: createMockMatcher(), renamer });
+
+      const result = await scanner.scanFile(filePath, {
+        onAmbiguous: async (candidates) => candidates[0] ?? null,
+        baseDir: dir,
+      });
+
+      expect(result.status).toBe("matched");
+
+      const absTarget = join(dir, "Jujutsu Kaisen/TV/Jujutsu Kaisen - 13.mkv");
+      expect(existsSync(absTarget)).toBe(true);
+      expect(existsSync(filePath)).toBe(false);
+    });
+  });
+
   test("scanDir discovers media files, parses, and matches", async () => {
     await withTempDir("scanner", async (dir) => {
       writeTempFile(dir, "[SubsPlease] One Piece - 01.mkv", "");

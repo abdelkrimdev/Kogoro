@@ -1,5 +1,5 @@
 import { lstatSync } from "node:fs";
-import { sep } from "node:path";
+import { dirname, sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../../config/config-manager";
 import { VIDEO_EXTENSIONS, walk } from "../../directory-walker";
@@ -17,7 +17,6 @@ export interface ScanHandlerOptions {
   cache?: MatchCache;
   renamer?: Renamer;
   config?: ConfigManager;
-  extensions?: string[];
   overrideStore?: OverrideStore;
 }
 
@@ -28,15 +27,29 @@ export interface ScanOptions {
   action?: FileAction;
   verbose?: boolean;
   quiet?: boolean;
-  debug?: boolean;
-  json?: boolean;
+  extensions?: string[];
   concurrency?: number;
 }
 
 const DEFAULT_FILENAME_TEMPLATE = "{anime} - {season}x{episode:02} - {title}.{ext}";
 const DEFAULT_DIRECTORY_TEMPLATE = "{anime}/{type}";
 
-const DEFAULT_EXCLUDE_PATTERNS = [".part", ".crdownload", "!qb"];
+function normalizeExtension(ext: string): string {
+  return ext.startsWith(".") ? ext : `.${ext}`;
+}
+
+function resolveExtensions(config?: ConfigManager, overrides?: string[]): string[] {
+  if (overrides && overrides.length > 0) return overrides.map(normalizeExtension);
+  const fromConfig = config?.getList("extensions");
+  if (fromConfig && fromConfig.length > 0) return fromConfig.map(normalizeExtension);
+  return VIDEO_EXTENSIONS;
+}
+
+function resolveExcludePatterns(config?: ConfigManager): string[] {
+  const fromConfig = config?.getList("exclude-patterns");
+  if (fromConfig && fromConfig.length > 0) return fromConfig;
+  return [".part", ".crdownload", "!qb"];
+}
 
 export function isAlreadyOrganized(filePath: string): boolean {
   for (const part of filePath.split(sep).slice(0, -1)) {
@@ -45,15 +58,13 @@ export function isAlreadyOrganized(filePath: string): boolean {
   return false;
 }
 
-export function discoverFiles(
+function discoverFiles(
   rootPath: string,
   extensions: string[],
-  excludePatterns?: string[],
+  excludePatterns: string[],
 ): string[] {
   if (lstatSync(rootPath).isDirectory()) {
-    return walk(rootPath, extensions, {
-      excludePatterns: excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS,
-    });
+    return walk(rootPath, extensions, { excludePatterns });
   }
   return [rootPath];
 }
@@ -91,8 +102,6 @@ export function createScanHandlers(options: ScanHandlerOptions) {
   }
 
   const scanner = buildScanner(options.database);
-
-  const extensions = options.extensions ?? VIDEO_EXTENSIONS;
 
   function formatCandidate(m: MatchResult, i: number): string {
     const ep = m.episode;
@@ -161,7 +170,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
   }
 
   return {
-    async scan(path: string, scanOptions?: ScanOptions): Promise<string> {
+    async scan(path: string, scanOptions?: ScanOptions): Promise<ScanResult[]> {
       const dryRun = scanOptions?.dryRun ?? false;
       const yes = scanOptions?.yes ?? false;
       const force = scanOptions?.force ?? false;
@@ -172,10 +181,13 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const concurrency =
         scanOptions?.concurrency ?? (Number.isNaN(configConcurrency) ? 1 : configConcurrency);
 
-      const filePaths = discoverFiles(path, extensions);
+      const baseDir = lstatSync(path).isDirectory() ? path : dirname(path);
+      const extensions = resolveExtensions(options.config, scanOptions?.extensions);
+      const excludePatterns = resolveExcludePatterns(options.config);
+      const filePaths = discoverFiles(path, extensions, excludePatterns);
 
       if (filePaths.length === 0) {
-        return JSON.stringify([]);
+        return [];
       }
 
       const organizedFiles: string[] = [];
@@ -226,6 +238,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           force,
           dryRun,
           action,
+          baseDir,
           concurrency,
           abortSignal: abortController.signal,
           onProgress: buildOnProgress(abortController.signal),
@@ -312,6 +325,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
               force,
               dryRun,
               action,
+              baseDir,
               onAmbiguous: resolveAmbiguous,
               onFailed: resolveFailed,
             });
@@ -354,7 +368,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           }
         }
 
-        return JSON.stringify(allResults, null, 2);
+        return allResults;
       } finally {
         process.off("SIGINT", onSigint);
       }

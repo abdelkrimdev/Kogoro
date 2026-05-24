@@ -1,10 +1,11 @@
 import type yargs from "yargs";
 import type { FileAction } from "../../renamer";
+import type { ScanResult } from "../../scanner";
 import type { ScanOptions } from "./handlers";
 
 export type ScanHandlerFactory = (debug?: boolean) => Promise<
   | {
-      scan(path: string, scanOptions?: ScanOptions): Promise<string>;
+      scan(path: string, scanOptions?: ScanOptions): Promise<ScanResult[]>;
     }
   | undefined
 >;
@@ -66,10 +67,14 @@ export function registerScan(
           default: false,
           describe: "Dump API requests and responses",
         })
+        .option("extensions", {
+          type: "string",
+          describe: "Comma-separated file extensions to scan (e.g. .mkv,.mp4)",
+        })
         .option("json", {
           type: "boolean",
           default: false,
-          describe: "Output final scan report as JSON",
+          describe: "Output final scan report as JSON (default: plain text)",
         })
         .option("concurrency", {
           type: "number",
@@ -80,18 +85,43 @@ export function registerScan(
       const handlers = await createHandlers(argv.debug);
       if (!handlers) return;
       try {
-        const output = await handlers.scan(argv.path, {
+        const extensions = argv.extensions
+          ? (argv.extensions as string)
+              .split(",")
+              .map((e) => e.trim())
+              .filter(Boolean)
+          : undefined;
+        const results = await handlers.scan(argv.path, {
           dryRun: argv["dry-run"] ?? false,
           yes: argv.yes ?? false,
           force: argv.force ?? false,
           action: argv.action as FileAction,
           verbose: argv.verbose ?? false,
           quiet: argv.quiet ?? false,
-          debug: argv.debug ?? false,
-          json: argv.json ?? false,
+          extensions,
           concurrency: argv.concurrency ?? 1,
         });
-        console.log(output);
+
+        if (argv.json) {
+          console.log(JSON.stringify(results, null, 2));
+        } else {
+          const lines = results.map((r) => {
+            if (r.status === "matched" && r.plan) {
+              return `✓ ${r.file} → ${r.plan.targetPath}`;
+            }
+            if (r.status === "cached") {
+              return `✓ ${r.file} (cached)`;
+            }
+            if (r.status === "skipped") {
+              return `- ${r.file} (already organized)`;
+            }
+            if (r.status === "failed") {
+              return `✗ ${r.file} (${r.failureReason ?? "unknown error"})`;
+            }
+            return `- ${r.file} (${r.status})`;
+          });
+          console.log(lines.join("\n"));
+        }
       } catch (err) {
         console.error(String(err));
       }

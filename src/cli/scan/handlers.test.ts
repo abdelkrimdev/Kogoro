@@ -20,12 +20,11 @@ describe("scan CLI commands", () => {
       const filePath = writeTempFile(dir, "[Group] Test Anime - 01.mkv", "");
 
       const handlers = createScanHandlers({ database: createStandardMockDb() });
-      const output = await handlers.scan(dir, { yes: true });
+      const results = await handlers.scan(dir, { yes: true });
 
-      const parsed = JSON.parse(output);
-      expect(parsed).toHaveLength(1);
-      expect(parsed[0]?.file).toBe(filePath);
-      expect(parsed[0]?.status).toBe("matched");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.file).toBe(filePath);
+      expect(results[0]?.status).toBe("matched");
     });
   });
 
@@ -34,12 +33,11 @@ describe("scan CLI commands", () => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "content");
 
       const handlers = createScanHandlers({ database: createStandardMockDb() });
-      const output = await handlers.scan(filePath, { yes: true });
+      const results = await handlers.scan(filePath, { yes: true });
 
-      const parsed = JSON.parse(output);
-      expect(parsed).toHaveLength(1);
-      expect(parsed[0]?.status).toBe("matched");
-      expect(parsed[0]?.parsed.title).toBe("My Anime");
+      expect(results).toHaveLength(1);
+      expect(results[0]?.status).toBe("matched");
+      expect(results[0]?.parsed.title).toBe("My Anime");
     });
   });
 
@@ -48,11 +46,10 @@ describe("scan CLI commands", () => {
       const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
       const handlers = createScanHandlers({ database: createStandardMockDb() });
-      const output = await handlers.scan(filePath, { yes: true, dryRun: true });
+      const results = await handlers.scan(filePath, { yes: true, dryRun: true });
 
-      const parsed = JSON.parse(output);
-      expect(parsed[0]?.status).toBe("matched");
-      expect(parsed[0]?.plan).not.toBeNull();
+      expect(results[0]?.status).toBe("matched");
+      expect(results[0]?.plan).not.toBeNull();
       expect(existsSync(filePath)).toBe(true);
     });
   });
@@ -63,12 +60,10 @@ describe("scan CLI commands", () => {
       const cache = createCache(dir);
 
       const handlers = createScanHandlers({ database: createStandardMockDb(), cache });
-      const firstOutput = await handlers.scan(filePath, { yes: true, dryRun: true });
-      const first = JSON.parse(firstOutput);
+      const first = await handlers.scan(filePath, { yes: true, dryRun: true });
       expect(first[0]?.status).toBe("matched");
 
-      const secondOutput = await handlers.scan(filePath, { yes: true, dryRun: true });
-      const second = JSON.parse(secondOutput);
+      const second = await handlers.scan(filePath, { yes: true, dryRun: true });
       expect(second[0]?.status).toBe("cached");
     });
   });
@@ -80,9 +75,8 @@ describe("scan CLI commands", () => {
 
       const handlers = createScanHandlers({ database: createStandardMockDb(), cache });
       await handlers.scan(filePath, { yes: true, dryRun: true });
-      const output = await handlers.scan(filePath, { yes: true, dryRun: true, force: true });
-      const parsed = JSON.parse(output);
-      expect(parsed[0]?.status).toBe("matched");
+      const results = await handlers.scan(filePath, { yes: true, dryRun: true, force: true });
+      expect(results[0]?.status).toBe("matched");
     });
   });
 
@@ -91,11 +85,10 @@ describe("scan CLI commands", () => {
       const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
       const handlers = createScanHandlers({ database: createStandardMockDb() });
-      const output = await handlers.scan(filePath, { yes: true, action: "copy" });
+      const results = await handlers.scan(filePath, { yes: true, action: "copy" });
 
-      const parsed = JSON.parse(output);
-      expect(parsed[0]?.status).toBe("matched");
-      expect(parsed[0]?.plan?.action).toBe("copy");
+      expect(results[0]?.status).toBe("matched");
+      expect(results[0]?.plan?.action).toBe("copy");
       expect(existsSync(filePath)).toBe(true);
     });
   });
@@ -116,10 +109,9 @@ describe("scan CLI commands", () => {
       });
 
       const handlers = createScanHandlers({ database: ambiguousDb });
-      const output = await handlers.scan(filePath, { yes: true, dryRun: true });
+      const results = await handlers.scan(filePath, { yes: true, dryRun: true });
 
-      const parsed = JSON.parse(output);
-      expect(parsed[0]?.status).toBe("matched");
+      expect(results[0]?.status).toBe("matched");
     });
   });
 
@@ -161,8 +153,7 @@ describe("scan CLI commands", () => {
       });
 
       const handlers = createScanHandlers({ database: mixedDb });
-      const output = await handlers.scan(dir, { yes: true, dryRun: true });
-      const results = JSON.parse(output) as Array<{ status: string }>;
+      const results = await handlers.scan(dir, { yes: true, dryRun: true });
 
       expect(results).toHaveLength(4);
       const matched = results.filter((r) => r.status === "matched");
@@ -189,14 +180,31 @@ describe("scan CLI commands", () => {
       writeTempFile(dir, "[Group] Unorganized - 01.mkv", "content");
 
       const handlers = createScanHandlers({ database: createStandardMockDb() });
-      const output = await handlers.scan(dir, { yes: true, dryRun: true });
-      const results = JSON.parse(output) as Array<{ status: string; file: string }>;
+      const results = await handlers.scan(dir, { yes: true, dryRun: true });
 
       const organized = results.find((r) => r.file.includes("TV/"));
       const unorganized = results.find((r) => r.file.includes("Unorganized"));
 
       expect(organized?.status).toBe("skipped");
       expect(unorganized?.status).toBe("matched");
+    });
+  });
+
+  test("uses scanRoot as baseDir for files in subdirectories", async () => {
+    await withTempDir("scan-root", async (dir) => {
+      const subDir = join(dir, "out", "Oshi no Ko");
+      mkdirSync(subDir, { recursive: true });
+      const filePath = writeTempFile(subDir, "[Group] Test Anime - 01.mkv", "content");
+
+      const handlers = createScanHandlers({ database: createStandardMockDb() });
+      const results = await handlers.scan(dir, { yes: true });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.status).toBe("matched");
+      expect(
+        existsSync(join(dir, "Test Anime", "TV", "Test Anime - 1x01 - Ryomen Sukuna.mkv")),
+      ).toBe(true);
+      expect(existsSync(filePath)).toBe(false);
     });
   });
 
@@ -210,12 +218,11 @@ describe("scan CLI commands", () => {
       config.set("template.preset", "plex");
 
       const handlers = createScanHandlers({ database: createStandardMockDb(), config });
-      const output = await handlers.scan(filePath, { yes: true, dryRun: true });
+      const results = await handlers.scan(filePath, { yes: true, dryRun: true });
 
-      const parsed = JSON.parse(output);
-      expect(parsed).toHaveLength(1);
-      expect(parsed[0]?.status).toBe("matched");
-      expect(parsed[0]?.plan?.targetFilename).toMatch(/^Anime - s01e01 - /);
+      expect(results).toHaveLength(1);
+      expect(results[0]?.status).toBe("matched");
+      expect(results[0]?.plan?.targetFilename).toMatch(/^Anime - s01e01 - /);
     });
   });
 
@@ -230,11 +237,27 @@ describe("scan CLI commands", () => {
       config.set("template.string", "{anime} - E{episode:02}");
 
       const handlers = createScanHandlers({ database: createStandardMockDb(), config });
-      const output = await handlers.scan(filePath, { yes: true, dryRun: true });
+      const results = await handlers.scan(filePath, { yes: true, dryRun: true });
 
-      const parsed = JSON.parse(output);
-      expect(parsed[0]?.status).toBe("matched");
-      expect(parsed[0]?.plan?.targetFilename).toMatch(/^Anime - E01\.mkv$/);
+      expect(results[0]?.status).toBe("matched");
+      expect(results[0]?.plan?.targetFilename).toMatch(/^Anime - E01\.mkv$/);
+    });
+  });
+
+  test("extensions option filters by extension", async () => {
+    await withTempDir("scan-ext", async (dir) => {
+      writeTempFile(dir, "video.mkv", "content");
+      writeTempFile(dir, "text.txt", "content");
+
+      const handlers = createScanHandlers({ database: createStandardMockDb() });
+      const results = await handlers.scan(dir, {
+        yes: true,
+        dryRun: true,
+        extensions: [".txt"],
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.file).toContain(".txt");
     });
   });
 
@@ -253,8 +276,7 @@ describe("scan CLI commands", () => {
       const throwingDb = makeThrowingDb();
 
       const handlers = createScanHandlers({ database: throwingDb, overrideStore });
-      const output = await handlers.scan(filePath, { yes: true });
-      const results = JSON.parse(output);
+      const results = await handlers.scan(filePath, { yes: true });
 
       expect(results).toHaveLength(1);
       expect(results[0]?.status).toBe("matched");
