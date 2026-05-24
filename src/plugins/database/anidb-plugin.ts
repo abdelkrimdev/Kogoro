@@ -5,7 +5,7 @@ import { HttpClient } from "../../http-client";
 import type { DatabasePlugin } from "./plugin";
 import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types";
 
-const BASE_URL = "http://api.anidb.net:9001/httpapi";
+const BASE_URL = "https://api.anidb.net:9001/httpapi";
 
 const ENTRY_TYPE_MAP: Record<string, EntryType> = {
   "TV Series": "tv",
@@ -222,7 +222,7 @@ export class AniDBPlugin implements DatabasePlugin {
 
 class AnidbTitleCache {
   private static readonly CACHE_FILENAME = "anime-titles.xml";
-  private static readonly DUMP_URL = "http://anidb.net/api/anime-titles.xml.gz";
+  private static readonly DUMP_URL = "https://anidb.net/api/anime-titles.xml.gz";
   private static readonly USER_AGENT = "kogoro";
   private static readonly ONE_DAY_MS = 24 * 60 * 60 * 1000;
 

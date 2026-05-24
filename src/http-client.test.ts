@@ -13,8 +13,8 @@ describe("HttpClient", () => {
       });
 
       const now = Date.now();
-      await client.fetch("http://test.com/a");
-      await client.fetch("http://test.com/b");
+      await client.fetch("https://test.com/a");
+      await client.fetch("https://test.com/b");
 
       const elapsed = Date.now() - now;
       expect(mock.getCallCount()).toBe(2);
@@ -30,7 +30,7 @@ describe("HttpClient", () => {
       });
 
       const now = Date.now();
-      await client.fetch("http://test.com/a");
+      await client.fetch("https://test.com/a");
       const elapsed = Date.now() - now;
 
       expect(mock.getCallCount()).toBe(1);
@@ -52,7 +52,7 @@ describe("HttpClient", () => {
         fetch: seq.fn,
       });
 
-      const response = await client.fetch("http://test.com/429");
+      const response = await client.fetch("https://test.com/429");
 
       expect(response.status).toBe(429);
       expect(seq.getCallCount()).toBe(3);
@@ -70,7 +70,7 @@ describe("HttpClient", () => {
         fetch: seq.fn,
       });
 
-      const response = await client.fetch("http://test.com/429-then-200");
+      const response = await client.fetch("https://test.com/429-then-200");
 
       expect(response.status).toBe(200);
       expect(seq.getCallCount()).toBe(2);
@@ -96,7 +96,7 @@ describe("HttpClient", () => {
       });
 
       const start = Date.now();
-      const response = await client.fetch("http://test.com/500");
+      const response = await client.fetch("https://test.com/500");
       const elapsed = Date.now() - start;
 
       expect(seq.getCallCount()).toBe(4);
@@ -113,7 +113,7 @@ describe("HttpClient", () => {
         fetch: seq.fn,
       });
 
-      const response = await client.fetch("http://test.com/404");
+      const response = await client.fetch("https://test.com/404");
 
       expect(seq.getCallCount()).toBe(1);
       expect(response.status).toBe(404);
@@ -128,7 +128,7 @@ describe("HttpClient", () => {
         fetch: seq.fn,
       });
 
-      const response = await client.fetch("http://test.com/403");
+      const response = await client.fetch("https://test.com/403");
 
       expect(seq.getCallCount()).toBe(1);
       expect(response.status).toBe(403);
@@ -146,14 +146,14 @@ describe("HttpClient", () => {
         },
       });
 
-      await client.fetch("http://test.com/api");
+      await client.fetch("https://test.com/api");
 
       expect(entries).toHaveLength(2);
       expect(entries[0]?.type).toBe("request");
-      expect(entries[0]?.url).toBe("http://test.com/api");
+      expect(entries[0]?.url).toBe("https://test.com/api");
       expect(entries[0]?.method).toBe("GET");
       expect(entries[1]?.type).toBe("response");
-      expect(entries[1]?.url).toBe("http://test.com/api");
+      expect(entries[1]?.url).toBe("https://test.com/api");
       expect(entries[1]?.method).toBe("GET");
       expect(entries[1]?.status).toBe(200);
     });
@@ -169,7 +169,7 @@ describe("HttpClient", () => {
         },
       });
 
-      await client.fetch("http://test.com/long");
+      await client.fetch("https://test.com/long");
 
       expect(entries).toHaveLength(2);
       const body = entries[1]?.body ?? "";
@@ -183,7 +183,7 @@ describe("HttpClient", () => {
         fetch: () => Promise.resolve(createMockResponse("ok", { status: 200 })),
       });
 
-      await expect(client.fetch("http://test.com/noop")).resolves.toBeDefined();
+      await expect(client.fetch("https://test.com/noop")).resolves.toBeDefined();
     });
 
     test("response body is still readable after debug callback", async () => {
@@ -196,7 +196,7 @@ describe("HttpClient", () => {
         },
       });
 
-      const response = await client.fetch("http://test.com/readable");
+      const response = await client.fetch("https://test.com/readable");
       const body = await response.text();
       expect(body).toBe("hello world");
     });
