@@ -190,6 +190,70 @@ describe("Matcher", () => {
     expect(results[0]?.score).toBe(0);
   });
 
+  test("skips fetching episodes for low-similarity search results", async () => {
+    const episodeCalls = createCallCounter();
+
+    const trackingDb: DatabasePlugin = {
+      async searchAnime() {
+        return [
+          { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+          { id: "2", titleEn: "Totally Unrelated Series XYZ", entryType: "tv" },
+        ];
+      },
+      async getEpisodes(animeId: string) {
+        episodeCalls.inc();
+        return animeId === "1"
+          ? [{ id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" }]
+          : [];
+      },
+      async getArtwork() {
+        return [];
+      },
+      async getAnime() {
+        return null;
+      },
+    };
+
+    const matcher = new Matcher({ database: trackingDb });
+    const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
+    const results = await matcher.match(parsed);
+
+    expect(episodeCalls.get()).toBe(1);
+    expect(results[0]?.anime.id).toBe("1");
+    expect(results[0]?.episode?.episode).toBe(1);
+  });
+
+  test("shares episode cache with matchBatch", async () => {
+    const episodeCalls = createCallCounter();
+
+    const trackingDb: DatabasePlugin = {
+      async searchAnime() {
+        return [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }];
+      },
+      async getEpisodes() {
+        episodeCalls.inc();
+        return [
+          { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+        ];
+      },
+      async getArtwork() {
+        return [];
+      },
+      async getAnime() {
+        return null;
+      },
+    };
+
+    const matcher = new Matcher({ database: trackingDb });
+    const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
+
+    await matcher.match(parsed);
+    expect(episodeCalls.get()).toBe(1);
+
+    await matcher.matchBatch([parsed]);
+    expect(episodeCalls.get()).toBe(1);
+  });
+
   describe("findMatchingEpisode (season preference)", () => {
     test("prefers season > 0 over season 0 (special) when parsed season is null", async () => {
       const db = createMockDb({
@@ -404,6 +468,112 @@ describe("Matcher", () => {
       expect(results[0]?.anime.titleEn).toBe("Movie Title");
       expect(results[0]?.episode).toBeUndefined();
       expect(searchCalls.get()).toBe(1);
+    });
+
+    test("caches episodes across repeated matchBatch calls", async () => {
+      const episodeCalls = createCallCounter();
+
+      const trackingDb: DatabasePlugin = {
+        async searchAnime() {
+          return [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }];
+        },
+        async getEpisodes() {
+          episodeCalls.inc();
+          return [
+            { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+          ];
+        },
+        async getArtwork() {
+          return [];
+        },
+        async getAnime() {
+          return null;
+        },
+      };
+
+      const matcher = new Matcher({ database: trackingDb });
+      const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
+
+      await matcher.matchBatch([parsed]);
+      expect(episodeCalls.get()).toBe(1);
+
+      await matcher.matchBatch([parsed]);
+      expect(episodeCalls.get()).toBe(1);
+    });
+
+    test("populates cache that match reads from", async () => {
+      const episodeCalls = createCallCounter();
+
+      const trackingDb: DatabasePlugin = {
+        async searchAnime() {
+          return [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }];
+        },
+        async getEpisodes() {
+          episodeCalls.inc();
+          return [
+            { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+          ];
+        },
+        async getArtwork() {
+          return [];
+        },
+        async getAnime() {
+          return null;
+        },
+      };
+
+      const matcher = new Matcher({ database: trackingDb });
+      const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
+
+      await matcher.matchBatch([parsed]);
+      expect(episodeCalls.get()).toBe(1);
+
+      await matcher.match(parsed);
+      expect(episodeCalls.get()).toBe(1);
+    });
+
+    test("skips fetching episodes for low-similarity search results", async () => {
+      const episodeCalls = createCallCounter();
+
+      const trackingDb: DatabasePlugin = {
+        async searchAnime() {
+          return [
+            { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+            { id: "2", titleEn: "Totally Unrelated Series XYZ", entryType: "tv" },
+          ];
+        },
+        async getEpisodes(animeId: string) {
+          episodeCalls.inc();
+          if (animeId === "1") {
+            return [
+              {
+                id: "101",
+                animeId: "1",
+                season: 1,
+                episode: 1,
+                titleEn: "Ep 1",
+                entryType: "tv",
+              },
+            ];
+          }
+          return [];
+        },
+        async getArtwork() {
+          return [];
+        },
+        async getAnime() {
+          return null;
+        },
+      };
+
+      const matcher = new Matcher({ database: trackingDb });
+      const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
+
+      const results = await matcher.matchBatch([parsed]);
+
+      expect(episodeCalls.get()).toBe(1);
+      expect(results[0]?.anime.id).toBe("1");
+      expect(results[0]?.episode?.episode).toBe(1);
     });
   });
 
