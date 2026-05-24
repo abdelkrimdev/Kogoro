@@ -10,6 +10,7 @@ import type { DatabasePlugin } from "./plugins/database/plugin";
 import {
   createCallCounter,
   createDataMockDb,
+  createMockDb,
   makeParsedResult,
   withTempDir,
 } from "./test-fixtures";
@@ -187,6 +188,116 @@ describe("Matcher", () => {
     expect(results).toHaveLength(1);
     expect(results[0]?.failureReason).toBe("No title parsed");
     expect(results[0]?.score).toBe(0);
+  });
+
+  describe("findMatchingEpisode (season preference)", () => {
+    test("prefers season > 0 over season 0 (special) when parsed season is null", async () => {
+      const db = createMockDb({
+        searchAnime: () => [{ id: "1", titleEn: "Oshi no Ko", entryType: "tv" }],
+        getEpisodes: () => [
+          {
+            id: "s1",
+            animeId: "1",
+            season: 0,
+            episode: 1,
+            titleEn: "Special Retrospective Vol.1",
+            entryType: "special",
+          },
+          {
+            id: "s2",
+            animeId: "1",
+            season: 0,
+            episode: 2,
+            titleEn: "Special Retrospective Vol.2",
+            entryType: "special",
+          },
+          {
+            id: "e1",
+            animeId: "1",
+            season: 1,
+            episode: 1,
+            titleEn: "Mother and Children",
+            entryType: "tv",
+          },
+          {
+            id: "e2",
+            animeId: "1",
+            season: 1,
+            episode: 2,
+            titleEn: "A Three-Year-Old's Melody",
+            entryType: "tv",
+          },
+        ],
+      });
+
+      const matcher = new Matcher({ database: db });
+      const result = await matcher.match(makeParsedResult("Oshi no Ko", null, 1));
+      const result2 = await matcher.match(makeParsedResult("Oshi no Ko", null, 2));
+
+      expect(result[0]?.episode?.id).toBe("e1");
+      expect(result[0]?.episode?.season).toBe(1);
+      expect(result[0]?.episode?.entryType).toBe("tv");
+      expect(result[0]?.episode?.titleEn).toBe("Mother and Children");
+
+      expect(result2[0]?.episode?.id).toBe("e2");
+      expect(result2[0]?.episode?.season).toBe(1);
+      expect(result2[0]?.episode?.entryType).toBe("tv");
+      expect(result2[0]?.episode?.titleEn).toBe("A Three-Year-Old's Melody");
+    });
+
+    test("falls back to season 0 (special) when no regular season episode exists", async () => {
+      const db = createMockDb({
+        searchAnime: () => [{ id: "1", titleEn: "Oshi no Ko", entryType: "tv" }],
+        getEpisodes: () => [
+          {
+            id: "s3",
+            animeId: "1",
+            season: 0,
+            episode: 3,
+            titleEn: "Special Vol.3",
+            entryType: "special",
+          },
+        ],
+      });
+
+      const matcher = new Matcher({ database: db });
+      const result = await matcher.match(makeParsedResult("Oshi no Ko", null, 3));
+
+      expect(result[0]?.episode?.id).toBe("s3");
+      expect(result[0]?.episode?.season).toBe(0);
+      expect(result[0]?.episode?.entryType).toBe("special");
+    });
+
+    test("respects explicit season when provided", async () => {
+      const db = createMockDb({
+        searchAnime: () => [{ id: "1", titleEn: "Oshi no Ko", entryType: "tv" }],
+        getEpisodes: () => [
+          {
+            id: "s1",
+            animeId: "1",
+            season: 0,
+            episode: 1,
+            titleEn: "Special Vol.1",
+            entryType: "special",
+          },
+          {
+            id: "e1",
+            animeId: "1",
+            season: 1,
+            episode: 1,
+            titleEn: "Mother and Children",
+            entryType: "tv",
+          },
+        ],
+      });
+
+      const matcher = new Matcher({ database: db });
+      const result = await matcher.match(makeParsedResult("Oshi no Ko", 0, 1));
+
+      expect(result[0]?.episode?.id).toBe("s1");
+      expect(result[0]?.episode?.season).toBe(0);
+      expect(result[0]?.episode?.entryType).toBe("special");
+    });
   });
 
   describe("matchBatch", () => {

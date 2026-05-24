@@ -145,6 +145,44 @@ describe("TVDBPlugin", () => {
       const results = await plugin.searchAnime("Attack on Titan");
       expect(results[0]?.titleJa).toBe("進撃の巨人");
     });
+
+    test("strips series- prefix from string IDs", async () => {
+      const searchResponse = [
+        {
+          id: "series-421069",
+          name: "Oshi no Ko",
+          year: "2023",
+          status: "Continuing",
+        },
+      ];
+
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        httpClient: createMockHttpClient(mockFetch(searchResponse)),
+      });
+      const results = await plugin.searchAnime("Oshi no Ko");
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.id).toBe("421069");
+    });
+
+    test("prefers tvdb_id over prefixed string ID", async () => {
+      const searchResponse = [
+        {
+          id: "series-421069",
+          tvdb_id: "999999",
+          name: "Oshi no Ko",
+        },
+      ];
+
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        httpClient: createMockHttpClient(mockFetch(searchResponse)),
+      });
+      const results = await plugin.searchAnime("Oshi no Ko");
+
+      expect(results[0]?.id).toBe("999999");
+    });
   });
 
   describe("getEpisodes", () => {
@@ -230,6 +268,159 @@ describe("TVDBPlugin", () => {
       expect(results.find((e) => e.titleEn === "TV Eps")?.entryType).toBe("tv");
       expect(results.find((e) => e.titleEn === "Movie")?.entryType).toBe("movie");
       expect(results.find((e) => e.titleEn === "Special")?.entryType).toBe("special");
+    });
+
+    test("fetches all pages of episodes when response has links.next", async () => {
+      const page0Response = {
+        data: {
+          episodes: [
+            {
+              id: 1,
+              seasonNumber: 1,
+              number: 1,
+              name: "Episode 1",
+              isMovie: 0,
+            },
+          ],
+        },
+        links: { next: "/series/12345/episodes/default/eng?page=1" },
+      };
+
+      const page1Response = {
+        data: {
+          episodes: [
+            {
+              id: 2,
+              seasonNumber: 1,
+              number: 2,
+              name: "Episode 2",
+              isMovie: 0,
+            },
+          ],
+        },
+        links: { next: null },
+      };
+
+      const emptyResponse = { data: { episodes: [] } };
+
+      const fetch = async (url: string | URL, _init?: RequestInit) => {
+        const urlStr = toUrlString(url);
+        if (urlStr.includes("/login")) {
+          return new Response(JSON.stringify({ data: { token: "mock-token" } }), { status: 200 });
+        }
+        if (urlStr.includes("/eng?page=0")) {
+          return new Response(JSON.stringify(page0Response), { status: 200 });
+        }
+        if (urlStr.includes("/eng?page=1")) {
+          return new Response(JSON.stringify(page1Response), { status: 200 });
+        }
+        if (urlStr.includes("/jpn")) {
+          return new Response(JSON.stringify(emptyResponse), { status: 200 });
+        }
+        return new Response(JSON.stringify({ error: "Not Found" }), { status: 404 });
+      };
+
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        httpClient: createMockHttpClient(fetch),
+      });
+      const results = await plugin.getEpisodes("12345");
+
+      expect(results).toHaveLength(2);
+      expect(results[0]?.episode).toBe(1);
+      expect(results[0]?.titleEn).toBe("Episode 1");
+      expect(results[1]?.episode).toBe(2);
+      expect(results[1]?.titleEn).toBe("Episode 2");
+    });
+
+    test("stops fetching when a page has no episodes", async () => {
+      const pageWithEpisodes = {
+        data: {
+          episodes: [
+            {
+              id: 1,
+              seasonNumber: 1,
+              number: 1,
+              name: "Episode 1",
+              isMovie: 0,
+            },
+          ],
+        },
+        links: { next: "/series/12345/episodes/default/eng?page=1" },
+      };
+
+      const emptyPage = {
+        data: { episodes: [] as never[] },
+        links: { next: "/series/12345/episodes/default/eng?page=2" },
+      };
+
+      const fetch = async (url: string | URL, _init?: RequestInit) => {
+        const urlStr = toUrlString(url);
+        if (urlStr.includes("/login")) {
+          return new Response(JSON.stringify({ data: { token: "mock-token" } }), { status: 200 });
+        }
+        if (urlStr.includes("/eng?page=0")) {
+          return new Response(JSON.stringify(pageWithEpisodes), { status: 200 });
+        }
+        if (urlStr.includes("/eng?page=1")) {
+          return new Response(JSON.stringify(emptyPage), { status: 200 });
+        }
+        if (urlStr.includes("/jpn")) {
+          return new Response(JSON.stringify({ data: { episodes: [] } }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ error: "Not Found" }), { status: 404 });
+      };
+
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        httpClient: createMockHttpClient(fetch),
+      });
+      const results = await plugin.getEpisodes("12345");
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.episode).toBe(1);
+    });
+
+    test("stops fetching when links.next is null", async () => {
+      const singlePage = {
+        data: {
+          episodes: [
+            {
+              id: 1,
+              seasonNumber: 1,
+              number: 1,
+              name: "Episode 1",
+              isMovie: 0,
+            },
+          ],
+        },
+        links: { next: null },
+      };
+
+      let enCallCount = 0;
+      const fetch = async (url: string | URL, _init?: RequestInit) => {
+        const urlStr = toUrlString(url);
+        if (urlStr.includes("/login")) {
+          return new Response(JSON.stringify({ data: { token: "mock-token" } }), { status: 200 });
+        }
+        if (urlStr.includes("/eng")) {
+          enCallCount++;
+          return new Response(JSON.stringify(singlePage), { status: 200 });
+        }
+        if (urlStr.includes("/jpn")) {
+          return new Response(JSON.stringify({ data: { episodes: [] } }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ error: "Not Found" }), { status: 404 });
+      };
+
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        httpClient: createMockHttpClient(fetch),
+      });
+      const results = await plugin.getEpisodes("12345");
+
+      expect(results).toHaveLength(1);
+      expect(enCallCount).toBe(1);
     });
 
     describe("Japanese titles", () => {

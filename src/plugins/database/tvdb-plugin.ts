@@ -5,7 +5,7 @@ import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult 
 const BASE_URL = "https://api4.thetvdb.com/v4";
 
 interface TVDBSearchResult {
-  id: number;
+  id: string;
   slug?: string;
   name: string;
   aliases?: string[];
@@ -15,6 +15,7 @@ interface TVDBSearchResult {
   status?: string;
   translations?: { eng?: string };
   name_translated?: string;
+  tvdb_id?: string;
 }
 
 interface TVDBAlias {
@@ -120,19 +121,22 @@ export class TVDBPlugin implements DatabasePlugin {
     return this.token;
   }
 
-  private async apiRequest<T>(path: string): Promise<T | null> {
+  private async authenticatedGet(path: string): Promise<Response | null> {
     const token = await this.ensureToken();
     if (!token) return null;
 
-    const response = await this.httpClient.fetch(`${BASE_URL}${path}`, {
+    return this.httpClient.fetch(`${BASE_URL}${path}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
     });
+  }
 
-    if (!response.ok) return null;
+  private async apiRequest<T>(path: string): Promise<T | null> {
+    const response = await this.authenticatedGet(path);
+    if (!response?.ok) return null;
 
     const json = (await response.json()) as { data: T };
     return json.data;
@@ -147,7 +151,7 @@ export class TVDBPlugin implements DatabasePlugin {
 
     return data.map(
       (item): AnimeResult => ({
-        id: String(item.id),
+        id: item.tvdb_id ?? String(item.id).replace(/^series-/, ""),
         slug: item.slug,
         titleEn: item.translations?.eng ?? item.name_translated ?? item.name,
         titleJa: item.aliases?.[0],
@@ -178,25 +182,48 @@ export class TVDBPlugin implements DatabasePlugin {
     };
   }
 
+  private async fetchEpisodesByLang(animeId: string, lang: string): Promise<TVDBEpisodeItem[]> {
+    const allEpisodes: TVDBEpisodeItem[] = [];
+    let page = 0;
+
+    while (true) {
+      const response = await this.authenticatedGet(
+        `/series/${animeId}/episodes/default/${lang}?page=${page}`,
+      );
+
+      if (!response?.ok) break;
+
+      const json = (await response.json()) as {
+        data?: { episodes?: TVDBEpisodeItem[] };
+        links?: { next?: string | null };
+      };
+
+      if (!json.data?.episodes || json.data.episodes.length === 0) break;
+
+      allEpisodes.push(...json.data.episodes);
+      if (!json.links?.next) break;
+      page++;
+    }
+
+    return allEpisodes;
+  }
+
   async getEpisodes(animeId: string): Promise<EpisodeResult[]> {
-    const enData = await this.apiRequest<{
-      episodes?: TVDBEpisodeItem[];
-    }>(`/series/${animeId}/episodes/default/eng?page=0`);
+    const [enEpisodes, jaEpisodes] = await Promise.all([
+      this.fetchEpisodesByLang(animeId, "eng"),
+      this.fetchEpisodesByLang(animeId, "jpn"),
+    ]);
 
-    if (!enData?.episodes) return [];
-
-    const jaData = await this.apiRequest<{
-      episodes?: TVDBEpisodeItem[];
-    }>(`/series/${animeId}/episodes/default/jpn?page=0`);
+    if (enEpisodes.length === 0) return [];
 
     const jaNames = new Map<number, string>();
-    for (const ep of jaData?.episodes ?? []) {
+    for (const ep of jaEpisodes) {
       if (ep.number !== undefined && ep.name) {
         jaNames.set(ep.number, ep.name);
       }
     }
 
-    return enData.episodes.map(
+    return enEpisodes.map(
       (item): EpisodeResult => ({
         id: String(item.id),
         animeId,

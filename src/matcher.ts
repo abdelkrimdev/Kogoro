@@ -127,6 +127,10 @@ function findMatchingEpisode(
   season: number | null,
   episode: number,
 ): EpisodeResult | undefined {
+  if (season === null) {
+    const regular = episodes.find((e) => e.episode === episode && e.season > 0);
+    if (regular) return regular;
+  }
   return episodes.find((e) => e.episode === episode && (season === null || e.season === season));
 }
 
