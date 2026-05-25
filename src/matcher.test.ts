@@ -4,9 +4,11 @@ import {
   matchResultFromCache,
   matchResultFromManual,
   matchResultFromOverride,
+  resolveEpisode,
 } from "./matcher";
 import { OverrideStore } from "./override-store";
 import type { DatabasePlugin } from "./plugins/database/plugin";
+import type { EpisodeResult } from "./plugins/database/types";
 import {
   createCallCounter,
   createDataMockDb,
@@ -279,7 +281,7 @@ describe("Matcher", () => {
     expect(searchCalls.get()).toBe(1);
   });
 
-  describe("findMatchingEpisode (season preference)", () => {
+  describe("episode resolution", () => {
     test("prefers season > 0 over season 0 (special) when parsed season is null", async () => {
       const db = createMockDb({
         searchAnime: () => [{ id: "1", titleEn: "Oshi no Ko", entryType: "tv" }],
@@ -458,6 +460,55 @@ describe("Matcher", () => {
       expect(results[2]?.episode?.episode).toBe(1);
     });
 
+    test("prefers anime ID with matching season over base title when parsing explicit season", async () => {
+      const searchCalls = createCallCounter();
+
+      const trackingDb: DatabasePlugin = {
+        async searchAnime(title: string) {
+          searchCalls.inc();
+          return [
+            { id: "1", titleEn: title, entryType: "tv" },
+            { id: "2", titleEn: `${title}: Season 2`, entryType: "tv" },
+          ];
+        },
+        async getEpisodes(animeId: string) {
+          if (animeId === "1") {
+            return Array.from({ length: 11 }, (_, i) => ({
+              id: `s1e${i + 1}`,
+              animeId: "1",
+              season: 1,
+              episode: i + 1,
+              titleEn: `S1E${i + 1}`,
+              entryType: "tv" as const,
+            }));
+          }
+          return Array.from({ length: 13 }, (_, i) => ({
+            id: `s2e${i + 1}`,
+            animeId: "2",
+            season: 2,
+            episode: 12 + i,
+            titleEn: `S2E${i + 1}`,
+            entryType: "tv" as const,
+          }));
+        },
+        async getArtwork() {
+          return [];
+        },
+        async getAnime() {
+          return null;
+        },
+      };
+
+      const matcher = new Matcher({ database: trackingDb });
+
+      const results = await matcher.matchBatch([makeParsedResult("Attack on Titan", 2, 8)]);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.anime.id).toBe("2");
+      expect(results[0]?.episode?.id).toBe("s2e8");
+      expect(results[0]?.episode?.episode).toBe(19);
+    });
+
     test("handles empty input", async () => {
       const db = createDataMockDb([{ animeId: "1", title: "Test", episodes: [] }]);
 
@@ -599,6 +650,92 @@ describe("Matcher", () => {
       expect(episodeCalls.get()).toBe(1);
       expect(results[0]?.anime.id).toBe("1");
       expect(results[0]?.episode?.episode).toBe(1);
+    });
+
+    test("word-level scoring makes 'Oshi no Ko' beat 'Hoshi no Koe' with clear margin", async () => {
+      const trackingDb: DatabasePlugin = {
+        async searchAnime() {
+          return [
+            { id: "1", titleEn: "Oshi no Ko", entryType: "tv" },
+            { id: "2", titleEn: "Hoshi no Koe", entryType: "tv" },
+          ];
+        },
+        async getEpisodes(animeId: string) {
+          if (animeId === "1") {
+            return Array.from({ length: 11 }, (_, i) => ({
+              id: `s1e${i + 1}`,
+              animeId: "1",
+              season: 1,
+              episode: i + 1,
+              titleEn: `S1E${i + 1}`,
+              entryType: "tv" as const,
+            }));
+          }
+          return [
+            {
+              id: "101",
+              animeId: "2",
+              season: 0,
+              episode: 1,
+              titleEn: "OVA",
+              entryType: "ova" as const,
+            },
+          ];
+        },
+        async getArtwork() {
+          return [];
+        },
+        async getAnime() {
+          return null;
+        },
+      };
+
+      const matcher = new Matcher({ database: trackingDb });
+
+      // "Oshi No Ko" shares all 3 words with "Oshi no Ko" but only 1/3 with "Hoshi no Koe".
+      // The word-level boost breaks the dice-similarity tie, giving a clear winner.
+      const results = await matcher.matchBatch([makeParsedResult("Oshi No Ko", null, 1)]);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.anime.id).toBe("1");
+      expect(results[0]?.failureReason).toBeUndefined();
+    });
+
+    test("single clear winner passes through matchBatch without ambiguity", async () => {
+      const trackingDb: DatabasePlugin = {
+        async searchAnime() {
+          return [
+            { id: "1", titleEn: "One Piece", entryType: "tv" },
+            { id: "2", titleEn: "One Punch Man", entryType: "tv" },
+          ];
+        },
+        async getEpisodes(animeId: string) {
+          return [
+            {
+              id: "101",
+              animeId,
+              season: 1,
+              episode: 1,
+              titleEn: "Ep 1",
+              entryType: "tv" as const,
+            },
+          ];
+        },
+        async getArtwork() {
+          return [];
+        },
+        async getAnime() {
+          return null;
+        },
+      };
+
+      const matcher = new Matcher({ database: trackingDb });
+      // "One Piece" vs "One Punch Man" have sufficiently different bigram profiles
+      const results = await matcher.matchBatch([makeParsedResult("One Piece", null, 1)]);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.failureReason).toBeUndefined();
+      expect(results[0]?.anime.titleEn).toBe("One Piece");
     });
   });
 
@@ -842,6 +979,110 @@ describe("Matcher", () => {
       });
 
       expect(result.anime.titleEn).toBe("");
+    });
+  });
+
+  describe("resolveEpisode", () => {
+    function makeEpisodeResults(): EpisodeResult[] {
+      return [
+        {
+          id: "s1",
+          animeId: "1",
+          season: 0,
+          episode: 1,
+          titleEn: "Special Vol.1",
+          entryType: "special",
+        },
+        {
+          id: "s2",
+          animeId: "1",
+          season: 0,
+          episode: 2,
+          titleEn: "Special Vol.2",
+          entryType: "special",
+        },
+        { id: "e1", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+        { id: "e2", animeId: "1", season: 1, episode: 2, titleEn: "Ep 2", entryType: "tv" },
+        { id: "e3", animeId: "1", season: 2, episode: 13, titleEn: "Ep 13", entryType: "tv" },
+        { id: "e4", animeId: "1", season: 2, episode: 14, titleEn: "Ep 14", entryType: "tv" },
+      ];
+    }
+
+    test("prefers regular season over specials when season is null", () => {
+      const episodes = makeEpisodeResults();
+      expect(resolveEpisode(episodes, null, 1)?.id).toBe("e1");
+      expect(resolveEpisode(episodes, null, 2)?.id).toBe("e2");
+    });
+
+    test("returns undefined for nonexistent episode when season is null", () => {
+      const episodes = makeEpisodeResults();
+      const result = resolveEpisode(episodes, null, 3);
+      expect(result).toBeUndefined();
+    });
+
+    test("falls back to specials when no regular season has the episode", () => {
+      const episodes = [
+        {
+          id: "s3",
+          animeId: "1",
+          season: 0,
+          episode: 3,
+          titleEn: "Special Vol.3",
+          entryType: "special" as const,
+        },
+      ];
+      expect(resolveEpisode(episodes, null, 3)?.id).toBe("s3");
+      expect(resolveEpisode(episodes, null, 3)?.season).toBe(0);
+    });
+
+    test("returns episode for explicit season and episode number", () => {
+      const episodes = makeEpisodeResults();
+      expect(resolveEpisode(episodes, 0, 1)?.id).toBe("s1");
+      expect(resolveEpisode(episodes, 1, 1)?.id).toBe("e1");
+      expect(resolveEpisode(episodes, 2, 1)?.id).toBe("e3");
+    });
+
+    test("resolves relative episode number within season", () => {
+      const episodes = [
+        ...Array.from({ length: 11 }, (_, i) => ({
+          id: `s1e${i + 1}`,
+          animeId: "1",
+          season: 1,
+          episode: i + 1,
+          titleEn: `S1E${i + 1}`,
+          entryType: "tv" as const,
+        })),
+        ...Array.from({ length: 13 }, (_, i) => ({
+          id: `s2e${i + 1}`,
+          animeId: "1",
+          season: 2,
+          episode: 12 + i,
+          titleEn: `S2E${i + 1}`,
+          entryType: "tv" as const,
+        })),
+      ];
+      expect(resolveEpisode(episodes, 2, 4)?.id).toBe("s2e4");
+      expect(resolveEpisode(episodes, 2, 4)?.episode).toBe(15);
+    });
+
+    test("falls back to absolute matching for single-season data when parsed season not found", () => {
+      const episodes = Array.from({ length: 11 }, (_, i) => ({
+        id: `e${i + 1}`,
+        animeId: "1",
+        season: 1,
+        episode: i + 1,
+        titleEn: `E${i + 1}`,
+        entryType: "tv" as const,
+      }));
+      expect(resolveEpisode(episodes, 3, 4)?.id).toBe("e4");
+    });
+
+    test("returns undefined for nonexistent season in multi-season data", () => {
+      const episodes = [
+        { id: "e1", animeId: "1", season: 1, episode: 1, titleEn: "E1", entryType: "tv" as const },
+        { id: "e2", animeId: "1", season: 2, episode: 13, titleEn: "E2", entryType: "tv" as const },
+      ];
+      expect(resolveEpisode(episodes, 3, 1)).toBeUndefined();
     });
   });
 

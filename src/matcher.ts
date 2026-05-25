@@ -81,9 +81,25 @@ export function matchResultFromManual(
   };
 }
 
+export const AMBIGUITY_MARGIN = 0.2;
+export const AMBIGUOUS_MATCH_REASON = "Ambiguous match";
+
 export interface MatcherLike {
   match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]>;
   matchBatch(parsedList: ParsedResult[]): Promise<MatchResult[]>;
+  getEpisodes(animeId: string): EpisodeResult[];
+}
+
+export function bestPerAnimeId(matches: MatchResult[]): MatchResult[] {
+  const seen = new Set<string>();
+  const result: MatchResult[] = [];
+  for (const m of matches) {
+    if (!seen.has(m.anime.id)) {
+      seen.add(m.anime.id);
+      result.push(m);
+    }
+  }
+  return result;
 }
 
 export interface MatcherOptions {
@@ -110,6 +126,27 @@ function diceSimilarity(a: string, b: string): number {
   return (2 * intersection) / (bigramsA.size + bigramsB.size);
 }
 
+function computeScore(parsedTitle: string, dbTitle: string): number {
+  const dice = diceSimilarity(parsedTitle, dbTitle);
+
+  const normalize = (w: string) => w.replace(/[^a-z0-9]/g, "");
+  const parsedWords = parsedTitle
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(normalize)
+    .filter(Boolean);
+  const dbWords = new Set(
+    dbTitle.toLowerCase().split(/\s+/).filter(Boolean).map(normalize).filter(Boolean),
+  );
+  if (parsedWords.length === 0) return dice;
+
+  const matchingWords = parsedWords.filter((w) => dbWords.has(w)).length;
+  const wordRatio = matchingWords / parsedWords.length;
+
+  return dice + 0.3 * wordRatio;
+}
+
 function emptyAnimeResult(): AnimeResult {
   return { id: "", titleEn: "", entryType: "tv" };
 }
@@ -122,16 +159,39 @@ function noMatch(failureReason: string): MatchResult[] {
   return [noMatchResult(failureReason)];
 }
 
-function findMatchingEpisode(
+function seasonMatchBoost(episodes: EpisodeResult[] | undefined, parsedSeason: number): number {
+  return episodes?.some((e) => e.season === parsedSeason) ? 0.5 : 0;
+}
+
+export function resolveEpisode(
   episodes: EpisodeResult[],
   season: number | null,
   episode: number,
 ): EpisodeResult | undefined {
   if (season === null) {
-    const regular = episodes.find((e) => e.episode === episode && e.season > 0);
-    if (regular) return regular;
+    return findAbsolute(episodes, episode);
   }
-  return episodes.find((e) => e.episode === episode && (season === null || e.season === season));
+
+  const seasonEpisodes = episodes
+    .filter((e) => e.season === season)
+    .sort((a, b) => a.episode - b.episode);
+
+  if (seasonEpisodes.length > 0) {
+    return seasonEpisodes[episode - 1];
+  }
+
+  const maxSeason = Math.max(...episodes.map((e) => e.season), 0);
+  if (maxSeason <= 1) {
+    return findAbsolute(episodes, episode);
+  }
+
+  return undefined;
+}
+
+function findAbsolute(episodes: EpisodeResult[], episode: number): EpisodeResult | undefined {
+  const regular = episodes.find((e) => e.episode === episode && e.season > 0);
+  if (regular) return regular;
+  return episodes.find((e) => e.episode === episode);
 }
 
 export class Matcher implements MatcherLike {
@@ -168,16 +228,9 @@ export class Matcher implements MatcherLike {
 
     await this.batchFetchEpisodes(candidates.map((c) => c.anime.id));
 
-    const results = candidates.map(({ anime, score }) => {
-      if (parsed.episode !== null) {
-        const episodes = this.episodeCache.get(anime.id) ?? [];
-        const matchingEpisode = findMatchingEpisode(episodes, parsed.season, parsed.episode);
-        return { anime, episode: matchingEpisode, score };
-      }
-      return { anime, score };
-    });
-
-    results.sort((a, b) => b.score - a.score);
+    const results = candidates
+      .map(({ anime, score }) => this.toMatchResult(anime, score, parsed))
+      .sort((a, b) => b.score - a.score);
 
     return this.applyOverrideEntryType(results, override);
   }
@@ -222,17 +275,29 @@ export class Matcher implements MatcherLike {
         return noMatchResult("No anime found");
       }
 
-      const matchResults = candidates.map(({ anime, score }) => {
-        if (parsed.episode !== null) {
-          const episodes = this.episodeCache.get(anime.id) ?? [];
-          const matchingEpisode = findMatchingEpisode(episodes, parsed.season, parsed.episode);
-          return { anime, episode: matchingEpisode, score };
-        }
-        return { anime, score };
-      });
+      const matchResults = candidates
+        .map(({ anime, score }) => this.toMatchResult(anime, score, parsed))
+        .sort((a, b) => b.score - a.score);
 
-      matchResults.sort((a, b) => b.score - a.score);
-      return matchResults[0] ?? noMatchResult("No anime found");
+      const viable =
+        parsed.episode !== null
+          ? matchResults.filter((r) => r.episode !== undefined)
+          : matchResults;
+
+      if (viable.length === 0) {
+        return noMatchResult("No matching episode found");
+      }
+
+      const best = bestPerAnimeId(viable);
+
+      if (best.length > 1 && best[0] && best[1]) {
+        const margin = best[0].score - best[1].score;
+        if (margin < AMBIGUITY_MARGIN) {
+          return noMatchResult(AMBIGUOUS_MATCH_REASON);
+        }
+      }
+
+      return best[0] ?? noMatchResult("No anime found");
     });
   }
 
@@ -241,8 +306,22 @@ export class Matcher implements MatcherLike {
     candidates: AnimeResult[],
   ): Array<{ anime: AnimeResult; score: number }> {
     return candidates
-      .map((anime) => ({ anime, score: diceSimilarity(title, anime.titleEn) }))
+      .map((anime) => ({ anime, score: computeScore(title, anime.titleEn) }))
       .filter(({ score }) => score > Matcher.MIN_SIMILARITY);
+  }
+
+  private toMatchResult(anime: AnimeResult, score: number, parsed: ParsedResult): MatchResult {
+    const totalScore =
+      parsed.season !== null
+        ? score + seasonMatchBoost(this.episodeCache.get(anime.id), parsed.season)
+        : score;
+
+    if (parsed.episode !== null) {
+      const episodes = this.episodeCache.get(anime.id) ?? [];
+      const matchingEpisode = resolveEpisode(episodes, parsed.season, parsed.episode);
+      return { anime, episode: matchingEpisode, score: totalScore };
+    }
+    return { anime, score: totalScore };
   }
 
   private async fetchAnimeSearch(title: string): Promise<AnimeResult[]> {
@@ -253,6 +332,10 @@ export class Matcher implements MatcherLike {
       this.searchCache.set(key, results);
     }
     return results;
+  }
+
+  getEpisodes(animeId: string): EpisodeResult[] {
+    return this.episodeCache.get(animeId) ?? [];
   }
 
   private async batchFetchEpisodes(ids: string[]): Promise<void> {

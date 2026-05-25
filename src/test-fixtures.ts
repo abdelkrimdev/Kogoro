@@ -361,6 +361,9 @@ export function createMockMatcher(results?: MatchResult[]): MatcherLike {
         return r;
       });
     },
+    getEpisodes() {
+      return [];
+    },
   };
 }
 
@@ -467,6 +470,9 @@ export function createAmbiguousMatcher(): MatcherLike {
       }
       return results.flat();
     },
+    getEpisodes() {
+      return [];
+    },
   };
 }
 
@@ -486,6 +492,9 @@ export function createTrackingMatcher(): {
       async matchBatch(parsedList) {
         batchCallTitles.push(parsedList.map((p) => p.title ?? ""));
         return baseMatcher.matchBatch(parsedList);
+      },
+      getEpisodes(animeId: string) {
+        return baseMatcher.getEpisodes(animeId);
       },
     },
   };
