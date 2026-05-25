@@ -1,5 +1,4 @@
-import { readdirSync, statSync } from "node:fs";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname } from "node:path";
 import { MatchCache } from "./match-cache";
 import {
   AMBIGUOUS_MATCH_REASON,
@@ -11,7 +10,7 @@ import {
   matchResultFromManual,
   matchResultFromOverride,
 } from "./matcher";
-import { absoluteToRelative } from "./numbering-converter";
+import { absoluteToRelative, relativeToAbsolute } from "./numbering-converter";
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
@@ -23,7 +22,7 @@ import {
   type Renamer,
 } from "./renamer";
 
-export type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
+type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
 
 export interface ScanResult {
   file: string;
@@ -37,7 +36,7 @@ export interface ScanResult {
   failureReason?: string;
 }
 
-export interface ScannerOptions {
+interface ScannerOptions {
   matcher: MatcherLike;
   cache?: MatchCache;
   renamer?: Renamer;
@@ -51,17 +50,18 @@ export interface ScanProgress {
   status: ScanStatus;
 }
 
-export interface ScanBatchOptions extends ScanFileOptions {
+interface ScanBatchOptions extends ScanFileOptions {
   concurrency?: number;
   onProgress?: (progress: ScanProgress) => void;
   abortSignal?: AbortSignal;
 }
 
-export interface ScanFileOptions {
+interface ScanFileOptions {
   force?: boolean;
   dryRun?: boolean;
   action?: FileAction;
   baseDir?: string;
+  episodeNumbering?: "absolute" | "relative";
   onAmbiguous?: (
     candidates: MatchResult[],
     parsed: ParsedResult,
@@ -315,14 +315,29 @@ export class Scanner {
 
     if (this.renamer) {
       const extension = extname(filePath).replace(".", "") || "mkv";
+      const episodeNumbering = options?.episodeNumbering ?? "relative";
 
       let numberingOverride: { season: number; episode: number } | undefined;
       if (parsed.season !== null && parsed.episode !== null) {
-        numberingOverride = { season: parsed.season, episode: parsed.episode };
+        if (episodeNumbering === "absolute") {
+          const allEpisodes = this.matcher.getEpisodes(match.anime.id);
+          const absolute = relativeToAbsolute(parsed.season, parsed.episode, allEpisodes);
+          if (absolute !== null) {
+            numberingOverride = { season: 1, episode: absolute };
+          } else {
+            numberingOverride = { season: parsed.season, episode: parsed.episode };
+          }
+        } else {
+          numberingOverride = { season: parsed.season, episode: parsed.episode };
+        }
       } else if (parsed.episode !== null && match.episode) {
         const allEpisodes = this.matcher.getEpisodes(match.anime.id);
-        const relative = absoluteToRelative(match.episode.episode, allEpisodes);
-        if (relative) numberingOverride = relative;
+        if (episodeNumbering === "absolute") {
+          numberingOverride = { season: 1, episode: match.episode.episode };
+        } else {
+          const relative = absoluteToRelative(match.episode.episode, allEpisodes);
+          if (relative) numberingOverride = relative;
+        }
       }
 
       plan = this.renamer.plan(filePath, match, extension, parsed.tags, numberingOverride);
@@ -497,13 +512,5 @@ export class Scanner {
     }
 
     return results;
-  }
-
-  async scanDir(dir: string, extensions: string[]): Promise<ScanResult[]> {
-    const files = readdirSync(dir).filter((f) => {
-      const fullPath = join(dir, f);
-      return statSync(fullPath).isFile() && extensions.includes(extname(f).toLowerCase());
-    });
-    return Promise.all(files.map((f) => this.scanFile(join(dir, f))));
   }
 }

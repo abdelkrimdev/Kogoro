@@ -25,6 +25,7 @@ export interface ScanOptions {
   yes?: boolean;
   force?: boolean;
   action?: FileAction;
+  episodeNumbering?: "absolute" | "relative";
   verbose?: boolean;
   quiet?: boolean;
   extensions?: string[];
@@ -200,6 +201,11 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const action = scanOptions?.action;
       const verbose = scanOptions?.verbose ?? false;
       const quiet = scanOptions?.quiet ?? false;
+      const configNumbering = options.config?.get("episode-numbering") as
+        | "absolute"
+        | "relative"
+        | undefined;
+      const episodeNumbering = scanOptions?.episodeNumbering ?? configNumbering;
       const configConcurrency = options.config ? Number(options.config.get("concurrency")) : NaN;
       const concurrency =
         scanOptions?.concurrency ?? (Number.isNaN(configConcurrency) ? 1 : configConcurrency);
@@ -263,6 +269,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           action,
           baseDir,
           concurrency,
+          episodeNumbering,
           abortSignal: abortController.signal,
           onProgress: buildOnProgress(abortController.signal),
         });
@@ -349,6 +356,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
               dryRun,
               action,
               baseDir,
+              episodeNumbering,
               onAmbiguous: yes ? async (candidates) => candidates[0] ?? null : resolveAmbiguous,
               onFailed: yes ? async () => null : resolveFailed,
             });

@@ -348,6 +348,34 @@ export function createStandardMockDb(overrides?: Partial<MockDbOptions>): Databa
   });
 }
 
+export function createEpisodeNumberingMatcher(
+  animeId: string,
+  episodes: EpisodeResult[],
+  matchEpisode: EpisodeResult,
+): MatcherLike {
+  return {
+    async match() {
+      return [
+        makeMatchResult({
+          anime: { id: animeId, titleEn: "Test Anime", entryType: "tv" },
+          episode: matchEpisode,
+        }),
+      ];
+    },
+    async matchBatch(_parsedList: ParsedResult[]) {
+      return [
+        makeMatchResult({
+          anime: { id: animeId, titleEn: "Test Anime", entryType: "tv" },
+          episode: matchEpisode,
+        }),
+      ];
+    },
+    getEpisodes() {
+      return episodes;
+    },
+  };
+}
+
 export function createMockMatcher(results?: MatchResult[]): MatcherLike {
   const defaultResults = results ?? [makeMatchResult()];
   return {

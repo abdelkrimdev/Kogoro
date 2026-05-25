@@ -6,14 +6,14 @@ import { MatchCache } from "./match-cache";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { ArtworkResult } from "./plugins/database/types";
 
-export interface ArtworkFetcherOptions {
+interface ArtworkFetcherOptions {
   primaryDb: DatabasePlugin;
   secondaryDbs?: DatabasePlugin[];
   cache: MatchCache;
   httpClient?: HttpClient;
 }
 
-export interface ArtworkSummary {
+interface ArtworkSummary {
   total: number;
   downloaded: number;
   skipped: number;

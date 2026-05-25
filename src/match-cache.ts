@@ -14,7 +14,7 @@ export interface CachedMatch {
   timestamp: string;
 }
 
-export interface MatchCacheOptions {
+interface MatchCacheOptions {
   dbPath?: string;
 }
 

@@ -16,9 +16,9 @@ import { render } from "./template-engine";
 
 export type FileAction = "move" | "copy" | "symlink" | "hardlink";
 
-export type RenameErrorType = "permission" | "disk-full" | "collision" | "other";
+type RenameErrorType = "permission" | "disk-full" | "collision" | "other";
 
-export interface RenameError {
+interface RenameError {
   type: RenameErrorType;
   message: string;
 }
@@ -36,7 +36,7 @@ export interface RenamePlan {
   action: FileAction;
 }
 
-export interface RenamerOptions {
+interface RenamerOptions {
   filenameTemplate: string;
   directoryTemplate: string;
   action?: FileAction;

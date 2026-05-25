@@ -6,7 +6,7 @@ export interface KeytarLike {
   deletePassword(service: string, account: string): Promise<boolean>;
 }
 
-export interface CredentialStoreOptions {
+interface CredentialStoreOptions {
   keytar?: KeytarLike | null;
 }
 

@@ -3,7 +3,7 @@ import { extname, join } from "node:path";
 
 export const VIDEO_EXTENSIONS = [".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm"];
 
-export interface WalkOptions {
+interface WalkOptions {
   excludePatterns?: string[];
 }
 

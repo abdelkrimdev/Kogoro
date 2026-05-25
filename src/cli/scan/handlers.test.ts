@@ -8,6 +8,7 @@ import {
   createMockDb as _createMockDb,
   createCache,
   createStandardMockDb,
+  makeEpisodes,
   makeThrowingDb,
   withTempDir,
   writeTempFile,
@@ -282,6 +283,52 @@ describe("scan CLI commands", () => {
       expect(results[0]?.status).toBe("matched");
       expect(results[0]?.match?.anime.id).toBe("99");
       expect(results[0]?.match?.anime.entryType).toBe("movie");
+    });
+  });
+
+  test("--episode-numbering absolute converts relative filename to absolute", async () => {
+    await withTempDir("scan-numbering", async (dir) => {
+      writeTempFile(dir, "[Group] Test Anime - S02E06.mkv", "content");
+
+      const episodes = makeEpisodes(24, 2);
+      const db = _createMockDb({
+        searchAnime: (title: string) => [{ id: "1", titleEn: title, entryType: "tv" as const }],
+        getEpisodes: () => episodes,
+      });
+
+      const handlers = createScanHandlers({ database: db });
+      const results = await handlers.scan(dir, {
+        yes: true,
+        dryRun: true,
+        episodeNumbering: "absolute",
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.status).toBe("matched");
+      expect(results[0]?.plan?.targetFilename).toMatch(/1x30/);
+    });
+  });
+
+  test("--episode-numbering relative uses parsed season and episode", async () => {
+    await withTempDir("scan-numbering", async (dir) => {
+      writeTempFile(dir, "[Group] Test Anime - S02E05.mkv", "content");
+
+      const episodes = makeEpisodes(24, 2);
+      const db = _createMockDb({
+        searchAnime: (title: string) => [{ id: "1", titleEn: title, entryType: "tv" as const }],
+        getEpisodes: () => episodes,
+      });
+
+      const handlers = createScanHandlers({ database: db });
+      const results = await handlers.scan(dir, {
+        yes: true,
+        dryRun: true,
+        episodeNumbering: "relative",
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.status).toBe("matched");
+      expect(results[0]?.plan?.targetFilename).toMatch(/2x05/);
     });
   });
 });

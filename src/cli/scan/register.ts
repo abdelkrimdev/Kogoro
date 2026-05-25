@@ -96,6 +96,7 @@ export function registerScan(
           yes: argv.yes ?? false,
           force: argv.force ?? false,
           action: argv.action as FileAction,
+          episodeNumbering: argv["episode-numbering"] as "absolute" | "relative" | undefined,
           verbose: argv.verbose ?? false,
           quiet: argv.quiet ?? false,
           extensions,

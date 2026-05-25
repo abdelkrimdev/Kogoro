@@ -11,7 +11,8 @@
     "test": "bun test",
     "lint": "biome lint --write .",
     "format": "biome format --write .",
-    "check:all": "biome check . && bun run check && bun test",
+    "knip": "bun x knip --include exports,files,dependencies",
+    "check:all": "biome check . && bun run knip && bun run check && bun test",
     "sandcastle": "npx tsx .sandcastle/main.ts",
     "start": "bun run src/cli/index.ts"
   },
@@ -21,6 +22,7 @@
     "@types/bun": "^1.3.14",
     "@types/node": "^25.9.1",
     "@types/yargs": "^17.0.35",
+    "knip": "^6.14.2",
     "lefthook": "^2.1.6"
   },
   "peerDependencies": {

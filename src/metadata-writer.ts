@@ -5,14 +5,14 @@ import { stripExtension } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { EpisodeResult } from "./plugins/database/types";
 
-export interface MetadataSummary {
+interface MetadataSummary {
   total: number;
   written: number;
   skipped: number;
   failed: number;
 }
 
-export interface MetadataWriterOptions {
+interface MetadataWriterOptions {
   cache: MatchCache;
   database?: DatabasePlugin;
 }

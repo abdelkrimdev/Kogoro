@@ -6,9 +6,9 @@ export interface DebugEntry {
   body?: string;
 }
 
-export type DebugCallback = (entry: DebugEntry) => void;
+type DebugCallback = (entry: DebugEntry) => void;
 
-export interface HttpClientOptions {
+interface HttpClientOptions {
   minDelay?: number;
   maxRetries?: number;
   backoffBase?: number;

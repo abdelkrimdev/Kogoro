@@ -7,8 +7,10 @@ import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
 import {
   createAmbiguousMatcher,
   createCache,
+  createEpisodeNumberingMatcher,
   createMockMatcher,
   createTrackingMatcher,
+  makeEpisodes,
   makeNoMatchResult,
   withTempDir,
   writeTempFile,
@@ -238,21 +240,6 @@ describe("Scanner", () => {
     });
   });
 
-  test("scanDir discovers media files, parses, and matches", async () => {
-    await withTempDir("scanner", async (dir) => {
-      writeTempFile(dir, "[SubsPlease] One Piece - 01.mkv", "");
-      writeTempFile(dir, "[SubsPlease] One Piece - 02.mkv", "");
-      writeTempFile(dir, "readme.txt", "not a media file");
-
-      const scanner = new Scanner({ matcher: createMockMatcher() });
-      const results = await scanner.scanDir(dir, [".mkv"]);
-
-      expect(results).toHaveLength(2);
-      expect(results[0]?.parsed.title).toBeTruthy();
-      expect(results[1]?.parsed.title).toBeTruthy();
-    });
-  });
-
   test("scanBatch processes multiple files with concurrency and reports progress", async () => {
     await withTempDir("scanner-batch", async (dir) => {
       writeTempFile(dir, "[Group] Anime - 01.mkv", "a");
@@ -333,6 +320,140 @@ describe("Scanner", () => {
       for (const r of results) {
         expect(r.status).toBe("matched");
       }
+    });
+  });
+
+  describe("episode numbering", () => {
+    test("relative mode uses parsed season and episode directly", async () => {
+      await withTempDir("scanner-numbering", async (dir) => {
+        const filePath = writeTempFile(dir, "[Group] Test Anime - S02E05.mkv", "content");
+        const episodes = makeEpisodes(24, 2);
+        const matcher = createEpisodeNumberingMatcher(
+          "1",
+          episodes,
+          episodes[28] as (typeof episodes)[number],
+        );
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - S{season}xE{episode:02}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+          action: "move",
+        });
+        const scanner = new Scanner({ matcher, renamer });
+        const result = await scanner.scanFile(filePath, {
+          episodeNumbering: "relative",
+        });
+
+        expect(result.status).toBe("matched");
+        expect(result.plan?.targetFilename).toMatch(/S2xE05/);
+      });
+    });
+
+    test("relative mode converts absolute episode to relative when season not parsed", async () => {
+      await withTempDir("scanner-numbering", async (dir) => {
+        const filePath = writeTempFile(dir, "[Group] Test Anime - 30.mkv", "content");
+        const episodes = makeEpisodes(24, 2);
+        const matchEpisode = {
+          id: "ep-30",
+          animeId: "1",
+          season: 2,
+          episode: 30,
+          titleEn: "Ep 30",
+          entryType: "tv" as const,
+        };
+        const matcher = createEpisodeNumberingMatcher("1", episodes, matchEpisode);
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - S{season}xE{episode:02}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+          action: "move",
+        });
+        const scanner = new Scanner({ matcher, renamer });
+        const result = await scanner.scanFile(filePath, {
+          episodeNumbering: "relative",
+        });
+
+        expect(result.status).toBe("matched");
+        expect(result.plan?.targetFilename).toMatch(/S2xE06/);
+      });
+    });
+
+    test("absolute mode converts relative season+episode to absolute number", async () => {
+      await withTempDir("scanner-numbering", async (dir) => {
+        const filePath = writeTempFile(dir, "[Group] Test Anime - S02E06.mkv", "content");
+        const numEpisodes = 24;
+        const totalSeasons = 2;
+        const episodes = makeEpisodes(numEpisodes, totalSeasons);
+        const matchEpisode = {
+          id: "ep-30",
+          animeId: "1",
+          season: 2,
+          episode: 6,
+          titleEn: "Ep 30",
+          entryType: "tv" as const,
+        };
+        const matcher = createEpisodeNumberingMatcher("1", episodes, matchEpisode);
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - {season}x{episode:02}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+          action: "move",
+        });
+        const scanner = new Scanner({ matcher, renamer });
+        const result = await scanner.scanFile(filePath, {
+          episodeNumbering: "absolute",
+        });
+
+        expect(result.status).toBe("matched");
+        expect(result.plan?.targetFilename).toMatch(/1x30/);
+      });
+    });
+
+    test("absolute mode keeps absolute episode when season not parsed", async () => {
+      await withTempDir("scanner-numbering", async (dir) => {
+        const filePath = writeTempFile(dir, "[Group] Test Anime - 30.mkv", "content");
+        const episodes = makeEpisodes(24, 2);
+        const matchEpisode = {
+          id: "ep-30",
+          animeId: "1",
+          season: 2,
+          episode: 30,
+          titleEn: "Ep 30",
+          entryType: "tv" as const,
+        };
+        const matcher = createEpisodeNumberingMatcher("1", episodes, matchEpisode);
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - {season}x{episode:02}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+          action: "move",
+        });
+        const scanner = new Scanner({ matcher, renamer });
+        const result = await scanner.scanFile(filePath, {
+          episodeNumbering: "absolute",
+        });
+
+        expect(result.status).toBe("matched");
+        expect(result.plan?.targetFilename).toMatch(/1x30/);
+      });
+    });
+
+    test("defaults to relative numbering when episode-numbering is not set", async () => {
+      await withTempDir("scanner-numbering", async (dir) => {
+        const filePath = writeTempFile(dir, "[Group] Test Anime - S02E05.mkv", "content");
+        const episodes = makeEpisodes(24, 2);
+        const matcher = createEpisodeNumberingMatcher(
+          "1",
+          episodes,
+          episodes[28] as (typeof episodes)[number],
+        );
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - S{season}xE{episode:02}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+          action: "move",
+        });
+        const scanner = new Scanner({ matcher, renamer });
+        const result = await scanner.scanFile(filePath);
+
+        expect(result.status).toBe("matched");
+        expect(result.plan?.targetFilename).toMatch(/S2xE05/);
+      });
     });
   });
 

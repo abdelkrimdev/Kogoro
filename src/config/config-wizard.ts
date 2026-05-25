@@ -19,7 +19,7 @@ export interface PromptsAPI {
   isCancel(value: unknown): boolean;
 }
 
-export interface TemplatePreset {
+interface TemplatePreset {
   label: string;
   value: string;
 }
@@ -29,7 +29,7 @@ function presetLabel(key: string): string {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
-export const TEMPLATE_PRESETS: TemplatePreset[] = Object.keys(PRESET_MAP).map((key) => ({
+const TEMPLATE_PRESETS: TemplatePreset[] = Object.keys(PRESET_MAP).map((key) => ({
   value: key,
   label: presetLabel(key),
 }));
@@ -45,7 +45,7 @@ export function getDefaultPrompts(): PromptsAPI {
   };
 }
 
-export interface WizardDeps {
+interface WizardDeps {
   config: ConfigManager;
   credentialStore: CredentialStore;
   prompts?: PromptsAPI;

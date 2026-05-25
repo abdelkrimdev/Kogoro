@@ -81,8 +81,8 @@ export function matchResultFromManual(
   };
 }
 
-export const AMBIGUITY_MARGIN = 0.2;
-export const AMBIGUITY_EPSILON = 0.001;
+const AMBIGUITY_MARGIN = 0.2;
+const AMBIGUITY_EPSILON = 0.001;
 export const AMBIGUOUS_MATCH_REASON = "Ambiguous match";
 
 export function isClearWinner(best: MatchResult[]): MatchResult | undefined {
@@ -113,7 +113,7 @@ export function bestPerAnimeId(matches: MatchResult[]): MatchResult[] {
   return result;
 }
 
-export interface MatcherOptions {
+interface MatcherOptions {
   database: DatabasePlugin;
   overrideStore?: OverrideStore;
 }
