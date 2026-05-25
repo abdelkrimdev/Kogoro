@@ -1,5 +1,5 @@
 import { lstatSync } from "node:fs";
-import { dirname, sep } from "node:path";
+import { basename, dirname, sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../../config/config-manager";
 import { VIDEO_EXTENSIONS, walk } from "../../directory-walker";
@@ -103,17 +103,37 @@ export function createScanHandlers(options: ScanHandlerOptions) {
 
   const scanner = buildScanner(options.database);
 
+  function entryTypeLabel(t: string): string {
+    if (t === "tv") return "TV";
+    if (t === "movie") return "Movie";
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  function logFileInfo(filePath: string, parsed: ParsedResult): void {
+    console.log(`\nFile: ${basename(filePath)}`);
+    const parts: string[] = [];
+    if (parsed.title) parts.push(`"${parsed.title}"`);
+    if (parsed.season !== null) parts.push(`season ${parsed.season}`);
+    if (parsed.episode !== null) parts.push(`episode ${parsed.episode}`);
+    if (parts.length > 0) console.log(`Parsed: ${parts.join(", ")}`);
+  }
+
   function formatCandidate(m: MatchResult, i: number): string {
     const ep = m.episode;
     const epInfo = ep ? ` E${ep.episode}` : "";
     const seasonInfo = ep && ep.season > 1 ? ` S${ep.season}` : "";
-    return `${i + 1}. ${m.anime.titleEn}${seasonInfo}${epInfo} (score: ${m.score.toFixed(2)})`;
+    const titleInfo = ep?.titleEn ? ` - "${ep.titleEn}"` : "";
+    const typeInfo = ` (${entryTypeLabel(m.anime.entryType)}`;
+    const yearInfo = m.anime.year ? ` ${m.anime.year}` : "";
+    return `${i + 1}. ${m.anime.titleEn}${typeInfo}${yearInfo})${seasonInfo}${epInfo}${titleInfo} (score: ${m.score.toFixed(2)})`;
   }
 
   async function resolveAmbiguous(
     candidates: MatchResult[],
-    _parsed: ParsedResult,
+    parsed: ParsedResult,
+    filePath: string,
   ): Promise<MatchResult | null> {
+    logFileInfo(filePath, parsed);
     const choices = candidates.map((m, i) => ({
       value: i,
       label: formatCandidate(m, i),
@@ -130,10 +150,13 @@ export function createScanHandlers(options: ScanHandlerOptions) {
   }
 
   async function resolveFailed(
-    _parsed: ParsedResult,
+    parsed: ParsedResult,
+    filePath: string,
   ): Promise<{ animeId: string; episode: number; entryType: string } | null> {
+    logFileInfo(filePath, parsed);
+
     const proceed = await confirm({
-      message: "No match found. Do you want to enter details manually?",
+      message: "No match found. Enter details manually?",
     });
 
     if (isCancel(proceed) || !proceed) return null;
@@ -314,7 +337,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           return acc;
         }, []);
 
-        if (!yes && !interrupted && pendingIndices.length > 0) {
+        if (!interrupted && pendingIndices.length > 0) {
           if (!quiet) {
             console.log(`\nResolving ${pendingIndices.length} pending file(s)...`);
           }
@@ -326,8 +349,8 @@ export function createScanHandlers(options: ScanHandlerOptions) {
               dryRun,
               action,
               baseDir,
-              onAmbiguous: resolveAmbiguous,
-              onFailed: resolveFailed,
+              onAmbiguous: yes ? async (candidates) => candidates[0] ?? null : resolveAmbiguous,
+              onFailed: yes ? async () => null : resolveFailed,
             });
             allResults[idx] = updated;
           }

@@ -1,8 +1,17 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import { MatchCache } from "./match-cache";
-import type { MatcherLike, MatchResult } from "./matcher";
-import { matchResultFromCache, matchResultFromManual, matchResultFromOverride } from "./matcher";
+import {
+  AMBIGUOUS_MATCH_REASON,
+  bestPerAnimeId,
+  isClearWinner,
+  type MatcherLike,
+  type MatchResult,
+  matchResultFromCache,
+  matchResultFromManual,
+  matchResultFromOverride,
+} from "./matcher";
+import { absoluteToRelative } from "./numbering-converter";
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
@@ -53,9 +62,14 @@ export interface ScanFileOptions {
   dryRun?: boolean;
   action?: FileAction;
   baseDir?: string;
-  onAmbiguous?: (candidates: MatchResult[], parsed: ParsedResult) => Promise<MatchResult | null>;
+  onAmbiguous?: (
+    candidates: MatchResult[],
+    parsed: ParsedResult,
+    filePath: string,
+  ) => Promise<MatchResult | null>;
   onFailed?: (
     parsed: ParsedResult,
+    filePath: string,
   ) => Promise<{ animeId: string; episode: number; entryType: string } | null>;
 }
 
@@ -191,8 +205,15 @@ export class Scanner {
     const hasEpisode = parsed.episode !== null;
     const scoredMatches = matches.filter((m) => !m.failureReason);
     const goodMatches = scoredMatches.filter((m) => (hasEpisode ? m.episode !== undefined : true));
+    const best = bestPerAnimeId(goodMatches);
 
-    if (goodMatches.length === 0) {
+    const winner = isClearWinner(best);
+    if (winner) {
+      const resolvedHash = await this.persistMatch(filePath, hash, winner);
+      return this.renameFile(filePath, resolvedHash, winner, parsed, options);
+    }
+
+    if (best.length === 0) {
       const manualResult = await this.resolveManual(filePath, hash, parsed, options, overrideKey);
       if (manualResult) return manualResult;
       return {
@@ -208,18 +229,11 @@ export class Scanner {
       };
     }
 
-    if (goodMatches.length === 1 && goodMatches[0]) {
-      const resolvedHash = await this.persistMatch(filePath, hash, goodMatches[0]);
-      return this.renameFile(filePath, resolvedHash, goodMatches[0], parsed, options);
-    }
-
-    if (options?.onAmbiguous) {
-      const resolved = await options.onAmbiguous(goodMatches, parsed);
-      if (resolved) {
-        const resolvedHash = await this.persistMatch(filePath, hash, resolved);
-        this.persistOverride(overrideKey, resolved);
-        return this.renameFile(filePath, resolvedHash, resolved, parsed, options);
-      }
+    const resolved = await options?.onAmbiguous?.(best, parsed, filePath);
+    if (resolved) {
+      const resolvedHash = await this.persistMatch(filePath, hash, resolved);
+      this.persistOverride(overrideKey, resolved);
+      return this.renameFile(filePath, resolvedHash, resolved, parsed, options);
     }
 
     return {
@@ -235,11 +249,12 @@ export class Scanner {
   }
 
   private async tryResolveFailed(
+    filePath: string,
     parsed: ParsedResult,
     options?: ScanFileOptions,
   ): Promise<{ animeId: string; episode: number; entryType: EntryType } | null> {
     if (!options?.onFailed) return null;
-    const result = await options.onFailed(parsed);
+    const result = await options.onFailed(parsed, filePath);
     if (!result) return null;
     return { ...result, entryType: result.entryType as EntryType };
   }
@@ -251,7 +266,7 @@ export class Scanner {
     options: ScanFileOptions | undefined,
     overrideKey: string | undefined,
   ): Promise<ScanResult | null> {
-    const manual = await this.tryResolveFailed(parsed, options);
+    const manual = await this.tryResolveFailed(filePath, parsed, options);
     if (!manual) return null;
 
     const manualMatch = matchResultFromManual(manual.animeId, manual.episode, manual.entryType);
@@ -300,7 +315,17 @@ export class Scanner {
 
     if (this.renamer) {
       const extension = extname(filePath).replace(".", "") || "mkv";
-      plan = this.renamer.plan(filePath, match, extension, parsed.tags);
+
+      let numberingOverride: { season: number; episode: number } | undefined;
+      if (parsed.season !== null && parsed.episode !== null) {
+        numberingOverride = { season: parsed.season, episode: parsed.episode };
+      } else if (parsed.episode !== null && match.episode) {
+        const allEpisodes = this.matcher.getEpisodes(match.anime.id);
+        const relative = absoluteToRelative(match.episode.episode, allEpisodes);
+        if (relative) numberingOverride = relative;
+      }
+
+      plan = this.renamer.plan(filePath, match, extension, parsed.tags, numberingOverride);
       plan.action = options?.action ?? "move";
 
       if (!options?.dryRun) {
@@ -398,7 +423,7 @@ export class Scanner {
           if (!entry || !matchResult) continue;
 
           if (matchResult.failureReason) {
-            const manual = await this.tryResolveFailed(entry.parsed, options);
+            const manual = await this.tryResolveFailed(entry.filePath, entry.parsed, options);
             if (manual) {
               entry.match = matchResultFromManual(manual.animeId, manual.episode, manual.entryType);
             }
@@ -433,6 +458,18 @@ export class Scanner {
             entry.parsed,
             options,
           );
+        } else if (entry.match?.failureReason === AMBIGUOUS_MATCH_REASON) {
+          result = {
+            file: entry.filePath,
+            hash: entry.hash,
+            parsed: entry.parsed,
+            match: null,
+            plan: null,
+            cached: false,
+            skipped: false,
+            status: "ambiguous",
+            failureReason: AMBIGUOUS_MATCH_REASON,
+          };
         } else {
           const failureReason = entry.match?.failureReason ?? "No title parsed";
           result = {

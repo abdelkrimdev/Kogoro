@@ -459,16 +459,23 @@ export function createAmbiguousMatcher(): MatcherLike {
             titleEn: "Special",
             entryType: "special" as const,
           },
-          score: 0.8,
+          score: 0.85,
         },
       ];
     },
     async matchBatch(parsedList) {
-      const results: MatchResult[][] = [];
+      const results: MatchResult[] = [];
       for (const p of parsedList) {
-        results.push(await this.match(p));
+        const matches = await this.match(p);
+        results.push(
+          matches[0] ?? {
+            anime: { id: "", titleEn: "", entryType: "tv" },
+            score: 0,
+            failureReason: "No match",
+          },
+        );
       }
-      return results.flat();
+      return results;
     },
     getEpisodes() {
       return [];

@@ -123,9 +123,11 @@ export class MatchCache {
 
   static async hashFile(filePath: string): Promise<string> {
     const file = Bun.file(filePath);
-    const buffer = await file.arrayBuffer();
+    const stream = file.stream();
     const hash = new Bun.CryptoHasher("sha256");
-    hash.update(buffer);
+    for await (const chunk of stream) {
+      hash.update(chunk);
+    }
     return hash.digest("hex");
   }
 

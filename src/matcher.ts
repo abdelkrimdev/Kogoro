@@ -82,7 +82,18 @@ export function matchResultFromManual(
 }
 
 export const AMBIGUITY_MARGIN = 0.2;
+export const AMBIGUITY_EPSILON = 0.001;
 export const AMBIGUOUS_MATCH_REASON = "Ambiguous match";
+
+export function isClearWinner(best: MatchResult[]): MatchResult | undefined {
+  if (best.length === 0) return undefined;
+  if (best.length === 1) return best[0];
+  if (best[0] && best[1]) {
+    const margin = best[0].score - best[1].score;
+    if (margin >= AMBIGUITY_MARGIN - AMBIGUITY_EPSILON) return best[0];
+  }
+  return undefined;
+}
 
 export interface MatcherLike {
   match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]>;
@@ -289,15 +300,9 @@ export class Matcher implements MatcherLike {
       }
 
       const best = bestPerAnimeId(viable);
-
-      if (best.length > 1 && best[0] && best[1]) {
-        const margin = best[0].score - best[1].score;
-        if (margin < AMBIGUITY_MARGIN) {
-          return noMatchResult(AMBIGUOUS_MATCH_REASON);
-        }
-      }
-
-      return best[0] ?? noMatchResult("No anime found");
+      const winner = isClearWinner(best);
+      if (!winner) return noMatchResult(AMBIGUOUS_MATCH_REASON);
+      return winner;
     });
   }
 

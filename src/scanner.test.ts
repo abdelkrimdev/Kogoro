@@ -38,7 +38,7 @@ describe("Scanner", () => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake content");
 
       const result = await scanner.scanFile(filePath, {
-        onAmbiguous: async (candidates) => candidates[0] ?? null,
+        onAmbiguous: async (candidates, _parsed, _filePath) => candidates[0] ?? null,
       });
 
       expect(result.status).toBe("matched");
@@ -61,7 +61,11 @@ describe("Scanner", () => {
       const filePath = writeTempFile(dir, "Unknown File.mkv");
 
       const result = await scanner.scanFile(filePath, {
-        onFailed: async () => ({ animeId: "99", episode: 5, entryType: "special" }),
+        onFailed: async (_parsed, _filePath) => ({
+          animeId: "99",
+          episode: 5,
+          entryType: "special",
+        }),
       });
 
       expect(result.status).toBe("matched");
@@ -85,7 +89,7 @@ describe("Scanner", () => {
       const filePath = writeTempFile(dir, "[Group] Unknown Show - 99.mkv");
 
       const firstResult = await scanner.scanFile(filePath, {
-        onFailed: async () => ({ animeId: "42", episode: 1, entryType: "movie" }),
+        onFailed: async (_parsed, _filePath) => ({ animeId: "42", episode: 1, entryType: "movie" }),
       });
       expect(firstResult.status).toBe("matched");
 
@@ -129,10 +133,7 @@ describe("Scanner", () => {
       });
       const scanner = new Scanner({ matcher: createMockMatcher(), cache, renamer });
 
-      const result = await scanner.scanFile(filePath, {
-        onAmbiguous: async (candidates) => candidates[0] ?? null,
-        dryRun: true,
-      });
+      const result = await scanner.scanFile(filePath, { dryRun: true });
 
       expect(result.file).toBe(filePath);
       expect(result.hash).toBeTruthy();
@@ -154,10 +155,7 @@ describe("Scanner", () => {
       const cache = createCache(dir);
       const scanner = new Scanner({ matcher: createMockMatcher(), cache });
 
-      const first = await scanner.scanFile(filePath, {
-        onAmbiguous: async (candidates) => candidates[0] ?? null,
-        dryRun: true,
-      });
+      const first = await scanner.scanFile(filePath, { dryRun: true });
       expect(first.status).toBe("matched");
       expect(first.cached).toBe(false);
       expect(first.hash).toBeTruthy();
@@ -178,15 +176,11 @@ describe("Scanner", () => {
       const cache = createCache(dir);
       const scanner = new Scanner({ matcher: createMockMatcher(), cache });
 
-      const first = await scanner.scanFile(filePath, {
-        onAmbiguous: async (candidates) => candidates[0] ?? null,
-        dryRun: true,
-      });
+      const first = await scanner.scanFile(filePath, { dryRun: true });
       expect(cache.has(first.hash)).toBe(true);
 
       const second = await scanner.scanFile(filePath, {
         force: true,
-        onAmbiguous: async (candidates) => candidates[0] ?? null,
         dryRun: true,
       });
       expect(second.status).toBe("matched");
@@ -207,9 +201,7 @@ describe("Scanner", () => {
       });
       const scanner = new Scanner({ matcher: createMockMatcher(), cache, renamer });
 
-      const result = await scanner.scanFile(filePath, {
-        onAmbiguous: async (candidates) => candidates[0] ?? null,
-      });
+      const result = await scanner.scanFile(filePath);
 
       expect(result.file).toBe(filePath);
       expect(result.status).toBe("matched");
@@ -236,10 +228,7 @@ describe("Scanner", () => {
       });
       const scanner = new Scanner({ matcher: createMockMatcher(), renamer });
 
-      const result = await scanner.scanFile(filePath, {
-        onAmbiguous: async (candidates) => candidates[0] ?? null,
-        baseDir: dir,
-      });
+      const result = await scanner.scanFile(filePath, { baseDir: dir });
 
       expect(result.status).toBe("matched");
 
