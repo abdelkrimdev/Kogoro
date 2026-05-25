@@ -32,17 +32,19 @@ function extractBlock(xml: string, tag: string): string | undefined {
 interface ParsedTitle {
   lang: string;
   value: string;
+  type?: string;
 }
 
 function parseTitles(xml: string): ParsedTitle[] {
   const titles: ParsedTitle[] = [];
-  const regex = /<title[^>]*(?:xml:)?lang="([^"]*)"[^>]*>([^<]*)<\/title>/g;
+  const regex = /<title\s+([^>]*)>([^<]*)<\/title>/g;
   for (const match of xml.matchAll(regex)) {
-    const lang = match[1] ?? "";
+    const attrs = match[1] ?? "";
     const value = match[2];
-    if (value) {
-      titles.push({ lang, value });
-    }
+    if (!value) continue;
+    const lang = attrs.match(/(?:xml:)?lang="([^"]*)"/)?.[1] ?? "";
+    const type = attrs.match(/type="([^"]*)"/)?.[1];
+    titles.push({ lang, value, type });
   }
   return titles;
 }
@@ -113,15 +115,18 @@ function parseDocument(xml: string): AnimeDocument {
   };
 }
 
-function findTitles(titles: Iterable<{ lang: string; value: string | undefined }>): {
+function findTitles(titles: Iterable<{ lang: string; value: string | undefined; type?: string }>): {
   titleEn: string | undefined;
   titleJa: string | undefined;
 } {
   let titleEn: string | undefined;
   let titleJa: string | undefined;
   for (const t of titles) {
-    if (t.lang === "en" && titleEn === undefined) titleEn = t.value;
-    if (t.lang === "ja" && titleJa === undefined) titleJa = t.value;
+    if (titleEn === undefined) {
+      if (t.type === "main" && t.lang !== "ja") titleEn = t.value;
+      else if (t.lang === "en") titleEn = t.value;
+    }
+    if (titleJa === undefined && t.lang === "ja") titleJa = t.value;
     if (titleEn !== undefined && titleJa !== undefined) break;
   }
   return { titleEn, titleJa };
@@ -133,7 +138,9 @@ export class AniDBPlugin implements DatabasePlugin {
   private clientver: string;
   private titleCache: AnidbTitleCache;
   private seasonCache = new Map<string, number>();
-  private static readonly MAX_SEASON_DEPTH = 10;
+  private docCache = new Map<string, AnimeDocument>();
+  private rootTitleCache = new Map<string, { titleEn: string; titleJa?: string }>();
+  private static readonly MAX_PREQUEL_DEPTH = 10;
 
   constructor(options: {
     client: string;
@@ -162,10 +169,13 @@ export class AniDBPlugin implements DatabasePlugin {
     throw new Error(`AniDB error ${code}: ${message}`);
   }
 
-  private async resolveSeason(animeId: string, doc: AnimeDocument, depth = 0): Promise<number> {
+  private async resolveSeason(animeId: string, depth = 0): Promise<number> {
     const cached = this.seasonCache.get(animeId);
     if (cached !== undefined) return cached;
-    if (depth >= AniDBPlugin.MAX_SEASON_DEPTH) return depth + 1;
+    if (depth >= AniDBPlugin.MAX_PREQUEL_DEPTH) return depth + 1;
+
+    const doc = await this.fetchDocument(animeId);
+    if (!doc) return depth + 1;
 
     const prequel = doc.relatedAnime.find((r) => r.type === "Prequel");
     if (!prequel) {
@@ -173,22 +183,51 @@ export class AniDBPlugin implements DatabasePlugin {
       return 1;
     }
 
-    const prequelDoc = await this.fetchDocument(prequel.id);
-    if (!prequelDoc) return depth + 1;
-    const prequelSeason = await this.resolveSeason(prequel.id, prequelDoc, depth + 1);
-    const season = prequelSeason + 1;
-    this.seasonCache.set(animeId, season);
-    return season;
+    const prequelSeason = await this.resolveSeason(prequel.id, depth + 1);
+    this.seasonCache.set(animeId, prequelSeason + 1);
+    return prequelSeason + 1;
+  }
+
+  private async resolveRootTitle(
+    animeId: string,
+    depth = 0,
+  ): Promise<{ titleEn: string; titleJa?: string } | null> {
+    const cached = this.rootTitleCache.get(animeId);
+    if (cached) return cached;
+    if (depth >= AniDBPlugin.MAX_PREQUEL_DEPTH) return null;
+
+    const doc = await this.fetchDocument(animeId);
+    if (!doc) return null;
+
+    const prequel = doc.relatedAnime.find((r) => r.type === "Prequel");
+
+    if (prequel) {
+      const root = await this.resolveRootTitle(prequel.id, depth + 1);
+      if (root?.titleEn) {
+        this.rootTitleCache.set(animeId, root);
+        return root;
+      }
+    }
+
+    const { titleEn, titleJa } = findTitles(doc.titles);
+    if (!titleEn) return null;
+    const result = { titleEn, titleJa };
+    this.rootTitleCache.set(animeId, result);
+    return result;
   }
 
   private async fetchDocument(animeId: string): Promise<AnimeDocument | null> {
+    const cached = this.docCache.get(animeId);
+    if (cached) return cached;
     const response = await this.httpClient.fetch(
       `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
     );
     if (!response.ok) return null;
     const xml = await response.text();
     this.checkAniDBError(xml);
-    return parseDocument(xml);
+    const doc = parseDocument(xml);
+    this.docCache.set(animeId, doc);
+    return doc;
   }
 
   async searchAnime(title: string): Promise<AnimeResult[]> {
@@ -201,7 +240,7 @@ export class AniDBPlugin implements DatabasePlugin {
     const entryType = toEntryType(doc.animeType);
     const episodes: EpisodeResult[] = [];
 
-    const season = await this.resolveSeason(animeId, doc);
+    const season = await this.resolveSeason(animeId);
 
     for (const ep of doc.episodes) {
       const episodeNum = ep.epno ? Number.parseInt(ep.epno, 10) : NaN;
@@ -224,22 +263,19 @@ export class AniDBPlugin implements DatabasePlugin {
   }
 
   async getAnime(animeId: string): Promise<AnimeResult | null> {
+    const rootTitles = await this.resolveRootTitle(animeId);
+    if (!rootTitles) return null;
+
     const doc = await this.fetchDocument(animeId);
     if (!doc) return null;
 
-    const entryType = toEntryType(doc.animeType);
-    const year = doc.startdate ? Number.parseInt(doc.startdate.slice(0, 4), 10) : undefined;
-
-    const { titleEn, titleJa } = findTitles(doc.titles);
-    if (!titleEn) return null;
-
     return {
       id: animeId,
-      titleEn,
-      titleJa,
+      titleEn: rootTitles.titleEn,
+      titleJa: rootTitles.titleJa,
       overview: doc.description,
-      year,
-      entryType,
+      year: doc.startdate ? Number.parseInt(doc.startdate.slice(0, 4), 10) : undefined,
+      entryType: toEntryType(doc.animeType),
     };
   }
 

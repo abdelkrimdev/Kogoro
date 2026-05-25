@@ -543,6 +543,152 @@ describe("AniDBPlugin", () => {
         "AniDB error 310: illegal input or access denied",
       );
     });
+
+    test("returns root franchise title for sequel in prequel chain", async () => {
+      const prequelXml = `<?xml version="1.0"?>
+<anime>
+  <id>111</id>
+  <type>TV Series</type>
+  <startdate>2020-10-03</startdate>
+  <titles>
+    <title type="main" xml:lang="en">Root Series</title>
+    <title type="official" xml:lang="ja">ルートシリーズ</title>
+  </titles>
+</anime>`;
+      const sequelXml = `<?xml version="1.0"?>
+<anime>
+  <id>222</id>
+  <type>TV Series</type>
+  <startdate>2021-01-10</startdate>
+  <titles>
+    <title type="main" xml:lang="en">Sequel Series</title>
+    <title type="official" xml:lang="ja">続編シリーズ</title>
+  </titles>
+  <relatedanime>
+    <anime id="111" type="Prequel">Root</anime>
+  </relatedanime>
+</anime>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: createSequenceHttpClient(
+          new Response(sequelXml, { headers: { "Content-Type": "application/xml" } }),
+          new Response(prequelXml, { headers: { "Content-Type": "application/xml" } }),
+        ),
+      });
+      const result = await plugin.getAnime("222");
+      expect(result?.titleEn).toBe("Root Series");
+      expect(result?.titleJa).toBe("ルートシリーズ");
+      expect(result?.id).toBe("222");
+    });
+
+    test("returns root title across deep prequel chain", async () => {
+      const grandparentXml = `<?xml version="1.0"?>
+<anime>
+  <id>111</id>
+  <type>TV Series</type>
+  <titles>
+    <title type="main" xml:lang="en">Franchise Origin</title>
+  </titles>
+</anime>`;
+      const parentXml = `<?xml version="1.0"?>
+<anime>
+  <id>222</id>
+  <type>TV Series</type>
+  <titles>
+    <title type="main" xml:lang="en">Middle Sequel</title>
+  </titles>
+  <relatedanime>
+    <anime id="111" type="Prequel">Origin</anime>
+  </relatedanime>
+</anime>`;
+      const currentXml = `<?xml version="1.0"?>
+<anime>
+  <id>333</id>
+  <type>TV Series</type>
+  <titles>
+    <title type="main" xml:lang="en">Latest Sequel</title>
+  </titles>
+  <relatedanime>
+    <anime id="222" type="Prequel">Middle</anime>
+  </relatedanime>
+</anime>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: createSequenceHttpClient(
+          new Response(currentXml, { headers: { "Content-Type": "application/xml" } }),
+          new Response(parentXml, { headers: { "Content-Type": "application/xml" } }),
+          new Response(grandparentXml, { headers: { "Content-Type": "application/xml" } }),
+        ),
+      });
+      const result = await plugin.getAnime("333");
+      expect(result?.titleEn).toBe("Franchise Origin");
+    });
+
+    test("falls back to own title when prequel has no English title", async () => {
+      const prequelXml = `<?xml version="1.0"?>
+<anime>
+  <id>111</id>
+  <type>TV Series</type>
+  <titles>
+    <title type="main" xml:lang="ja">日本語のみ</title>
+  </titles>
+</anime>`;
+      const sequelXml = `<?xml version="1.0"?>
+<anime>
+  <id>222</id>
+  <type>TV Series</type>
+  <titles>
+    <title type="main" xml:lang="en">English Sequel</title>
+  </titles>
+  <relatedanime>
+    <anime id="111" type="Prequel">Root</anime>
+  </relatedanime>
+</anime>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: createSequenceHttpClient(
+          new Response(sequelXml, { headers: { "Content-Type": "application/xml" } }),
+          new Response(prequelXml, { headers: { "Content-Type": "application/xml" } }),
+        ),
+      });
+      const result = await plugin.getAnime("222");
+      expect(result?.titleEn).toBe("English Sequel");
+    });
+
+    test("returns null when neither anime nor prequel has English title", async () => {
+      const prequelXml = `<?xml version="1.0"?>
+<anime>
+  <id>111</id>
+  <type>TV Series</type>
+  <titles>
+    <title type="main" xml:lang="ja">日本アニメ</title>
+  </titles>
+</anime>`;
+      const sequelXml = `<?xml version="1.0"?>
+<anime>
+  <id>222</id>
+  <type>TV Series</type>
+  <titles>
+    <title type="main" xml:lang="ja">続編</title>
+  </titles>
+  <relatedanime>
+    <anime id="111" type="Prequel">Root</anime>
+  </relatedanime>
+</anime>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: createSequenceHttpClient(
+          new Response(sequelXml, { headers: { "Content-Type": "application/xml" } }),
+          new Response(prequelXml, { headers: { "Content-Type": "application/xml" } }),
+        ),
+      });
+      const result = await plugin.getAnime("222");
+      expect(result).toBeNull();
+    });
   });
 
   test("satisfies DatabasePlugin contract", () => {
