@@ -5,7 +5,6 @@ import type { DatabasePlugin } from "../../plugins/database/plugin";
 export interface MetadataHandlerOptions {
   dbPath?: string;
   database?: DatabasePlugin;
-  extensions?: string[];
 }
 
 export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
@@ -20,7 +19,7 @@ export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
       onError: (msg: string) => void,
     ): Promise<void> {
       try {
-        const summary = await writer.write(path, { force, extensions: options.extensions });
+        const summary = await writer.write(path, { force });
         onLog(JSON.stringify(summary, null, 2));
       } catch (err) {
         onError(String(err));

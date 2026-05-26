@@ -114,12 +114,8 @@ export class ConfigManager {
   constructor(options: ConfigManagerOptions = {}) {
     this.configDir = options.configDir ?? CONFIG_DIR;
     this.configPath = join(this.configDir, "config.toml");
-    this.config = this.parseDefaults();
+    this.config = v.parse(ConfigSchema, {});
     this.load();
-  }
-
-  private parseDefaults(): Config {
-    return v.parse(ConfigSchema, {});
   }
 
   private load(): void {

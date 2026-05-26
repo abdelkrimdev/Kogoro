@@ -1,4 +1,5 @@
 import type yargs from "yargs";
+import { SCHEMA_DEFAULTS } from "../../config/schema";
 
 export type SubtitleHandlerFactory = (debug?: boolean) => Promise<
   | {
@@ -28,7 +29,7 @@ export function registerSubtitle(
         })
         .option("lang", {
           type: "string",
-          default: "en",
+          default: SCHEMA_DEFAULTS["subtitle-language"],
           describe: "Subtitle language code (e.g. en, ja, fr)",
         })
         .option("force", {

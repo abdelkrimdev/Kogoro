@@ -1,5 +1,6 @@
 import type yargs from "yargs";
 import { getDefaultPrompts } from "../../config/config-wizard";
+import { OVERRIDE_TOML_KEYS } from "../../override-store";
 import { createConfigHandlers } from "./handlers";
 
 export function registerConfig(parser: ReturnType<typeof yargs>): void {
@@ -64,15 +65,15 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
                     demandOption: true,
                     describe: "File hash to override",
                   })
-                  .option("anime-id", {
+                  .option(OVERRIDE_TOML_KEYS.ANIME_ID, {
                     type: "string",
                     describe: "Anime ID to override with",
                   })
-                  .option("episode-id", {
+                  .option(OVERRIDE_TOML_KEYS.EPISODE_ID, {
                     type: "string",
                     describe: "Episode ID to override with",
                   })
-                  .option("type", {
+                  .option(OVERRIDE_TOML_KEYS.ENTRY_TYPE, {
                     type: "string",
                     describe: "Entry type (tv, movie, ova, special)",
                   }),
@@ -81,9 +82,14 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
                 await handlers.overrideSet(
                   argv.hash,
                   {
-                    animeId: argv["anime-id"],
-                    episodeId: argv["episode-id"],
-                    entryType: argv.type as "tv" | "movie" | "ova" | "special" | undefined,
+                    animeId: argv[OVERRIDE_TOML_KEYS.ANIME_ID],
+                    episodeId: argv[OVERRIDE_TOML_KEYS.EPISODE_ID],
+                    entryType: argv[OVERRIDE_TOML_KEYS.ENTRY_TYPE] as
+                      | "tv"
+                      | "movie"
+                      | "ova"
+                      | "special"
+                      | undefined,
                   },
                   console.log,
                   console.error,

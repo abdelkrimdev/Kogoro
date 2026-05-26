@@ -6,6 +6,8 @@ export interface ParsedTags {
   audio: string | null;
 }
 
+import { SCHEMA_DEFAULTS } from "./config/schema";
+
 export interface ParsedResult {
   title: string | null;
   season: number | null;
@@ -23,23 +25,25 @@ export function stripExtension(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
 
-const VIDEO_EXTS = /\.(mkv|mp4|avi|ogm|webm|flv|m4v)$/i;
 const SCENE_GROUP_PAT = /(?<!\s)-(?<group>[a-zA-Z0-9_.-]+)$/;
 const YEAR_PAT = /\b(19\d{2}|20\d{2})\b/;
 const CRC_PAT = /[0-9A-Fa-f]{8}/;
 
-function stripCorruptedExtensions(name: string): string {
+function stripCorruptedExtensions(name: string, extensions: readonly string[]): string {
+  const exts = extensions.map((e) => e.replace(/^\./, "")).join("|");
+  const videoEx = new RegExp(`\\.(${exts})$`, "i");
+  const corruptPat = new RegExp(`\\.(${exts})\\]$`, "i");
   let current = name;
   while (true) {
     const trimmed = current.trim();
     if (trimmed.endsWith("]")) {
-      const corrupt = /\.(mkv|mp4|avi|ogm|webm|flv|m4v)\]$/i.exec(trimmed);
+      const corrupt = corruptPat.exec(trimmed);
       if (corrupt) {
         current = trimmed.slice(0, -1).trim();
         continue;
       }
     }
-    if (VIDEO_EXTS.test(trimmed)) {
+    if (videoEx.test(trimmed)) {
       current = stripExtension(trimmed);
       continue;
     }
@@ -429,10 +433,11 @@ function shouldReturnEmpty(
   );
 }
 
-export function parse(filename: string): ParsedResult {
+export function parse(filename: string, extensions?: readonly string[]): ParsedResult {
+  const exts = extensions ?? SCHEMA_DEFAULTS["media-extensions"];
   let name = stripExtension(filename);
 
-  name = stripCorruptedExtensions(name);
+  name = stripCorruptedExtensions(name, exts);
   name = normalizeName(name);
   name = normalizeDots(name);
 

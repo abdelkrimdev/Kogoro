@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { relative, sep } from "node:path";
-import { DEFAULT_MEDIA_EXTENSIONS, DEFAULT_SUBTITLE_LANGUAGE } from "../../config/schema";
+import { SCHEMA_DEFAULTS } from "../../config/schema";
 import { walk } from "../../directory-walker";
 import { MatchCache } from "../../match-cache";
 import type { SubtitlePlugin } from "../../plugins/subtitle/plugin";
@@ -13,7 +13,6 @@ export interface SubtitleHandlerOptions {
 export interface SubtitleFetchOptions {
   language?: string;
   force?: boolean;
-  extensions?: string[];
 }
 
 export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
@@ -25,15 +24,14 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
     onLog: (msg: string) => void,
     onError: (msg: string) => void,
   ): Promise<void> {
-    const language = opts.language ?? DEFAULT_SUBTITLE_LANGUAGE;
+    const language = opts.language ?? SCHEMA_DEFAULTS["subtitle-language"];
     const force = opts.force ?? false;
-    const extensions = opts.extensions ?? DEFAULT_MEDIA_EXTENSIONS;
     let downloaded = 0;
     let skipped = 0;
     let failed = 0;
 
     try {
-      const files = walk(dirPath, extensions);
+      const files = walk(dirPath, SCHEMA_DEFAULTS["media-extensions"]);
 
       for (const filePath of files) {
         const hash = await MatchCache.hashFile(filePath);
