@@ -10,7 +10,7 @@ import {
   matchResultFromManual,
   matchResultFromOverride,
 } from "./matcher";
-import { absoluteToRelative, relativeToAbsolute } from "./numbering-converter";
+import { relativeToAbsolute } from "./numbering-converter";
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
@@ -331,12 +331,18 @@ export class Scanner {
           numberingOverride = { season: parsed.season, episode: parsed.episode };
         }
       } else if (parsed.episode !== null && match.episode) {
-        const allEpisodes = this.matcher.getEpisodes(match.anime.id);
         if (episodeNumbering === "absolute") {
-          numberingOverride = { season: 1, episode: match.episode.episode };
+          const allEpisodes = this.matcher.getEpisodes(match.anime.id);
+          const absolute = relativeToAbsolute(
+            match.episode.season,
+            match.episode.episode,
+            allEpisodes,
+          );
+          if (absolute !== null) {
+            numberingOverride = { season: 1, episode: absolute };
+          }
         } else {
-          const relative = absoluteToRelative(match.episode.episode, allEpisodes);
-          if (relative) numberingOverride = relative;
+          numberingOverride = { season: match.episode.season, episode: match.episode.episode };
         }
       }
 

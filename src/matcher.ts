@@ -213,6 +213,7 @@ export class Matcher implements MatcherLike {
   private overrideStore?: OverrideStore;
   private searchCache = new Map<string, AnimeResult[]>();
   private episodeCache = new Map<string, EpisodeResult[]>();
+  private animeCache = new Map<string, AnimeResult>();
 
   constructor(options: MatcherOptions) {
     this.db = options.database;
@@ -242,6 +243,8 @@ export class Matcher implements MatcherLike {
     const results = candidates
       .map(({ anime, score }) => this.toMatchResult(anime, score, parsed))
       .sort((a, b) => b.score - a.score);
+
+    await this.resolveMatchTitles(results);
 
     return this.applyOverrideEntryType(results, override);
   }
@@ -275,15 +278,18 @@ export class Matcher implements MatcherLike {
 
     await this.batchFetchEpisodes(Array.from(relevantIds));
 
-    return parsedList.map((parsed) => {
+    const results: MatchResult[] = [];
+    for (const parsed of parsedList) {
       if (!parsed.title) {
-        return noMatchResult("No title parsed");
+        results.push(noMatchResult("No title parsed"));
+        continue;
       }
 
       const key = parsed.title.toLowerCase();
       const candidates = allScored.get(key);
       if (!candidates || candidates.length === 0) {
-        return noMatchResult("No anime found");
+        results.push(noMatchResult("No anime found"));
+        continue;
       }
 
       const matchResults = candidates
@@ -296,14 +302,22 @@ export class Matcher implements MatcherLike {
           : matchResults;
 
       if (viable.length === 0) {
-        return noMatchResult("No matching episode found");
+        results.push(noMatchResult("No matching episode found"));
+        continue;
       }
 
       const best = bestPerAnimeId(viable);
       const winner = isClearWinner(best);
-      if (!winner) return noMatchResult(AMBIGUOUS_MATCH_REASON);
-      return winner;
-    });
+      if (!winner) {
+        results.push(noMatchResult(AMBIGUOUS_MATCH_REASON));
+        continue;
+      }
+      results.push(winner);
+    }
+
+    await this.resolveMatchTitles(results);
+
+    return results;
   }
 
   private filterHighSimilarity(
@@ -327,6 +341,43 @@ export class Matcher implements MatcherLike {
       return { anime, episode: matchingEpisode, score: totalScore };
     }
     return { anime, score: totalScore };
+  }
+
+  private async resolveMatchTitles(results: MatchResult[]): Promise<void> {
+    const ids = [...new Set(results.map((r) => r.anime.id).filter(Boolean))];
+    if (ids.length === 0) return;
+
+    const resolved = new Map<string, AnimeResult>();
+    const toFetch: string[] = [];
+
+    for (const id of ids) {
+      if (this.animeCache.has(id)) {
+        const cached = this.animeCache.get(id);
+        if (cached) resolved.set(id, cached);
+      } else {
+        toFetch.push(id);
+      }
+    }
+    await Promise.all(
+      toFetch.map(async (id) => {
+        const anime = await this.db.getAnime(id);
+        if (anime) {
+          this.animeCache.set(id, anime);
+          resolved.set(id, anime);
+        }
+      }),
+    );
+
+    for (const result of results) {
+      const anime = resolved.get(result.anime.id);
+      if (anime?.titleEn) {
+        result.anime = {
+          ...result.anime,
+          titleEn: anime.titleEn,
+          titleJa: anime.titleJa ?? result.anime.titleJa,
+        };
+      }
+    }
   }
 
   private async fetchAnimeSearch(title: string): Promise<AnimeResult[]> {

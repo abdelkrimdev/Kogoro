@@ -348,7 +348,7 @@ describe("Scanner", () => {
       });
     });
 
-    test("relative mode converts absolute episode to relative when season not parsed", async () => {
+    test("relative mode uses match episode's season/episode when season not parsed", async () => {
       await withTempDir("scanner-numbering", async (dir) => {
         const filePath = writeTempFile(dir, "[Group] Test Anime - 30.mkv", "content");
         const episodes = makeEpisodes(24, 2);
@@ -372,7 +372,7 @@ describe("Scanner", () => {
         });
 
         expect(result.status).toBe("matched");
-        expect(result.plan?.targetFilename).toMatch(/S2xE06/);
+        expect(result.plan?.targetFilename).toMatch(/S2xE30/);
       });
     });
 
@@ -406,7 +406,7 @@ describe("Scanner", () => {
       });
     });
 
-    test("absolute mode keeps absolute episode when season not parsed", async () => {
+    test("absolute mode converts match episode to absolute number when season not parsed", async () => {
       await withTempDir("scanner-numbering", async (dir) => {
         const filePath = writeTempFile(dir, "[Group] Test Anime - 30.mkv", "content");
         const episodes = makeEpisodes(24, 2);
@@ -430,7 +430,7 @@ describe("Scanner", () => {
         });
 
         expect(result.status).toBe("matched");
-        expect(result.plan?.targetFilename).toMatch(/1x30/);
+        expect(result.plan?.targetFilename).toMatch(/1x54/);
       });
     });
 

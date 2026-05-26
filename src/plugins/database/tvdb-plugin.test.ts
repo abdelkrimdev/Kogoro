@@ -538,11 +538,58 @@ describe("TVDBPlugin", () => {
   });
 
   describe("getAnime", () => {
-    test("returns anime details for a valid ID", async () => {
+    test("returns anime details with translations", async () => {
       const seriesResponse = {
         id: 12345,
         slug: "jujutsu-kaisen",
+        name: "呪術廻戦",
+        aliases: [
+          { name: "Jujutsu Kaisen", lang: "eng" },
+          { name: "呪術廻戦", lang: "jpn" },
+        ],
+        image: "https://artworks.thetvdb.com/series/12345/poster.jpg",
+        year: "2020",
+        overview: "呪術廻戦の概要",
+        status: "Continuing",
+      };
+
+      const enTranslation = {
         name: "Jujutsu Kaisen",
+        overview: "A boy fights curses.",
+        language: "eng",
+      };
+
+      const jpnTranslation = { name: "呪術廻戦", language: "jpn" };
+
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        httpClient: createMockHttpClient(
+          mockFetchWithRoutes({
+            "/series/12345/translations/eng": enTranslation,
+            "/series/12345/translations/jpn": jpnTranslation,
+            "/series/12345": seriesResponse,
+          }),
+        ),
+      });
+      const result = await plugin.getAnime("12345");
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("12345");
+      expect(result?.titleEn).toBe("Jujutsu Kaisen");
+      expect(result?.titleJa).toBe("呪術廻戦");
+      expect(result?.slug).toBe("jujutsu-kaisen");
+      expect(result?.overview).toBe("A boy fights curses.");
+      expect(result?.year).toBe(2020);
+      expect(result?.image).toBe("https://artworks.thetvdb.com/series/12345/poster.jpg");
+      expect(result?.status).toBe("Continuing");
+      expect(result?.entryType).toBe("tv");
+    });
+
+    test("falls back to aliases when translations are unavailable", async () => {
+      const seriesResponse = {
+        id: 12345,
+        slug: "jujutsu-kaisen",
+        name: "呪術廻戦",
         aliases: [
           { name: "Jujutsu Kaisen", lang: "eng" },
           { name: "呪術廻戦", lang: "jpn" },
@@ -553,19 +600,29 @@ describe("TVDBPlugin", () => {
         status: "Continuing",
       };
 
+      const fetch = async (url: string | URL, _init?: RequestInit) => {
+        const urlStr = toUrlString(url);
+        if (urlStr.includes("/login")) {
+          return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
+            status: 200,
+          });
+        }
+        if (urlStr.includes("/translations")) {
+          return new Response(JSON.stringify({ error: "Not Found" }), { status: 404 });
+        }
+        return new Response(JSON.stringify({ data: seriesResponse }), { status: 200 });
+      };
+
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
-        httpClient: createMockHttpClient(mockFetch(seriesResponse)),
+        httpClient: createMockHttpClient(fetch),
       });
       const result = await plugin.getAnime("12345");
 
       expect(result).not.toBeNull();
-      expect(result?.id).toBe("12345");
       expect(result?.titleEn).toBe("Jujutsu Kaisen");
-      expect(result?.slug).toBe("jujutsu-kaisen");
+      expect(result?.titleJa).toBe("呪術廻戦");
       expect(result?.overview).toBe("A boy fights curses.");
-      expect(result?.year).toBe(2020);
-      expect(result?.entryType).toBe("tv");
     });
 
     test("returns null when anime ID does not exist", async () => {

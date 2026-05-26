@@ -45,6 +45,12 @@ interface TVDBEpisodeItem {
   isMovie?: number;
 }
 
+interface TVDBTranslation {
+  name: string;
+  overview?: string;
+  language: string;
+}
+
 interface TVDBArtworkItem {
   id: number;
   image: string;
@@ -169,12 +175,17 @@ export class TVDBPlugin implements DatabasePlugin {
 
     if (!data) return null;
 
+    const [enTranslation, jaTranslation] = await Promise.all([
+      this.apiRequest<TVDBTranslation>(`/series/${animeId}/translations/eng`),
+      this.apiRequest<TVDBTranslation>(`/series/${animeId}/translations/jpn`),
+    ]);
+
     return {
       id: String(data.id),
       slug: data.slug,
-      titleEn: extractTitleEn(data.aliases) ?? data.name,
-      titleJa: extractTitleJa(data.aliases),
-      overview: data.overview,
+      titleEn: enTranslation?.name ?? extractTitleEn(data.aliases) ?? data.name,
+      titleJa: jaTranslation?.name ?? extractTitleJa(data.aliases),
+      overview: enTranslation?.overview ?? data.overview,
       year: data.year ? Number.parseInt(data.year, 10) : undefined,
       image: data.image,
       status: data.status,
