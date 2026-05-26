@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.4.0",
+    "valibot": "^1.4.1",
     "yargs": "^18.0.0"
   }
 }
