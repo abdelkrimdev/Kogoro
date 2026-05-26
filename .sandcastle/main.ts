@@ -66,7 +66,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // One iteration is enough: the planner just needs to read and reason,
     // not write code.
     maxIterations: 1,
-    // DeepSeek V4 Pro for planning: dependency analysis benefits from deeper reasoning.
     agent: sandcastle.opencode("opencode-go/deepseek-v4-pro"),
     promptFile: "./.sandcastle/plan-prompt.md",
   });
@@ -121,7 +120,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
-          //Deepseek 4 flash for fast implementation and fast run time
           agent: sandcastle.opencode("opencode-go/deepseek-v4-flash"),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
@@ -136,8 +134,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
-            // Kimi K2.6 for surgical precision in code review
-            agent: sandcastle.opencode("opencode-go/kimi-k2.6"),
+            agent: sandcastle.opencode("opencode-go/deepseek-v4-pro"),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
@@ -208,7 +205,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: docker(),
     name: "merger",
     maxIterations: 1,
-    // DeepSeek V4 Pro for deep root-cause debugging if things break during merge
     agent: sandcastle.opencode("opencode-go/deepseek-v4-pro"),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
