@@ -1,7 +1,7 @@
+import type { SetResult } from "../../config/config-manager";
 import { ConfigManager } from "../../config/config-manager";
 import { type PromptsAPI, runConfigWizard } from "../../config/config-wizard";
 import { createCredentialStore } from "../../config/credential-store";
-import { TEMPLATE_PRESETS } from "../../config/schema";
 import { type OverrideData, OverrideStore } from "../../override-store";
 
 export interface ConfigHandlerOptions {
@@ -25,7 +25,8 @@ export function createConfigHandlers(options: ConfigHandlerOptions = {}) {
       if (val === undefined) {
         onError(`Config key '${key}' is not set`);
       } else {
-        onLog(String(val));
+        const output = Array.isArray(val) ? JSON.stringify(val) : String(val);
+        onLog(output);
       }
     },
 
@@ -35,18 +36,12 @@ export function createConfigHandlers(options: ConfigHandlerOptions = {}) {
       onLog: (msg: string) => void,
       onError: (msg: string) => void,
     ): Promise<void> {
-      if (key === "template.preset") {
-        const normalized = value.toLowerCase();
-        if (!(normalized in TEMPLATE_PRESETS)) {
-          const valid = Object.keys(TEMPLATE_PRESETS).join(", ");
-          onError(`Unknown preset '${value}'. Valid presets: ${valid}`);
-          return;
-        }
-        config.set(key, normalized);
+      const result: SetResult = config.set(key, value);
+      if (result.success) {
+        onLog(`Set config '${key}' to '${value}'`);
       } else {
-        config.set(key, value);
+        onError(result.error);
       }
-      onLog(`Set config '${key}' to '${value}'`);
     },
 
     async init(prompts: PromptsAPI, onLog: (msg: string) => void): Promise<void> {
