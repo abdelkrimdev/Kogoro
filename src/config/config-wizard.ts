@@ -134,14 +134,6 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
     config.set("template.custom", "");
   }
 
-  const useDirStructure = await prompt(
-    p.confirm({
-      message: "Use default directory structure ({anime}/{EntryType}/)?",
-      initialValue: true,
-    }),
-  );
-  if (useDirStructure === undefined) return;
-
   config.init();
 
   p.outro("Kogoro is configured and ready!");

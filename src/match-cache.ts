@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { CONFIG_DIR } from "./config/schema";
 
 export interface CachedMatch {
   animeId: string;
@@ -33,7 +33,7 @@ export class MatchCache {
   private db: Database;
 
   constructor(options: MatchCacheOptions = {}) {
-    const dbPath = options.dbPath ?? join(homedir(), ".config", "kogoro", "cache.db");
+    const dbPath = options.dbPath ?? join(CONFIG_DIR, "cache.db");
     const dir = dirname(dbPath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });

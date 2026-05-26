@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { CONFIG_DIR } from "../../config/schema";
 import { HttpClient } from "../../http-client";
 import type { DatabasePlugin } from "./plugin";
 import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types";
@@ -152,7 +152,7 @@ export class AniDBPlugin implements DatabasePlugin {
     this.client = options.client;
     this.clientver = options.clientver;
     this.titleCache = new AnidbTitleCache({
-      cacheDir: options.cacheDir ?? join(homedir(), ".config", "kogoro", "cache"),
+      cacheDir: options.cacheDir ?? join(CONFIG_DIR, "cache"),
       httpClient: this.httpClient,
     });
   }
