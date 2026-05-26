@@ -82,8 +82,7 @@ function getFilenameTemplate(config?: ConfigManager): string {
 }
 
 function getDirectoryTemplate(config?: ConfigManager): string {
-  const template = config?.get("template") as { directory?: string } | undefined;
-  return template?.directory ?? DEFAULT_DIRECTORY_TEMPLATE;
+  return (config?.get("template.directory") as string | undefined) ?? DEFAULT_DIRECTORY_TEMPLATE;
 }
 
 export function createScanHandlers(options: ScanHandlerOptions) {

@@ -51,7 +51,7 @@ function tomlStringify(config: Config): string {
   return `${lines.join("\n")}\n`;
 }
 
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+function getNestedValue(obj: unknown, path: string): unknown {
   const parts = path.split(".");
   let current: unknown = obj;
   for (const part of parts) {
@@ -81,7 +81,7 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
 }
 
 function coerceValue(key: string, value: string): unknown {
-  if (key.endsWith(".enabled") || key === "enabled") {
+  if (key.endsWith(".enabled")) {
     return value.toLowerCase() === "true";
   }
   if (key === "scan-concurrency" || key === "fetch-concurrency") {
@@ -145,7 +145,7 @@ export class ConfigManager {
   }
 
   get(key: string): unknown {
-    return getNestedValue(this.config as unknown as Record<string, unknown>, key);
+    return getNestedValue(this.config, key);
   }
 
   getList(key: string): string[] {
