@@ -106,6 +106,39 @@ function coerceValue(key: string, value: string): unknown {
   return value;
 }
 
+export type SetResult = { success: true } | { success: false; error: string };
+
+// biome-ignore lint/suspicious/noExplicitAny: valibot issue types are complex
+function formatSchemaError(issues: readonly any[]): string {
+  const issue = issues[0] as
+    | {
+        type: string;
+        input: unknown;
+        expected?: string;
+        received?: string;
+        message: string;
+        path?: { key: string | number; origin: string }[];
+      }
+    | undefined;
+  if (!issue) return "Config validation failed";
+
+  const path = issue.path?.map((p) => String(p.key)).join(".");
+  const isUnknownKey = issue.path?.some((p) => p.origin === "key");
+
+  if (isUnknownKey) {
+    return `Unknown config key: '${path}'`;
+  }
+
+  if (issue.type === "picklist") {
+    const validValues = (issue.expected ?? "").replace(/[()"]/g, "").replace(/\s*\|\s*/g, ", ");
+    const received = String(issue.received ?? issue.input).replace(/"/g, "'");
+    return `Invalid value for '${path}': expected ${validValues}, received ${received}`;
+  }
+
+  const prefix = path ? `Invalid value for '${path}': ` : "";
+  return `${prefix}${issue.message}`;
+}
+
 export class ConfigManager {
   private configDir: string;
   private configPath: string;
@@ -160,7 +193,7 @@ export class ConfigManager {
     return [];
   }
 
-  set(key: string, value: string): void {
+  set(key: string, value: string): SetResult {
     const candidate = structuredClone(this.config) as Record<string, unknown>;
     const typedValue = coerceValue(key, value);
     setNestedValue(candidate, key, typedValue);
@@ -169,7 +202,10 @@ export class ConfigManager {
     if (result.success) {
       this.config = result.output;
       this.save();
+      return { success: true };
     }
+
+    return { success: false, error: formatSchemaError(result.issues) };
   }
 
   isPluginEnabled(name: string): boolean {

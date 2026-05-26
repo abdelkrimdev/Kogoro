@@ -77,13 +77,80 @@ describe("Config CLI commands", () => {
         const handlers = createConfigHandlers({ configDir: dir });
         const capture = createLogCapture();
         await handlers.set("template.preset", "nonexistent", () => {}, capture.onError);
-        expect(capture.errorOutput).toContain("Unknown preset 'nonexistent'");
+        expect(capture.errorOutput).toContain("Invalid value for 'template.preset'");
         expect(capture.errorOutput).toContain("standard");
         expect(capture.errorOutput).toContain("compact");
+        expect(capture.errorOutput).toContain("nonexistent");
 
         // Value should not be persisted; default remains
         const config = new ConfigManager({ configDir: dir });
         expect(await config.get("template.preset")).toBe("standard");
+      });
+    });
+  });
+
+  describe("config set schema validation", () => {
+    test("rejects invalid type for number field", async () => {
+      await withTempDir("cli-config", async (dir) => {
+        const handlers = createConfigHandlers({ configDir: dir });
+        const capture = createLogCapture();
+        await handlers.set("scan-concurrency", "eight", () => {}, capture.onError);
+        expect(capture.errorOutput).toContain("Invalid value for 'scan-concurrency'");
+        expect(capture.errorOutput).toContain("number");
+      });
+    });
+
+    test("accepts valid number value", async () => {
+      await withTempDir("cli-config", async (dir) => {
+        const handlers = createConfigHandlers({ configDir: dir });
+        const capture = createLogCapture();
+        await handlers.set("scan-concurrency", "8", capture.onLog, () => {});
+        expect(capture.output).toContain("8");
+
+        const config = new ConfigManager({ configDir: dir });
+        expect(await config.get("scan-concurrency")).toBe(8);
+      });
+    });
+
+    test("rejects unknown top-level key", async () => {
+      await withTempDir("cli-config", async (dir) => {
+        const handlers = createConfigHandlers({ configDir: dir });
+        const capture = createLogCapture();
+        await handlers.set("unknown-key", "value", () => {}, capture.onError);
+        expect(capture.errorOutput).toContain("Unknown config key");
+        expect(capture.errorOutput).toContain("unknown-key");
+      });
+    });
+
+    test("rejects unknown nested key", async () => {
+      await withTempDir("cli-config", async (dir) => {
+        const handlers = createConfigHandlers({ configDir: dir });
+        const capture = createLogCapture();
+        await handlers.set("template.unknown", "value", () => {}, capture.onError);
+        expect(capture.errorOutput).toContain("Unknown config key");
+        expect(capture.errorOutput).toContain("template.unknown");
+      });
+    });
+  });
+
+  describe("config get display format", () => {
+    test("config get media-extensions returns array as JSON", async () => {
+      await withTempDir("cli-config", async (dir) => {
+        const config = new ConfigManager({ configDir: dir });
+        const handlers = createConfigHandlers({ configDir: dir });
+        const capture = createLogCapture();
+        await handlers.get("media-extensions", capture.onLog, () => {});
+        const expected = JSON.stringify(config.get("media-extensions"));
+        expect(capture.output).toBe(expected);
+      });
+    });
+
+    test("config get scan-concurrency returns number as string", async () => {
+      await withTempDir("cli-config", async (dir) => {
+        const handlers = createConfigHandlers({ configDir: dir });
+        const capture = createLogCapture();
+        await handlers.get("scan-concurrency", capture.onLog, () => {});
+        expect(capture.output).toBe("4");
       });
     });
   });
