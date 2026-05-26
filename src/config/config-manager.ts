@@ -108,18 +108,18 @@ function coerceValue(key: string, value: string): unknown {
 
 export type SetResult = { success: true } | { success: false; error: string };
 
+interface SchemaIssue {
+  type: string;
+  input: unknown;
+  expected?: string;
+  received?: string;
+  message: string;
+  path?: { key: string | number; origin: string }[];
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: valibot issue types are complex
 function formatSchemaError(issues: readonly any[]): string {
-  const issue = issues[0] as
-    | {
-        type: string;
-        input: unknown;
-        expected?: string;
-        received?: string;
-        message: string;
-        path?: { key: string | number; origin: string }[];
-      }
-    | undefined;
+  const issue = issues[0] as SchemaIssue | undefined;
   if (!issue) return "Config validation failed";
 
   const path = issue.path?.map((p) => String(p.key)).join(".");
@@ -130,7 +130,8 @@ function formatSchemaError(issues: readonly any[]): string {
   }
 
   if (issue.type === "picklist") {
-    const validValues = (issue.expected ?? "").replace(/[()"]/g, "").replace(/\s*\|\s*/g, ", ");
+    const rawExpected = (issue.expected ?? "").replace(/[()"]/g, "");
+    const validValues = rawExpected.replace(/\s*\|\s*/g, ", ");
     const received = String(issue.received ?? issue.input).replace(/"/g, "'");
     return `Invalid value for '${path}': expected ${validValues}, received ${received}`;
   }
