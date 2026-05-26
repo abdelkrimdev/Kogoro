@@ -47,7 +47,7 @@ function resolveExtensions(config?: ConfigManager, overrides?: string[]): string
 function resolveExcludePatterns(config?: ConfigManager): string[] {
   const fromConfig = config?.getList("exclude-patterns");
   if (fromConfig && fromConfig.length > 0) return fromConfig;
-  return [".part", ".crdownload", "!qb"];
+  return [...SCHEMA_DEFAULTS["exclude-patterns"]];
 }
 
 export function isAlreadyOrganized(filePath: string): boolean {

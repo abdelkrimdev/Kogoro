@@ -6,14 +6,14 @@ export interface ParsedTags {
   audio: string | null;
 }
 
+import { SCHEMA_DEFAULTS } from "./config/schema";
+
 export interface ParsedResult {
   title: string | null;
   season: number | null;
   episode: number | null;
   tags: ParsedTags;
 }
-
-import { SCHEMA_DEFAULTS } from "./config/schema";
 
 interface EpisodeInfo {
   season: number | null;
