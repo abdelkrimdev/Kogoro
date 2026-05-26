@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { ConfigManager } from "../config/config-manager";
@@ -14,6 +15,17 @@ import { registerMetadata } from "./metadata/register";
 import { registerPlugins } from "./plugins/register";
 import { registerScan } from "./scan/register";
 import { registerSubtitle } from "./subtitle/register";
+
+function readVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf-8"),
+    ) as { version: string };
+    return pkg.version;
+  } catch {
+    return "0.1.0";
+  }
+}
 
 export function run(argv: string[]): void {
   const config = new ConfigManager();
@@ -102,7 +114,7 @@ export function run(argv: string[]): void {
     .demandCommand(1, "Please specify a command")
     .help()
     .alias("h", "help")
-    .version("0.1.0")
+    .version(readVersion())
     .alias("v", "version")
     .strict()
     .parse();

@@ -5,7 +5,7 @@ interface WalkOptions {
   excludePatterns?: string[];
 }
 
-export function walk(dir: string, extensions: string[], options?: WalkOptions): string[] {
+export function walk(dir: string, extensions: readonly string[], options?: WalkOptions): string[] {
   const results: string[] = [];
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {

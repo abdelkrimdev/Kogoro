@@ -2,12 +2,7 @@ import { lstatSync } from "node:fs";
 import { basename, dirname, sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../../config/config-manager";
-import {
-  DEFAULT_DIRECTORY_TEMPLATE,
-  DEFAULT_EXCLUDE_PATTERNS,
-  DEFAULT_MEDIA_EXTENSIONS,
-  DEFAULT_SCAN_CONCURRENCY,
-} from "../../config/schema";
+import { SCHEMA_DEFAULTS } from "../../config/schema";
 import { walk } from "../../directory-walker";
 import type { MatchCache } from "../../match-cache";
 import { Matcher, type MatchResult } from "../../matcher";
@@ -44,15 +39,15 @@ function resolveExtensions(config?: ConfigManager, overrides?: string[]): string
   if (overrides && overrides.length > 0) {
     return overrides.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`));
   }
-  const fromConfig = config?.get("media-extensions") as string[] | undefined;
+  const fromConfig = config?.getList("media-extensions");
   if (fromConfig && fromConfig.length > 0) return fromConfig;
-  return DEFAULT_MEDIA_EXTENSIONS;
+  return [...SCHEMA_DEFAULTS["media-extensions"]];
 }
 
 function resolveExcludePatterns(config?: ConfigManager): string[] {
-  const fromConfig = config?.get("exclude-patterns") as string[] | undefined;
+  const fromConfig = config?.getList("exclude-patterns");
   if (fromConfig && fromConfig.length > 0) return fromConfig;
-  return DEFAULT_EXCLUDE_PATTERNS;
+  return [".part", ".crdownload", "!qb"];
 }
 
 export function isAlreadyOrganized(filePath: string): boolean {
@@ -82,7 +77,9 @@ function getFilenameTemplate(config?: ConfigManager): string {
 }
 
 function getDirectoryTemplate(config?: ConfigManager): string {
-  return (config?.get("template.directory") as string | undefined) ?? DEFAULT_DIRECTORY_TEMPLATE;
+  return (
+    (config?.get("template.directory") as string | undefined) ?? SCHEMA_DEFAULTS.template.directory
+  );
 }
 
 export function createScanHandlers(options: ScanHandlerOptions) {
@@ -209,8 +206,12 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         | "relative"
         | undefined;
       const episodeNumbering = scanOptions?.episodeNumbering ?? configNumbering;
-      const configConcurrency = options.config?.get("scan-concurrency") as number | undefined;
-      const concurrency = scanOptions?.concurrency ?? configConcurrency ?? DEFAULT_SCAN_CONCURRENCY;
+      const configConcurrency = options.config
+        ? Number(options.config.get("scan-concurrency"))
+        : NaN;
+      const concurrency =
+        scanOptions?.concurrency ??
+        (Number.isNaN(configConcurrency) ? SCHEMA_DEFAULTS["scan-concurrency"] : configConcurrency);
 
       const baseDir = lstatSync(path).isDirectory() ? path : dirname(path);
       const extensions = resolveExtensions(options.config, scanOptions?.extensions);

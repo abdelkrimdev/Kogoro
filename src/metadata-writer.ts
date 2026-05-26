@@ -1,5 +1,5 @@
 import { existsSync, writeFileSync } from "node:fs";
-import { DEFAULT_MEDIA_EXTENSIONS } from "./config/schema";
+import { SCHEMA_DEFAULTS } from "./config/schema";
 import { walk } from "./directory-walker";
 import { type CachedMatch, MatchCache } from "./match-cache";
 import { stripExtension } from "./parser";
@@ -36,18 +36,14 @@ export class MetadataWriter {
     this.database = options.database;
   }
 
-  async write(
-    dirPath: string,
-    options?: { force?: boolean; extensions?: string[] },
-  ): Promise<MetadataSummary> {
+  async write(dirPath: string, options?: { force?: boolean }): Promise<MetadataSummary> {
     const force = options?.force ?? false;
-    const extensions = options?.extensions ?? DEFAULT_MEDIA_EXTENSIONS;
     let total = 0;
     let written = 0;
     let skipped = 0;
     let failed = 0;
 
-    const videoFiles = walk(dirPath, extensions);
+    const videoFiles = walk(dirPath, SCHEMA_DEFAULTS["media-extensions"]);
     const episodeCache = new Map<string, Map<number, EpisodeResult>>();
     const animeCache = new Map<string, string | undefined>();
 

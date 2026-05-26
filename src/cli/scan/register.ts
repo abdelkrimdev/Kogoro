@@ -1,4 +1,5 @@
 import type yargs from "yargs";
+import { SCHEMA_DEFAULTS } from "../../config/schema";
 import type { FileAction } from "../../renamer";
 import type { ScanResult } from "../../scanner";
 import type { ScanOptions } from "./handlers";
@@ -43,7 +44,8 @@ export function registerScan(
         .option("action", {
           type: "string",
           choices: ["move", "copy", "symlink", "hardlink"] as const,
-          describe: "File operation to perform (default: schema default)",
+          default: SCHEMA_DEFAULTS["rename-action"],
+          describe: "File operation to perform",
         })
         .option("episode-numbering", {
           type: "string",
@@ -77,7 +79,8 @@ export function registerScan(
         })
         .option("concurrency", {
           type: "number",
-          describe: "Number of files to process concurrently (default: schema default)",
+          default: SCHEMA_DEFAULTS["scan-concurrency"],
+          describe: "Number of files to process concurrently",
         }),
     async (argv) => {
       const handlers = await createHandlers(argv.debug);
