@@ -90,9 +90,12 @@ describe("ConfigWizard", () => {
 
       await runConfigWizard({ config, credentialStore, prompts });
       expect(await config.get("primary-db")).toBe("tvdb");
-      expect(await config.get("concurrency")).toBe("4");
-      expect(await config.get("extensions")).toBe(".mkv,.mp4");
-      expect(await config.get("exclude-patterns")).toBe(".part,.crdownload");
+      expect(await config.get("scan-concurrency")).toBe(4);
+      const extensions = config.get("media-extensions");
+      expect(Array.isArray(extensions)).toBe(true);
+      expect((extensions as string[]).includes(".mkv")).toBe(true);
+      const exclude = config.get("exclude-patterns") as string[];
+      expect(exclude.includes("!qb")).toBe(true);
       expect(await config.get("template.preset")).toBe("standard");
     });
   });

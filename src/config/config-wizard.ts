@@ -1,7 +1,7 @@
 import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
 import type { ConfigManager } from "./config-manager";
-import { TEMPLATE_PRESETS as PRESET_MAP } from "./config-manager";
 import type { CredentialStore } from "./credential-store";
+import { TEMPLATE_PRESETS as PRESET_MAP } from "./schema";
 
 export interface PromptsAPI {
   intro(title: string): void;
@@ -128,11 +128,10 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
       }),
     );
     if (custom === undefined) return;
-    config.set("template.string", custom);
-    config.set("template.preset", "");
+    config.set("template.custom", custom);
   } else {
     config.set("template.preset", templateChoice);
-    config.set("template.string", "");
+    config.set("template.custom", "");
   }
 
   const useDirStructure = await prompt(

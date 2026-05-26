@@ -1,8 +1,6 @@
 import { readdirSync } from "node:fs";
 import { extname, join } from "node:path";
 
-export const VIDEO_EXTENSIONS = [".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm"];
-
 interface WalkOptions {
   excludePatterns?: string[];
 }

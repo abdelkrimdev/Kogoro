@@ -1,14 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
-import { VIDEO_EXTENSIONS, walk } from "./directory-walker";
+import { walk } from "./directory-walker";
 import { withTempDir, writeTempFile } from "./test-fixtures";
 
 describe("DirectoryWalker", () => {
-  test("VIDEO_EXTENSIONS contains all 7 video formats", () => {
-    expect(VIDEO_EXTENSIONS).toEqual([".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm"]);
-  });
-
   test("walk returns video files from a directory", async () => {
     await withTempDir("walk-basic", async (dir) => {
       writeTempFile(dir, "video.mkv", "");

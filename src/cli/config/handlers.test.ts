@@ -29,13 +29,13 @@ describe("Config CLI commands", () => {
     await withTempDir("cli-config", async (dir) => {
       const handlers = createConfigHandlers({ configDir: dir });
       await handlers.set(
-        "concurrency",
+        "scan-concurrency",
         "8",
         () => {},
         () => {},
       );
       const config = new ConfigManager({ configDir: dir });
-      expect(await config.get("concurrency")).toBe("8");
+      expect(await config.get("scan-concurrency")).toBe(8);
     });
   });
 
@@ -54,7 +54,7 @@ describe("Config CLI commands", () => {
 
       const config = new ConfigManager({ configDir: dir });
       expect(await config.get("primary-db")).toBe("tvdb");
-      expect(await config.get("concurrency")).toBe("4");
+      expect(await config.get("scan-concurrency")).toBe(4);
     });
   });
 
@@ -81,9 +81,9 @@ describe("Config CLI commands", () => {
         expect(capture.errorOutput).toContain("standard");
         expect(capture.errorOutput).toContain("compact");
 
-        // Value should not be persisted
+        // Value should not be persisted; default remains
         const config = new ConfigManager({ configDir: dir });
-        expect(await config.get("template.preset")).toBeUndefined();
+        expect(await config.get("template.preset")).toBe("standard");
       });
     });
   });

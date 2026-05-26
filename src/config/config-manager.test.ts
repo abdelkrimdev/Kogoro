@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { ConfigManager } from "../config/config-manager";
 import { withTestConfig } from "../test-fixtures";
+import { TEMPLATE_PRESETS } from "./schema";
 
 describe("ConfigManager", () => {
   test("set then get persists and retrieves a value", async () => {
@@ -23,9 +24,9 @@ describe("ConfigManager", () => {
     });
   });
 
-  test("config file is written to disk", async () => {
+  test("config file is written to disk on set", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("concurrency", "4");
+      config.set("primary-db", "tvdb");
       const configPath = join(_dir, "config.toml");
       expect(existsSync(configPath)).toBe(true);
     });
@@ -37,10 +38,11 @@ describe("ConfigManager", () => {
       expect(config.get("primary-db")).toBe("tvdb");
       expect(config.get("secondary-dbs")).toBe("");
       expect(config.get("template.preset")).toBe("standard");
-      expect(config.get("extensions")).toBe(".mkv,.mp4");
-      expect(config.get("exclude-patterns")).toBe(".part,.crdownload");
-      expect(config.get("concurrency")).toBe("4");
-      expect(config.get("api-delay")).toBe("200");
+      const extensions = config.get("media-extensions");
+      expect(Array.isArray(extensions)).toBe(true);
+      expect((extensions as string[]).includes(".mkv")).toBe(true);
+      expect((extensions as string[]).includes(".ogm")).toBe(true);
+      expect(config.get("scan-concurrency")).toBe(4);
     });
   });
 
@@ -59,7 +61,7 @@ describe("ConfigManager", () => {
     });
   });
 
-  test("getList parses comma-separated values", async () => {
+  test("getList parses comma-separated values for string keys", async () => {
     await withTestConfig("config", async (_dir, config) => {
       config.set("secondary-dbs", "anidb,tvdb");
       const list = config.getList("secondary-dbs");
@@ -83,7 +85,7 @@ describe("ConfigManager", () => {
     });
   });
 
-  test("dotted key survives round-trip through disk", async () => {
+  test("set with valid key persists to disk", async () => {
     await withTestConfig("config", async (_dir, config) => {
       config.set("template.preset", "plex");
 
@@ -96,7 +98,7 @@ describe("ConfigManager", () => {
     test("getTemplate returns default standard preset when nothing configured", async () => {
       await withTestConfig("config", async (_dir, config) => {
         const template = config.getTemplate();
-        expect(template).toBe("{anime} - {season}x{episode:02} - {title}");
+        expect(template).toBe(TEMPLATE_PRESETS.standard);
       });
     });
 
@@ -105,14 +107,14 @@ describe("ConfigManager", () => {
         config.set("template.preset", "plex");
         config.init();
         const template = config.getTemplate();
-        expect(template).toBe("{anime} - s{season:02}e{episode:02} - {title}");
+        expect(template).toBe(TEMPLATE_PRESETS.plex);
       });
     });
 
-    test("getTemplate prefers template.string over template.preset", async () => {
+    test("getTemplate prefers template.custom over template.preset", async () => {
       await withTestConfig("config", async (_dir, config) => {
         config.set("template.preset", "plex");
-        config.set("template.string", "{custom} - {template}");
+        config.set("template.custom", "{custom} - {template}");
         config.init();
         const template = config.getTemplate();
         expect(template).toBe("{custom} - {template}");
@@ -124,21 +126,13 @@ describe("ConfigManager", () => {
         config.set("template.preset", "nonexistent");
         config.init();
         const template = config.getTemplate();
-        expect(template).toBe("{anime} - {season}x{episode:02} - {title}");
+        expect(template).toBe(TEMPLATE_PRESETS.standard);
       });
     });
 
     test("all five named presets resolve correctly", async () => {
-      const presets: Record<string, string> = {
-        standard: "{anime} - {season}x{episode:02} - {title}",
-        compact: "{anime} - E{episode:02}",
-        absolute: "{anime} - {episode:03}",
-        plex: "{anime} - s{season:02}e{episode:02} - {title}",
-        anidb: "{anime} - {episode:03} - {title}",
-      };
-
       await withTestConfig("config", async (_dir, config) => {
-        for (const [name, expected] of Object.entries(presets)) {
+        for (const [name, expected] of Object.entries(TEMPLATE_PRESETS)) {
           config.set("template.preset", name);
           expect(config.getTemplate()).toBe(expected);
         }

@@ -227,7 +227,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("prefers template.string over template.preset when both are set", async () => {
+  test("prefers template.custom over template.preset when both are set", async () => {
     await withTempDir("scan-preset-override", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
 
@@ -235,7 +235,7 @@ describe("scan CLI commands", () => {
       mkdirSync(configDir);
       const config = new ConfigManager({ configDir });
       config.set("template.preset", "plex");
-      config.set("template.string", "{anime} - E{episode:02}");
+      config.set("template.custom", "{anime} - E{episode:02}");
 
       const handlers = createScanHandlers({ database: createStandardMockDb(), config });
       const results = await handlers.scan(filePath, { yes: true, dryRun: true });

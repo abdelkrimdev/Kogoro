@@ -8,6 +8,7 @@ export interface ArtworkHandlerOptions {
   secondaryDbs?: DatabasePlugin[];
   cache?: MatchCache;
   httpClient?: HttpClient;
+  extensions?: string[];
 }
 
 export function createArtworkHandlers(options: ArtworkHandlerOptions) {
@@ -29,7 +30,7 @@ export function createArtworkHandlers(options: ArtworkHandlerOptions) {
       try {
         const summary = await fetcher.process(
           path,
-          { force: cliOptions.force },
+          { force: cliOptions.force, extensions: options.extensions },
           cliOptions.verbose ? onLog : undefined,
         );
 

@@ -43,8 +43,7 @@ export function registerScan(
         .option("action", {
           type: "string",
           choices: ["move", "copy", "symlink", "hardlink"] as const,
-          default: "move",
-          describe: "File operation to perform",
+          describe: "File operation to perform (default: schema default)",
         })
         .option("episode-numbering", {
           type: "string",
@@ -78,8 +77,7 @@ export function registerScan(
         })
         .option("concurrency", {
           type: "number",
-          default: 1,
-          describe: "Number of files to process concurrently",
+          describe: "Number of files to process concurrently (default: schema default)",
         }),
     async (argv) => {
       const handlers = await createHandlers(argv.debug);
@@ -100,7 +98,7 @@ export function registerScan(
           verbose: argv.verbose ?? false,
           quiet: argv.quiet ?? false,
           extensions,
-          concurrency: argv.concurrency ?? 1,
+          concurrency: argv.concurrency,
         });
 
         if (argv.json) {

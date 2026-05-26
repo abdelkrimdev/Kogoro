@@ -2,7 +2,13 @@ import { lstatSync } from "node:fs";
 import { basename, dirname, sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../../config/config-manager";
-import { VIDEO_EXTENSIONS, walk } from "../../directory-walker";
+import {
+  DEFAULT_DIRECTORY_TEMPLATE,
+  DEFAULT_EXCLUDE_PATTERNS,
+  DEFAULT_MEDIA_EXTENSIONS,
+  DEFAULT_SCAN_CONCURRENCY,
+} from "../../config/schema";
+import { walk } from "../../directory-walker";
 import type { MatchCache } from "../../match-cache";
 import { Matcher, type MatchResult } from "../../matcher";
 import type { OverrideStore } from "../../override-store";
@@ -33,23 +39,20 @@ export interface ScanOptions {
 }
 
 const DEFAULT_FILENAME_TEMPLATE = "{anime} - {season}x{episode:02} - {title}.{ext}";
-const DEFAULT_DIRECTORY_TEMPLATE = "{anime}/{type}";
-
-function normalizeExtension(ext: string): string {
-  return ext.startsWith(".") ? ext : `.${ext}`;
-}
 
 function resolveExtensions(config?: ConfigManager, overrides?: string[]): string[] {
-  if (overrides && overrides.length > 0) return overrides.map(normalizeExtension);
-  const fromConfig = config?.getList("extensions");
-  if (fromConfig && fromConfig.length > 0) return fromConfig.map(normalizeExtension);
-  return VIDEO_EXTENSIONS;
+  if (overrides && overrides.length > 0) {
+    return overrides.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`));
+  }
+  const fromConfig = config?.get("media-extensions") as string[] | undefined;
+  if (fromConfig && fromConfig.length > 0) return fromConfig;
+  return DEFAULT_MEDIA_EXTENSIONS;
 }
 
 function resolveExcludePatterns(config?: ConfigManager): string[] {
-  const fromConfig = config?.getList("exclude-patterns");
+  const fromConfig = config?.get("exclude-patterns") as string[] | undefined;
   if (fromConfig && fromConfig.length > 0) return fromConfig;
-  return [".part", ".crdownload", "!qb"];
+  return DEFAULT_EXCLUDE_PATTERNS;
 }
 
 export function isAlreadyOrganized(filePath: string): boolean {
@@ -79,7 +82,8 @@ function getFilenameTemplate(config?: ConfigManager): string {
 }
 
 function getDirectoryTemplate(config?: ConfigManager): string {
-  return config?.get("template.dir") ?? DEFAULT_DIRECTORY_TEMPLATE;
+  const template = config?.get("template") as { directory?: string } | undefined;
+  return template?.directory ?? DEFAULT_DIRECTORY_TEMPLATE;
 }
 
 export function createScanHandlers(options: ScanHandlerOptions) {
@@ -206,9 +210,8 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         | "relative"
         | undefined;
       const episodeNumbering = scanOptions?.episodeNumbering ?? configNumbering;
-      const configConcurrency = options.config ? Number(options.config.get("concurrency")) : NaN;
-      const concurrency =
-        scanOptions?.concurrency ?? (Number.isNaN(configConcurrency) ? 1 : configConcurrency);
+      const configConcurrency = options.config?.get("scan-concurrency") as number | undefined;
+      const concurrency = scanOptions?.concurrency ?? configConcurrency ?? DEFAULT_SCAN_CONCURRENCY;
 
       const baseDir = lstatSync(path).isDirectory() ? path : dirname(path);
       const extensions = resolveExtensions(options.config, scanOptions?.extensions);

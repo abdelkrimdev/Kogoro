@@ -1,6 +1,7 @@
-import { ConfigManager, TEMPLATE_PRESETS } from "../../config/config-manager";
+import { ConfigManager } from "../../config/config-manager";
 import { type PromptsAPI, runConfigWizard } from "../../config/config-wizard";
 import { createCredentialStore } from "../../config/credential-store";
+import { TEMPLATE_PRESETS } from "../../config/schema";
 import { type OverrideData, OverrideStore } from "../../override-store";
 
 export interface ConfigHandlerOptions {
@@ -24,7 +25,7 @@ export function createConfigHandlers(options: ConfigHandlerOptions = {}) {
       if (val === undefined) {
         onError(`Config key '${key}' is not set`);
       } else {
-        onLog(val);
+        onLog(String(val));
       }
     },
 

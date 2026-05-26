@@ -80,3 +80,10 @@ export type Config = v.InferOutput<typeof ConfigSchema>;
 export type TemplatePreset = v.InferOutput<typeof TemplatePresetSchema>;
 export type EpisodeNumbering = v.InferOutput<typeof EpisodeNumberingSchema>;
 export type RenameAction = v.InferOutput<typeof RenameActionSchema>;
+
+const CONFIG_DEFAULTS = v.parse(ConfigSchema, {});
+export const DEFAULT_MEDIA_EXTENSIONS = CONFIG_DEFAULTS["media-extensions"];
+export const DEFAULT_EXCLUDE_PATTERNS = CONFIG_DEFAULTS["exclude-patterns"];
+export const DEFAULT_SCAN_CONCURRENCY = CONFIG_DEFAULTS["scan-concurrency"];
+export const DEFAULT_SUBTITLE_LANGUAGE = CONFIG_DEFAULTS["subtitle-language"];
+export const DEFAULT_DIRECTORY_TEMPLATE = CONFIG_DEFAULTS.template.directory;

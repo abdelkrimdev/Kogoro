@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
-import { VIDEO_EXTENSIONS, walk } from "./directory-walker";
+import { DEFAULT_MEDIA_EXTENSIONS } from "./config/schema";
+import { walk } from "./directory-walker";
 import { HttpClient } from "./http-client";
 import { MatchCache } from "./match-cache";
 import type { DatabasePlugin } from "./plugins/database/plugin";
@@ -35,10 +36,11 @@ export class ArtworkFetcher {
 
   async process(
     rootPath: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; extensions?: string[] },
     onLog?: (msg: string) => void,
   ): Promise<ArtworkSummary> {
-    const videoFiles = walk(rootPath, VIDEO_EXTENSIONS);
+    const extensions = options?.extensions ?? DEFAULT_MEDIA_EXTENSIONS;
+    const videoFiles = walk(rootPath, extensions);
 
     const animeMap = new Map<string, string[]>();
 

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import * as v from "valibot";
+import { CONFIG_DIR, type Config, ConfigSchema, TEMPLATE_PRESETS } from "./schema";
 
 interface ConfigManagerOptions {
   configDir?: string;
@@ -16,60 +17,122 @@ function tomlValue(value: unknown): string {
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
+  if (Array.isArray(value)) {
+    const items = value.map((item) => tomlValue(item));
+    return `[${items.join(", ")}]`;
+  }
   return JSON.stringify(value);
 }
 
-function tomlStringify(data: Record<string, unknown>): string {
+function tomlStringify(config: Config): string {
   const lines: string[] = [];
-  for (const [key, value] of Object.entries(data)) {
+  const { template, plugins, ...topLevel } = config;
+
+  for (const [key, value] of Object.entries(topLevel)) {
     lines.push(`${key} = ${tomlValue(value)}`);
   }
+
+  if (template) {
+    lines.push("");
+    lines.push("[template]");
+    for (const [key, value] of Object.entries(template)) {
+      lines.push(`${key} = ${tomlValue(value)}`);
+    }
+  }
+
+  if (plugins) {
+    for (const [name, toggle] of Object.entries(plugins)) {
+      lines.push("");
+      lines.push(`[plugins.${name}]`);
+      lines.push(`enabled = ${tomlValue(toggle.enabled)}`);
+    }
+  }
+
   return `${lines.join("\n")}\n`;
 }
 
-const DEFAULT_TEMPLATE = "{anime} - {season}x{episode:02} - {title}";
-
-export const TEMPLATE_PRESETS: Record<string, string> = {
-  standard: DEFAULT_TEMPLATE,
-  compact: "{anime} - E{episode:02}",
-  absolute: "{anime} - {episode:03}",
-  plex: "{anime} - s{season:02}e{episode:02} - {title}",
-  anidb: "{anime} - {episode:03} - {title}",
-};
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+  const parts = path.split(".");
+  let current: unknown = obj;
+  for (const part of parts) {
+    if (current === null || current === undefined || typeof current !== "object") {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
 }
 
-function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const fullKey = prefix ? `${prefix}.${key}` : key;
-    if (isPlainObject(value)) {
-      Object.assign(result, flattenObject(value, fullKey));
-    } else {
-      result[fullKey] = value;
+function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split(".");
+  let current = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i];
+    if (!part) continue;
+    if (!(part in current) || typeof current[part] !== "object" || current[part] === null) {
+      current[part] = {};
     }
+    current = current[part] as Record<string, unknown>;
   }
-  return result;
+  const lastPart = parts[parts.length - 1];
+  if (lastPart) {
+    current[lastPart] = value;
+  }
+}
+
+function coerceValue(key: string, value: string): unknown {
+  if (key.endsWith(".enabled") || key === "enabled") {
+    return value.toLowerCase() === "true";
+  }
+  if (key === "scan-concurrency" || key === "fetch-concurrency") {
+    const num = Number(value);
+    return Number.isNaN(num) ? value : num;
+  }
+  if (key === "media-extensions" || key === "exclude-patterns") {
+    if (value.includes(",")) {
+      return value
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    if (value.trim()) {
+      return [value.trim()];
+    }
+    return [];
+  }
+  if (key === "template.preset" && value === "") {
+    return "standard";
+  }
+  return value;
 }
 
 export class ConfigManager {
   private configDir: string;
   private configPath: string;
-  private data: Record<string, unknown> = {};
+  private config: Config;
 
   constructor(options: ConfigManagerOptions = {}) {
-    this.configDir = options.configDir ?? join(homedir(), ".config", "kogoro");
+    this.configDir = options.configDir ?? CONFIG_DIR;
     this.configPath = join(this.configDir, "config.toml");
+    this.config = this.parseDefaults();
     this.load();
   }
 
+  private parseDefaults(): Config {
+    return v.parse(ConfigSchema, {});
+  }
+
   private load(): void {
-    if (existsSync(this.configPath)) {
-      const raw = readFileSync(this.configPath, "utf-8");
+    if (!existsSync(this.configPath)) return;
+    const raw = readFileSync(this.configPath, "utf-8");
+    try {
       const parsed = Bun.TOML.parse(raw) as Record<string, unknown>;
-      this.data = flattenObject(parsed);
+      const result = v.safeParse(ConfigSchema, parsed);
+      if (result.success) {
+        this.config = result.output;
+      }
+    } catch {
+      // Invalid TOML, use defaults
     }
   }
 
@@ -77,45 +140,51 @@ export class ConfigManager {
     if (!existsSync(this.configDir)) {
       mkdirSync(this.configDir, { recursive: true });
     }
-    const raw = tomlStringify(this.data);
+    const raw = tomlStringify(this.config);
     writeFileSync(this.configPath, raw);
   }
 
-  get(key: string): string | undefined {
-    const val = this.data[key];
-    if (val === undefined) return undefined;
-    return String(val);
+  get(key: string): unknown {
+    return getNestedValue(this.config as unknown as Record<string, unknown>, key);
   }
 
   getList(key: string): string[] {
     const val = this.get(key);
-    if (!val || val.trim() === "") return [];
-    return val
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+    if (Array.isArray(val)) return val.map((s) => String(s));
+    if (typeof val === "string" && val.trim() !== "") {
+      return val
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    }
+    return [];
   }
 
   set(key: string, value: string): void {
-    this.data[key] = value;
-    this.save();
+    const candidate = structuredClone(this.config) as Record<string, unknown>;
+    const typedValue = coerceValue(key, value);
+    setNestedValue(candidate, key, typedValue);
+
+    const result = v.safeParse(ConfigSchema, candidate);
+    if (result.success) {
+      this.config = result.output;
+      this.save();
+    }
   }
 
   isPluginEnabled(name: string): boolean {
-    const val = this.get(`plugins.${name}.enabled`);
-    if (val === undefined) return true;
-    return val.toLowerCase() !== "false";
+    const plugins = this.config.plugins;
+    const plugin = plugins?.[name as keyof typeof plugins];
+    if (plugin === undefined) return true;
+    return plugin.enabled;
   }
 
   getDisabledPlugins(): Set<string> {
     const disabled = new Set<string>();
-    for (const [key, value] of Object.entries(this.data)) {
-      if (
-        key.startsWith("plugins.") &&
-        key.endsWith(".enabled") &&
-        String(value).toLowerCase() === "false"
-      ) {
-        const name = key.slice("plugins.".length, -".enabled".length);
+    const plugins = this.config.plugins;
+    if (!plugins) return disabled;
+    for (const [name, toggle] of Object.entries(plugins)) {
+      if (!toggle.enabled) {
         disabled.add(name);
       }
     }
@@ -123,38 +192,15 @@ export class ConfigManager {
   }
 
   getTemplate(): string {
-    const customString = this.get("template.string");
-    if (customString) return customString;
-
-    const preset = this.get("template.preset");
-    if (preset) {
-      const template = TEMPLATE_PRESETS[preset];
-      if (template) return template;
-    }
-
-    return DEFAULT_TEMPLATE;
-  }
-
-  getDefaults(): Record<string, string> {
-    return {
-      "primary-db": "tvdb",
-      "secondary-dbs": "",
-      "template.preset": "standard",
-      extensions: ".mkv,.mp4",
-      "exclude-patterns": ".part,.crdownload",
-      concurrency: "4",
-      "api-delay": "200",
-      "episode-numbering": "relative",
-    };
+    const templateConfig = this.config.template;
+    if (templateConfig.custom) return templateConfig.custom;
+    const preset = templateConfig.preset;
+    const template = TEMPLATE_PRESETS[preset as keyof typeof TEMPLATE_PRESETS];
+    if (template) return template;
+    return TEMPLATE_PRESETS.standard;
   }
 
   init(): void {
-    const defaults = this.getDefaults();
-    for (const [key, value] of Object.entries(defaults)) {
-      if (this.data[key] === undefined) {
-        this.data[key] = value;
-      }
-    }
     this.save();
   }
 }

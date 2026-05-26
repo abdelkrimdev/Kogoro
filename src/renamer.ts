@@ -8,11 +8,13 @@ import {
   unlinkSync,
 } from "node:fs";
 import { join } from "node:path";
+import { ENTRY_TYPE_DIR_MAP } from "./config/schema";
 import type { MatchResult } from "./matcher";
 import type { ParsedTags } from "./parser";
 import { stripExtension } from "./parser";
-import type { EntryType } from "./plugins/database/types";
 import { render } from "./template-engine";
+
+export { ORGANIZED_DIRS } from "./config/schema";
 
 export type FileAction = "move" | "copy" | "symlink" | "hardlink";
 
@@ -41,15 +43,6 @@ interface RenamerOptions {
   directoryTemplate: string;
   action?: FileAction;
 }
-
-const ENTRY_TYPE_DIR_MAP: Record<EntryType, string> = {
-  tv: "TV",
-  movie: "Movies",
-  ova: "OVA",
-  special: "Specials",
-};
-
-export const ORGANIZED_DIRS = new Set(Object.values(ENTRY_TYPE_DIR_MAP));
 
 function buildDisambiguator(tags: ParsedTags): string {
   const parts: string[] = [];
