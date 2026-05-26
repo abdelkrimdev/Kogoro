@@ -5,13 +5,13 @@ import type { EntryType } from "../plugins/database/types";
 
 export const CONFIG_DIR = join(homedir(), ".config", "kogoro");
 
-export const TEMPLATE_PRESETS: Record<string, string> = {
+export const TEMPLATE_PRESETS = {
   standard: "{anime} - {season}x{episode:02} - {title}",
   compact: "{anime} - E{episode:02}",
   absolute: "{anime} - {episode:03}",
   plex: "{anime} - s{season:02}e{episode:02} - {title}",
   anidb: "{anime} - {episode:03} - {title}",
-};
+} as const satisfies Record<string, string>;
 
 export const ENTRY_TYPE_DIR_MAP: Record<EntryType, string> = {
   tv: "TV",
@@ -22,7 +22,7 @@ export const ENTRY_TYPE_DIR_MAP: Record<EntryType, string> = {
 
 export const ORGANIZED_DIRS = new Set(Object.values(ENTRY_TYPE_DIR_MAP));
 
-const TemplatePresetSchema = v.picklist(["standard", "compact", "absolute", "plex", "anidb"]);
+const TemplatePresetSchema = v.picklist(Object.keys(TEMPLATE_PRESETS) as [string, ...string[]]);
 
 const EpisodeNumberingSchema = v.picklist(["relative", "absolute"]);
 

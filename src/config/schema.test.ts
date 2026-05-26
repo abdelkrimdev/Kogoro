@@ -57,7 +57,7 @@ describe("ConfigSchema", () => {
   });
 
   describe("rejects invalid types", () => {
-    test("rejects string for scan-concurrency (expects number)", () => {
+    test("rejects string for scan-concurrency", () => {
       const result = v.safeParse(ConfigSchema, {
         ...validConfig(),
         "scan-concurrency": "eight",
@@ -65,7 +65,7 @@ describe("ConfigSchema", () => {
       expect(result.success).toBe(false);
     });
 
-    test("rejects string for fetch-concurrency (expects number)", () => {
+    test("rejects string for fetch-concurrency", () => {
       const result = v.safeParse(ConfigSchema, {
         ...validConfig(),
         "fetch-concurrency": "five",
@@ -73,7 +73,7 @@ describe("ConfigSchema", () => {
       expect(result.success).toBe(false);
     });
 
-    test("rejects number for media-extensions (expects array)", () => {
+    test("rejects number for media-extensions", () => {
       const result = v.safeParse(ConfigSchema, {
         ...validConfig(),
         "media-extensions": 123,
@@ -81,7 +81,7 @@ describe("ConfigSchema", () => {
       expect(result.success).toBe(false);
     });
 
-    test("rejects number for primary-db (expects string)", () => {
+    test("rejects number for primary-db", () => {
       const result = v.safeParse(ConfigSchema, {
         ...validConfig(),
         "primary-db": 42,
@@ -89,7 +89,7 @@ describe("ConfigSchema", () => {
       expect(result.success).toBe(false);
     });
 
-    test("rejects string for plugins.tvdb.enabled (expects boolean)", () => {
+    test("rejects string for plugins.tvdb.enabled", () => {
       const result = v.safeParse(ConfigSchema, {
         ...validConfig(),
         plugins: {
