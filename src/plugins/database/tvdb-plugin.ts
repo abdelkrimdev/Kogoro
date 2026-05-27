@@ -82,18 +82,8 @@ function toArtworkType(type: number): ArtworkType {
   }
 }
 
-function extractTitleJa(aliases: TVDBAlias[] | undefined): string | undefined {
-  for (const alias of aliases ?? []) {
-    if (alias.lang === undefined || alias.lang === "jpn") return alias.name;
-  }
-  return undefined;
-}
-
-function extractTitleEn(aliases: TVDBAlias[] | undefined): string | undefined {
-  for (const alias of aliases ?? []) {
-    if (alias.lang === "eng") return alias.name;
-  }
-  return undefined;
+function findAlias(aliases: TVDBAlias[] | undefined, lang: string): string | undefined {
+  return aliases?.find((a) => a.lang === lang)?.name;
 }
 
 export class TVDBPlugin implements DatabasePlugin {
@@ -183,8 +173,8 @@ export class TVDBPlugin implements DatabasePlugin {
     return {
       id: String(data.id),
       slug: data.slug,
-      titleEn: enTranslation?.name ?? extractTitleEn(data.aliases) ?? data.name,
-      titleJa: jaTranslation?.name ?? extractTitleJa(data.aliases),
+      titleEn: enTranslation?.name ?? findAlias(data.aliases, "eng") ?? data.name,
+      titleJa: jaTranslation?.name ?? findAlias(data.aliases, "jpn"),
       overview: enTranslation?.overview ?? data.overview,
       year: data.year ? Number.parseInt(data.year, 10) : undefined,
       image: data.image,
