@@ -1,7 +1,7 @@
 import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
 import type { ConfigManager } from "./config-manager";
 import type { CredentialStore } from "./credential-store";
-import { TEMPLATE_PRESETS as PRESET_MAP } from "./schema";
+import { TEMPLATE_PRESETS } from "./schema";
 
 export interface PromptsAPI {
   intro(title: string): void;
@@ -29,7 +29,7 @@ function presetLabel(key: string): string {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
-const TEMPLATE_PRESETS: TemplatePreset[] = Object.keys(PRESET_MAP).map((key) => ({
+const PRESET_OPTIONS: TemplatePreset[] = Object.keys(TEMPLATE_PRESETS).map((key) => ({
   value: key,
   label: presetLabel(key),
 }));
@@ -113,7 +113,7 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
     p.select({
       message: "Pick a rename template preset",
       options: [
-        ...TEMPLATE_PRESETS.map((t) => ({ value: t.value, label: t.label })),
+        ...PRESET_OPTIONS.map((t) => ({ value: t.value, label: t.label })),
         { value: "__custom__", label: "Custom template" },
       ],
     }),

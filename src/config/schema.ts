@@ -79,6 +79,5 @@ export const ConfigSchema = v.strictObject({
 export const SCHEMA_DEFAULTS = v.getDefaults(ConfigSchema);
 
 export type Config = v.InferOutput<typeof ConfigSchema>;
-export type TemplatePreset = v.InferOutput<typeof TemplatePresetSchema>;
 export type EpisodeNumbering = v.InferOutput<typeof EpisodeNumberingSchema>;
 export type RenameAction = v.InferOutput<typeof RenameActionSchema>;

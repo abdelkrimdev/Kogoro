@@ -1,6 +1,6 @@
 import type yargs from "yargs";
 import { SCHEMA_DEFAULTS } from "../../config/schema";
-import type { FileAction } from "../../renamer";
+import type { RenameAction } from "../../renamer";
 import type { ScanResult } from "../../scanner";
 import type { ScanOptions } from "./handlers";
 
@@ -87,7 +87,7 @@ export function registerScan(
           dryRun: argv["dry-run"] ?? false,
           yes: argv.yes ?? false,
           force: argv.force ?? false,
-          action: argv.action as FileAction,
+          action: argv.action as RenameAction,
           episodeNumbering: argv["episode-numbering"] as "absolute" | "relative" | undefined,
           verbose: argv.verbose ?? false,
           quiet: argv.quiet ?? false,

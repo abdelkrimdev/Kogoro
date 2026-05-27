@@ -8,13 +8,13 @@ import {
   unlinkSync,
 } from "node:fs";
 import { join } from "node:path";
-import { ENTRY_TYPE_DIR_MAP } from "./config/schema";
+import { ENTRY_TYPE_DIR_MAP, type RenameAction } from "./config/schema";
 import type { MatchResult } from "./matcher";
 import type { ParsedTags } from "./parser";
 import { stripExtension } from "./parser";
 import { render } from "./template-engine";
 
-export type FileAction = "move" | "copy" | "symlink" | "hardlink";
+export type { RenameAction } from "./config/schema";
 
 type RenameErrorType = "permission" | "disk-full" | "collision" | "other";
 
@@ -33,13 +33,13 @@ export interface RenamePlan {
   targetPath: string;
   targetDir: string;
   targetFilename: string;
-  action: FileAction;
+  action: RenameAction;
 }
 
 interface RenamerOptions {
   filenameTemplate: string;
   directoryTemplate: string;
-  action?: FileAction;
+  action?: RenameAction;
 }
 
 function buildDisambiguator(tags: ParsedTags): string {
@@ -55,7 +55,7 @@ function buildDisambiguator(tags: ParsedTags): string {
 export class Renamer {
   private filenameTemplate: string;
   private directoryTemplate: string;
-  private action: FileAction;
+  private action: RenameAction;
   private usedTargets: Set<string>;
   private executedPlans: Array<RenamePlan & { absTargetPath: string }> = [];
 

@@ -1,10 +1,4 @@
-import { BunSecretsKeytar } from "./bun-secrets-keytar";
-
-export interface KeytarLike {
-  setPassword(service: string, account: string, password: string): Promise<void>;
-  getPassword(service: string, account: string): Promise<string | null>;
-  deletePassword(service: string, account: string): Promise<boolean>;
-}
+import { BunSecretsKeytar, type KeytarLike } from "./bun-secrets-keytar";
 
 interface CredentialStoreOptions {
   keytar?: KeytarLike | null;

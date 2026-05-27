@@ -1,8 +1,9 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { KeytarLike } from "./config/bun-secrets-keytar";
 import { ConfigManager } from "./config/config-manager";
-import { CredentialStore, type KeytarLike } from "./config/credential-store";
+import { CredentialStore } from "./config/credential-store";
 import { HttpClient } from "./http-client";
 import { type CachedMatch, MatchCache } from "./match-cache";
 import type { MatcherLike, MatchResult } from "./matcher";

@@ -1,5 +1,6 @@
 import { basename, dirname, extname } from "node:path";
 import { type EpisodeNumbering, ORGANIZED_DIRS } from "./config/schema";
+import type { CachedMatch } from "./match-cache";
 import { MatchCache } from "./match-cache";
 import {
   AMBIGUOUS_MATCH_REASON,
@@ -12,10 +13,10 @@ import {
   matchResultFromOverride,
 } from "./matcher";
 import { relativeToAbsolute } from "./numbering-converter";
-import type { OverrideStore } from "./override-store";
+import type { OverrideData, OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
-import type { FileAction, RenamePlan, RenameResult, Renamer } from "./renamer";
+import type { RenameAction, RenamePlan, RenameResult, Renamer } from "./renamer";
 
 type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
 
@@ -54,7 +55,7 @@ interface ScanBatchOptions extends ScanFileOptions {
 interface ScanFileOptions {
   force?: boolean;
   dryRun?: boolean;
-  action?: FileAction;
+  action?: RenameAction;
   baseDir?: string;
   extensions?: readonly string[];
   episodeNumbering?: EpisodeNumbering;
@@ -93,13 +94,17 @@ export function getDirectoryTitle(filePath: string): string | null {
   return parent;
 }
 
-interface BatchEntry {
+interface PreparedFile {
   filePath: string;
   hash: string;
-  overrideKey: string;
   parsed: ParsedResult;
+  overrideKey: string;
+  override: OverrideData | null;
+  cachedMatch: CachedMatch | null;
+}
+
+interface BatchEntry extends PreparedFile {
   match: MatchResult | null;
-  cached: boolean;
 }
 
 export class Scanner {
@@ -133,51 +138,67 @@ export class Scanner {
     return parsed;
   }
 
-  async scanFile(filePath: string, options?: ScanFileOptions): Promise<ScanResult> {
-    const force = options?.force ?? false;
-    let hash = "";
-
+  private async prepareFile(
+    filePath: string,
+    force?: boolean,
+    extensions?: readonly string[],
+  ): Promise<PreparedFile> {
     const overrideKey = computeFileHash(basename(filePath));
+    let hash = "";
+    let cachedMatch: CachedMatch | null = null;
 
     if (this.cache) {
       hash = await MatchCache.hashFile(filePath);
-
       if (!force) {
-        const cached = this.cache.get(hash);
-        if (cached) {
-          return {
-            file: filePath,
-            hash,
-            parsed: createEmptyResult(),
-            match: matchResultFromCache(cached),
-            plan: null,
-            cached: true,
-            skipped: true,
-            status: "cached",
-          };
-        }
+        cachedMatch = this.cache.get(hash);
       }
     }
 
-    const parsed = this.parseFile(filePath);
+    const parsed = this.parseFile(filePath, extensions);
+    const override = this.overrideStore?.get(overrideKey) ?? null;
 
-    const override = this.overrideStore?.get(overrideKey);
-    if (override?.animeId) {
-      const overrideMatch = matchResultFromOverride(override);
-      const resolvedHash = await this.persistMatch(filePath, hash, overrideMatch);
-      return this.renameFile(filePath, resolvedHash, overrideMatch, parsed, options);
+    return { filePath, hash, parsed, overrideKey, override, cachedMatch };
+  }
+
+  async scanFile(filePath: string, options?: ScanFileOptions): Promise<ScanResult> {
+    const prepared = await this.prepareFile(filePath, options?.force, options?.extensions);
+
+    if (prepared.cachedMatch) {
+      return {
+        file: filePath,
+        hash: prepared.hash,
+        parsed: createEmptyResult(),
+        match: matchResultFromCache(prepared.cachedMatch),
+        plan: null,
+        cached: true,
+        skipped: true,
+        status: "cached",
+      };
     }
 
-    const matches = await this.matcher.match(parsed);
+    if (prepared.override?.animeId) {
+      const overrideMatch = matchResultFromOverride(prepared.override);
+      const resolvedHash = await this.persistMatch(filePath, prepared.hash, overrideMatch);
+      return this.renameFile(filePath, resolvedHash, overrideMatch, prepared.parsed, options);
+    }
 
-    if (override?.entryType) {
+    const matches = await this.matcher.match(prepared.parsed);
+
+    if (prepared.override?.entryType) {
       for (const match of matches) {
-        match.anime.entryType = override.entryType;
-        if (match.episode) match.episode.entryType = override.entryType;
+        match.anime.entryType = prepared.override.entryType;
+        if (match.episode) match.episode.entryType = prepared.override.entryType;
       }
     }
 
-    return this.resolveMatches(filePath, hash, parsed, matches, options, overrideKey);
+    return this.resolveMatches(
+      filePath,
+      prepared.hash,
+      prepared.parsed,
+      matches,
+      options,
+      prepared.overrideKey,
+    );
   }
 
   private async resolveMatches(
@@ -383,6 +404,53 @@ export class Scanner {
     };
   }
 
+  private async finalizeEntry(entry: BatchEntry, options?: ScanFileOptions): Promise<ScanResult> {
+    if (entry.cachedMatch) {
+      return {
+        file: entry.filePath,
+        hash: entry.hash,
+        parsed: entry.parsed,
+        match: matchResultFromCache(entry.cachedMatch),
+        plan: null,
+        cached: true,
+        skipped: true,
+        status: "cached",
+      };
+    }
+
+    if (entry.match && !entry.match.failureReason) {
+      const resolvedHash = await this.persistMatch(entry.filePath, entry.hash, entry.match);
+      return this.renameFile(entry.filePath, resolvedHash, entry.match, entry.parsed, options);
+    }
+
+    if (entry.match?.failureReason === AMBIGUOUS_MATCH_REASON) {
+      return {
+        file: entry.filePath,
+        hash: entry.hash,
+        parsed: entry.parsed,
+        match: null,
+        plan: null,
+        cached: false,
+        skipped: false,
+        status: "ambiguous",
+        failureReason: AMBIGUOUS_MATCH_REASON,
+      };
+    }
+
+    const failureReason = entry.match?.failureReason ?? "No title parsed";
+    return {
+      file: entry.filePath,
+      hash: entry.hash,
+      parsed: entry.parsed,
+      match: null,
+      plan: null,
+      cached: false,
+      skipped: false,
+      status: "failed",
+      failureReason,
+    };
+  }
+
   async scanBatch(filePaths: string[], options?: ScanBatchOptions): Promise<ScanResult[]> {
     const results: ScanResult[] = [];
     const concurrency = Math.max(1, options?.concurrency ?? 1);
@@ -393,52 +461,30 @@ export class Scanner {
 
       const entries: BatchEntry[] = await Promise.all(
         chunk.map(async (filePath) => {
-          const overrideKey = computeFileHash(basename(filePath));
-          let hash = "";
+          const prepared = await this.prepareFile(filePath, options?.force, options?.extensions);
 
-          if (this.cache) {
-            hash = await MatchCache.hashFile(filePath);
-            if (!options?.force) {
-              const cached = this.cache.get(hash);
-              if (cached) {
-                return {
-                  filePath,
-                  hash,
-                  match: matchResultFromCache(cached),
-                  overrideKey,
-                  parsed: createEmptyResult(),
-                  cached: true,
-                };
-              }
-            }
+          if (prepared.cachedMatch) {
+            return {
+              ...prepared,
+              match: matchResultFromCache(prepared.cachedMatch),
+            };
           }
 
-          const parsed = this.parseFile(filePath, options?.extensions);
-          const override = this.overrideStore?.get(overrideKey);
-
-          if (override?.animeId) {
+          if (prepared.override?.animeId) {
             return {
-              filePath,
-              hash,
-              match: matchResultFromOverride(override),
-              overrideKey,
-              parsed,
-              cached: false,
+              ...prepared,
+              match: matchResultFromOverride(prepared.override),
             };
           }
 
           return {
-            filePath,
-            hash,
-            overrideKey,
-            parsed,
+            ...prepared,
             match: null,
-            cached: false,
           };
         }),
       );
 
-      const needsMatch = entries.filter((e) => !e.cached && e.match === null);
+      const needsMatch = entries.filter((e) => !e.cachedMatch && e.match === null);
       if (needsMatch.length > 0) {
         const matchResults = await this.matcher.matchBatch(needsMatch.map((e) => e.parsed));
         for (let idx = 0; idx < needsMatch.length; idx++) {
@@ -465,54 +511,7 @@ export class Scanner {
       for (const entry of entries) {
         if (options?.abortSignal?.aborted) break;
 
-        let result: ScanResult;
-
-        if (entry.cached) {
-          result = {
-            file: entry.filePath,
-            hash: entry.hash,
-            parsed: entry.parsed,
-            match: entry.match,
-            plan: null,
-            cached: true,
-            skipped: true,
-            status: "cached",
-          };
-        } else if (entry.match && !entry.match.failureReason) {
-          const resolvedHash = await this.persistMatch(entry.filePath, entry.hash, entry.match);
-          result = await this.renameFile(
-            entry.filePath,
-            resolvedHash,
-            entry.match,
-            entry.parsed,
-            options,
-          );
-        } else if (entry.match?.failureReason === AMBIGUOUS_MATCH_REASON) {
-          result = {
-            file: entry.filePath,
-            hash: entry.hash,
-            parsed: entry.parsed,
-            match: null,
-            plan: null,
-            cached: false,
-            skipped: false,
-            status: "ambiguous",
-            failureReason: AMBIGUOUS_MATCH_REASON,
-          };
-        } else {
-          const failureReason = entry.match?.failureReason ?? "No title parsed";
-          result = {
-            file: entry.filePath,
-            hash: entry.hash,
-            parsed: entry.parsed,
-            match: null,
-            plan: null,
-            cached: false,
-            skipped: false,
-            status: "failed",
-            failureReason,
-          };
-        }
+        const result = await this.finalizeEntry(entry, options);
 
         results.push(result);
         completed++;

@@ -14,7 +14,7 @@ import { Matcher, type MatchResult } from "../../matcher";
 import type { OverrideStore } from "../../override-store";
 import { createEmptyResult, type ParsedResult } from "../../parser";
 import type { DatabasePlugin } from "../../plugins/database/plugin";
-import { type FileAction, Renamer } from "../../renamer";
+import { type RenameAction, Renamer } from "../../renamer";
 import { Scanner, type ScanProgress, type ScanResult } from "../../scanner";
 import { resolveMediaExtensions } from "../extensions";
 
@@ -31,7 +31,7 @@ export interface ScanOptions {
   dryRun?: boolean;
   yes?: boolean;
   force?: boolean;
-  action?: FileAction;
+  action?: RenameAction;
   episodeNumbering?: EpisodeNumbering;
   verbose?: boolean;
   quiet?: boolean;
@@ -206,7 +206,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const json = scanOptions?.json ?? false;
       const quiet = (scanOptions?.quiet ?? false) || json;
       const action =
-        scanOptions?.action ?? (options.config?.get("rename-action") as FileAction | undefined);
+        scanOptions?.action ?? (options.config?.get("rename-action") as RenameAction | undefined);
       const verbose = scanOptions?.verbose ?? false;
       const configNumbering = options.config?.get("episode-numbering") as
         | EpisodeNumbering
