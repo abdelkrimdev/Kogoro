@@ -1,5 +1,5 @@
 import type { CachedMatch } from "./match-cache";
-import type { OverrideData, OverrideStore } from "./override-store";
+import type { OverrideData } from "./override-store";
 import type { ParsedResult } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { AnimeResult, EntryType, EpisodeResult } from "./plugins/database/types";
@@ -96,7 +96,7 @@ export function isClearWinner(best: MatchResult[]): MatchResult | undefined {
 }
 
 export interface MatcherLike {
-  match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]>;
+  match(parsed: ParsedResult): Promise<MatchResult[]>;
   matchBatch(parsedList: ParsedResult[]): Promise<MatchResult[]>;
   getEpisodes(animeId: string): EpisodeResult[];
 }
@@ -115,7 +115,6 @@ export function bestPerAnimeId(matches: MatchResult[]): MatchResult[] {
 
 interface MatcherOptions {
   database: DatabasePlugin;
-  overrideStore?: OverrideStore;
 }
 
 function createBigrams(s: string): Set<string> {
@@ -210,22 +209,15 @@ export class Matcher implements MatcherLike {
   private static readonly MIN_SIMILARITY = 0.15;
 
   private db: DatabasePlugin;
-  private overrideStore?: OverrideStore;
   private searchCache = new Map<string, AnimeResult[]>();
   private episodeCache = new Map<string, EpisodeResult[]>();
   private animeCache = new Map<string, AnimeResult>();
 
   constructor(options: MatcherOptions) {
     this.db = options.database;
-    this.overrideStore = options.overrideStore;
   }
 
-  async match(parsed: ParsedResult, fileHash?: string): Promise<MatchResult[]> {
-    const override = fileHash !== undefined ? this.overrideStore?.get(fileHash) : undefined;
-    if (override?.animeId) {
-      return [matchResultFromOverride(override)];
-    }
-
+  async match(parsed: ParsedResult): Promise<MatchResult[]> {
     if (!parsed.title) {
       return noMatch("No title parsed");
     }
@@ -246,7 +238,7 @@ export class Matcher implements MatcherLike {
 
     await this.resolveMatchTitles(results);
 
-    return this.applyOverrideEntryType(results, override);
+    return results;
   }
 
   async matchBatch(parsedList: ParsedResult[]): Promise<MatchResult[]> {
@@ -405,15 +397,5 @@ export class Matcher implements MatcherLike {
         }),
       );
     }
-  }
-
-  private applyOverrideEntryType(results: MatchResult[], override?: OverrideData): MatchResult[] {
-    if (!override?.entryType) return results;
-    const entryType = override.entryType;
-    return results.map((result) => ({
-      ...result,
-      anime: { ...result.anime, entryType },
-      episode: result.episode ? { ...result.episode, entryType } : undefined,
-    }));
   }
 }

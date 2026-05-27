@@ -123,6 +123,46 @@ describe("Scanner", () => {
     });
   });
 
+  test("returns pre-existing animeId override without calling matcher", async () => {
+    await withTempDir("scan-preexisting-override", async (dir) => {
+      const overrideStore = new OverrideStore(dir);
+      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
+      const overrideHash = computeFileHash(basename(filePath));
+
+      overrideStore.set(overrideHash, {
+        animeId: "tvdb-99",
+        episodeId: "ep-5",
+        entryType: "special",
+      });
+
+      const scanner = new Scanner({ matcher: createMockMatcher(), overrideStore });
+      const result = await scanner.scanFile(filePath);
+
+      expect(result.status).toBe("matched");
+      expect(result.match?.anime.id).toBe("tvdb-99");
+      expect(result.match?.episode?.id).toBe("ep-5");
+      expect(result.match?.anime.entryType).toBe("special");
+    });
+  });
+
+  test("applies entryType override to DB match results", async () => {
+    await withTempDir("scan-entrytype-override", async (dir) => {
+      const overrideStore = new OverrideStore(dir);
+      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
+      const overrideHash = computeFileHash(basename(filePath));
+
+      overrideStore.set(overrideHash, { entryType: "special" });
+
+      const scanner = new Scanner({ matcher: createMockMatcher(), overrideStore });
+      const result = await scanner.scanFile(filePath);
+
+      expect(result.status).toBe("matched");
+      expect(result.match?.anime.id).toBe("1");
+      expect(result.match?.anime.entryType).toBe("special");
+      expect(result.match?.episode?.entryType).toBe("special");
+    });
+  });
+
   test("scanFile with cache and dry-run renamer computes hash, matches, caches, and plans rename", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");

@@ -168,7 +168,14 @@ export class Scanner {
       return this.renameFile(filePath, resolvedHash, overrideMatch, parsed, options);
     }
 
-    const matches = await this.matcher.match(parsed, overrideKey);
+    const matches = await this.matcher.match(parsed);
+
+    if (override?.entryType) {
+      for (const match of matches) {
+        match.anime.entryType = override.entryType;
+        if (match.episode) match.episode.entryType = override.entryType;
+      }
+    }
 
     return this.resolveMatches(filePath, hash, parsed, matches, options, overrideKey);
   }
@@ -445,6 +452,11 @@ export class Scanner {
               entry.match = matchResultFromManual(manual.animeId, manual.episode, manual.entryType);
             }
           } else {
+            const override = this.overrideStore?.get(entry.overrideKey);
+            if (override?.entryType) {
+              matchResult.anime.entryType = override.entryType;
+              if (matchResult.episode) matchResult.episode.entryType = override.entryType;
+            }
             entry.match = matchResult;
           }
         }
