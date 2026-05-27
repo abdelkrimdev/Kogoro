@@ -377,7 +377,7 @@ describe("scan CLI commands", () => {
       });
     });
 
-    test("resolve rename action from config over Scanner default", async () => {
+    test("uses config rename-action instead of the built-in default", async () => {
       await withTempDir("scan-action-chain", async (dir) => {
         const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
