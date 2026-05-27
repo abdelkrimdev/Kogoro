@@ -38,7 +38,6 @@ export function registerArtwork(
           describe: "Show per-anime status messages",
         }),
     async (argv) => {
-      // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
       const handlers = await createHandlers(argv["debug"] as boolean | undefined);
       if (!handlers) return;
       await handlers.process(

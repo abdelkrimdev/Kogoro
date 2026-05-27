@@ -22,7 +22,6 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
             }),
           async (argv) => {
             const handlers = createConfigHandlers();
-            // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
             const json = !!argv["json"];
             await handlers.get(
               argv.key,
@@ -120,7 +119,6 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               async (argv) => {
                 const handlers = createConfigHandlers();
                 await handlers.overrideList(
-                  // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
                   createDisplay(!!argv["json"], (msg) => log.error(msg)),
                   (msg) => log.error(msg),
                 );

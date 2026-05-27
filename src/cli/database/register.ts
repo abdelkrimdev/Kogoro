@@ -37,12 +37,10 @@ export function registerDb(
               describe: "Anime title to search for",
             }),
           async (argv) => {
-            // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
             const commands = await createHandlers(argv["debug"] as boolean | undefined);
             if (!commands) return;
             await commands.search(
               argv.title,
-              // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
               createDisplay(!!argv["json"], (msg) => log.error(msg)),
               (msg) => log.error(msg),
             );
@@ -58,12 +56,10 @@ export function registerDb(
               describe: "Anime ID in the primary database",
             }),
           async (argv) => {
-            // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
             const commands = await createHandlers(argv["debug"] as boolean | undefined);
             if (!commands) return;
             await commands.episodes(
               argv.animeId,
-              // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
               createDisplay(!!argv["json"], (msg) => log.error(msg)),
               (msg) => log.error(msg),
             );

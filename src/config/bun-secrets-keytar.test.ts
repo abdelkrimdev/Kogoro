@@ -54,8 +54,7 @@ describe("BunSecretsKeytar", () => {
   test("getPassword normalizes undefined to null", async () => {
     stubBunSecrets({
       ...silentBunSecrets(),
-      // biome-ignore lint/suspicious/noExplicitAny: Bun.get returns a string or undefined, type system expects only string
-      get: async () => undefined as any,
+      get: async (): Promise<string> => undefined as unknown as string,
     });
     const keytar = new BunSecretsKeytar();
     const val = await keytar.getPassword("kogoro", "any");

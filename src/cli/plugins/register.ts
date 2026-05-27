@@ -16,7 +16,6 @@ export function registerPlugins(parser: ReturnType<typeof yargs>, config: Config
             const registry = new PluginRegistry();
             registry.setDisabled(config.getDisabledPlugins());
             const plugins = registry.list();
-            // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
             if (argv["json"]) {
               console.log(JSON.stringify(plugins, null, 2));
             } else {

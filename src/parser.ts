@@ -302,7 +302,6 @@ function extractTrailingGroup(
   if (existing) return { group: existing, name: cleanName };
 
   const sceneMatch = SCENE_GROUP_PAT.exec(cleanName);
-  // biome-ignore lint/complexity/useLiteralKeys: needed for index signature access
   let potential: string | null = sceneMatch?.groups?.["group"] ?? null;
 
   if (!potential) {

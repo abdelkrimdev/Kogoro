@@ -16,7 +16,6 @@ export function registerCache(parser: ReturnType<typeof yargs>): void {
           async (argv) => {
             const handlers = createCacheHandlers();
             await handlers.list(
-              // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
               createDisplay(!!argv["json"], (msg) => log.error(msg)),
               (msg) => log.error(msg),
             );
@@ -35,7 +34,6 @@ export function registerCache(parser: ReturnType<typeof yargs>): void {
             const handlers = createCacheHandlers();
             await handlers.lookup(
               argv.hash,
-              // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
               createDisplay(!!argv["json"], (msg) => log.error(msg)),
               (msg) => log.error(msg),
             );

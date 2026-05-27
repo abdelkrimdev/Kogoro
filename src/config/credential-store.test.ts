@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { CredentialStore, createCredentialStore } from "../config/credential-store";
 import { createMockKeytar, silentBunSecrets, stubBunSecrets } from "../test-fixtures";
 
+function setEnv(key: string, value: string): void {
+  process.env[key] = value;
+}
+
 describe("CredentialStore", () => {
   let mockKeytar: ReturnType<typeof createMockKeytar>;
 
@@ -41,24 +45,21 @@ describe("CredentialStore", () => {
   });
 
   test("falls back to env var when keytar is unavailable", async () => {
-    // biome-ignore lint/complexity/useLiteralKeys: TS noPropertyAccessFromIndexSignature
-    process.env["KOGORO_ANIDB_KEY"] = "env-key-456";
+    setEnv("KOGORO_ANIDB_KEY", "env-key-456");
     const store = new CredentialStore({ keytar: null });
     const val = await store.getCredential("anidb");
     expect(val).toBe("env-key-456");
   });
 
   test("reads credential from KOGORO_{SERVICE}_KEY env var", async () => {
-    // biome-ignore lint/complexity/useLiteralKeys: TS noPropertyAccessFromIndexSignature
-    process.env["KOGORO_TVDB_KEY"] = "tvdb-key";
+    setEnv("KOGORO_TVDB_KEY", "tvdb-key");
     const store = new CredentialStore({ keytar: null });
     const val = await store.getCredential("tvdb");
     expect(val).toBe("tvdb-key");
   });
 
   test("keytar takes priority over env var", async () => {
-    // biome-ignore lint/complexity/useLiteralKeys: TS noPropertyAccessFromIndexSignature
-    process.env["KOGORO_ANIDB_KEY"] = "env-key";
+    setEnv("KOGORO_ANIDB_KEY", "env-key");
     const store = new CredentialStore({ keytar: mockKeytar });
     await store.setCredential("anidb", "keytar-key");
     const val = await store.getCredential("anidb");
@@ -66,8 +67,7 @@ describe("CredentialStore", () => {
   });
 
   test("getCredential returns env var when keytar has no value", async () => {
-    // biome-ignore lint/complexity/useLiteralKeys: TS noPropertyAccessFromIndexSignature
-    process.env["KOGORO_ANIDB_KEY"] = "fallback-key";
+    setEnv("KOGORO_ANIDB_KEY", "fallback-key");
     const store = new CredentialStore({ keytar: mockKeytar });
     const val = await store.getCredential("anidb");
     expect(val).toBe("fallback-key");
@@ -115,8 +115,7 @@ describe("createCredentialStore", () => {
   });
 
   test("falls back to env var when keyring returns null", async () => {
-    // biome-ignore lint/complexity/useLiteralKeys: TS noPropertyAccessFromIndexSignature
-    process.env["KOGORO_ANIDB_KEY"] = "env-val";
+    setEnv("KOGORO_ANIDB_KEY", "env-val");
     stubBunSecrets(silentBunSecrets());
     const store = createCredentialStore();
     const val = await store.getCredential("anidb");

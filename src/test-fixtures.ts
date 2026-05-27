@@ -294,8 +294,10 @@ export function createMockKeytar(initial?: Record<string, string>): KeytarLike {
 }
 
 export function stubBunSecrets(impl: typeof Bun.secrets): void {
-  // biome-ignore lint/suspicious/noExplicitAny: test stub for Bun internals
-  (Bun as any).secrets = impl;
+  Object.defineProperty(Bun, "secrets", {
+    ...Object.getOwnPropertyDescriptor(Bun, "secrets"),
+    value: impl,
+  });
 }
 
 export function silentBunSecrets(): typeof Bun.secrets {

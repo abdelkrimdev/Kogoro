@@ -33,7 +33,6 @@ export function registerMetadata(
           describe: "Overwrite existing .nfo files",
         }),
     async (argv) => {
-      // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
       const handlers = await createHandlers(argv["debug"] as boolean | undefined);
       if (handlers) {
         await handlers.write(

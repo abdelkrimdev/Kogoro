@@ -108,18 +108,8 @@ function coerceValue(key: string, value: string): unknown {
 
 export type SetResult = { success: true } | { success: false; error: string };
 
-interface SchemaIssue {
-  type: string;
-  input: unknown;
-  expected?: string;
-  received?: string;
-  message: string;
-  path?: { key: string | number; origin: string }[];
-}
-
-// biome-ignore lint/suspicious/noExplicitAny: valibot issue types are complex
-function formatSchemaError(issues: readonly any[]): string {
-  const issue = issues[0] as SchemaIssue | undefined;
+function formatSchemaError(issues: readonly v.BaseIssue<unknown>[]): string {
+  const issue = issues[0];
   if (!issue) return "Config validation failed";
 
   const path = issue.path?.map((p) => String(p.key)).join(".");

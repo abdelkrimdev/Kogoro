@@ -75,7 +75,6 @@ export function registerScan(
         }),
     async (argv) => {
       try {
-        // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
         const handlers = await createHandlers(argv["debug"] as boolean | undefined);
         if (!handlers) return;
         const extensions = argv.extensions
@@ -92,13 +91,11 @@ export function registerScan(
           episodeNumbering: argv["episode-numbering"] as "absolute" | "relative" | undefined,
           verbose: argv.verbose ?? false,
           quiet: argv.quiet ?? false,
-          // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
           json: !!argv["json"],
           extensions,
           concurrency: argv.concurrency,
         });
 
-        // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
         if (argv["json"]) {
           console.log(JSON.stringify(results, null, 2));
         }

@@ -39,7 +39,6 @@ export function registerSubtitle(
           describe: "Overwrite existing subtitle files",
         }),
     async (argv) => {
-      // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
       const handlers = await createHandlers(argv["debug"] as boolean | undefined);
       if (!handlers) return;
       await handlers.fetch(
