@@ -372,7 +372,7 @@ describe("scan CLI commands", () => {
         const results = await handlers.scan(dir, { yes: true, dryRun: true });
 
         expect(results).toHaveLength(1);
-        expect("relative").toBe(SCHEMA_DEFAULTS["episode-numbering"]);
+        expect(SCHEMA_DEFAULTS["episode-numbering"]).toBe("relative");
         expect(results[0]?.plan?.targetFilename).toMatch(/2x06/);
       });
     });
@@ -415,12 +415,13 @@ describe("scan CLI commands", () => {
 
     test("resolve exclude patterns from config", async () => {
       await withTempDir("scan-exclude-chain", async (dir) => {
-        writeTempFile(dir, "[Group] Anime - 01.part", "content");
+        writeTempFile(dir, "[Group] Anime - 01.nfo", "content");
         writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
 
         const configDir = join(dir, "config");
         mkdirSync(configDir);
         const config = new ConfigManager({ configDir });
+        config.set("exclude-patterns", ".nfo");
 
         const handlers = createScanHandlers({ database: createStandardMockDb(), config });
         const results = await handlers.scan(dir, { yes: true, dryRun: true });
