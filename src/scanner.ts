@@ -1,5 +1,5 @@
 import { basename, dirname, extname } from "node:path";
-import type { EpisodeNumbering } from "./config/schema";
+import { type EpisodeNumbering, ORGANIZED_DIRS } from "./config/schema";
 import { MatchCache } from "./match-cache";
 import {
   AMBIGUOUS_MATCH_REASON,
@@ -15,13 +15,7 @@ import { relativeToAbsolute } from "./numbering-converter";
 import type { OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
-import {
-  type FileAction,
-  ORGANIZED_DIRS,
-  type RenamePlan,
-  type RenameResult,
-  type Renamer,
-} from "./renamer";
+import type { FileAction, RenamePlan, RenameResult, Renamer } from "./renamer";
 
 type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
 

@@ -14,8 +14,6 @@ import type { ParsedTags } from "./parser";
 import { stripExtension } from "./parser";
 import { render } from "./template-engine";
 
-export { ORGANIZED_DIRS } from "./config/schema";
-
 export type FileAction = "move" | "copy" | "symlink" | "hardlink";
 
 type RenameErrorType = "permission" | "disk-full" | "collision" | "other";
@@ -195,10 +193,6 @@ export class Renamer {
       }
       return { success: false, error: { type: "other", message: error.message } };
     }
-  }
-
-  executedSourcePaths(): string[] {
-    return this.executedPlans.map((p) => p.sourcePath);
   }
 
   canRollback(): boolean {
