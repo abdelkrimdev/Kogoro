@@ -6,7 +6,7 @@ import {
   createLogCapture,
   makeThrowingDb,
 } from "../../test-fixtures";
-import { createDatabaseCommands } from "./handlers";
+import { createDatabaseHandlers } from "./handlers";
 
 function createMockPlugin(): DatabasePlugin {
   return _createMockDb({
@@ -47,7 +47,7 @@ function createMockPlugin(): DatabasePlugin {
 describe("DB CLI commands", () => {
   test("db search outputs anime results as JSON", async () => {
     const plugin = createMockPlugin();
-    const commands = createDatabaseCommands(plugin);
+    const commands = createDatabaseHandlers(plugin);
     const log = createLogCapture();
     await commands.search("Jujutsu Kaisen", log.onLog, () => {});
     const parsed = JSON.parse(log.output);
@@ -57,7 +57,7 @@ describe("DB CLI commands", () => {
 
   test("db search outputs empty array for no results", async () => {
     const plugin = createMockPlugin();
-    const commands = createDatabaseCommands(plugin);
+    const commands = createDatabaseHandlers(plugin);
     const log = createLogCapture();
     await commands.search("Unknown", log.onLog, () => {});
     expect(JSON.parse(log.output)).toEqual([]);
@@ -65,7 +65,7 @@ describe("DB CLI commands", () => {
 
   test("db episodes outputs episode results as JSON", async () => {
     const plugin = createMockPlugin();
-    const commands = createDatabaseCommands(plugin);
+    const commands = createDatabaseHandlers(plugin);
     const log = createLogCapture();
     await commands.episodes("12345", log.onLog, () => {});
     const parsed = JSON.parse(log.output);
@@ -75,7 +75,7 @@ describe("DB CLI commands", () => {
 
   test("db episodes outputs empty array for unknown ID", async () => {
     const plugin = createMockPlugin();
-    const commands = createDatabaseCommands(plugin);
+    const commands = createDatabaseHandlers(plugin);
     const log = createLogCapture();
     await commands.episodes("99999", log.onLog, () => {});
     expect(JSON.parse(log.output)).toEqual([]);
@@ -83,7 +83,7 @@ describe("DB CLI commands", () => {
 
   test("db search handles plugin error gracefully", async () => {
     const failingPlugin = makeThrowingDb();
-    const commands = createDatabaseCommands(failingPlugin);
+    const commands = createDatabaseHandlers(failingPlugin);
     const log = createLogCapture();
     await commands.search("Anything", () => {}, log.onError);
     expect(log.errorOutput).toBe("Search failed");

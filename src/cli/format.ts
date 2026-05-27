@@ -1,6 +1,6 @@
 import { log } from "@clack/prompts";
 
-export function createDisplay(
+export function createFormatter(
   json: boolean,
   onError: (msg: string) => void,
 ): (msg: string) => void {

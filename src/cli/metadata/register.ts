@@ -1,7 +1,7 @@
 import { log } from "@clack/prompts";
 import type yargs from "yargs";
 
-export type MetadataHandlerFactory = (debug?: boolean) => Promise<
+type MetadataHandlerFactory = (debug?: boolean) => Promise<
   | {
       write(
         path: string,
@@ -34,22 +34,13 @@ export function registerMetadata(
         }),
     async (argv) => {
       const handlers = await createHandlers(argv["debug"] as boolean | undefined);
-      if (handlers) {
-        await handlers.write(
-          argv.path,
-          argv.force,
-          (msg) => log.message(msg),
-          (msg) => log.error(msg),
-        );
-      } else {
-        const { createMetadataHandlers } = await import("./handlers");
-        await createMetadataHandlers().write(
-          argv.path,
-          argv.force,
-          (msg) => log.message(msg),
-          (msg) => log.error(msg),
-        );
-      }
+      if (!handlers) return;
+      await handlers.write(
+        argv.path,
+        argv.force,
+        (msg) => log.message(msg),
+        (msg) => log.error(msg),
+      );
     },
   );
 }

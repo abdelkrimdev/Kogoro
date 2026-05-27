@@ -11,6 +11,7 @@ import { createEmptyResult, type ParsedResult } from "../../parser";
 import type { DatabasePlugin } from "../../plugins/database/plugin";
 import { type FileAction, ORGANIZED_DIRS, Renamer } from "../../renamer";
 import { Scanner, type ScanProgress, type ScanResult } from "../../scanner";
+import { resolveMediaExtensions } from "../extensions";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
@@ -46,7 +47,7 @@ function resolveExtensions(config?: ConfigManager, overrides?: string[]): readon
   if (overrides && overrides.length > 0) {
     return overrides.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`));
   }
-  return config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
+  return resolveMediaExtensions(config);
 }
 
 function resolveExcludePatterns(config?: ConfigManager): string[] {

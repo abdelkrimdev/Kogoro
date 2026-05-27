@@ -4,7 +4,7 @@ import type { FileAction } from "../../renamer";
 import type { ScanResult } from "../../scanner";
 import type { ScanOptions } from "./handlers";
 
-export type ScanHandlerFactory = (debug?: boolean) => Promise<
+type ScanHandlerFactory = (debug?: boolean) => Promise<
   | {
       scan(path: string, scanOptions?: ScanOptions): Promise<ScanResult[]>;
     }
@@ -99,9 +99,8 @@ export function registerScan(
         if (argv["json"]) {
           console.log(JSON.stringify(results, null, 2));
         }
-      } catch (err) {
-        console.error(String(err));
-        process.exit(1);
+      } catch {
+        // errors already surfaced by yargs .fail() handler
       }
     },
   );

@@ -164,7 +164,6 @@ describe("Config CLI commands", () => {
           "hash1",
           { animeId: "tvdb-42", episodeId: "ep-5", entryType: "tv" },
           capture.onLog,
-          () => {},
         );
         expect(capture.output).toContain("hash1");
 
@@ -185,7 +184,7 @@ describe("Config CLI commands", () => {
 
         const handlers = createConfigHandlers({ overrideDir: dir });
         const capture = createLogCapture();
-        await handlers.overrideList(capture.onLog, () => {});
+        await handlers.overrideList(capture.onLog);
         const parsed = JSON.parse(capture.output);
         expect(parsed).toHaveLength(2);
         expect(parsed.find((i: { hash: string }) => i.hash === "hash1")?.data.animeId).toBe(
@@ -221,12 +220,7 @@ describe("Config CLI commands", () => {
     test("override set with minimal fields (animeId only)", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
-        await handlers.overrideSet(
-          "hash1",
-          { animeId: "tvdb-99" },
-          () => {},
-          () => {},
-        );
+        await handlers.overrideSet("hash1", { animeId: "tvdb-99" }, () => {});
 
         const store = new OverrideStore(dir);
         expect(store.get("hash1")).toEqual({ animeId: "tvdb-99" });
@@ -236,12 +230,7 @@ describe("Config CLI commands", () => {
     test("override set with entryType only", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
-        await handlers.overrideSet(
-          "hash1",
-          { entryType: "special" },
-          () => {},
-          () => {},
-        );
+        await handlers.overrideSet("hash1", { entryType: "special" }, () => {});
 
         const store = new OverrideStore(dir);
         expect(store.get("hash1")).toEqual({ entryType: "special" });

@@ -1,7 +1,7 @@
 import { log } from "@clack/prompts";
 import type yargs from "yargs";
 
-export type ArtworkHandlerFactory = (debug?: boolean) => Promise<
+type ArtworkHandlerFactory = (debug?: boolean) => Promise<
   | {
       process(
         path: string,

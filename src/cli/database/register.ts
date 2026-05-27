@@ -1,8 +1,8 @@
 import { log } from "@clack/prompts";
 import type yargs from "yargs";
-import { createDisplay } from "../output";
+import { createFormatter } from "../format";
 
-export type DatabaseHandlerFactory = (debug?: boolean) => Promise<
+type DatabaseHandlerFactory = (debug?: boolean) => Promise<
   | {
       search(
         title: string,
@@ -37,11 +37,11 @@ export function registerDb(
               describe: "Anime title to search for",
             }),
           async (argv) => {
-            const commands = await createHandlers(argv["debug"] as boolean | undefined);
-            if (!commands) return;
-            await commands.search(
+            const handlers = await createHandlers(argv["debug"] as boolean | undefined);
+            if (!handlers) return;
+            await handlers.search(
               argv.title,
-              createDisplay(!!argv["json"], (msg) => log.error(msg)),
+              createFormatter(!!argv["json"], (msg) => log.error(msg)),
               (msg) => log.error(msg),
             );
           },
@@ -56,11 +56,11 @@ export function registerDb(
               describe: "Anime ID in the primary database",
             }),
           async (argv) => {
-            const commands = await createHandlers(argv["debug"] as boolean | undefined);
-            if (!commands) return;
-            await commands.episodes(
+            const handlers = await createHandlers(argv["debug"] as boolean | undefined);
+            if (!handlers) return;
+            await handlers.episodes(
               argv.animeId,
-              createDisplay(!!argv["json"], (msg) => log.error(msg)),
+              createFormatter(!!argv["json"], (msg) => log.error(msg)),
               (msg) => log.error(msg),
             );
           },

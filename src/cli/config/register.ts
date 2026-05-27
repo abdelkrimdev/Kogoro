@@ -2,7 +2,7 @@ import { log } from "@clack/prompts";
 import type yargs from "yargs";
 import { getDefaultPrompts } from "../../config/config-wizard";
 import { OVERRIDE_TOML_KEYS } from "../../override-store";
-import { createDisplay } from "../output";
+import { createFormatter } from "../format";
 import { createConfigHandlers } from "./handlers";
 
 export function registerConfig(parser: ReturnType<typeof yargs>): void {
@@ -25,7 +25,7 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
             const json = !!argv["json"];
             await handlers.get(
               argv.key,
-              createDisplay(json, (msg) => log.error(msg)),
+              createFormatter(json, (msg) => log.error(msg)),
               (msg) => log.error(msg),
             );
           },
@@ -108,7 +108,6 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
                       | undefined,
                   },
                   (msg) => log.message(msg),
-                  (msg) => log.error(msg),
                 );
               },
             )
@@ -119,8 +118,7 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               async (argv) => {
                 const handlers = createConfigHandlers();
                 await handlers.overrideList(
-                  createDisplay(!!argv["json"], (msg) => log.error(msg)),
-                  (msg) => log.error(msg),
+                  createFormatter(!!argv["json"], (msg) => log.error(msg)),
                 );
               },
             )

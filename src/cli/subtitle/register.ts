@@ -2,7 +2,7 @@ import { log } from "@clack/prompts";
 import type yargs from "yargs";
 import { SCHEMA_DEFAULTS } from "../../config/schema";
 
-export type SubtitleHandlerFactory = (debug?: boolean) => Promise<
+type SubtitleHandlerFactory = (debug?: boolean) => Promise<
   | {
       fetch(
         dirPath: string,

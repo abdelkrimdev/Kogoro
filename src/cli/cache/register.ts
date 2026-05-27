@@ -1,6 +1,6 @@
 import { confirm, isCancel, log } from "@clack/prompts";
 import type yargs from "yargs";
-import { createDisplay } from "../output";
+import { createFormatter } from "../format";
 import { createCacheHandlers } from "./handlers";
 
 export function registerCache(parser: ReturnType<typeof yargs>): void {
@@ -16,7 +16,7 @@ export function registerCache(parser: ReturnType<typeof yargs>): void {
           async (argv) => {
             const handlers = createCacheHandlers();
             await handlers.list(
-              createDisplay(!!argv["json"], (msg) => log.error(msg)),
+              createFormatter(!!argv["json"], (msg) => log.error(msg)),
               (msg) => log.error(msg),
             );
           },
@@ -34,7 +34,7 @@ export function registerCache(parser: ReturnType<typeof yargs>): void {
             const handlers = createCacheHandlers();
             await handlers.lookup(
               argv.hash,
-              createDisplay(!!argv["json"], (msg) => log.error(msg)),
+              createFormatter(!!argv["json"], (msg) => log.error(msg)),
               (msg) => log.error(msg),
             );
           },

@@ -52,16 +52,12 @@ export function createConfigHandlers(options: ConfigHandlerOptions = {}) {
       hash: string,
       data: OverrideData,
       onLog: (msg: string) => void,
-      _onError: (msg: string) => void,
     ): Promise<void> {
       overrideStore.set(hash, data);
       onLog(`Override set for hash '${hash}'`);
     },
 
-    async overrideList(
-      onLog: (msg: string) => void,
-      _onError: (msg: string) => void,
-    ): Promise<void> {
+    async overrideList(onLog: (msg: string) => void): Promise<void> {
       const items = overrideStore.list();
       onLog(JSON.stringify(items, null, 2));
     },

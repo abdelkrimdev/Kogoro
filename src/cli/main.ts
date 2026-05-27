@@ -48,11 +48,11 @@ export function run(argv: string[]): void {
   }
 
   async function createDatabaseCommandsWithCredentials(debug?: boolean) {
-    const { createDatabaseCommands } = await import("./database/handlers");
+    const { createDatabaseHandlers } = await import("./database/handlers");
     return withDatabase(
       debug,
       (factory) => factory.primaryDatabase(),
-      (database) => createDatabaseCommands(database),
+      (database) => createDatabaseHandlers(database),
     );
   }
 

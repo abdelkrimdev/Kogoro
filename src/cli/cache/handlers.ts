@@ -1,11 +1,7 @@
 import { MatchCache } from "../../match-cache";
 
-export interface CacheHandlerOptions {
-  dbPath?: string;
-}
-
-export function createCacheHandlers(options: CacheHandlerOptions = {}) {
-  const cache = new MatchCache({ dbPath: options.dbPath });
+export function createCacheHandlers(options?: { dbPath?: string }) {
+  const cache = new MatchCache(options);
 
   return {
     async list(onLog: (msg: string) => void, onError: (msg: string) => void): Promise<void> {

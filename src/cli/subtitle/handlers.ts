@@ -5,6 +5,7 @@ import { SCHEMA_DEFAULTS } from "../../config/schema";
 import { walk } from "../../directory-walker";
 import { MatchCache } from "../../match-cache";
 import type { SubtitlePlugin } from "../../plugins/subtitle/plugin";
+import { resolveMediaExtensions } from "../extensions";
 
 export interface SubtitleHandlerOptions {
   subtitlePlugin: SubtitlePlugin;
@@ -40,10 +41,7 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
     let failed = 0;
 
     try {
-      const files = walk(
-        dirPath,
-        options.config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"],
-      );
+      const files = walk(dirPath, resolveMediaExtensions(options.config));
 
       for (const filePath of files) {
         const hash = await MatchCache.hashFile(filePath);
