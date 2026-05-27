@@ -1,3 +1,4 @@
+import { log } from "@clack/prompts";
 import type yargs from "yargs";
 
 export type ArtworkHandlerFactory = (debug?: boolean) => Promise<
@@ -35,20 +36,16 @@ export function registerArtwork(
           type: "boolean",
           default: false,
           describe: "Show per-anime status messages",
-        })
-        .option("debug", {
-          type: "boolean",
-          default: false,
-          describe: "Dump API requests and responses",
         }),
     async (argv) => {
-      const handlers = await createHandlers(argv.debug);
+      // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+      const handlers = await createHandlers(argv["debug"] as boolean | undefined);
       if (!handlers) return;
       await handlers.process(
         argv.path,
         { force: argv.force, verbose: argv.verbose },
-        console.log,
-        console.error,
+        (msg) => log.message(msg),
+        (msg) => log.error(msg),
       );
     },
   );

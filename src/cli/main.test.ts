@@ -19,7 +19,7 @@ describe("kogoro CLI", () => {
   });
 
   test("plugins list command returns JSON with built-in plugins", () => {
-    const { logs } = captureConsoleLog(() => run(["node", "kogoro", "plugins", "list"]));
+    const { logs } = captureConsoleLog(() => run(["node", "kogoro", "plugins", "list", "--json"]));
     expect(logs.length).toBeGreaterThan(0);
     const parsed = JSON.parse(logs[0] ?? "[]") as Array<PluginInfo>;
     const tvdb = parsed.find((p) => p.name === "tvdb");

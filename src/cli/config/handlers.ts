@@ -25,8 +25,7 @@ export function createConfigHandlers(options: ConfigHandlerOptions = {}) {
       if (val === undefined) {
         onError(`Config key '${key}' is not set`);
       } else {
-        const output = Array.isArray(val) ? JSON.stringify(val) : String(val);
-        onLog(output);
+        onLog(JSON.stringify(val));
       }
     },
 

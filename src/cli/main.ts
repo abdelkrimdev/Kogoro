@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { styleText } from "node:util";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { ConfigManager } from "../config/config-manager";
@@ -99,7 +100,19 @@ export function run(argv: string[]): void {
     return createSubtitleHandlers({ subtitlePlugin, cache, config });
   }
 
-  const parser = yargs(hideBin(argv)).scriptName("kogoro").usage("$0 <command> [options]");
+  const parser = yargs(hideBin(argv))
+    .scriptName("kogoro")
+    .usage("$0 <command> [options]")
+    .option("json", {
+      type: "boolean",
+      default: false,
+      describe: "Output as JSON",
+    })
+    .option("debug", {
+      type: "boolean",
+      default: false,
+      describe: "Enable debug logging",
+    });
 
   registerScan(parser, createScanWithCredentials);
   registerArtwork(parser, createArtworkWithCredentials);
@@ -117,5 +130,17 @@ export function run(argv: string[]): void {
     .version(readVersion())
     .alias("v", "version")
     .strict()
+    .fail((msg, err) => {
+      if (err) {
+        if (process.argv.includes("--debug")) {
+          console.error(styleText("red", err.stack ?? String(err)));
+        } else {
+          console.error(styleText("red", `❌ ${err.message}`));
+        }
+      } else {
+        console.error(styleText("red", `❌ ${msg}`));
+      }
+      process.exit(1);
+    })
     .parse();
 }

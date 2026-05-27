@@ -25,6 +25,16 @@ interface DebugEntry {
   method: string;
   status?: number;
   body?: string;
+  ms?: number;
+}
+
+function prettifyBody(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return body;
+  }
 }
 
 export class PluginFactory {
@@ -120,8 +130,12 @@ export class PluginFactory {
         if (entry.type === "request") {
           console.error(`→ ${entry.method} ${entry.url}`);
         } else {
-          const bodySuffix = entry.body ? `\n   body: ${entry.body}` : "";
-          console.error(`← ${entry.status} ${entry.url}${bodySuffix}`);
+          let bodySuffix = "";
+          if (entry.body) {
+            const prettified = prettifyBody(entry.body);
+            bodySuffix = `\n   ${prettified}`;
+          }
+          console.error(`← ${entry.status} ${entry.url} (${entry.ms}ms)${bodySuffix}`);
         }
       },
     };

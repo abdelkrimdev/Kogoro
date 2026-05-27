@@ -1,3 +1,4 @@
+import { log } from "@clack/prompts";
 import type yargs from "yargs";
 import { SCHEMA_DEFAULTS } from "../../config/schema";
 
@@ -36,20 +37,16 @@ export function registerSubtitle(
           type: "boolean",
           default: false,
           describe: "Overwrite existing subtitle files",
-        })
-        .option("debug", {
-          type: "boolean",
-          default: false,
-          describe: "Dump API requests and responses",
         }),
     async (argv) => {
-      const handlers = await createHandlers(argv.debug);
+      // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+      const handlers = await createHandlers(argv["debug"] as boolean | undefined);
       if (!handlers) return;
       await handlers.fetch(
         argv.path,
         { language: argv.lang, force: argv.force },
-        console.log,
-        console.error,
+        (msg) => log.message(msg),
+        (msg) => log.error(msg),
       );
     },
   );

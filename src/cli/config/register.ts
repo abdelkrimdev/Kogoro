@@ -1,6 +1,8 @@
+import { log } from "@clack/prompts";
 import type yargs from "yargs";
 import { getDefaultPrompts } from "../../config/config-wizard";
 import { OVERRIDE_TOML_KEYS } from "../../override-store";
+import { createDisplay } from "../output";
 import { createConfigHandlers } from "./handlers";
 
 export function registerConfig(parser: ReturnType<typeof yargs>): void {
@@ -20,7 +22,13 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
             }),
           async (argv) => {
             const handlers = createConfigHandlers();
-            await handlers.get(argv.key, console.log, console.error);
+            // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+            const json = !!argv["json"];
+            await handlers.get(
+              argv.key,
+              createDisplay(json, (msg) => log.error(msg)),
+              (msg) => log.error(msg),
+            );
           },
         )
         .command(
@@ -28,6 +36,8 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
           "Set a config value",
           (yargs) =>
             yargs
+              .hide("json")
+              .hide("debug")
               .positional("key", {
                 type: "string",
                 demandOption: true,
@@ -40,17 +50,22 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               }),
           async (argv) => {
             const handlers = createConfigHandlers();
-            await handlers.set(argv.key, argv.value, console.log, console.error);
+            await handlers.set(
+              argv.key,
+              argv.value,
+              (msg) => log.message(msg),
+              (msg) => log.error(msg),
+            );
           },
         )
         .command(
           "init",
           "Run the first-time setup wizard",
-          () => {},
+          (yargs) => yargs.hide("json").hide("debug"),
           async () => {
             const prompts = getDefaultPrompts();
             const handlers = createConfigHandlers();
-            await handlers.init(prompts, console.log);
+            await handlers.init(prompts, (msg) => log.message(msg));
           },
         )
         .command("override", "Manage per-directory overrides in kogoro.toml", (yargs) =>
@@ -60,6 +75,8 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               "Set an override for a file hash",
               (yargs) =>
                 yargs
+                  .hide("json")
+                  .hide("debug")
                   .positional("hash", {
                     type: "string",
                     demandOption: true,
@@ -91,8 +108,8 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
                       | "special"
                       | undefined,
                   },
-                  console.log,
-                  console.error,
+                  (msg) => log.message(msg),
+                  (msg) => log.error(msg),
                 );
               },
             )
@@ -100,23 +117,31 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               "list",
               "List all overrides",
               () => {},
-              async () => {
+              async (argv) => {
                 const handlers = createConfigHandlers();
-                await handlers.overrideList(console.log, console.error);
+                await handlers.overrideList(
+                  // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+                  createDisplay(!!argv["json"], (msg) => log.error(msg)),
+                  (msg) => log.error(msg),
+                );
               },
             )
             .command(
               "remove <hash>",
               "Remove an override for a file hash",
               (yargs) =>
-                yargs.positional("hash", {
+                yargs.hide("json").hide("debug").positional("hash", {
                   type: "string",
                   demandOption: true,
                   describe: "File hash to remove override for",
                 }),
               async (argv) => {
                 const handlers = createConfigHandlers();
-                await handlers.overrideRemove(argv.hash, console.log, console.error);
+                await handlers.overrideRemove(
+                  argv.hash,
+                  (msg) => log.message(msg),
+                  (msg) => log.error(msg),
+                );
               },
             )
             .demandCommand(1, "Please specify an override action: set, list, or remove"),

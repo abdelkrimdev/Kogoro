@@ -1,4 +1,6 @@
+import { log } from "@clack/prompts";
 import type yargs from "yargs";
+import { createDisplay } from "../output";
 
 export type DatabaseHandlerFactory = (debug?: boolean) => Promise<
   | {
@@ -27,44 +29,44 @@ export function registerDb(
       yargs
         .command(
           "search <title>",
-          "Search for anime by title and print results as JSON",
+          "Search for anime by title",
           (yargs) =>
-            yargs
-              .positional("title", {
-                type: "string",
-                demandOption: true,
-                describe: "Anime title to search for",
-              })
-              .option("debug", {
-                type: "boolean",
-                default: false,
-                describe: "Dump API requests and responses",
-              }),
+            yargs.positional("title", {
+              type: "string",
+              demandOption: true,
+              describe: "Anime title to search for",
+            }),
           async (argv) => {
-            const commands = await createHandlers(argv.debug);
+            // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+            const commands = await createHandlers(argv["debug"] as boolean | undefined);
             if (!commands) return;
-            await commands.search(argv.title, console.log, console.error);
+            await commands.search(
+              argv.title,
+              // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+              createDisplay(!!argv["json"], (msg) => log.error(msg)),
+              (msg) => log.error(msg),
+            );
           },
         )
         .command(
           "episodes <animeId>",
-          "Get episodes for an anime by ID and print as JSON",
+          "Get episodes for an anime by ID",
           (yargs) =>
-            yargs
-              .positional("animeId", {
-                type: "string",
-                demandOption: true,
-                describe: "Anime ID in the primary database",
-              })
-              .option("debug", {
-                type: "boolean",
-                default: false,
-                describe: "Dump API requests and responses",
-              }),
+            yargs.positional("animeId", {
+              type: "string",
+              demandOption: true,
+              describe: "Anime ID in the primary database",
+            }),
           async (argv) => {
-            const commands = await createHandlers(argv.debug);
+            // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+            const commands = await createHandlers(argv["debug"] as boolean | undefined);
             if (!commands) return;
-            await commands.episodes(argv.animeId, console.log, console.error);
+            await commands.episodes(
+              argv.animeId,
+              // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+              createDisplay(!!argv["json"], (msg) => log.error(msg)),
+              (msg) => log.error(msg),
+            );
           },
         )
         .demandCommand(1, "Please specify a db action: search or episodes"),

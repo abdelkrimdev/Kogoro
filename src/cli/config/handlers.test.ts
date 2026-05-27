@@ -12,7 +12,7 @@ describe("Config CLI commands", () => {
       const handlers = createConfigHandlers({ configDir: dir });
       const capture = createLogCapture();
       await handlers.get("primary-db", capture.onLog, () => {});
-      expect(capture.output).toBe("anidb");
+      expect(capture.output).toBe('"anidb"');
     });
   });
 

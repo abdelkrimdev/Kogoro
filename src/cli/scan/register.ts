@@ -64,19 +64,9 @@ export function registerScan(
           default: false,
           describe: "Suppress progress and summary; only errors and prompts",
         })
-        .option("debug", {
-          type: "boolean",
-          default: false,
-          describe: "Dump API requests and responses",
-        })
         .option("extensions", {
           type: "string",
           describe: "Comma-separated file extensions to scan (e.g. .mkv,.mp4)",
-        })
-        .option("json", {
-          type: "boolean",
-          default: false,
-          describe: "Output final scan report as JSON (default: plain text)",
         })
         .option("concurrency", {
           type: "number",
@@ -84,9 +74,10 @@ export function registerScan(
           describe: "Number of files to process concurrently",
         }),
     async (argv) => {
-      const handlers = await createHandlers(argv.debug);
-      if (!handlers) return;
       try {
+        // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+        const handlers = await createHandlers(argv["debug"] as boolean | undefined);
+        if (!handlers) return;
         const extensions = argv.extensions
           ? (argv.extensions as string)
               .split(",")
@@ -101,32 +92,19 @@ export function registerScan(
           episodeNumbering: argv["episode-numbering"] as "absolute" | "relative" | undefined,
           verbose: argv.verbose ?? false,
           quiet: argv.quiet ?? false,
+          // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+          json: !!argv["json"],
           extensions,
           concurrency: argv.concurrency,
         });
 
-        if (argv.json) {
+        // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+        if (argv["json"]) {
           console.log(JSON.stringify(results, null, 2));
-        } else {
-          const lines = results.map((r) => {
-            if (r.status === "matched" && r.plan) {
-              return `✓ ${r.file} → ${r.plan.targetPath}`;
-            }
-            if (r.status === "cached") {
-              return `✓ ${r.file} (cached)`;
-            }
-            if (r.status === "skipped") {
-              return `- ${r.file} (already organized)`;
-            }
-            if (r.status === "failed") {
-              return `✗ ${r.file} (${r.failureReason ?? "unknown error"})`;
-            }
-            return `- ${r.file} (${r.status})`;
-          });
-          console.log(lines.join("\n"));
         }
       } catch (err) {
         console.error(String(err));
+        process.exit(1);
       }
     },
   );

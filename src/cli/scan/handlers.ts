@@ -1,6 +1,6 @@
 import { lstatSync } from "node:fs";
 import { basename, dirname, sep } from "node:path";
-import { confirm, isCancel, select, text } from "@clack/prompts";
+import { confirm, isCancel, log, progress, select, spinner, text } from "@clack/prompts";
 import type { ConfigManager } from "../../config/config-manager";
 import { type EpisodeNumbering, SCHEMA_DEFAULTS, TEMPLATE_PRESETS } from "../../config/schema";
 import { walk } from "../../directory-walker";
@@ -29,6 +29,7 @@ export interface ScanOptions {
   episodeNumbering?: EpisodeNumbering;
   verbose?: boolean;
   quiet?: boolean;
+  json?: boolean;
   extensions?: string[];
   concurrency?: number;
 }
@@ -107,12 +108,14 @@ export function createScanHandlers(options: ScanHandlerOptions) {
   }
 
   function logFileInfo(filePath: string, parsed: ParsedResult): void {
-    console.log(`\nFile: ${basename(filePath)}`);
+    const lines: string[] = [];
+    lines.push(`File: ${basename(filePath)}`);
     const parts: string[] = [];
     if (parsed.title) parts.push(`"${parsed.title}"`);
     if (parsed.season !== null) parts.push(`season ${parsed.season}`);
     if (parsed.episode !== null) parts.push(`episode ${parsed.episode}`);
-    if (parts.length > 0) console.log(`Parsed: ${parts.join(", ")}`);
+    if (parts.length > 0) lines.push(`Parsed: ${parts.join(", ")}`);
+    log.message(lines.join("\n"));
   }
 
   function formatCandidate(m: MatchResult, i: number): string {
@@ -194,10 +197,11 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const dryRun = scanOptions?.dryRun ?? false;
       const yes = scanOptions?.yes ?? false;
       const force = scanOptions?.force ?? false;
+      const json = scanOptions?.json ?? false;
+      const quiet = (scanOptions?.quiet ?? false) || json;
       const action =
         scanOptions?.action ?? (options.config?.get("rename-action") as FileAction | undefined);
       const verbose = scanOptions?.verbose ?? false;
-      const quiet = scanOptions?.quiet ?? false;
       const configNumbering = options.config?.get("episode-numbering") as
         | EpisodeNumbering
         | undefined;
@@ -234,7 +238,15 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           organizedFiles.length > 0
             ? `Scanning ${filePaths.length} file(s)... (${organizedFiles.length} already organized, skipped)`
             : `Scanning ${filePaths.length} file(s)...`;
-        console.log(msg);
+        log.message(msg);
+      }
+
+      const progressBar =
+        !quiet && !verbose && unorganizedFiles.length > 0
+          ? progress({ max: unorganizedFiles.length })
+          : undefined;
+      if (progressBar) {
+        progressBar.start(`Processing files (0/${unorganizedFiles.length})...`);
       }
 
       const abortController = new AbortController();
@@ -242,8 +254,11 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const onSigint = () => {
         interrupted = true;
         abortController.abort();
+        if (progressBar) {
+          progressBar.cancel("Interrupted");
+        }
         if (!quiet) {
-          console.log("\nInterrupt received. Finishing current operations...");
+          log.warn("Interrupt received. Finishing current operations...");
         }
       };
       process.on("SIGINT", onSigint);
@@ -251,13 +266,16 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       function buildOnProgress(signal: AbortSignal) {
         return (p: ScanProgress) => {
           if (verbose && !quiet) {
-            console.log(`[${p.status.toUpperCase()}] ${p.file}`);
-          } else if (!quiet && !signal.aborted) {
-            const pct = ((p.completed / p.total) * 100).toFixed(0);
-            process.stdout.write(`\r[${p.completed}/${p.total}] Processing... (${pct}%)`);
-            if (p.completed === p.total) {
-              process.stdout.write("\n");
+            if (p.status === "matched" || p.status === "cached") {
+              log.success(`${p.file} (${p.status})`);
+            } else if (p.status === "failed") {
+              log.error(`${p.file} (${p.status})`);
+            } else {
+              log.info(`${p.file} (${p.status})`);
             }
+          } else if (!quiet && !signal.aborted && progressBar) {
+            progressBar.advance();
+            progressBar.message(`Processing files (${p.completed}/${p.total})...`);
           }
         };
       }
@@ -286,7 +304,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           }
 
           if (!quiet) {
-            console.log("\nPrimary Database unreachable.");
+            log.warn("Primary Database unreachable.");
           }
 
           if (!yes) {
@@ -300,14 +318,19 @@ export function createScanHandlers(options: ScanHandlerOptions) {
 
           let lastError: unknown = dbError;
           for (const fallbackDb of fallbacks) {
+            let fallbackSpinner: ReturnType<typeof spinner> | undefined;
             if (!quiet) {
-              console.log(`Trying fallback database...`);
+              fallbackSpinner = spinner();
+              fallbackSpinner.start("Trying fallback database...");
             }
             try {
               const fallbackScanner = buildScanner(fallbackDb);
-              return await runBatch(fallbackScanner);
+              const results = await runBatch(fallbackScanner);
+              fallbackSpinner?.stop("Fallback succeeded");
+              return results;
             } catch (fallbackError) {
               lastError = fallbackError;
+              fallbackSpinner?.stop("Fallback failed");
             }
           }
 
@@ -317,6 +340,10 @@ export function createScanHandlers(options: ScanHandlerOptions) {
 
       try {
         const scanResults = await tryScan(scanner);
+
+        if (progressBar) {
+          progressBar.stop(`Processed ${unorganizedFiles.length} files`);
+        }
 
         const skippedResults: ScanResult[] = organizedFiles.map((file) => ({
           file,
@@ -335,7 +362,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           const matchedCount = allResults.filter((r) => r.status === "matched").length;
           const failedCount = allResults.filter((r) => r.status === "failed").length;
           const remaining = filePaths.length - allResults.length;
-          console.log(
+          log.warn(
             `Interrupted: ${matchedCount} completed, ${remaining} pending, ${failedCount} failed.`,
           );
         }
@@ -347,7 +374,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
 
         if (!interrupted && pendingIndices.length > 0) {
           if (!quiet) {
-            console.log(`\nResolving ${pendingIndices.length} pending file(s)...`);
+            log.message(`Resolving ${pendingIndices.length} pending file(s)...`);
           }
           for (const idx of pendingIndices) {
             const result = allResults[idx];
@@ -372,12 +399,12 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           const skipped = allResults.filter((r) => r.status === "skipped").length;
           const ambiguous = allResults.filter((r) => r.status === "ambiguous").length;
           const failedResults = allResults.filter((r) => r.status === "failed" && r.failureReason);
-          console.log(
+          log.message(
             `Summary: ${matched} matched, ${ambiguous} unresolved, ${failedResults.length} failed, ${cached + skipped} skipped (already organized)`,
           );
 
           if (failedResults.length > 0) {
-            console.log(
+            log.error(
               `${failedResults.length} file(s) failed:\n${failedResults.map((r) => `  - ${r.file} (${r.failureReason})`).join("\n")}`,
             );
           }
@@ -396,13 +423,14 @@ export function createScanHandlers(options: ScanHandlerOptions) {
             const rollbackSuccess = rollbackResults.filter((r) => r.success).length;
             const rollbackFailed = rollbackResults.filter((r) => !r.success).length;
             if (!quiet) {
-              console.log(`Rollback: ${rollbackSuccess} reverted, ${rollbackFailed} errors`);
+              log.message(`Rollback: ${rollbackSuccess} reverted, ${rollbackFailed} errors`);
             }
           }
         }
 
         return allResults;
       } finally {
+        progressBar?.cancel();
         process.off("SIGINT", onSigint);
       }
     },

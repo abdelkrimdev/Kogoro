@@ -12,11 +12,16 @@ export function registerPlugins(parser: ReturnType<typeof yargs>, config: Config
           "list",
           "List all plugins",
           () => {},
-          () => {
+          (argv) => {
             const registry = new PluginRegistry();
             registry.setDisabled(config.getDisabledPlugins());
             const plugins = registry.list();
-            console.log(JSON.stringify(plugins, null, 2));
+            // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+            if (argv["json"]) {
+              console.log(JSON.stringify(plugins, null, 2));
+            } else {
+              console.table(plugins);
+            }
           },
         )
         .demandCommand(1, "Please specify a plugins action"),

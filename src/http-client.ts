@@ -4,6 +4,7 @@ export interface DebugEntry {
   method: string;
   status?: number;
   body?: string;
+  ms?: number;
 }
 
 type DebugCallback = (entry: DebugEntry) => void;
@@ -35,18 +36,25 @@ export class HttpClient {
   async fetch(url: string | URL, init?: RequestInit): Promise<Response> {
     const urlStr = typeof url === "string" ? url : url.toString();
     const method = init?.method ?? "GET";
+    const startTime = Date.now();
 
     this.onDebug?.({ type: "request", url: urlStr, method });
     await this.enforceRateLimit();
     const response = await this.executeWithRetry(url, init);
-    return this.debugResponse(response, urlStr, method);
+    return this.debugResponse(response, urlStr, method, startTime);
   }
 
-  private async debugResponse(response: Response, url: string, method: string): Promise<Response> {
+  private async debugResponse(
+    response: Response,
+    url: string,
+    method: string,
+    startTime: number,
+  ): Promise<Response> {
     if (!this.onDebug) return response;
 
     const bodyText = await response.text();
-    const truncated = bodyText.length <= 4096 ? bodyText : `${bodyText.slice(0, 4096)}...`;
+    const ms = Date.now() - startTime;
+    const truncated = bodyText.length <= 200 ? bodyText : `${bodyText.slice(0, 200)}...`;
 
     this.onDebug({
       type: "response",
@@ -54,6 +62,7 @@ export class HttpClient {
       method,
       status: response.status,
       body: truncated,
+      ms,
     });
 
     return new Response(bodyText, {

@@ -1,3 +1,4 @@
+import { log } from "@clack/prompts";
 import type yargs from "yargs";
 
 export type MetadataHandlerFactory = (debug?: boolean) => Promise<
@@ -30,19 +31,25 @@ export function registerMetadata(
           type: "boolean",
           default: false,
           describe: "Overwrite existing .nfo files",
-        })
-        .option("debug", {
-          type: "boolean",
-          default: false,
-          describe: "Dump API requests and responses",
         }),
     async (argv) => {
-      const handlers = await createHandlers(argv.debug);
+      // biome-ignore lint/complexity/useLiteralKeys: yargs index signature
+      const handlers = await createHandlers(argv["debug"] as boolean | undefined);
       if (handlers) {
-        await handlers.write(argv.path, argv.force, console.log, console.error);
+        await handlers.write(
+          argv.path,
+          argv.force,
+          (msg) => log.message(msg),
+          (msg) => log.error(msg),
+        );
       } else {
         const { createMetadataHandlers } = await import("./handlers");
-        await createMetadataHandlers().write(argv.path, argv.force, console.log, console.error);
+        await createMetadataHandlers().write(
+          argv.path,
+          argv.force,
+          (msg) => log.message(msg),
+          (msg) => log.error(msg),
+        );
       }
     },
   );
