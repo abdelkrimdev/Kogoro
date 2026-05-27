@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as v from "valibot";
-import { CONFIG_DIR, type Config, ConfigSchema, TEMPLATE_PRESETS } from "./schema";
+import { CONFIG_DIR, type Config, ConfigSchema, SCHEMA_DEFAULTS, TEMPLATE_PRESETS } from "./schema";
 
 interface ConfigManagerOptions {
   configDir?: string;
@@ -222,6 +222,12 @@ export class ConfigManager {
       }
     }
     return disabled;
+  }
+
+  resolveMediaExtensions(): readonly string[] {
+    const fromConfig = this.getList("media-extensions");
+    if (fromConfig.length > 0) return fromConfig;
+    return SCHEMA_DEFAULTS["media-extensions"];
   }
 
   getTemplate(): string {

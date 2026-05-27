@@ -1,4 +1,5 @@
 import { basename, dirname, extname } from "node:path";
+import type { EpisodeNumbering } from "./config/schema";
 import { MatchCache } from "./match-cache";
 import {
   AMBIGUOUS_MATCH_REASON,
@@ -61,7 +62,8 @@ interface ScanFileOptions {
   dryRun?: boolean;
   action?: FileAction;
   baseDir?: string;
-  episodeNumbering?: "absolute" | "relative";
+  extensions?: readonly string[];
+  episodeNumbering?: EpisodeNumbering;
   onAmbiguous?: (
     candidates: MatchResult[],
     parsed: ParsedResult,
@@ -128,8 +130,8 @@ export class Scanner {
     return this.renamer.rollback();
   }
 
-  private parseFile(filePath: string): ParsedResult {
-    const parsed = parse(basename(filePath));
+  private parseFile(filePath: string, extensions?: readonly string[]): ParsedResult {
+    const parsed = parse(basename(filePath), extensions);
     if (!parsed.title) {
       const dirTitle = getDirectoryTitle(filePath);
       if (dirTitle) parsed.title = dirTitle;
@@ -410,7 +412,7 @@ export class Scanner {
             }
           }
 
-          const parsed = this.parseFile(filePath);
+          const parsed = this.parseFile(filePath, options?.extensions);
           const override = this.overrideStore?.get(overrideKey);
 
           if (override?.animeId) {

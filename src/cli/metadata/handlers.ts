@@ -1,3 +1,5 @@
+import type { ConfigManager } from "../../config/config-manager";
+import { SCHEMA_DEFAULTS } from "../../config/schema";
 import { MatchCache } from "../../match-cache";
 import { MetadataWriter } from "../../metadata-writer";
 import type { DatabasePlugin } from "../../plugins/database/plugin";
@@ -5,11 +7,14 @@ import type { DatabasePlugin } from "../../plugins/database/plugin";
 export interface MetadataHandlerOptions {
   dbPath?: string;
   database?: DatabasePlugin;
+  config?: ConfigManager;
 }
 
 export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
   const cache = new MatchCache({ dbPath: options.dbPath });
-  const writer = new MetadataWriter({ cache, database: options.database });
+  const extensions =
+    options.config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
+  const writer = new MetadataWriter({ cache, database: options.database, extensions });
 
   return {
     async write(

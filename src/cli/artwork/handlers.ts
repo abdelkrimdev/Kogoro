@@ -1,4 +1,6 @@
 import { ArtworkFetcher } from "../../artwork-fetcher";
+import type { ConfigManager } from "../../config/config-manager";
+import { SCHEMA_DEFAULTS } from "../../config/schema";
 import type { HttpClient } from "../../http-client";
 import { MatchCache } from "../../match-cache";
 import type { DatabasePlugin } from "../../plugins/database/plugin";
@@ -8,15 +10,19 @@ export interface ArtworkHandlerOptions {
   secondaryDbs?: DatabasePlugin[];
   cache?: MatchCache;
   httpClient?: HttpClient;
+  config?: ConfigManager;
 }
 
 export function createArtworkHandlers(options: ArtworkHandlerOptions) {
   const cache = options.cache ?? new MatchCache();
+  const extensions =
+    options.config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
   const fetcher = new ArtworkFetcher({
     primaryDb: options.primaryDb,
     secondaryDbs: options.secondaryDbs,
     cache,
     httpClient: options.httpClient,
+    extensions,
   });
 
   return {

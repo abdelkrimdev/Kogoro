@@ -77,7 +77,7 @@ export function run(argv: string[]): void {
     return withDatabase(
       debug,
       (factory) => factory.primaryDatabase(),
-      (database) => createMetadataHandlers({ database }),
+      (database) => createMetadataHandlers({ database, config }),
     );
   }
 
@@ -87,7 +87,7 @@ export function run(argv: string[]): void {
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
     const fallbackDatabases = await factory.secondaryDatabases();
-    return createArtworkHandlers({ primaryDb: database, secondaryDbs: fallbackDatabases });
+    return createArtworkHandlers({ primaryDb: database, secondaryDbs: fallbackDatabases, config });
   }
 
   async function createSubtitleWithCredentials(debug?: boolean) {
@@ -96,7 +96,7 @@ export function run(argv: string[]): void {
     const subtitlePlugin = await factory.subtitle();
     if (!subtitlePlugin) return undefined;
     const cache = new MatchCache();
-    return createSubtitleHandlers({ subtitlePlugin, cache });
+    return createSubtitleHandlers({ subtitlePlugin, cache, config });
   }
 
   const parser = yargs(hideBin(argv)).scriptName("kogoro").usage("$0 <command> [options]");

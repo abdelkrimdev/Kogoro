@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { ConfigManager } from "../../config/config-manager";
+import { SCHEMA_DEFAULTS } from "../../config/schema";
 import { OverrideStore } from "../../override-store";
 import { computeFileHash } from "../../scanner";
 import {
@@ -329,6 +330,125 @@ describe("scan CLI commands", () => {
       expect(results).toHaveLength(1);
       expect(results[0]?.status).toBe("matched");
       expect(results[0]?.plan?.targetFilename).toMatch(/2x05/);
+    });
+  });
+
+  describe("resolution chains", () => {
+    test("resolve episode numbering from config over schema default", async () => {
+      await withTempDir("scan-numbering-chain", async (dir) => {
+        writeTempFile(dir, "[Group] Test Anime - S02E06.mkv", "content");
+
+        const episodes = makeEpisodes(24, 2);
+        const db = _createMockDb({
+          searchAnime: (title: string) => [{ id: "1", titleEn: title, entryType: "tv" as const }],
+          getEpisodes: () => episodes,
+        });
+
+        const configDir = join(dir, "config");
+        mkdirSync(configDir);
+        const config = new ConfigManager({ configDir });
+        config.set("episode-numbering", "absolute");
+
+        const handlers = createScanHandlers({ database: db, config });
+        const results = await handlers.scan(dir, { yes: true, dryRun: true });
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.status).toBe("matched");
+        expect(results[0]?.plan?.targetFilename).toMatch(/1x30/);
+      });
+    });
+
+    test("resolve episode numbering from schema default when neither CLI nor config set", async () => {
+      await withTempDir("scan-numbering-default", async (dir) => {
+        writeTempFile(dir, "[Group] Test Anime - S02E06.mkv", "content");
+
+        const episodes = makeEpisodes(24, 2);
+        const db = _createMockDb({
+          searchAnime: (title: string) => [{ id: "1", titleEn: title, entryType: "tv" as const }],
+          getEpisodes: () => episodes,
+        });
+
+        const handlers = createScanHandlers({ database: db });
+        const results = await handlers.scan(dir, { yes: true, dryRun: true });
+
+        expect(results).toHaveLength(1);
+        expect("relative").toBe(SCHEMA_DEFAULTS["episode-numbering"]);
+        expect(results[0]?.plan?.targetFilename).toMatch(/2x06/);
+      });
+    });
+
+    test("resolve rename action from config over Scanner default", async () => {
+      await withTempDir("scan-action-chain", async (dir) => {
+        const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
+
+        const configDir = join(dir, "config");
+        mkdirSync(configDir);
+        const config = new ConfigManager({ configDir });
+        config.set("rename-action", "copy");
+
+        const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+        const results = await handlers.scan(filePath, { yes: true });
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.status).toBe("matched");
+        expect(results[0]?.plan?.action).toBe("copy");
+        expect(existsSync(filePath)).toBe(true);
+      });
+    });
+
+    test("resolve concurrency from config over schema default", async () => {
+      await withTempDir("scan-concurrency-chain", async (dir) => {
+        writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
+
+        const configDir = join(dir, "config");
+        mkdirSync(configDir);
+        const config = new ConfigManager({ configDir });
+        config.set("scan-concurrency", "2");
+
+        const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+        const results = await handlers.scan(dir, { yes: true, dryRun: true });
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.status).toBe("matched");
+      });
+    });
+
+    test("resolve exclude patterns from config", async () => {
+      await withTempDir("scan-exclude-chain", async (dir) => {
+        writeTempFile(dir, "[Group] Anime - 01.part", "content");
+        writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
+
+        const configDir = join(dir, "config");
+        mkdirSync(configDir);
+        const config = new ConfigManager({ configDir });
+
+        const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+        const results = await handlers.scan(dir, { yes: true, dryRun: true });
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.file).toContain(".mkv");
+      });
+    });
+
+    test("resolve media extensions from config", async () => {
+      await withTempDir("scan-ext-chain", async (dir) => {
+        writeTempFile(dir, "video.custom", "content");
+        writeTempFile(dir, "video.mkv", "content");
+
+        const configDir = join(dir, "config");
+        mkdirSync(configDir);
+        const config = new ConfigManager({ configDir });
+        config.set("media-extensions", ".custom");
+
+        const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+        const results = await handlers.scan(dir, {
+          yes: true,
+          dryRun: true,
+        });
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.file).toContain(".custom");
+      });
     });
   });
 });

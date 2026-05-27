@@ -16,6 +16,7 @@ interface MetadataSummary {
 interface MetadataWriterOptions {
   cache: MatchCache;
   database?: DatabasePlugin;
+  extensions?: readonly string[];
 }
 
 function escapeXml(str: string): string {
@@ -30,10 +31,12 @@ function escapeXml(str: string): string {
 export class MetadataWriter {
   private cache: MatchCache;
   private database?: DatabasePlugin;
+  private extensions: readonly string[];
 
   constructor(options: MetadataWriterOptions) {
     this.cache = options.cache;
     this.database = options.database;
+    this.extensions = options.extensions ?? SCHEMA_DEFAULTS["media-extensions"];
   }
 
   async write(dirPath: string, options?: { force?: boolean }): Promise<MetadataSummary> {
@@ -43,7 +46,7 @@ export class MetadataWriter {
     let skipped = 0;
     let failed = 0;
 
-    const videoFiles = walk(dirPath, SCHEMA_DEFAULTS["media-extensions"]);
+    const videoFiles = walk(dirPath, this.extensions);
     const episodeCache = new Map<string, Map<number, EpisodeResult>>();
     const animeCache = new Map<string, string | undefined>();
 

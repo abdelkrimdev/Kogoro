@@ -12,6 +12,7 @@ interface ArtworkFetcherOptions {
   secondaryDbs?: DatabasePlugin[];
   cache: MatchCache;
   httpClient?: HttpClient;
+  extensions?: readonly string[];
 }
 
 interface ArtworkSummary {
@@ -26,12 +27,14 @@ export class ArtworkFetcher {
   private secondaryDbs: DatabasePlugin[];
   private cache: MatchCache;
   private httpClient: HttpClient;
+  private extensions: readonly string[];
 
   constructor(options: ArtworkFetcherOptions) {
     this.primaryDb = options.primaryDb;
     this.secondaryDbs = options.secondaryDbs ?? [];
     this.cache = options.cache;
     this.httpClient = options.httpClient ?? new HttpClient();
+    this.extensions = options.extensions ?? SCHEMA_DEFAULTS["media-extensions"];
   }
 
   async process(
@@ -39,7 +42,7 @@ export class ArtworkFetcher {
     options?: { force?: boolean },
     onLog?: (msg: string) => void,
   ): Promise<ArtworkSummary> {
-    const videoFiles = walk(rootPath, SCHEMA_DEFAULTS["media-extensions"]);
+    const videoFiles = walk(rootPath, this.extensions);
 
     const animeMap = new Map<string, string[]>();
 

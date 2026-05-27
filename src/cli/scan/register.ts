@@ -50,6 +50,7 @@ export function registerScan(
         .option("episode-numbering", {
           type: "string",
           choices: ["absolute", "relative"] as const,
+          default: SCHEMA_DEFAULTS["episode-numbering"],
           describe: "Override preferred episode numbering scheme",
         })
         .option("verbose", {

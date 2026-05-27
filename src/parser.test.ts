@@ -389,4 +389,36 @@ describe("Filename parsing", () => {
       });
     });
   });
+
+  describe("extensions parameter", () => {
+    test("parses file with custom extensions list", () => {
+      const result = parse("[Group] Title - 01 [1080p][Mini].custom", [".custom", ".foo"]);
+      expect(result.title).toBe("Title");
+      expect(result.episode).toBe(1);
+      expect(result.tags.resolution).toBe("1080p");
+    });
+
+    test("parses file with nested double extension", () => {
+      const result = parse(
+        "Mirai.ai] Eizouken ni wa Te wo Dasu na! - 07 [720p][Mini].custom.corrupted].custom",
+        [".custom"],
+      );
+      expect(result.title).toBe("Eizouken ni wa Te wo Dasu na!");
+      expect(result.episode).toBe(7);
+      expect(result.tags.group).toBe("Mirai.ai");
+      expect(result.tags.resolution).toBe("720p");
+    });
+
+    test("strips only extensions in the provided list", () => {
+      const result = parse("[Group] Title - 01.foo", [".foo", ".bar"]);
+      expect(result.title).toBe("Title");
+      expect(result.episode).toBe(1);
+    });
+
+    test("uses default when no extensions provided", () => {
+      const result = parse("[Group] Title - 01.mkv");
+      expect(result.title).toBe("Title");
+      expect(result.episode).toBe(1);
+    });
+  });
 });

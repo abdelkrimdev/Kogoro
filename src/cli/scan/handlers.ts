@@ -2,7 +2,7 @@ import { lstatSync } from "node:fs";
 import { basename, dirname, sep } from "node:path";
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import type { ConfigManager } from "../../config/config-manager";
-import { SCHEMA_DEFAULTS } from "../../config/schema";
+import { type EpisodeNumbering, SCHEMA_DEFAULTS, TEMPLATE_PRESETS } from "../../config/schema";
 import { walk } from "../../directory-walker";
 import type { MatchCache } from "../../match-cache";
 import { Matcher, type MatchResult } from "../../matcher";
@@ -26,22 +26,26 @@ export interface ScanOptions {
   yes?: boolean;
   force?: boolean;
   action?: FileAction;
-  episodeNumbering?: "absolute" | "relative";
+  episodeNumbering?: EpisodeNumbering;
   verbose?: boolean;
   quiet?: boolean;
   extensions?: string[];
   concurrency?: number;
 }
 
-const DEFAULT_FILENAME_TEMPLATE = "{anime} - {season}x{episode:02} - {title}.{ext}";
+function getFilenameTemplate(config?: ConfigManager): string {
+  const template = config ? config.getTemplate() : `${TEMPLATE_PRESETS.standard}.{ext}`;
+  if (template.includes("{ext}")) {
+    return template;
+  }
+  return `${template}.{ext}`;
+}
 
-function resolveExtensions(config?: ConfigManager, overrides?: string[]): string[] {
+function resolveExtensions(config?: ConfigManager, overrides?: string[]): readonly string[] {
   if (overrides && overrides.length > 0) {
     return overrides.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`));
   }
-  const fromConfig = config?.getList("media-extensions");
-  if (fromConfig && fromConfig.length > 0) return fromConfig;
-  return [...SCHEMA_DEFAULTS["media-extensions"]];
+  return config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
 }
 
 function resolveExcludePatterns(config?: ConfigManager): string[] {
@@ -59,21 +63,13 @@ export function isAlreadyOrganized(filePath: string): boolean {
 
 function discoverFiles(
   rootPath: string,
-  extensions: string[],
+  extensions: readonly string[],
   excludePatterns: string[],
 ): string[] {
   if (lstatSync(rootPath).isDirectory()) {
     return walk(rootPath, extensions, { excludePatterns });
   }
   return [rootPath];
-}
-
-function getFilenameTemplate(config?: ConfigManager): string {
-  const template = config ? config.getTemplate() : DEFAULT_FILENAME_TEMPLATE;
-  if (template.includes("{ext}")) {
-    return template;
-  }
-  return `${template}.{ext}`;
 }
 
 function getDirectoryTemplate(config?: ConfigManager): string {
@@ -198,14 +194,15 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const dryRun = scanOptions?.dryRun ?? false;
       const yes = scanOptions?.yes ?? false;
       const force = scanOptions?.force ?? false;
-      const action = scanOptions?.action;
+      const action =
+        scanOptions?.action ?? (options.config?.get("rename-action") as FileAction | undefined);
       const verbose = scanOptions?.verbose ?? false;
       const quiet = scanOptions?.quiet ?? false;
       const configNumbering = options.config?.get("episode-numbering") as
-        | "absolute"
-        | "relative"
+        | EpisodeNumbering
         | undefined;
-      const episodeNumbering = scanOptions?.episodeNumbering ?? configNumbering;
+      const episodeNumbering =
+        scanOptions?.episodeNumbering ?? configNumbering ?? SCHEMA_DEFAULTS["episode-numbering"];
       const configConcurrency = options.config
         ? Number(options.config.get("scan-concurrency"))
         : NaN;
@@ -273,6 +270,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           baseDir,
           concurrency,
           episodeNumbering,
+          extensions,
           abortSignal: abortController.signal,
           onProgress: buildOnProgress(abortController.signal),
         });
@@ -360,6 +358,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
               action,
               baseDir,
               episodeNumbering,
+              extensions,
               onAmbiguous: yes ? async (candidates) => candidates[0] ?? null : resolveAmbiguous,
               onFailed: yes ? async () => null : resolveFailed,
             });

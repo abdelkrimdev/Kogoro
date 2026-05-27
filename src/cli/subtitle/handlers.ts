@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { relative, sep } from "node:path";
+import type { ConfigManager } from "../../config/config-manager";
 import { SCHEMA_DEFAULTS } from "../../config/schema";
 import { walk } from "../../directory-walker";
 import { MatchCache } from "../../match-cache";
@@ -8,6 +9,7 @@ import type { SubtitlePlugin } from "../../plugins/subtitle/plugin";
 export interface SubtitleHandlerOptions {
   subtitlePlugin: SubtitlePlugin;
   cache: MatchCache;
+  config?: ConfigManager;
 }
 
 export interface SubtitleFetchOptions {
@@ -15,23 +17,33 @@ export interface SubtitleFetchOptions {
   force?: boolean;
 }
 
+function resolveLanguage(cliLang: string | undefined, config?: ConfigManager): string {
+  if (cliLang) return cliLang;
+  const fromConfig = config?.get("subtitle-language");
+  if (typeof fromConfig === "string" && fromConfig.trim()) return fromConfig;
+  return SCHEMA_DEFAULTS["subtitle-language"];
+}
+
 export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
   const { subtitlePlugin, cache } = options;
 
   async function fetch(
     dirPath: string,
-    opts: SubtitleFetchOptions,
+    opts: SubtitleFetchOptions = {},
     onLog: (msg: string) => void,
     onError: (msg: string) => void,
   ): Promise<void> {
-    const language = opts.language ?? SCHEMA_DEFAULTS["subtitle-language"];
+    const language = resolveLanguage(opts.language, options.config);
     const force = opts.force ?? false;
     let downloaded = 0;
     let skipped = 0;
     let failed = 0;
 
     try {
-      const files = walk(dirPath, SCHEMA_DEFAULTS["media-extensions"]);
+      const files = walk(
+        dirPath,
+        options.config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"],
+      );
 
       for (const filePath of files) {
         const hash = await MatchCache.hashFile(filePath);
