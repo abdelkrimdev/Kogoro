@@ -183,12 +183,4 @@ export class PluginRegistry {
     }
     return Array.from(this.plugins.values());
   }
-
-  getDatabasePlugins(): PluginInfo[] {
-    return this.list().filter((p) => p.type === "database");
-  }
-
-  getSubtitlePlugins(): PluginInfo[] {
-    return this.list().filter((p) => p.type === "subtitle");
-  }
 }

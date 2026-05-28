@@ -1,6 +1,6 @@
 import type { ConfigManager } from "./config/config-manager";
 import type { CredentialStore } from "./config/credential-store";
-import { HttpClient } from "./http-client";
+import { type DebugEntry, HttpClient } from "./http-client";
 import { PluginRegistry } from "./plugin-registry";
 import { AniDBPlugin } from "./plugins/database/anidb-plugin";
 import type { DatabasePlugin } from "./plugins/database/plugin";
@@ -8,25 +8,10 @@ import { TVDBPlugin } from "./plugins/database/tvdb-plugin";
 import { OpenSubtitlesPlugin } from "./plugins/subtitle/opensubtitles-plugin";
 import type { SubtitlePlugin } from "./plugins/subtitle/plugin";
 
-const CREDENTIAL_KEYS = {
-  tvdb: "tvdb",
-  anidb: "anidb",
-  opensubtitles: "opensubtitles",
-} as const;
-
 const RATE_LIMITS = {
   tvdb: 200,
   anidb: 2000,
 } as const;
-
-interface DebugEntry {
-  type: string;
-  url: string;
-  method: string;
-  status?: number;
-  body?: string;
-  ms?: number;
-}
 
 function prettifyBody(body: string): string {
   try {
@@ -73,7 +58,7 @@ export class PluginFactory {
     }
     switch (name) {
       case "tvdb": {
-        const apiKey = await this.credentialStore.getCredential(CREDENTIAL_KEYS.tvdb);
+        const apiKey = await this.credentialStore.getCredential("tvdb");
         if (!apiKey) {
           console.error("No TVDB API key configured. Run 'kogoro config init' first.");
           return undefined;
@@ -85,7 +70,7 @@ export class PluginFactory {
         return new TVDBPlugin({ apiKey, httpClient });
       }
       case "anidb": {
-        const credential = await this.credentialStore.getCredential(CREDENTIAL_KEYS.anidb);
+        const credential = await this.credentialStore.getCredential("anidb");
         if (!credential) {
           console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
           return undefined;
@@ -110,11 +95,7 @@ export class PluginFactory {
 
   async subtitle(name?: string): Promise<SubtitlePlugin | undefined> {
     const pluginName = name ?? "opensubtitles";
-    if (!(pluginName in CREDENTIAL_KEYS)) return undefined;
-
-    const apiKey = await this.credentialStore.getCredential(
-      CREDENTIAL_KEYS[pluginName as keyof typeof CREDENTIAL_KEYS],
-    );
+    const apiKey = await this.credentialStore.getCredential(pluginName);
     if (!apiKey) {
       console.error(`No ${pluginName} API key configured. Run 'kogoro config init' first.`);
       return undefined;

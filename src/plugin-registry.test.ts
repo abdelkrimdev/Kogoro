@@ -36,6 +36,32 @@ describe("isDatabasePlugin", () => {
   });
 });
 
+describe("isSubtitlePlugin", () => {
+  test("returns true for object implementing SubtitlePlugin", () => {
+    const valid = {
+      async search() {
+        return [];
+      },
+      async download() {
+        return "";
+      },
+    };
+    expect(isSubtitlePlugin(valid)).toBe(true);
+  });
+
+  test("returns false for null", () => {
+    expect(isSubtitlePlugin(null)).toBe(false);
+  });
+
+  test("returns false for plain object without required methods", () => {
+    expect(isSubtitlePlugin({})).toBe(false);
+  });
+
+  test("returns false for object missing download method", () => {
+    expect(isSubtitlePlugin({ search: async () => [] })).toBe(false);
+  });
+});
+
 describe("PluginRegistry.instantiate", () => {
   test("returns null for non-existent external plugin", async () => {
     const registry = new PluginRegistry();
@@ -124,111 +150,11 @@ describe("PluginRegistry.instantiate", () => {
     expect(instance).toBeNull();
   });
 
-  describe("with disabled plugins", () => {
-    test("returns null for disabled plugin", async () => {
-      const registry = new PluginRegistry();
-      registry.setDisabled(new Set(["tvdb"]));
-      const instance = await registry.instantiate("tvdb", {});
-      expect(instance).toBeNull();
-    });
-  });
-});
-
-describe("isSubtitlePlugin", () => {
-  test("returns true for object implementing SubtitlePlugin", () => {
-    const valid = {
-      async search() {
-        return [];
-      },
-      async download() {
-        return "";
-      },
-    };
-    expect(isSubtitlePlugin(valid)).toBe(true);
-  });
-
-  test("returns false for null", () => {
-    expect(isSubtitlePlugin(null)).toBe(false);
-  });
-
-  test("returns false for plain object without required methods", () => {
-    expect(isSubtitlePlugin({})).toBe(false);
-  });
-
-  test("returns false for object missing download method", () => {
-    expect(isSubtitlePlugin({ search: async () => [] })).toBe(false);
-  });
-});
-
-describe("PluginRegistry.setDisabled", () => {
-  test("marks built-in plugin as disabled", () => {
+  test("returns null for disabled plugin", async () => {
     const registry = new PluginRegistry();
     registry.setDisabled(new Set(["tvdb"]));
-    expect(registry.isEnabled("tvdb")).toBe(false);
-    expect(registry.isEnabled("anidb")).toBe(true);
-  });
-
-  test("does not affect unlisted plugins", () => {
-    const registry = new PluginRegistry();
-    registry.setDisabled(new Set(["unknown"]));
-    expect(registry.isEnabled("tvdb")).toBe(true);
-  });
-
-  test("disabled plugins appear as not enabled in the plugin list", () => {
-    const registry = new PluginRegistry();
-    registry.setDisabled(new Set(["anidb"]));
-    const plugins = registry.list();
-    const anidb = plugins.find((p) => p.name === "anidb");
-    expect(anidb?.enabled).toBe(false);
-    const tvdb = plugins.find((p) => p.name === "tvdb");
-    expect(tvdb?.enabled).toBe(true);
-  });
-
-  test("re-enabling a plugin restores its entry", () => {
-    const registry = new PluginRegistry();
-    registry.setDisabled(new Set(["tvdb"]));
-    expect(registry.isEnabled("tvdb")).toBe(false);
-    registry.setDisabled(new Set());
-    expect(registry.isEnabled("tvdb")).toBe(true);
-  });
-});
-
-describe("PluginRegistry", () => {
-  test("discovers built-in database plugins", () => {
-    const registry = new PluginRegistry();
-    const plugins = registry.list();
-    const dbPlugins = plugins.filter((p) => p.type === "database");
-    expect(dbPlugins.length).toBeGreaterThanOrEqual(2);
-    expect(dbPlugins.some((p) => p.name === "tvdb")).toBe(true);
-    expect(dbPlugins.some((p) => p.name === "anidb")).toBe(true);
-  });
-
-  test("discovers built-in subtitle plugin", () => {
-    const registry = new PluginRegistry();
-    const plugins = registry.list();
-    const subPlugins = plugins.filter((p) => p.type === "subtitle");
-    expect(subPlugins.some((p) => p.name === "opensubtitles")).toBe(true);
-  });
-
-  test("all built-in plugins are marked as built-in source", () => {
-    const registry = new PluginRegistry();
-    const plugins = registry.list();
-    for (const p of plugins) {
-      expect(p.source).toBe("built-in");
-    }
-  });
-
-  test("all built-in plugins are initially enabled", () => {
-    const registry = new PluginRegistry();
-    const plugins = registry.list();
-    for (const p of plugins) {
-      expect(p.enabled).toBe(true);
-    }
-  });
-
-  test("isEnabled returns true for unknown plugin by default", () => {
-    const registry = new PluginRegistry();
-    expect(registry.isEnabled("nonexistent")).toBe(true);
+    const instance = await registry.instantiate("tvdb", {});
+    expect(instance).toBeNull();
   });
 });
 
@@ -302,5 +228,77 @@ describe("PluginRegistry.instantiateSubtitle", () => {
     const first = await registry.instantiateSubtitle("singletonsubs", {});
     const second = await registry.instantiateSubtitle("singletonsubs", {});
     expect(first).toBe(second);
+  });
+});
+
+describe("PluginRegistry.setDisabled", () => {
+  test("marks built-in plugin as disabled", () => {
+    const registry = new PluginRegistry();
+    registry.setDisabled(new Set(["tvdb"]));
+    expect(registry.isEnabled("tvdb")).toBe(false);
+    expect(registry.isEnabled("anidb")).toBe(true);
+  });
+
+  test("does not affect unlisted plugins", () => {
+    const registry = new PluginRegistry();
+    registry.setDisabled(new Set(["unknown"]));
+    expect(registry.isEnabled("tvdb")).toBe(true);
+  });
+
+  test("disabled plugins appear as not enabled in the plugin list", () => {
+    const registry = new PluginRegistry();
+    registry.setDisabled(new Set(["anidb"]));
+    const plugins = registry.list();
+    const anidb = plugins.find((p) => p.name === "anidb");
+    expect(anidb?.enabled).toBe(false);
+    const tvdb = plugins.find((p) => p.name === "tvdb");
+    expect(tvdb?.enabled).toBe(true);
+  });
+
+  test("re-enabling a plugin restores its entry", () => {
+    const registry = new PluginRegistry();
+    registry.setDisabled(new Set(["tvdb"]));
+    expect(registry.isEnabled("tvdb")).toBe(false);
+    registry.setDisabled(new Set());
+    expect(registry.isEnabled("tvdb")).toBe(true);
+  });
+});
+
+describe("PluginRegistry", () => {
+  test("discovers built-in database plugins", () => {
+    const registry = new PluginRegistry();
+    const plugins = registry.list();
+    const dbPlugins = plugins.filter((p) => p.type === "database");
+    expect(dbPlugins.length).toBeGreaterThanOrEqual(2);
+    expect(dbPlugins.some((p) => p.name === "tvdb")).toBe(true);
+    expect(dbPlugins.some((p) => p.name === "anidb")).toBe(true);
+  });
+
+  test("discovers built-in subtitle plugin", () => {
+    const registry = new PluginRegistry();
+    const plugins = registry.list();
+    const subPlugins = plugins.filter((p) => p.type === "subtitle");
+    expect(subPlugins.some((p) => p.name === "opensubtitles")).toBe(true);
+  });
+
+  test("all built-in plugins are marked as built-in source", () => {
+    const registry = new PluginRegistry();
+    const plugins = registry.list();
+    for (const p of plugins) {
+      expect(p.source).toBe("built-in");
+    }
+  });
+
+  test("all built-in plugins are initially enabled", () => {
+    const registry = new PluginRegistry();
+    const plugins = registry.list();
+    for (const p of plugins) {
+      expect(p.enabled).toBe(true);
+    }
+  });
+
+  test("isEnabled returns true for unknown plugin by default", () => {
+    const registry = new PluginRegistry();
+    expect(registry.isEnabled("nonexistent")).toBe(true);
   });
 });
