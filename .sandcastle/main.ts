@@ -66,7 +66,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // One iteration is enough: the planner just needs to read and reason,
     // not write code.
     maxIterations: 1,
-    agent: sandcastle.opencode("opencode-go/deepseek-v4-pro"),
+    agent: sandcastle.opencode("deepseek/deepseek-v4-pro"),
     promptFile: "./.sandcastle/plan-prompt.md",
   });
 
@@ -120,7 +120,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
-          agent: sandcastle.opencode("opencode-go/deepseek-v4-flash"),
+          agent: sandcastle.opencode("opencode/mimo-v2.5-free"),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -134,7 +134,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
-            agent: sandcastle.opencode("opencode-go/deepseek-v4-pro"),
+            agent: sandcastle.opencode("opencode/mimo-v2.5-free"),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
@@ -205,7 +205,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: docker(),
     name: "merger",
     maxIterations: 1,
-    agent: sandcastle.opencode("opencode-go/deepseek-v4-pro"),
+    agent: sandcastle.opencode("deepseek/deepseek-v4-pro"),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.
