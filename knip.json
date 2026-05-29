@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unjs.github.io/knip/schema.json",
+  "workspaces": {
+    "apps/gui": {
+      "entry": [
+        "src/bun/index.ts",
+        "src/mainview/index.ts",
+        "src/mainview/index.html",
+        "electrobun.config.ts"
+      ],
+      "ignoreDependencies": [
+        "svelte",
+        "@skeletonlabs/skeleton",
+        "@skeletonlabs/skeleton-svelte"
+      ]
+    }
+  }
+}

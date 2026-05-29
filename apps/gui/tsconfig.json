@@ -1,16 +1,14 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
     "allowJs": true,
-
     "moduleResolution": "bundler",
     "types": ["bun", "node"],
     "verbatimModuleSyntax": true,
     "noEmit": true,
-
     "strict": true,
     "noImplicitAny": true,
     "skipLibCheck": true,
@@ -21,5 +19,6 @@
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": true
   },
-  "exclude": ["apps/gui"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
 }

@@ -11,7 +11,7 @@
   "scripts": {
     "build": "bun build apps/cli/src/index.ts --outdir dist --target bun",
     "build:bin": "bun build --compile apps/cli/src/index.ts --outfile dist/kogoro",
-    "check": "bun x tsc --noEmit",
+    "check": "bun x tsc --noEmit && (cd apps/gui && bun x tsc --noEmit)",
     "test": "bun test",
     "lint": "biome lint --write .",
     "format": "biome format --write .",

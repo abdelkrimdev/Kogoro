@@ -1,0 +1,21 @@
+{
+  "name": "@kogoro/gui",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run build:dev && electrobun dev",
+    "build:dev": "bun install && electrobun build",
+    "build": "bun install && electrobun build --release"
+  },
+  "dependencies": {
+    "electrobun": "^1.18.1",
+    "svelte": "^5.28.2",
+    "@skeletonlabs/skeleton": "^3.1.2",
+    "@skeletonlabs/skeleton-svelte": "^1.2.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "^5.8.3"
+  }
+}
