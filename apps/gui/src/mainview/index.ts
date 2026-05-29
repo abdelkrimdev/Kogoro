@@ -1,16 +1,30 @@
 import { Electroview } from "electrobun/view";
 import type { AppRPC } from "../shared/types";
+import { renderWizard } from "./wizard";
 
 const rpc = Electroview.defineRPC<AppRPC>({
   handlers: {
     requests: {},
-    messages: {},
+    messages: {
+      showOnboarding: () => {
+        currentMode = "onboarding";
+        render();
+      },
+      showMainApp: () => {
+        currentMode = "main";
+        render();
+      },
+    } as any,
   },
 });
 
 const electrobun = new Electroview({ rpc });
 
+type Mode = "onboarding" | "main";
 type View = "scan" | "library" | "settings";
+
+let currentMode: Mode = "main";
+let currentView: View = "scan";
 
 const views: Record<View, string> = {
   scan: `
@@ -32,26 +46,35 @@ const views: Record<View, string> = {
   settings: `
     <div class="flex items-center justify-center h-full">
       <div class="text-center space-y-4">
-        <h2 class="text-2xl font-bold">Settings</h2>
+        <h2 class="text-xl font-bold">Settings</h2>
         <p class="text-surface-500">Configure your Kogoro preferences.</p>
       </div>
     </div>
   `,
 };
 
-let currentView: View = "scan";
+function renderMain(): void {
+  const sidebar = document.querySelector("aside");
+  const header = document.querySelector("header");
+  const footer = document.querySelector("footer");
+  if (sidebar) sidebar.style.display = "";
+  if (header) header.style.display = "";
+  if (footer) footer.style.display = "";
 
-function renderView(view: View) {
   const content = document.getElementById("content");
   const statusText = document.getElementById("status-text");
-  if (content) content.innerHTML = views[view];
+  if (content) content.innerHTML = views[currentView];
   if (statusText)
     statusText.textContent =
-      view === "library" ? "Library ready" : view === "scan" ? "Ready to scan" : "Settings";
+      currentView === "library"
+        ? "Library ready"
+        : currentView === "scan"
+          ? "Ready to scan"
+          : "Settings";
 
   document.querySelectorAll("[data-nav]").forEach((el) => {
     const navItem = el.getAttribute("data-nav");
-    if (navItem === view) {
+    if (navItem === currentView) {
       el.classList.add("bg-primary-500/20", "text-primary-500");
       el.classList.remove("text-surface-400", "hover:text-surface-200");
     } else {
@@ -61,13 +84,43 @@ function renderView(view: View) {
   });
 }
 
+function renderOnboarding(): void {
+  const sidebar = document.querySelector("aside");
+  const header = document.querySelector("header");
+  const footer = document.querySelector("footer");
+  if (sidebar) sidebar.style.display = "none";
+  if (header) header.style.display = "none";
+  if (footer) footer.style.display = "none";
+
+  const content = document.getElementById("content");
+  if (content) {
+    renderWizard(content, rpc as any, () => {
+      // After onboarding completes, switch to main app
+      currentMode = "main";
+      render();
+    });
+  }
+}
+
+function render(): void {
+  if (currentMode === "onboarding") {
+    renderOnboarding();
+  } else {
+    renderMain();
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  renderView(currentView);
+  // Request onboarding status from main process
+  rpc.request("checkOnboarding", {}).then((result) => {
+    currentMode = result.needsOnboarding ? "onboarding" : "main";
+    render();
+  });
 
   document.querySelectorAll("[data-nav]").forEach((el) => {
     el.addEventListener("click", () => {
       currentView = el.getAttribute("data-nav") as View;
-      renderView(currentView);
+      renderMain();
     });
   });
 });

@@ -1,7 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
 import { BrowserView, BrowserWindow } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
+import { shouldShowOnboarding } from "./onboarding";
 
 const STATE_FILE = join(import.meta.dir, "../../.window-state.json");
 
@@ -26,12 +28,45 @@ function saveWindowState(state: { x: number; y: number; width: number; height: n
 
 const savedState = loadWindowState();
 
+const configManager = new ConfigManager();
+const credentialStore = createCredentialStore();
+
 const rpc = BrowserView.defineRPC<AppRPC>({
   maxRequestTime: 5000,
   handlers: {
     requests: {
       getWindowState: () => {
         return savedState;
+      },
+      checkOnboarding: () => {
+        return { needsOnboarding: shouldShowOnboarding(CONFIG_DIR) };
+      },
+      writeOnboardingConfig: async (params) => {
+        const { primaryDb, apiKey, templatePreset, templateCustom } = params;
+        // Set primary-db
+        const result1 = configManager.set("primary-db", primaryDb);
+        if (!result1.success) return { success: false, error: result1.error };
+        // Set template
+        const result2 = configManager.set("template.preset", templatePreset);
+        if (!result2.success) return { success: false, error: result2.error };
+        if (templateCustom) {
+          const result3 = configManager.set("template.custom", templateCustom);
+          if (!result3.success) return { success: false, error: result3.error };
+        }
+        // Store API key if provided
+        if (apiKey.length > 0) {
+          try {
+            await credentialStore.setCredential(primaryDb, apiKey);
+          } catch (err) {
+            return {
+              success: false,
+              error: `Failed to store API key: ${err instanceof Error ? err.message : String(err)}`,
+            };
+          }
+        }
+        // Initialize config (write to file)
+        configManager.init();
+        return { success: true };
       },
     },
     messages: {
@@ -51,6 +86,15 @@ const win = new BrowserWindow({
     : defaultFrame,
   rpc,
 });
+
+// Determine which view to show
+const needsOnboarding = shouldShowOnboarding(CONFIG_DIR);
+const send = rpc.send as unknown as { showOnboarding?: () => void; showMainApp?: () => void };
+if (needsOnboarding) {
+  send.showOnboarding?.();
+} else {
+  send.showMainApp?.();
+}
 
 win.on("resize", (event: unknown) => {
   const e = event as { data: { x: number; y: number; width: number; height: number } };
