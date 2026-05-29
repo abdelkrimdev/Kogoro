@@ -19,6 +19,8 @@ export {
 export { walk } from "./directory-walker";
 export type { DebugEntry } from "./http-client";
 export { HttpClient } from "./http-client";
+export type { LibraryAnime, LibraryEpisode, WatchStatus } from "./library-db";
+export { LibraryDb } from "./library-db";
 export type { CachedMatch } from "./match-cache";
 export { MatchCache } from "./match-cache";
 export type { MatcherLike, MatchResult } from "./matcher";
@@ -58,6 +60,7 @@ export {
   createCountingFetch,
   createDataMockDb,
   createEpisodeNumberingMatcher,
+  createLibraryDb,
   createLogCapture,
   createMockClackPrompts,
   createMockDb,

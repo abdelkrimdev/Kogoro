@@ -5,6 +5,7 @@ import type { KeytarLike } from "./config/bun-secrets-keytar";
 import { ConfigManager } from "./config/config-manager";
 import { CredentialStore } from "./config/credential-store";
 import { HttpClient } from "./http-client";
+import { LibraryDb } from "./library-db";
 import { type CachedMatch, MatchCache } from "./match-cache";
 import type { MatcherLike, MatchResult } from "./matcher";
 import type { ParsedResult, ParsedTags } from "./parser";
@@ -103,6 +104,10 @@ export function createArtworkDb(artworks: ArtworkResult[] = []): DatabasePlugin 
       return null;
     },
   };
+}
+
+export function createLibraryDb(dir: string): LibraryDb {
+  return new LibraryDb({ dbPath: join(dir, "library.db") });
 }
 
 export function createMockDb(opts: MockDbOptions = {}): DatabasePlugin {
