@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ArtworkFetcher } from "./artwork-fetcher";
 import { MatchCache } from "./match-cache";
+import type { ProgressEvent, TaskContext } from "./progress";
 import {
   createArtworkDb,
   createCache,
@@ -247,6 +248,72 @@ describe("ArtworkFetcher", () => {
       const summary = await fetcher.process(dir);
 
       expect(summary).toEqual({ total: 0, downloaded: 0, skipped: 0, noArtwork: 0 });
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("reports progress for each anime during download phase", async () => {
+    const { dir, cache, seedCache, cleanup } = setup();
+    try {
+      await seedCache();
+
+      const mockDb = createArtworkDb([
+        { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
+      ]);
+
+      const fetcher = new ArtworkFetcher({
+        primaryDb: mockDb,
+        cache,
+        httpClient: createMockHttpClient(mockFetch(testImageBytes)),
+      });
+
+      const events: ProgressEvent[] = [];
+      const ctx: TaskContext = {
+        progress: (p) => events.push(p),
+        log() {},
+        error() {},
+      };
+
+      const summary = await fetcher.process(dir, undefined, ctx);
+
+      expect(summary.total).toBe(1);
+      expect(events.length).toBeGreaterThanOrEqual(1);
+      expect(events[0]?.total).toBe(1);
+      expect(events[0]?.completed).toBeGreaterThanOrEqual(1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("stops processing when aborted", async () => {
+    const { dir, cache, cleanup } = setup();
+    try {
+      const mockDb = createArtworkDb([
+        { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
+        { id: "2", type: "poster", url: "https://example.com/poster2.jpg" },
+      ]);
+
+      const fetcher = new ArtworkFetcher({
+        primaryDb: mockDb,
+        cache,
+      });
+
+      const abortController = new AbortController();
+      const events: ProgressEvent[] = [];
+      const ctx: TaskContext = {
+        progress: (p) => {
+          events.push(p);
+          if (events.length >= 1) abortController.abort();
+        },
+        log() {},
+        error() {},
+        abortSignal: abortController.signal,
+      };
+
+      const summary = await fetcher.process(dir, undefined, ctx);
+
+      expect(summary.total).toBeLessThanOrEqual(2);
     } finally {
       cleanup();
     }

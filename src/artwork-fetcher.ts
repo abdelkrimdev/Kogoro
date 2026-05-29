@@ -6,6 +6,7 @@ import { HttpClient } from "./http-client";
 import { MatchCache } from "./match-cache";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { ArtworkResult } from "./plugins/database/types";
+import type { TaskContext } from "./progress";
 
 interface ArtworkFetcherOptions {
   primaryDb: DatabasePlugin;
@@ -40,13 +41,14 @@ export class ArtworkFetcher {
   async process(
     rootPath: string,
     options?: { force?: boolean },
-    onLog?: (msg: string) => void,
+    ctx?: TaskContext,
   ): Promise<ArtworkSummary> {
     const videoFiles = walk(rootPath, this.extensions);
 
     const animeMap = new Map<string, string[]>();
 
     for (const filePath of videoFiles) {
+      if (ctx?.abortSignal?.aborted) break;
       const hash = await MatchCache.hashFile(filePath);
       const match = this.cache.get(hash);
       if (match) {
@@ -63,27 +65,35 @@ export class ArtworkFetcher {
     let skipped = 0;
     let noArtwork = 0;
     const total = animeMap.size;
+    let completed = 0;
 
     for (const [animeId, files] of animeMap) {
+      if (ctx?.abortSignal?.aborted) break;
       const animeDir = this.findCommonParent(files);
 
       const coverPath = join(animeDir, "cover.jpg");
       if (existsSync(coverPath) && !options?.force) {
         skipped++;
-        if (onLog) onLog(`[skip] ${animeId} — cover.jpg already exists`);
+        ctx?.log(`[skip] ${animeId} — cover.jpg already exists`);
+        completed++;
+        ctx?.progress({ completed, total, file: animeId, status: "skipped" });
         continue;
       }
 
       const posterUrl = await this.findPosterUrl(animeId);
       if (!posterUrl) {
         noArtwork++;
-        if (onLog) onLog(`[no artwork] ${animeId} — no poster found`);
+        ctx?.log(`[no artwork] ${animeId} — no poster found`);
+        completed++;
+        ctx?.progress({ completed, total, file: animeId, status: "noArtwork" });
         continue;
       }
 
       await this.downloadImage(posterUrl, coverPath);
       downloaded++;
-      if (onLog) onLog(`[download] ${animeId} → ${coverPath}`);
+      ctx?.log(`[download] ${animeId} → ${coverPath}`);
+      completed++;
+      ctx?.progress({ completed, total, file: animeId, status: "downloaded" });
     }
 
     return { total, downloaded, skipped, noArtwork };

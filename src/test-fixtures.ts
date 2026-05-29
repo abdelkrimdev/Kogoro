@@ -278,6 +278,63 @@ export function createLogCapture() {
   };
 }
 
+export interface ClackCaptures {
+  logMessage: string[];
+  logError: string[];
+  logInfo: string[];
+  logWarn: string[];
+  logSuccess: string[];
+  spinnerStart: string[];
+  spinnerMessage: string[];
+  spinnerStop: string[];
+  reset(): void;
+}
+
+export function createMockClackPrompts(): {
+  mock: Record<string, unknown>;
+  captures: ClackCaptures;
+} {
+  const captures: ClackCaptures = {
+    logMessage: [],
+    logError: [],
+    logInfo: [],
+    logWarn: [],
+    logSuccess: [],
+    spinnerStart: [],
+    spinnerMessage: [],
+    spinnerStop: [],
+    reset() {
+      captures.logMessage.length = 0;
+      captures.logError.length = 0;
+      captures.logInfo.length = 0;
+      captures.logWarn.length = 0;
+      captures.logSuccess.length = 0;
+      captures.spinnerStart.length = 0;
+      captures.spinnerMessage.length = 0;
+      captures.spinnerStop.length = 0;
+    },
+  };
+
+  const mock = {
+    log: {
+      message: (msg: string) => captures.logMessage.push(msg),
+      error: (msg: string) => captures.logError.push(msg),
+      info: (msg: string) => captures.logInfo.push(msg),
+      warn: (msg: string) => captures.logWarn.push(msg),
+      success: (msg: string) => captures.logSuccess.push(msg),
+    },
+    spinner: () => ({
+      start: (msg: string) => captures.spinnerStart.push(msg),
+      message: (msg: string) => captures.spinnerMessage.push(msg),
+      stop: (msg: string) => captures.spinnerStop.push(msg),
+      cancel: () => {},
+    }),
+    isCancel: () => false,
+  };
+
+  return { mock, captures };
+}
+
 export function createMockKeytar(initial?: Record<string, string>): KeytarLike {
   const store = new Map(Object.entries(initial ?? {}));
   return {

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MetadataWriter } from "./metadata-writer";
+import type { ProgressEvent, TaskContext } from "./progress";
 import {
   createCache,
   createMockDb,
@@ -281,6 +282,87 @@ describe("MetadataWriter", () => {
         expect(nfoContent).not.toContain("<episodedetails>");
         expect(nfoContent).not.toContain("<season>");
         expect(summary.written).toBe(1);
+      });
+    });
+
+    test("reports progress for each file", async () => {
+      await withTempDir("metadata-ctx-progress", async (dir) => {
+        await seedCacheEntry(dir, "Anime A - 1x01.mkv", {
+          animeId: "1",
+          episodeId: "10",
+          season: 1,
+          episode: 1,
+          title: "Episode A",
+        });
+        await seedCacheEntry(dir, "Anime B - 1x01.mkv", {
+          animeId: "2",
+          episodeId: "20",
+          season: 1,
+          episode: 1,
+          title: "Episode B",
+        });
+
+        const cache = createCache(dir);
+        const writer = new MetadataWriter({ cache });
+
+        const events: ProgressEvent[] = [];
+        const ctx: TaskContext = {
+          progress: (p) => events.push(p),
+          log() {},
+          error() {},
+        };
+
+        const summary = await writer.write(dir, undefined, ctx);
+
+        expect(summary.total).toBe(2);
+        expect(events).toHaveLength(2);
+        expect(events[0]?.total).toBe(2);
+        expect(events[0]?.completed).toBe(1);
+        expect(events[1]?.completed).toBe(2);
+      });
+    });
+
+    test("stops processing when aborted", async () => {
+      await withTempDir("metadata-ctx-abort", async (dir) => {
+        await seedCacheEntry(dir, "Anime A - 1x01.mkv", {
+          animeId: "1",
+          episodeId: "10",
+          season: 1,
+          episode: 1,
+          title: "Episode A",
+        });
+        await seedCacheEntry(dir, "Anime B - 1x01.mkv", {
+          animeId: "2",
+          episodeId: "20",
+          season: 1,
+          episode: 1,
+          title: "Episode B",
+        });
+        await seedCacheEntry(dir, "Anime C - 1x01.mkv", {
+          animeId: "3",
+          episodeId: "30",
+          season: 1,
+          episode: 1,
+          title: "Episode C",
+        });
+
+        const cache = createCache(dir);
+        const writer = new MetadataWriter({ cache });
+
+        const abortController = new AbortController();
+        const ctx: TaskContext = {
+          progress: (p) => {
+            if (p.completed >= 1) abortController.abort();
+          },
+          log() {},
+          error() {},
+          abortSignal: abortController.signal,
+        };
+
+        const summary = await writer.write(dir, undefined, ctx);
+
+        expect(summary.total).toBeLessThanOrEqual(3);
+        expect(summary.total).toBeGreaterThanOrEqual(1);
       });
     });
   });

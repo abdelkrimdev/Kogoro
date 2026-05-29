@@ -1,13 +1,10 @@
-import { log } from "@clack/prompts";
 import type yargs from "yargs";
 
 type MetadataHandlerFactory = (debug?: boolean) => Promise<
   | {
       write(
         path: string,
-        force: boolean,
-        onLog: (msg: string) => void,
-        onError: (msg: string) => void,
+        cliOptions: { force?: boolean; verbose?: boolean; quiet?: boolean; json?: boolean },
       ): Promise<void>;
     }
   | undefined
@@ -31,16 +28,19 @@ export function registerMetadata(
           type: "boolean",
           default: false,
           describe: "Overwrite existing .nfo files",
+        })
+        .option("json", {
+          type: "boolean",
+          default: false,
+          describe: "Output summary as JSON",
         }),
     async (argv) => {
       const handlers = await createHandlers(argv["debug"] as boolean | undefined);
       if (!handlers) return;
-      await handlers.write(
-        argv.path,
-        argv.force,
-        (msg) => log.message(msg),
-        (msg) => log.error(msg),
-      );
+      await handlers.write(argv.path, {
+        force: argv.force,
+        json: argv.json,
+      });
     },
   );
 }

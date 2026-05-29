@@ -5,6 +5,7 @@ import { type CachedMatch, MatchCache } from "./match-cache";
 import { stripExtension } from "./parser";
 import type { DatabasePlugin } from "./plugins/database/plugin";
 import type { EpisodeResult } from "./plugins/database/types";
+import type { TaskContext } from "./progress";
 
 interface MetadataSummary {
   total: number;
@@ -39,7 +40,11 @@ export class MetadataWriter {
     this.extensions = options.extensions ?? SCHEMA_DEFAULTS["media-extensions"];
   }
 
-  async write(dirPath: string, options?: { force?: boolean }): Promise<MetadataSummary> {
+  async write(
+    dirPath: string,
+    options?: { force?: boolean },
+    ctx?: TaskContext,
+  ): Promise<MetadataSummary> {
     const force = options?.force ?? false;
     let total = 0;
     let written = 0;
@@ -51,12 +56,19 @@ export class MetadataWriter {
     const animeCache = new Map<string, string | undefined>();
 
     for (const filePath of videoFiles) {
+      if (ctx?.abortSignal?.aborted) break;
       total++;
       try {
         const nfoPath = `${stripExtension(filePath)}.nfo`;
 
         if (!force && existsSync(nfoPath)) {
           skipped++;
+          ctx?.progress({
+            completed: total,
+            total: videoFiles.length,
+            file: filePath,
+            status: "skipped",
+          });
           continue;
         }
 
@@ -65,6 +77,12 @@ export class MetadataWriter {
 
         if (!match) {
           skipped++;
+          ctx?.progress({
+            completed: total,
+            total: videoFiles.length,
+            file: filePath,
+            status: "skipped",
+          });
           continue;
         }
 
@@ -103,8 +121,20 @@ export class MetadataWriter {
 
         writeFileSync(nfoPath, xml, "utf-8");
         written++;
+        ctx?.progress({
+          completed: total,
+          total: videoFiles.length,
+          file: filePath,
+          status: "written",
+        });
       } catch {
         failed++;
+        ctx?.progress({
+          completed: total,
+          total: videoFiles.length,
+          file: filePath,
+          status: "failed",
+        });
       }
     }
 

@@ -5,6 +5,7 @@ import { SCHEMA_DEFAULTS } from "../../config/schema";
 import { walk } from "../../directory-walker";
 import { MatchCache } from "../../match-cache";
 import type { SubtitlePlugin } from "../../plugins/subtitle/plugin";
+import type { TaskContext } from "../../progress";
 import { resolveMediaExtensions } from "../extensions";
 
 export interface SubtitleHandlerOptions {
@@ -31,8 +32,7 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
   async function fetch(
     dirPath: string,
     opts: SubtitleFetchOptions = {},
-    onLog: (msg: string) => void,
-    onError: (msg: string) => void,
+    ctx?: TaskContext,
   ): Promise<void> {
     const language = resolveLanguage(opts.language, options.config);
     const force = opts.force ?? false;
@@ -42,17 +42,24 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
 
     try {
       const files = walk(dirPath, resolveMediaExtensions(options.config));
+      let completed = 0;
 
       for (const filePath of files) {
+        if (ctx?.abortSignal?.aborted) break;
+
         const hash = await MatchCache.hashFile(filePath);
         const cached = cache.get(hash);
 
         if (!cached) {
+          completed++;
+          ctx?.progress({ completed, total: files.length, file: filePath, status: "skipped" });
           continue;
         }
 
         const animeTitle = cached.animeTitle ?? extractAnimeTitle(dirPath, filePath);
         if (!animeTitle) {
+          completed++;
+          ctx?.progress({ completed, total: files.length, file: filePath, status: "skipped" });
           continue;
         }
 
@@ -60,6 +67,8 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
 
         if (!force && existsSync(subtitlePath)) {
           skipped++;
+          completed++;
+          ctx?.progress({ completed, total: files.length, file: filePath, status: "skipped" });
           continue;
         }
 
@@ -72,29 +81,37 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
 
         if (results.length === 0) {
           failed++;
+          completed++;
+          ctx?.progress({ completed, total: files.length, file: filePath, status: "failed" });
           continue;
         }
 
         const best = results[0];
         if (best === undefined) {
           failed++;
+          completed++;
+          ctx?.progress({ completed, total: files.length, file: filePath, status: "failed" });
           continue;
         }
         const content = await subtitlePlugin.download(best.fileId);
 
         if (!content) {
           failed++;
+          completed++;
+          ctx?.progress({ completed, total: files.length, file: filePath, status: "failed" });
           continue;
         }
 
         await Bun.write(subtitlePath, content);
         downloaded++;
-        onLog(`Downloaded: ${filePath} -> ${subtitlePath}`);
+        ctx?.log(`Downloaded: ${filePath} -> ${subtitlePath}`);
+        completed++;
+        ctx?.progress({ completed, total: files.length, file: filePath, status: "downloaded" });
       }
 
-      onLog(`\nSummary: ${downloaded} downloaded, ${skipped} skipped, ${failed} failed`);
+      ctx?.log(`\nSummary: ${downloaded} downloaded, ${skipped} skipped, ${failed} failed`);
     } catch (err) {
-      onError(`Subtitle fetch failed: ${String(err)}`);
+      ctx?.error(`Subtitle fetch failed: ${String(err)}`);
     }
   }
 

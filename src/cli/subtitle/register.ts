@@ -1,14 +1,14 @@
-import { log } from "@clack/prompts";
 import type yargs from "yargs";
 import { SCHEMA_DEFAULTS } from "../../config/schema";
+import type { TaskContext } from "../../progress";
+import { createProgressTracker } from "../progress";
 
 type SubtitleHandlerFactory = (debug?: boolean) => Promise<
   | {
       fetch(
         dirPath: string,
         opts: { language?: string; force?: boolean },
-        onLog: (msg: string) => void,
-        onError: (msg: string) => void,
+        ctx?: TaskContext,
       ): Promise<void>;
     }
   | undefined
@@ -41,12 +41,10 @@ export function registerSubtitle(
     async (argv) => {
       const handlers = await createHandlers(argv["debug"] as boolean | undefined);
       if (!handlers) return;
-      await handlers.fetch(
-        argv.path,
-        { language: argv.lang, force: argv.force },
-        (msg) => log.message(msg),
-        (msg) => log.error(msg),
-      );
+      const tracker = createProgressTracker();
+      tracker.start("Fetching subtitles...");
+      await handlers.fetch(argv.path, { language: argv.lang, force: argv.force }, tracker.ctx);
+      tracker.stop("Done");
     },
   );
 }

@@ -1,6 +1,6 @@
 import { lstatSync } from "node:fs";
 import { basename, dirname, sep } from "node:path";
-import { confirm, isCancel, log, progress, select, spinner, text } from "@clack/prompts";
+import { confirm, isCancel, log, select, spinner, text } from "@clack/prompts";
 import type { ConfigManager } from "../../config/config-manager";
 import {
   type EpisodeNumbering,
@@ -15,8 +15,9 @@ import type { OverrideStore } from "../../override-store";
 import { createEmptyResult, type ParsedResult } from "../../parser";
 import type { DatabasePlugin } from "../../plugins/database/plugin";
 import { type RenameAction, Renamer } from "../../renamer";
-import { Scanner, type ScanProgress, type ScanResult } from "../../scanner";
+import { Scanner, type ScanResult } from "../../scanner";
 import { resolveMediaExtensions } from "../extensions";
+import { createProgressTracker } from "../progress";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
@@ -247,12 +248,13 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         log.message(msg);
       }
 
-      const progressBar =
-        !quiet && !verbose && unorganizedFiles.length > 0
-          ? progress({ max: unorganizedFiles.length })
-          : undefined;
-      if (progressBar) {
-        progressBar.start(`Processing files (0/${unorganizedFiles.length})...`);
+      const tracker = createProgressTracker({
+        verbose,
+        quiet,
+      });
+
+      if (unorganizedFiles.length > 0) {
+        tracker.start(`Processing files (0/${unorganizedFiles.length})...`);
       }
 
       const abortController = new AbortController();
@@ -260,31 +262,12 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const onSigint = () => {
         interrupted = true;
         abortController.abort();
-        if (progressBar) {
-          progressBar.cancel("Interrupted");
-        }
+        tracker.stop("Interrupted");
         if (!quiet) {
           log.warn("Interrupt received. Finishing current operations...");
         }
       };
       process.on("SIGINT", onSigint);
-
-      function buildOnProgress(signal: AbortSignal) {
-        return (p: ScanProgress) => {
-          if (verbose && !quiet) {
-            if (p.status === "matched" || p.status === "cached") {
-              log.success(`${p.file} (${p.status})`);
-            } else if (p.status === "failed") {
-              log.error(`${p.file} (${p.status})`);
-            } else {
-              log.info(`${p.file} (${p.status})`);
-            }
-          } else if (!quiet && !signal.aborted && progressBar) {
-            progressBar.advance();
-            progressBar.message(`Processing files (${p.completed}/${p.total})...`);
-          }
-        };
-      }
 
       async function runBatch(dbScanner: Scanner): Promise<ScanResult[]> {
         return dbScanner.scanBatch(unorganizedFiles, {
@@ -295,8 +278,10 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           concurrency,
           episodeNumbering,
           extensions,
-          abortSignal: abortController.signal,
-          onProgress: buildOnProgress(abortController.signal),
+          ctx: {
+            ...tracker.ctx,
+            abortSignal: abortController.signal,
+          },
         });
       }
 
@@ -347,9 +332,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       try {
         const scanResults = await tryScan(scanner);
 
-        if (progressBar) {
-          progressBar.stop(`Processed ${unorganizedFiles.length} files`);
-        }
+        tracker.stop(`Processed ${unorganizedFiles.length} files`);
 
         const skippedResults: ScanResult[] = organizedFiles.map((file) => ({
           file,
@@ -436,7 +419,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
 
         return allResults;
       } finally {
-        progressBar?.cancel();
+        tracker.stop();
         process.off("SIGINT", onSigint);
       }
     },

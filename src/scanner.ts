@@ -16,6 +16,7 @@ import { relativeToAbsolute } from "./numbering-converter";
 import type { OverrideData, OverrideStore } from "./override-store";
 import { createEmptyResult, type ParsedResult, parse } from "./parser";
 import type { EntryType } from "./plugins/database/types";
+import type { TaskContext } from "./progress";
 import type { RenameAction, RenamePlan, RenameResult, Renamer } from "./renamer";
 
 type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
@@ -32,24 +33,16 @@ export interface ScanResult {
   failureReason?: string;
 }
 
+interface ScanBatchOptions extends ScanFileOptions {
+  concurrency?: number;
+  ctx?: TaskContext;
+}
+
 interface ScannerOptions {
   matcher: MatcherLike;
   cache?: MatchCache;
   renamer?: Renamer;
   overrideStore?: OverrideStore;
-}
-
-export interface ScanProgress {
-  completed: number;
-  total: number;
-  file: string;
-  status: ScanStatus;
-}
-
-interface ScanBatchOptions extends ScanFileOptions {
-  concurrency?: number;
-  onProgress?: (progress: ScanProgress) => void;
-  abortSignal?: AbortSignal;
 }
 
 interface ScanFileOptions {
@@ -454,9 +447,10 @@ export class Scanner {
   async scanBatch(filePaths: string[], options?: ScanBatchOptions): Promise<ScanResult[]> {
     const results: ScanResult[] = [];
     const concurrency = Math.max(1, options?.concurrency ?? 1);
+    const signal = options?.ctx?.abortSignal;
 
     let completed = 0;
-    for (let i = 0; i < filePaths.length && !options?.abortSignal?.aborted; i += concurrency) {
+    for (let i = 0; i < filePaths.length && !signal?.aborted; i += concurrency) {
       const chunk = filePaths.slice(i, i + concurrency);
 
       const entries: BatchEntry[] = await Promise.all(
@@ -509,13 +503,13 @@ export class Scanner {
       }
 
       for (const entry of entries) {
-        if (options?.abortSignal?.aborted) break;
+        if (signal?.aborted) break;
 
         const result = await this.finalizeEntry(entry, options);
 
         results.push(result);
         completed++;
-        options?.onProgress?.({
+        options?.ctx?.progress({
           completed,
           total: filePaths.length,
           file: entry.filePath,

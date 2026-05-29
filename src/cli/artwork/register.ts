@@ -1,13 +1,10 @@
-import { log } from "@clack/prompts";
 import type yargs from "yargs";
 
 type ArtworkHandlerFactory = (debug?: boolean) => Promise<
   | {
       process(
         path: string,
-        cliOptions: { force?: boolean; verbose?: boolean },
-        onLog: (msg: string) => void,
-        onError: (msg: string) => void,
+        cliOptions: { force?: boolean; verbose?: boolean; quiet?: boolean },
       ): Promise<void>;
     }
   | undefined
@@ -40,12 +37,10 @@ export function registerArtwork(
     async (argv) => {
       const handlers = await createHandlers(argv["debug"] as boolean | undefined);
       if (!handlers) return;
-      await handlers.process(
-        argv.path,
-        { force: argv.force, verbose: argv.verbose },
-        (msg) => log.message(msg),
-        (msg) => log.error(msg),
-      );
+      await handlers.process(argv.path, {
+        force: argv.force,
+        verbose: argv.verbose,
+      });
     },
   );
 }

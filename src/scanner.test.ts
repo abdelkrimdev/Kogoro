@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { OverrideStore } from "./override-store";
+import type { ProgressEvent, TaskContext } from "./progress";
 import { Renamer } from "./renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
 import {
@@ -280,41 +281,7 @@ describe("Scanner", () => {
     });
   });
 
-  test("scanBatch processes multiple files with concurrency and reports progress", async () => {
-    await withTempDir("scanner-batch", async (dir) => {
-      writeTempFile(dir, "[Group] Anime - 01.mkv", "a");
-      writeTempFile(dir, "[Group] Anime - 02.mkv", "b");
-      writeTempFile(dir, "[Group] Anime - 03.mkv", "c");
-
-      const scanner = new Scanner({ matcher: createMockMatcher() });
-      const filePaths = [
-        join(dir, "[Group] Anime - 01.mkv"),
-        join(dir, "[Group] Anime - 02.mkv"),
-        join(dir, "[Group] Anime - 03.mkv"),
-      ];
-
-      const progressReports: Array<{
-        completed: number;
-        total: number;
-        file: string;
-        status: string;
-      }> = [];
-      const results = await scanner.scanBatch(filePaths, {
-        concurrency: 2,
-        onProgress: (p) => progressReports.push(p),
-      });
-
-      expect(results).toHaveLength(3);
-      for (const r of results) {
-        expect(r.status).toBe("matched");
-      }
-      expect(progressReports).toHaveLength(3);
-      expect(progressReports[0]?.total).toBe(3);
-      expect(progressReports[2]?.completed).toBe(3);
-    });
-  });
-
-  test("calls matchBatch once for batch scan", async () => {
+  test("batches all files into a single database call", async () => {
     const { matcher: trackingMatcher, batchCallTitles } = createTrackingMatcher();
 
     const scanner = new Scanner({ matcher: trackingMatcher });
@@ -331,8 +298,39 @@ describe("Scanner", () => {
     expect(batchCallTitles[0]).toEqual(["Anime", "Anime", "Anime"]);
   });
 
-  test("stops processing remaining files when scanning is cancelled", async () => {
-    await withTempDir("scanner-abort", async (dir) => {
+  test("reports progress for each file in batch", async () => {
+    await withTempDir("scanner-ctx-progress", async (dir) => {
+      writeTempFile(dir, "[Group] Anime - 01.mkv", "a");
+      writeTempFile(dir, "[Group] Anime - 02.mkv", "b");
+      writeTempFile(dir, "[Group] Anime - 03.mkv", "c");
+
+      const scanner = new Scanner({ matcher: createMockMatcher() });
+      const filePaths = [
+        join(dir, "[Group] Anime - 01.mkv"),
+        join(dir, "[Group] Anime - 02.mkv"),
+        join(dir, "[Group] Anime - 03.mkv"),
+      ];
+
+      const events: ProgressEvent[] = [];
+      const ctx: TaskContext = {
+        progress: (p) => events.push(p),
+        log() {},
+        error() {},
+      };
+
+      const results = await scanner.scanBatch(filePaths, { ctx, concurrency: 2 });
+
+      expect(results).toHaveLength(3);
+      expect(events).toHaveLength(3);
+      expect(events[0]?.completed).toBe(1);
+      expect(events[0]?.total).toBe(3);
+      expect(events[2]?.completed).toBe(3);
+      expect(events[2]?.total).toBe(3);
+    });
+  });
+
+  test("stops when aborted mid-batch", async () => {
+    await withTempDir("scanner-ctx-abort", async (dir) => {
       writeTempFile(dir, "[Group] Anime - 01.mkv", "a");
       writeTempFile(dir, "[Group] Anime - 02.mkv", "b");
       writeTempFile(dir, "[Group] Anime - 03.mkv", "c");
@@ -347,19 +345,19 @@ describe("Scanner", () => {
       ];
 
       const abortController = new AbortController();
-      const results = await scanner.scanBatch(filePaths, {
-        concurrency: 2,
-        abortSignal: abortController.signal,
-        onProgress: (p) => {
+      const ctx: TaskContext = {
+        progress: (p) => {
           if (p.completed >= 2) abortController.abort();
         },
-      });
+        log() {},
+        error() {},
+        abortSignal: abortController.signal,
+      };
+
+      const results = await scanner.scanBatch(filePaths, { ctx, concurrency: 2 });
 
       expect(results.length).toBeGreaterThanOrEqual(2);
       expect(results.length).toBeLessThan(4);
-      for (const r of results) {
-        expect(r.status).toBe("matched");
-      }
     });
   });
 

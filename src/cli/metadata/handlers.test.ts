@@ -1,8 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  createLogCapture,
+  createMockClackPrompts,
   createMockDb,
   seedCacheEntry,
   withTempDir,
@@ -10,8 +10,15 @@ import {
 } from "../../test-fixtures";
 import { createMetadataHandlers } from "./handlers";
 
+const { mock: clackMock, captures } = createMockClackPrompts();
+mock.module("@clack/prompts", () => clackMock);
+
 describe("metadata CLI commands", () => {
-  test("write generates NFO and returns summary JSON", async () => {
+  afterEach(() => {
+    captures.reset();
+  });
+
+  test("write generates NFO and outputs summary", async () => {
     await withTempDir("cli-meta", async (dir) => {
       await seedCacheEntry(dir, "Test.mkv", {
         episodeId: "10",
@@ -22,10 +29,11 @@ describe("metadata CLI commands", () => {
 
       const dbPath = join(dir, "cache.db");
       const handlers = createMetadataHandlers({ dbPath });
-      const log = createLogCapture();
-      await handlers.write(dir, false, log.onLog, () => {});
+      await handlers.write(dir, { json: true });
 
-      const parsed = JSON.parse(log.output);
+      const jsonOutput = captures.logMessage.find((msg) => msg.startsWith("{")) as string;
+      expect(jsonOutput).toBeDefined();
+      const parsed = JSON.parse(jsonOutput);
       expect(parsed.total).toBe(1);
       expect(parsed.written).toBe(1);
     });
@@ -61,12 +69,7 @@ describe("metadata CLI commands", () => {
       });
 
       const handlers = createMetadataHandlers({ dbPath, database: mockDb });
-      await handlers.write(
-        dir,
-        false,
-        () => {},
-        () => {},
-      );
+      await handlers.write(dir, {});
 
       const nfoPath = join(dir, "Anime - 1x01.nfo");
       const nfoContent = readFileSync(nfoPath, "utf-8");
@@ -88,10 +91,11 @@ describe("metadata CLI commands", () => {
 
       const dbPath = join(dir, "cache.db");
       const handlers = createMetadataHandlers({ dbPath });
-      const log = createLogCapture();
-      await handlers.write(dir, true, log.onLog, () => {});
+      await handlers.write(dir, { force: true, json: true });
 
-      const parsed = JSON.parse(log.output);
+      const jsonOutput = captures.logMessage.find((msg) => msg.startsWith("{")) as string;
+      expect(jsonOutput).toBeDefined();
+      const parsed = JSON.parse(jsonOutput);
       expect(parsed.written).toBe(1);
       expect(parsed.skipped).toBe(0);
     });

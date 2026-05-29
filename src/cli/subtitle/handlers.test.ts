@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import type { ProgressEvent, TaskContext } from "../../progress";
 import {
   createCache,
-  createLogCapture,
   createMockSubtitlePlugin,
   seedCacheEntry,
   withTempDir,
@@ -28,14 +28,19 @@ describe("subtitle CLI commands", () => {
       const subtitlePlugin = createMockSubtitlePlugin();
       const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
 
-      const log = createLogCapture();
-      await handlers.fetch(tmpDir, {}, log.onLogAppend, log.onErrorAppend);
+      const logs: string[] = [];
+      const errors: string[] = [];
+      const ctx: TaskContext = {
+        progress() {},
+        log: (msg) => logs.push(msg),
+        error: (msg) => errors.push(msg),
+      };
+      await handlers.fetch(tmpDir, {}, ctx);
 
-      expect(log.errorOutput).toBe("");
-      expect(log.output).toContain("Downloaded:");
-      expect(log.output).toContain("downloaded");
-      expect(log.output).toContain("Summary");
-      expect(log.output).toContain("1 downloaded");
+      expect(errors).toHaveLength(0);
+      expect(logs.join("")).toContain("Downloaded:");
+      expect(logs.join("")).toContain("Summary");
+      expect(logs.join("")).toContain("1 downloaded");
     });
   });
 
@@ -56,11 +61,16 @@ describe("subtitle CLI commands", () => {
       const subtitlePlugin = createMockSubtitlePlugin();
       const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
 
-      const log = createLogCapture();
-      await handlers.fetch(tmpDir, {}, log.onLogAppend, () => {});
+      const logs: string[] = [];
+      const ctx: TaskContext = {
+        progress() {},
+        log: (msg) => logs.push(msg),
+        error() {},
+      };
+      await handlers.fetch(tmpDir, {}, ctx);
 
-      expect(log.output).toContain("Summary");
-      expect(log.output).toContain("1 skipped");
+      expect(logs.join("")).toContain("Summary");
+      expect(logs.join("")).toContain("1 skipped");
     });
   });
 
@@ -81,11 +91,16 @@ describe("subtitle CLI commands", () => {
       const subtitlePlugin = createMockSubtitlePlugin();
       const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
 
-      const log = createLogCapture();
-      await handlers.fetch(tmpDir, { force: true }, log.onLogAppend, () => {});
+      const logs: string[] = [];
+      const ctx: TaskContext = {
+        progress() {},
+        log: (msg) => logs.push(msg),
+        error() {},
+      };
+      await handlers.fetch(tmpDir, { force: true }, ctx);
 
-      expect(log.output).toContain("1 downloaded");
-      expect(log.output).toContain("0 skipped");
+      expect(logs.join("")).toContain("1 downloaded");
+      expect(logs.join("")).toContain("0 skipped");
     });
   });
 
@@ -100,10 +115,15 @@ describe("subtitle CLI commands", () => {
       const subtitlePlugin = createMockSubtitlePlugin();
       const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
 
-      const log = createLogCapture();
-      await handlers.fetch(tmpDir, {}, log.onLogAppend, () => {});
+      const logs: string[] = [];
+      const ctx: TaskContext = {
+        progress() {},
+        log: (msg) => logs.push(msg),
+        error() {},
+      };
+      await handlers.fetch(tmpDir, {}, ctx);
 
-      expect(log.output).toContain("0 downloaded");
+      expect(logs.join("")).toContain("0 downloaded");
     });
   });
 
@@ -123,10 +143,45 @@ describe("subtitle CLI commands", () => {
       const failingPlugin = createMockSubtitlePlugin({ downloadContent: "" });
       const handlers = createSubtitleHandlers({ subtitlePlugin: failingPlugin, cache });
 
-      const log = createLogCapture();
-      await handlers.fetch(tmpDir, {}, log.onLogAppend, () => {});
+      const logs: string[] = [];
+      const ctx: TaskContext = {
+        progress() {},
+        log: (msg) => logs.push(msg),
+        error() {},
+      };
+      await handlers.fetch(tmpDir, {}, ctx);
 
-      expect(log.output).toContain("1 failed");
+      expect(logs.join("")).toContain("1 failed");
+    });
+  });
+
+  test("reports progress for each file", async () => {
+    await withTempDir("subtitle-ctx-progress", async (tmpDir) => {
+      const tvDir = join(tmpDir, "Jujutsu Kaisen", "TV");
+      mkdirSync(tvDir, { recursive: true });
+      const { cache } = await seedCacheEntry(tvDir, "Jujutsu Kaisen - 1x01 - Ep.mkv", {
+        animeId: "123",
+        animeTitle: "Jujutsu Kaisen",
+        episodeId: "101",
+        season: 1,
+        episode: 1,
+        title: "Ep",
+      });
+
+      const subtitlePlugin = createMockSubtitlePlugin();
+      const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
+
+      const events: ProgressEvent[] = [];
+      const ctx: TaskContext = {
+        progress: (p) => events.push(p),
+        log() {},
+        error() {},
+      };
+
+      await handlers.fetch(tmpDir, {}, ctx);
+
+      expect(events.length).toBeGreaterThanOrEqual(1);
+      expect(events[0]?.total).toBeGreaterThanOrEqual(1);
     });
   });
 });

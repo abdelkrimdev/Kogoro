@@ -1,8 +1,10 @@
+import { log } from "@clack/prompts";
 import type { ConfigManager } from "../../config/config-manager";
 import { MatchCache } from "../../match-cache";
 import { MetadataWriter } from "../../metadata-writer";
 import type { DatabasePlugin } from "../../plugins/database/plugin";
 import { resolveMediaExtensions } from "../extensions";
+import { createProgressTracker } from "../progress";
 
 export interface MetadataHandlerOptions {
   dbPath?: string;
@@ -18,15 +20,33 @@ export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
   return {
     async write(
       path: string,
-      force: boolean,
-      onLog: (msg: string) => void,
-      onError: (msg: string) => void,
+      cliOptions: { force?: boolean; verbose?: boolean; quiet?: boolean; json?: boolean },
     ): Promise<void> {
+      const quiet = cliOptions.quiet ?? cliOptions.json ?? false;
+      const tracker = createProgressTracker({
+        verbose: cliOptions.verbose,
+        quiet,
+      });
+
+      tracker.start("Writing metadata...");
+
       try {
-        const summary = await writer.write(path, { force });
-        onLog(JSON.stringify(summary, null, 2));
+        const summary = await writer.write(path, { force: cliOptions.force }, tracker.ctx);
+
+        tracker.stop(`Written ${summary.written} of ${summary.total}`);
+
+        if (cliOptions.json) {
+          log.message(JSON.stringify(summary, null, 2));
+        } else {
+          const parts: string[] = [`${summary.total} files processed`];
+          if (summary.written > 0) parts.push(`${summary.written} NFOs written`);
+          if (summary.skipped > 0) parts.push(`${summary.skipped} skipped`);
+          if (summary.failed > 0) parts.push(`${summary.failed} failed`);
+          log.message(parts.join(", "));
+        }
       } catch (err) {
-        onError(String(err));
+        tracker.stop("Failed");
+        log.error(String(err));
       }
     },
   };
