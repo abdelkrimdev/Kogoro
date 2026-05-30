@@ -1,13 +1,19 @@
-import { log } from "@clack/prompts";
 import { type ConfigManager, MatchCache, MetadataWriter } from "@kogoro/core";
 import type { DatabasePlugin } from "@kogoro/plugins";
 import { resolveMediaExtensions } from "../extensions";
-import { createProgressTracker } from "../progress";
+import type { Logger } from "../logger";
 
 export interface MetadataHandlerOptions {
   dbPath?: string;
   database?: DatabasePlugin;
   config?: ConfigManager;
+}
+
+export interface MetadataResult {
+  total: number;
+  written: number;
+  skipped: number;
+  failed: number;
 }
 
 export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
@@ -18,34 +24,18 @@ export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
   return {
     async write(
       path: string,
-      cliOptions: { force?: boolean; verbose?: boolean; quiet?: boolean; json?: boolean },
-    ): Promise<void> {
-      const quiet = cliOptions.quiet ?? cliOptions.json ?? false;
-      const tracker = createProgressTracker({
-        verbose: cliOptions.verbose,
-        quiet,
-      });
+      cliOptions: { force?: boolean },
+      logger: Logger,
+    ): Promise<MetadataResult> {
+      logger.info("Writing metadata...");
 
-      tracker.start("Writing metadata...");
+      const summary = await writer.write(path, { force: cliOptions.force });
 
-      try {
-        const summary = await writer.write(path, { force: cliOptions.force }, tracker.ctx);
+      logger.info(
+        `Written ${summary.written} of ${summary.total}: ${summary.skipped} skipped, ${summary.failed} failed`,
+      );
 
-        tracker.stop(`Written ${summary.written} of ${summary.total}`);
-
-        if (cliOptions.json) {
-          log.message(JSON.stringify(summary, null, 2));
-        } else {
-          const parts: string[] = [`${summary.total} files processed`];
-          if (summary.written > 0) parts.push(`${summary.written} NFOs written`);
-          if (summary.skipped > 0) parts.push(`${summary.skipped} skipped`);
-          if (summary.failed > 0) parts.push(`${summary.failed} failed`);
-          log.message(parts.join(", "));
-        }
-      } catch (err) {
-        tracker.stop("Failed");
-        log.error(String(err));
-      }
+      return summary;
     },
   };
 }

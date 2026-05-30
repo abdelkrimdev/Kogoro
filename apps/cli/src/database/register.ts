@@ -1,19 +1,9 @@
-import { log } from "@clack/prompts";
 import type yargs from "yargs";
-import { createFormatter } from "../format";
 
 type DatabaseHandlerFactory = (debug?: boolean) => Promise<
   | {
-      search(
-        title: string,
-        onLog: (msg: string) => void,
-        onError: (msg: string) => void,
-      ): Promise<void>;
-      episodes(
-        animeId: string,
-        onLog: (msg: string) => void,
-        onError: (msg: string) => void,
-      ): Promise<void>;
+      search(title: string): Promise<unknown>;
+      episodes(animeId: string): Promise<unknown>;
     }
   | undefined
 >;
@@ -37,13 +27,10 @@ export function registerDb(
               describe: "Anime title to search for",
             }),
           async (argv) => {
-            const handlers = await createHandlers(argv["debug"] as boolean | undefined);
+            const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
             if (!handlers) return;
-            await handlers.search(
-              argv.title,
-              createFormatter(!!argv["json"], (msg) => log.error(msg)),
-              (msg) => log.error(msg),
-            );
+            const result = await handlers.search(argv.title);
+            console.log(JSON.stringify(result));
           },
         )
         .command(
@@ -56,13 +43,10 @@ export function registerDb(
               describe: "Anime ID in the primary database",
             }),
           async (argv) => {
-            const handlers = await createHandlers(argv["debug"] as boolean | undefined);
+            const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
             if (!handlers) return;
-            await handlers.episodes(
-              argv.animeId,
-              createFormatter(!!argv["json"], (msg) => log.error(msg)),
-              (msg) => log.error(msg),
-            );
+            const result = await handlers.episodes(argv.animeId);
+            console.log(JSON.stringify(result));
           },
         )
         .demandCommand(1, "Please specify a db action: search or episodes"),

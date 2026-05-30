@@ -24,6 +24,30 @@ function readVersion(): string {
   }
 }
 
+interface WrapCommandOptions {
+  stdout?: (msg: string) => void;
+  stderr?: (msg: string) => void;
+  exit?: (code: number) => void;
+}
+
+export async function wrapCommand(
+  handler: () => Promise<unknown>,
+  options: WrapCommandOptions = {},
+): Promise<void> {
+  const stdout = options.stdout ?? console.log;
+  const stderr = options.stderr ?? console.error;
+  const exit = options.exit ?? process.exit;
+
+  try {
+    const result = await handler();
+    stdout(JSON.stringify(result));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    stderr(JSON.stringify({ error: message }));
+    exit(1);
+  }
+}
+
 export function run(argv: string[]): void {
   const config = new ConfigManager();
   const credentialStore = createCredentialStore();
@@ -99,15 +123,16 @@ export function run(argv: string[]): void {
   const parser = yargs(hideBin(argv))
     .scriptName("kogoro")
     .usage("$0 <command> [options]")
-    .option("json", {
+    .option("quiet", {
       type: "boolean",
       default: false,
-      describe: "Output as JSON",
+      alias: "q",
+      describe: "Suppress non-error output",
     })
-    .option("debug", {
+    .option("verbose", {
       type: "boolean",
       default: false,
-      describe: "Enable debug logging",
+      describe: "Enable debug-level output",
     });
 
   registerScan(parser, createScanWithCredentials);
@@ -128,13 +153,9 @@ export function run(argv: string[]): void {
     .strict()
     .fail((msg, err) => {
       if (err) {
-        if (process.argv.includes("--debug")) {
-          console.error(styleText("red", err.stack ?? String(err)));
-        } else {
-          console.error(styleText("red", `❌ ${err.message}`));
-        }
+        console.error(styleText("red", err.stack ?? String(err)));
       } else {
-        console.error(styleText("red", `❌ ${msg}`));
+        console.error(styleText("red", msg));
       }
       process.exit(1);
     })

@@ -1,11 +1,10 @@
 import type yargs from "yargs";
+import { createLogger, type Logger, type LogLevel } from "../logger";
+import type { MetadataResult } from "./handlers";
 
 type MetadataHandlerFactory = (debug?: boolean) => Promise<
   | {
-      write(
-        path: string,
-        cliOptions: { force?: boolean; verbose?: boolean; quiet?: boolean; json?: boolean },
-      ): Promise<void>;
+      write(path: string, cliOptions: { force?: boolean }, logger: Logger): Promise<MetadataResult>;
     }
   | undefined
 >;
@@ -28,19 +27,14 @@ export function registerMetadata(
           type: "boolean",
           default: false,
           describe: "Overwrite existing .nfo files",
-        })
-        .option("json", {
-          type: "boolean",
-          default: false,
-          describe: "Output summary as JSON",
         }),
     async (argv) => {
-      const handlers = await createHandlers(argv["debug"] as boolean | undefined);
+      const level: LogLevel = argv["verbose"] ? "debug" : argv["quiet"] ? "error" : "info";
+      const logger = createLogger(level);
+      const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
       if (!handlers) return;
-      await handlers.write(argv.path, {
-        force: argv.force,
-        json: argv.json,
-      });
+      const result = await handlers.write(argv.path, { force: argv.force }, logger);
+      console.log(JSON.stringify(result));
     },
   );
 }

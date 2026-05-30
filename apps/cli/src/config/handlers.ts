@@ -5,7 +5,6 @@ import {
   OverrideStore,
   type PromptsAPI,
   runConfigWizard,
-  type SetResult,
 } from "@kogoro/core";
 
 export interface ConfigHandlerOptions {
@@ -20,63 +19,38 @@ export function createConfigHandlers(options: ConfigHandlerOptions = {}) {
   const overrideStore = new OverrideStore(overrideDir);
 
   return {
-    async get(
-      key: string,
-      onLog: (msg: string) => void,
-      onError: (msg: string) => void,
-    ): Promise<void> {
-      const val = config.get(key);
-      if (val === undefined) {
-        onError(`Config key '${key}' is not set`);
-      } else {
-        onLog(JSON.stringify(val));
-      }
+    get(key: string) {
+      return config.get(key);
     },
 
-    async set(
-      key: string,
-      value: string,
-      onLog: (msg: string) => void,
-      onError: (msg: string) => void,
-    ): Promise<void> {
-      const result: SetResult = config.set(key, value);
-      if (result.success) {
-        onLog(`Set config '${key}' to '${value}'`);
-      } else {
-        onError(result.error);
+    set(key: string, value: string) {
+      const result = config.set(key, value);
+      if (!result.success) {
+        throw new Error(result.error);
       }
+      return true;
     },
 
-    async init(prompts: PromptsAPI, onLog: (msg: string) => void): Promise<void> {
+    async init(prompts: PromptsAPI) {
       await runConfigWizard({ config, credentialStore, prompts });
-      onLog("Configuration complete");
+      return true;
     },
 
-    async overrideSet(
-      hash: string,
-      data: OverrideData,
-      onLog: (msg: string) => void,
-    ): Promise<void> {
+    overrideSet(hash: string, data: OverrideData) {
       overrideStore.set(hash, data);
-      onLog(`Override set for hash '${hash}'`);
+      return true;
     },
 
-    async overrideList(onLog: (msg: string) => void): Promise<void> {
-      const items = overrideStore.list();
-      onLog(JSON.stringify(items, null, 2));
+    overrideList() {
+      return overrideStore.list();
     },
 
-    async overrideRemove(
-      hash: string,
-      onLog: (msg: string) => void,
-      onError: (msg: string) => void,
-    ): Promise<void> {
+    overrideRemove(hash: string) {
       const removed = overrideStore.remove(hash);
-      if (removed) {
-        onLog(`Removed override for hash '${hash}'`);
-      } else {
-        onError(`Override for hash '${hash}' not found`);
+      if (!removed) {
+        throw new Error(`Override for hash '${hash}' not found`);
       }
+      return true;
     },
   };
 }

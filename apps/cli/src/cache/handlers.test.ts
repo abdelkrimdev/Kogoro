@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { createCache, createLogCapture, makeCachedMatch, withTempDir } from "@kogoro/core";
+import { createCache, makeCachedMatch, withTempDir } from "@kogoro/core";
 import { createCacheHandlers } from "./handlers";
 
 describe("cache CLI commands", () => {
-  test("list returns JSON array of all cached entries", async () => {
+  test("list returns all cached entries", async () => {
     await withTempDir("cache", async (dir) => {
-      const dbPath = join(dir, "cache.db");
       const cache = createCache(dir);
       cache.set(
         "hash1",
@@ -22,73 +21,48 @@ describe("cache CLI commands", () => {
         }),
       );
 
-      const handlers = createCacheHandlers({ dbPath });
-      const log = createLogCapture();
-      await handlers.list(log.onLog, () => {});
+      const handlers = createCacheHandlers({ dbPath: join(dir, "cache.db") });
+      const entries = handlers.list();
 
-      const parsed = JSON.parse(log.output);
-      expect(parsed).toHaveLength(2);
-      expect(parsed[0]?.hash).toBe("hash1");
-      expect(parsed[0]?.match.animeId).toBe("1");
-      expect(parsed[1]?.hash).toBe("hash2");
+      expect(entries).toHaveLength(2);
+      expect(entries[0]?.hash).toBe("hash1");
+      expect(entries[0]?.match.animeId).toBe("1");
+      expect(entries[1]?.hash).toBe("hash2");
     });
   });
 
   test("lookup returns match for existing hash", async () => {
     await withTempDir("cache", async (dir) => {
-      const dbPath = join(dir, "cache.db");
       const cache = createCache(dir);
       cache.set(
         "existhash",
         makeCachedMatch({ animeId: "99", entryType: "ova", title: "Special" }),
       );
 
-      const handlers = createCacheHandlers({ dbPath });
-      const log = createLogCapture();
-      await handlers.lookup("existhash", log.onLog, () => {});
+      const handlers = createCacheHandlers({ dbPath: join(dir, "cache.db") });
+      const match = handlers.lookup("existhash");
 
-      const parsed = JSON.parse(log.output);
-      expect(parsed.animeId).toBe("99");
-      expect(parsed.entryType).toBe("ova");
+      expect(match?.animeId).toBe("99");
+      expect(match?.entryType).toBe("ova");
     });
   });
 
-  test("lookup returns message for missing hash", async () => {
-    await withTempDir("cache", async (dir) => {
-      const dbPath = join(dir, "cache.db");
-      const handlers = createCacheHandlers({ dbPath });
-      const log = createLogCapture();
-      await handlers.lookup("nonexistent", () => {}, log.onError);
-      expect(log.errorOutput).toBe("No cached match for hash: nonexistent");
-    });
+  test("lookup returns null for missing hash", () => {
+    const handlers = createCacheHandlers();
+    const match = handlers.lookup("nonexistent");
+    expect(match).toBeNull();
   });
 
-  test("clear removes all entries", async () => {
+  test("clear removes all entries and returns true", async () => {
     await withTempDir("cache", async (dir) => {
-      const dbPath = join(dir, "cache.db");
       const cache = createCache(dir);
       cache.set("a", makeCachedMatch());
       expect(cache.has("a")).toBe(true);
 
-      const handlers = createCacheHandlers({ dbPath });
-      const log = createLogCapture();
-      await handlers.clear(true, log.onLog, () => {});
-      expect(log.output).toBe("Cache cleared");
+      const handlers = createCacheHandlers({ dbPath: join(dir, "cache.db") });
+      const result = handlers.clear();
+      expect(result).toBe(true);
       expect(cache.has("a")).toBe(false);
-    });
-  });
-
-  test("clear skips when confirmation denied", async () => {
-    await withTempDir("cache", async (dir) => {
-      const dbPath = join(dir, "cache.db");
-      const cache = createCache(dir);
-      cache.set("a", makeCachedMatch());
-
-      const handlers = createCacheHandlers({ dbPath });
-      const log = createLogCapture();
-      await handlers.clear(false, log.onLog, () => {});
-      expect(log.output).toBe("Cache clear cancelled");
-      expect(cache.has("a")).toBe(true);
     });
   });
 });

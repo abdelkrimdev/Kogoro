@@ -1,7 +1,5 @@
-import { log } from "@clack/prompts";
 import { OVERRIDE_TOML_KEYS } from "@kogoro/core";
 import type yargs from "yargs";
-import { createFormatter } from "../format";
 import { getDefaultPrompts } from "./default-prompts";
 import { createConfigHandlers } from "./handlers";
 
@@ -20,14 +18,9 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               demandOption: true,
               describe: "Config key to get",
             }),
-          async (argv) => {
+          (argv) => {
             const handlers = createConfigHandlers();
-            const json = !!argv["json"];
-            await handlers.get(
-              argv.key,
-              createFormatter(json, (msg) => log.error(msg)),
-              (msg) => log.error(msg),
-            );
+            console.log(JSON.stringify(handlers.get(argv.key)));
           },
         )
         .command(
@@ -35,8 +28,6 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
           "Set a config value",
           (yargs) =>
             yargs
-              .hide("json")
-              .hide("debug")
               .positional("key", {
                 type: "string",
                 demandOption: true,
@@ -47,24 +38,20 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
                 demandOption: true,
                 describe: "Value to set",
               }),
-          async (argv) => {
+          (argv) => {
             const handlers = createConfigHandlers();
-            await handlers.set(
-              argv.key,
-              argv.value,
-              (msg) => log.message(msg),
-              (msg) => log.error(msg),
-            );
+            console.log(JSON.stringify(handlers.set(argv.key, argv.value)));
           },
         )
         .command(
           "init",
           "Run the first-time setup wizard",
-          (yargs) => yargs.hide("json").hide("debug"),
+          () => {},
           async () => {
             const prompts = getDefaultPrompts();
             const handlers = createConfigHandlers();
-            await handlers.init(prompts, (msg) => log.message(msg));
+            await handlers.init(prompts);
+            console.log(JSON.stringify(true));
           },
         )
         .command("override", "Manage per-directory overrides in kogoro.toml", (yargs) =>
@@ -74,8 +61,6 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               "Set an override for a file hash",
               (yargs) =>
                 yargs
-                  .hide("json")
-                  .hide("debug")
                   .positional("hash", {
                     type: "string",
                     demandOption: true,
@@ -93,21 +78,21 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
                     type: "string",
                     describe: "Entry type (tv, movie, ova, special)",
                   }),
-              async (argv) => {
+              (argv) => {
                 const handlers = createConfigHandlers();
-                await handlers.overrideSet(
-                  argv.hash,
-                  {
-                    animeId: argv[OVERRIDE_TOML_KEYS.ANIME_ID],
-                    episodeId: argv[OVERRIDE_TOML_KEYS.EPISODE_ID],
-                    entryType: argv[OVERRIDE_TOML_KEYS.ENTRY_TYPE] as
-                      | "tv"
-                      | "movie"
-                      | "ova"
-                      | "special"
-                      | undefined,
-                  },
-                  (msg) => log.message(msg),
+                console.log(
+                  JSON.stringify(
+                    handlers.overrideSet(argv.hash, {
+                      animeId: argv[OVERRIDE_TOML_KEYS.ANIME_ID],
+                      episodeId: argv[OVERRIDE_TOML_KEYS.EPISODE_ID],
+                      entryType: argv[OVERRIDE_TOML_KEYS.ENTRY_TYPE] as
+                        | "tv"
+                        | "movie"
+                        | "ova"
+                        | "special"
+                        | undefined,
+                    }),
+                  ),
                 );
               },
             )
@@ -115,29 +100,23 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               "list",
               "List all overrides",
               () => {},
-              async (argv) => {
+              () => {
                 const handlers = createConfigHandlers();
-                await handlers.overrideList(
-                  createFormatter(!!argv["json"], (msg) => log.error(msg)),
-                );
+                console.log(JSON.stringify(handlers.overrideList()));
               },
             )
             .command(
               "remove <hash>",
               "Remove an override for a file hash",
               (yargs) =>
-                yargs.hide("json").hide("debug").positional("hash", {
+                yargs.positional("hash", {
                   type: "string",
                   demandOption: true,
                   describe: "File hash to remove override for",
                 }),
-              async (argv) => {
+              (argv) => {
                 const handlers = createConfigHandlers();
-                await handlers.overrideRemove(
-                  argv.hash,
-                  (msg) => log.message(msg),
-                  (msg) => log.error(msg),
-                );
+                console.log(JSON.stringify(handlers.overrideRemove(argv.hash)));
               },
             )
             .demandCommand(1, "Please specify an override action: set, list, or remove"),

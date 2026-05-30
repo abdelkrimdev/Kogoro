@@ -1,11 +1,14 @@
 import type yargs from "yargs";
+import { createLogger, type Logger, type LogLevel } from "../logger";
+import type { ArtworkResult } from "./handlers";
 
 type ArtworkHandlerFactory = (debug?: boolean) => Promise<
   | {
       process(
         path: string,
-        cliOptions: { force?: boolean; verbose?: boolean; quiet?: boolean },
-      ): Promise<void>;
+        cliOptions: { force?: boolean },
+        logger: Logger,
+      ): Promise<ArtworkResult>;
     }
   | undefined
 >;
@@ -28,19 +31,14 @@ export function registerArtwork(
           type: "boolean",
           default: false,
           describe: "Overwrite existing cover.jpg files",
-        })
-        .option("verbose", {
-          type: "boolean",
-          default: false,
-          describe: "Show per-anime status messages",
         }),
     async (argv) => {
-      const handlers = await createHandlers(argv["debug"] as boolean | undefined);
+      const level: LogLevel = argv["verbose"] ? "debug" : argv["quiet"] ? "error" : "info";
+      const logger = createLogger(level);
+      const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
       if (!handlers) return;
-      await handlers.process(argv.path, {
-        force: argv.force,
-        verbose: argv.verbose,
-      });
+      const result = await handlers.process(argv.path, { force: argv.force }, logger);
+      console.log(JSON.stringify(result));
     },
   );
 }

@@ -1,10 +1,15 @@
 import { type RenameAction, SCHEMA_DEFAULTS, type ScanResult } from "@kogoro/core";
 import type yargs from "yargs";
+import { createLogger, type LogLevel } from "../logger";
 import type { ScanOptions } from "./handlers";
 
 type ScanHandlerFactory = (debug?: boolean) => Promise<
   | {
-      scan(path: string, scanOptions?: ScanOptions): Promise<ScanResult[]>;
+      scan(
+        path: string,
+        scanOptions?: ScanOptions,
+        logger?: ReturnType<typeof createLogger>,
+      ): Promise<ScanResult[]>;
     }
   | undefined
 >;
@@ -51,17 +56,6 @@ export function registerScan(
           default: SCHEMA_DEFAULTS["episode-numbering"],
           describe: "Override preferred episode numbering scheme",
         })
-        .option("verbose", {
-          type: "boolean",
-          default: false,
-          describe: "Show per-file status lines during scan",
-        })
-        .option("quiet", {
-          type: "boolean",
-          alias: "q",
-          default: false,
-          describe: "Suppress progress and summary; only errors and prompts",
-        })
         .option("extensions", {
           type: "string",
           describe: "Comma-separated file extensions to scan (e.g. .mkv,.mp4)",
@@ -72,34 +66,30 @@ export function registerScan(
           describe: "Number of files to process concurrently",
         }),
     async (argv) => {
-      try {
-        const handlers = await createHandlers(argv["debug"] as boolean | undefined);
-        if (!handlers) return;
-        const extensions = argv.extensions
-          ? (argv.extensions as string)
-              .split(",")
-              .map((e) => e.trim())
-              .filter(Boolean)
-          : undefined;
-        const results = await handlers.scan(argv.path, {
+      const level: LogLevel = argv["verbose"] ? "debug" : argv["quiet"] ? "error" : "info";
+      const logger = createLogger(level);
+      const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
+      if (!handlers) return;
+      const extensions = argv.extensions
+        ? (argv.extensions as string)
+            .split(",")
+            .map((e) => e.trim())
+            .filter(Boolean)
+        : undefined;
+      const results = await handlers.scan(
+        argv.path,
+        {
           dryRun: argv["dry-run"] ?? false,
           yes: argv.yes ?? false,
           force: argv.force ?? false,
           action: argv.action as RenameAction,
           episodeNumbering: argv["episode-numbering"] as "absolute" | "relative" | undefined,
-          verbose: argv.verbose ?? false,
-          quiet: argv.quiet ?? false,
-          json: !!argv["json"],
           extensions,
           concurrency: argv.concurrency,
-        });
-
-        if (argv["json"]) {
-          console.log(JSON.stringify(results, null, 2));
-        }
-      } catch {
-        // errors already surfaced by yargs .fail() handler
-      }
+        },
+        logger,
+      );
+      console.log(JSON.stringify(results));
     },
   );
 }

@@ -1,6 +1,4 @@
-import { confirm, isCancel, log } from "@clack/prompts";
 import type yargs from "yargs";
-import { createFormatter } from "../format";
 import { createCacheHandlers } from "./handlers";
 
 export function registerCache(parser: ReturnType<typeof yargs>): void {
@@ -13,12 +11,9 @@ export function registerCache(parser: ReturnType<typeof yargs>): void {
           "list",
           "List all cached Match entries",
           () => {},
-          async (argv) => {
+          () => {
             const handlers = createCacheHandlers();
-            await handlers.list(
-              createFormatter(!!argv["json"], (msg) => log.error(msg)),
-              (msg) => log.error(msg),
-            );
+            console.log(JSON.stringify(handlers.list()));
           },
         )
         .command(
@@ -30,30 +25,18 @@ export function registerCache(parser: ReturnType<typeof yargs>): void {
               demandOption: true,
               describe: "SHA-256 hash of the file",
             }),
-          async (argv) => {
+          (argv) => {
             const handlers = createCacheHandlers();
-            await handlers.lookup(
-              argv.hash,
-              createFormatter(!!argv["json"], (msg) => log.error(msg)),
-              (msg) => log.error(msg),
-            );
+            console.log(JSON.stringify(handlers.lookup(argv.hash)));
           },
         )
         .command(
           "clear",
-          "Clear all cached Match entries (requires confirmation)",
-          (yargs) => yargs.hide("json").hide("debug"),
-          async () => {
+          "Clear all cached Match entries",
+          () => {},
+          () => {
             const handlers = createCacheHandlers();
-            const response = await confirm({
-              message: "Are you sure you want to clear the entire Match cache?",
-            });
-            const confirmed = !isCancel(response) && response === true;
-            await handlers.clear(
-              confirmed,
-              (msg) => log.message(msg),
-              (msg) => log.error(msg),
-            );
+            console.log(JSON.stringify(handlers.clear()));
           },
         )
         .demandCommand(1, "Please specify a cache action: list, lookup, or clear"),

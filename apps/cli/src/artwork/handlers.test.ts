@@ -1,27 +1,37 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   createArtworkDb,
-  createMockClackPrompts,
   createMockHttpClient,
-  makeThrowingDb,
   mockFetch,
   seedCacheEntry,
   testImageBytes,
   withTempDir,
 } from "@kogoro/core";
+import { createLogger, type Logger } from "../logger";
 import { createArtworkHandlers } from "./handlers";
 
-const { mock: clackMock, captures } = createMockClackPrompts();
-mock.module("@clack/prompts", () => clackMock);
-
 describe("artwork CLI commands", () => {
+  const logLines: string[] = [];
+  const errorLines: string[] = [];
+
+  function makeLogger(level: "info" | "error" = "info"): Logger {
+    return createLogger(level, (msg) => {
+      if (msg.startsWith("[kogoro]")) {
+        logLines.push(msg);
+      } else {
+        errorLines.push(msg);
+      }
+    });
+  }
+
   afterEach(() => {
-    captures.reset();
+    logLines.length = 0;
+    errorLines.length = 0;
   });
 
-  test("process downloads cover and outputs summary", async () => {
+  test("downloads cover and returns summary", async () => {
     await withTempDir("artwork", async (dir) => {
       const animeDir = join(dir, "TV", "Jujutsu Kaisen");
       mkdirSync(animeDir, { recursive: true });
@@ -41,16 +51,15 @@ describe("artwork CLI commands", () => {
         httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
-      await handlers.process(dir, {});
+      const result = await handlers.process(dir, {}, makeLogger());
 
-      const allOutput = captures.logMessage.join("\n");
-      expect(allOutput).toContain("1 anime processed");
-      expect(allOutput).toContain("1 covers downloaded");
+      expect(result.total).toBe(1);
+      expect(result.downloaded).toBe(1);
       expect(existsSync(join(animeDir, "cover.jpg"))).toBe(true);
     });
   });
 
-  test("process reports no artwork on DB failure", async () => {
+  test("returns noArtwork when DB has no covers", async () => {
     await withTempDir("artwork", async (dir) => {
       const animeDir = join(dir, "TV", "Jujutsu Kaisen");
       mkdirSync(animeDir, { recursive: true });
@@ -62,17 +71,16 @@ describe("artwork CLI commands", () => {
         title: "Test Episode",
       });
 
-      const failingDb = makeThrowingDb();
-
       const handlers = createArtworkHandlers({
-        primaryDb: failingDb,
+        primaryDb: createArtworkDb([]),
         cache,
       });
 
-      await handlers.process(dir, {});
+      const result = await handlers.process(dir, {}, makeLogger());
 
-      const allOutput = captures.logMessage.join("\n");
-      expect(allOutput).toContain("no artwork found");
+      expect(result.total).toBe(1);
+      expect(result.noArtwork).toBe(1);
+      expect(result.downloaded).toBe(0);
     });
   });
 });

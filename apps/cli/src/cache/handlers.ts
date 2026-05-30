@@ -4,47 +4,17 @@ export function createCacheHandlers(options?: { dbPath?: string }) {
   const cache = new MatchCache(options);
 
   return {
-    async list(onLog: (msg: string) => void, onError: (msg: string) => void): Promise<void> {
-      try {
-        const entries = cache.list();
-        onLog(JSON.stringify(entries, null, 2));
-      } catch {
-        onError("Failed to list cache");
-      }
+    list() {
+      return cache.list();
     },
 
-    async lookup(
-      hash: string,
-      onLog: (msg: string) => void,
-      onError: (msg: string) => void,
-    ): Promise<void> {
-      try {
-        const match = cache.get(hash);
-        if (match) {
-          onLog(JSON.stringify(match, null, 2));
-        } else {
-          onError(`No cached match for hash: ${hash}`);
-        }
-      } catch {
-        onError("Failed to lookup cache");
-      }
+    lookup(hash: string) {
+      return cache.get(hash) ?? null;
     },
 
-    async clear(
-      confirmed: boolean,
-      onLog: (msg: string) => void,
-      onError: (msg: string) => void,
-    ): Promise<void> {
-      try {
-        if (confirmed) {
-          cache.clear();
-          onLog("Cache cleared");
-        } else {
-          onLog("Cache clear cancelled");
-        }
-      } catch {
-        onError("Failed to clear cache");
-      }
+    clear() {
+      cache.clear();
+      return true;
     },
   };
 }

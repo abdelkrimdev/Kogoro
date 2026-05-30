@@ -1,43 +1,35 @@
 import { describe, expect, test } from "bun:test";
-import { ConfigManager, createLogCapture, OverrideStore, withTempDir } from "@kogoro/core";
+import { ConfigManager, OverrideStore, withTempDir } from "@kogoro/core";
 import { createConfigHandlers } from "./handlers";
 
 describe("Config CLI commands", () => {
-  test("config get returns set value", async () => {
+  test("returns value for existing key", async () => {
     await withTempDir("cli-config", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       await config.set("primary-db", "anidb");
       const handlers = createConfigHandlers({ configDir: dir });
-      const capture = createLogCapture();
-      await handlers.get("primary-db", capture.onLog, () => {});
-      expect(capture.output).toBe('"anidb"');
+      expect(handlers.get("primary-db")).toBe("anidb");
     });
   });
 
-  test("config get returns message for unset key", async () => {
+  test("returns undefined for unset key", async () => {
     await withTempDir("cli-config", async (dir) => {
       const handlers = createConfigHandlers({ configDir: dir });
-      const capture = createLogCapture();
-      await handlers.get("nonexistent", () => {}, capture.onError);
-      expect(capture.errorOutput).toBe("Config key 'nonexistent' is not set");
+      expect(handlers.get("nonexistent")).toBeUndefined();
     });
   });
 
-  test("config set persists value", async () => {
+  test("set persists value and returns true", async () => {
     await withTempDir("cli-config", async (dir) => {
       const handlers = createConfigHandlers({ configDir: dir });
-      await handlers.set(
-        "scan-concurrency",
-        "8",
-        () => {},
-        () => {},
-      );
+      const result = handlers.set("scan-concurrency", "8");
+      expect(result).toBe(true);
       const config = new ConfigManager({ configDir: dir });
       expect(await config.get("scan-concurrency")).toBe(8);
     });
   });
 
-  test("config init creates config file with defaults", async () => {
+  test("init creates config file with defaults", async () => {
     await withTempDir("cli-config", async (dir) => {
       const handlers = createConfigHandlers({ configDir: dir });
       const prompts = {
@@ -49,8 +41,7 @@ describe("Config CLI commands", () => {
         cancel: () => {},
         isCancel: () => false,
       };
-      await handlers.init(prompts, () => {});
-
+      await handlers.init(prompts);
       const config = new ConfigManager({ configDir: dir });
       expect(await config.get("primary-db")).toBe("tvdb");
       expect(await config.get("scan-concurrency")).toBe(4);
@@ -61,27 +52,18 @@ describe("Config CLI commands", () => {
     test("accepts valid preset name", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ configDir: dir });
-        const capture = createLogCapture();
-        await handlers.set("template.preset", "plex", capture.onLog, () => {});
-        expect(capture.output).toContain("Set config 'template.preset' to 'plex'");
-
+        const result = handlers.set("template.preset", "plex");
+        expect(result).toBe(true);
         const config = new ConfigManager({ configDir: dir });
         expect(await config.get("template.preset")).toBe("plex");
         expect(config.getTemplate()).toBe("{anime} - s{season:02}e{episode:02} - {title}");
       });
     });
 
-    test("rejects unknown preset name with clear error", async () => {
+    test("throws for unknown preset name", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ configDir: dir });
-        const capture = createLogCapture();
-        await handlers.set("template.preset", "nonexistent", () => {}, capture.onError);
-        expect(capture.errorOutput).toContain("Invalid value for 'template.preset'");
-        expect(capture.errorOutput).toContain("standard");
-        expect(capture.errorOutput).toContain("compact");
-        expect(capture.errorOutput).toContain("nonexistent");
-
-        // Value should not be persisted; default remains
+        expect(() => handlers.set("template.preset", "nonexistent")).toThrow("nonexistent");
         const config = new ConfigManager({ configDir: dir });
         expect(await config.get("template.preset")).toBe("standard");
       });
@@ -89,82 +71,65 @@ describe("Config CLI commands", () => {
   });
 
   describe("config set schema validation", () => {
-    test("rejects invalid type for number field", async () => {
+    test("throws for invalid number type", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ configDir: dir });
-        const capture = createLogCapture();
-        await handlers.set("scan-concurrency", "eight", () => {}, capture.onError);
-        expect(capture.errorOutput).toContain("Invalid value for 'scan-concurrency'");
-        expect(capture.errorOutput).toContain("number");
+        expect(() => handlers.set("scan-concurrency", "eight")).toThrow("number");
       });
     });
 
     test("accepts valid number value", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ configDir: dir });
-        const capture = createLogCapture();
-        await handlers.set("scan-concurrency", "8", capture.onLog, () => {});
-        expect(capture.output).toContain("8");
-
+        const result = handlers.set("scan-concurrency", "8");
+        expect(result).toBe(true);
         const config = new ConfigManager({ configDir: dir });
         expect(await config.get("scan-concurrency")).toBe(8);
       });
     });
 
-    test("rejects unknown top-level key", async () => {
+    test("throws for unknown top-level key", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ configDir: dir });
-        const capture = createLogCapture();
-        await handlers.set("unknown-key", "value", () => {}, capture.onError);
-        expect(capture.errorOutput).toContain("Unknown config key");
-        expect(capture.errorOutput).toContain("unknown-key");
+        expect(() => handlers.set("unknown-key", "value")).toThrow("unknown-key");
       });
     });
 
-    test("rejects unknown nested key", async () => {
+    test("throws for unknown nested key", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ configDir: dir });
-        const capture = createLogCapture();
-        await handlers.set("template.unknown", "value", () => {}, capture.onError);
-        expect(capture.errorOutput).toContain("Unknown config key");
-        expect(capture.errorOutput).toContain("template.unknown");
+        expect(() => handlers.set("template.unknown", "value")).toThrow("template.unknown");
       });
     });
   });
 
-  describe("config get display format", () => {
-    test("config get media-extensions returns array as JSON", async () => {
+  describe("config get", () => {
+    test("returns array for media-extensions", async () => {
       await withTempDir("cli-config", async (dir) => {
         const config = new ConfigManager({ configDir: dir });
         const handlers = createConfigHandlers({ configDir: dir });
-        const capture = createLogCapture();
-        await handlers.get("media-extensions", capture.onLog, () => {});
-        const expected = JSON.stringify(config.get("media-extensions"));
-        expect(capture.output).toBe(expected);
+        expect(handlers.get("media-extensions")).toEqual(config.get("media-extensions"));
       });
     });
 
-    test("config get scan-concurrency returns number as string", async () => {
+    test("returns number for scan-concurrency", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ configDir: dir });
-        const capture = createLogCapture();
-        await handlers.get("scan-concurrency", capture.onLog, () => {});
-        expect(capture.output).toBe("4");
+        expect(handlers.get("scan-concurrency")).toBe(4);
       });
     });
   });
 
   describe("config override", () => {
-    test("override set stores an override in kogoro.toml", async () => {
+    test("stores an override in kogoro.toml", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
-        const capture = createLogCapture();
-        await handlers.overrideSet(
-          "hash1",
-          { animeId: "tvdb-42", episodeId: "ep-5", entryType: "tv" },
-          capture.onLog,
-        );
-        expect(capture.output).toContain("hash1");
+        const result = handlers.overrideSet("hash1", {
+          animeId: "tvdb-42",
+          episodeId: "ep-5",
+          entryType: "tv",
+        });
+        expect(result).toBe(true);
 
         const store = new OverrideStore(dir);
         expect(store.get("hash1")).toEqual({
@@ -175,20 +140,16 @@ describe("Config CLI commands", () => {
       });
     });
 
-    test("override list returns all overrides as JSON", async () => {
+    test("override list returns all overrides", async () => {
       await withTempDir("cli-config", async (dir) => {
         const store = new OverrideStore(dir);
         store.set("hash1", { animeId: "tvdb-1", entryType: "movie" });
         store.set("hash2", { animeId: "tvdb-2" });
 
         const handlers = createConfigHandlers({ overrideDir: dir });
-        const capture = createLogCapture();
-        await handlers.overrideList(capture.onLog);
-        const parsed = JSON.parse(capture.output);
-        expect(parsed).toHaveLength(2);
-        expect(parsed.find((i: { hash: string }) => i.hash === "hash1")?.data.animeId).toBe(
-          "tvdb-1",
-        );
+        const items = handlers.overrideList();
+        expect(items).toHaveLength(2);
+        expect(items.find((i) => i.hash === "hash1")?.data.animeId).toBe("tvdb-1");
       });
     });
 
@@ -198,28 +159,25 @@ describe("Config CLI commands", () => {
         store1.set("hash1", { animeId: "tvdb-42" });
 
         const handlers = createConfigHandlers({ overrideDir: dir });
-        const capture = createLogCapture();
-        await handlers.overrideRemove("hash1", capture.onLog, () => {});
-        expect(capture.output).toContain("Removed");
+        const result = handlers.overrideRemove("hash1");
+        expect(result).toBe(true);
 
         const store2 = new OverrideStore(dir);
         expect(store2.get("hash1")).toBeUndefined();
       });
     });
 
-    test("override remove returns error for non-existent hash", async () => {
+    test("override remove throws for non-existent hash", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
-        const capture = createLogCapture();
-        await handlers.overrideRemove("nonexistent", () => {}, capture.onError);
-        expect(capture.errorOutput).toContain("not found");
+        expect(() => handlers.overrideRemove("nonexistent")).toThrow("not found");
       });
     });
 
-    test("override set with minimal fields (animeId only)", async () => {
+    test("override set with animeId only", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
-        await handlers.overrideSet("hash1", { animeId: "tvdb-99" }, () => {});
+        handlers.overrideSet("hash1", { animeId: "tvdb-99" });
 
         const store = new OverrideStore(dir);
         expect(store.get("hash1")).toEqual({ animeId: "tvdb-99" });
@@ -229,7 +187,7 @@ describe("Config CLI commands", () => {
     test("override set with entryType only", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
-        await handlers.overrideSet("hash1", { entryType: "special" }, () => {});
+        handlers.overrideSet("hash1", { entryType: "special" });
 
         const store = new OverrideStore(dir);
         expect(store.get("hash1")).toEqual({ entryType: "special" });

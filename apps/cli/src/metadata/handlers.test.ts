@@ -1,24 +1,12 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  createMockClackPrompts,
-  createMockDb,
-  seedCacheEntry,
-  withTempDir,
-  writeTempFile,
-} from "@kogoro/core";
+import { createMockDb, seedCacheEntry, withTempDir, writeTempFile } from "@kogoro/core";
+import { createLogger } from "../logger";
 import { createMetadataHandlers } from "./handlers";
 
-const { mock: clackMock, captures } = createMockClackPrompts();
-mock.module("@clack/prompts", () => clackMock);
-
 describe("metadata CLI commands", () => {
-  afterEach(() => {
-    captures.reset();
-  });
-
-  test("write generates NFO and outputs summary", async () => {
+  test("write generates NFO and returns summary", async () => {
     await withTempDir("cli-meta", async (dir) => {
       await seedCacheEntry(dir, "Test.mkv", {
         episodeId: "10",
@@ -29,13 +17,11 @@ describe("metadata CLI commands", () => {
 
       const dbPath = join(dir, "cache.db");
       const handlers = createMetadataHandlers({ dbPath });
-      await handlers.write(dir, { json: true });
+      const logger = createLogger("info", () => {});
+      const result = await handlers.write(dir, {}, logger);
 
-      const jsonOutput = captures.logMessage.find((msg) => msg.startsWith("{")) as string;
-      expect(jsonOutput).toBeDefined();
-      const parsed = JSON.parse(jsonOutput);
-      expect(parsed.total).toBe(1);
-      expect(parsed.written).toBe(1);
+      expect(result.total).toBe(1);
+      expect(result.written).toBe(1);
     });
   });
 
@@ -69,7 +55,8 @@ describe("metadata CLI commands", () => {
       });
 
       const handlers = createMetadataHandlers({ dbPath, database: mockDb });
-      await handlers.write(dir, {});
+      const logger = createLogger("info", () => {});
+      await handlers.write(dir, {}, logger);
 
       const nfoPath = join(dir, "Anime - 1x01.nfo");
       const nfoContent = readFileSync(nfoPath, "utf-8");
@@ -91,13 +78,11 @@ describe("metadata CLI commands", () => {
 
       const dbPath = join(dir, "cache.db");
       const handlers = createMetadataHandlers({ dbPath });
-      await handlers.write(dir, { force: true, json: true });
+      const logger = createLogger("info", () => {});
+      const result = await handlers.write(dir, { force: true }, logger);
 
-      const jsonOutput = captures.logMessage.find((msg) => msg.startsWith("{")) as string;
-      expect(jsonOutput).toBeDefined();
-      const parsed = JSON.parse(jsonOutput);
-      expect(parsed.written).toBe(1);
-      expect(parsed.skipped).toBe(0);
+      expect(result.written).toBe(1);
+      expect(result.skipped).toBe(0);
     });
   });
 });

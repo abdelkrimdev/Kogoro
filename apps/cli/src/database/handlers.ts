@@ -1,31 +1,13 @@
-import type { DatabasePlugin } from "@kogoro/plugins";
+import type { AnimeResult, DatabasePlugin, EpisodeResult } from "@kogoro/plugins";
 
 export function createDatabaseHandlers(plugin: DatabasePlugin) {
   return {
-    async search(
-      title: string,
-      onLog: (msg: string) => void,
-      onError: (msg: string) => void,
-    ): Promise<void> {
-      try {
-        const results = await plugin.searchAnime(title);
-        onLog(JSON.stringify(results, null, 2));
-      } catch {
-        onError("Search failed");
-      }
+    async search(title: string): Promise<AnimeResult[]> {
+      return plugin.searchAnime(title);
     },
 
-    async episodes(
-      animeId: string,
-      onLog: (msg: string) => void,
-      onError: (msg: string) => void,
-    ): Promise<void> {
-      try {
-        const results = await plugin.getEpisodes(animeId);
-        onLog(JSON.stringify(results, null, 2));
-      } catch {
-        onError("Failed to fetch episodes");
-      }
+    async episodes(animeId: string): Promise<EpisodeResult[]> {
+      return plugin.getEpisodes(animeId);
     },
   };
 }

@@ -1,14 +1,15 @@
-import { SCHEMA_DEFAULTS, type TaskContext } from "@kogoro/core";
+import { SCHEMA_DEFAULTS } from "@kogoro/core";
 import type yargs from "yargs";
-import { createProgressTracker } from "../progress";
+import { createLogger, type Logger, type LogLevel } from "../logger";
+import type { SubtitleResult } from "./handlers";
 
 type SubtitleHandlerFactory = (debug?: boolean) => Promise<
   | {
       fetch(
         dirPath: string,
         opts: { language?: string; force?: boolean },
-        ctx?: TaskContext,
-      ): Promise<void>;
+        logger: Logger,
+      ): Promise<SubtitleResult>;
     }
   | undefined
 >;
@@ -38,12 +39,16 @@ export function registerSubtitle(
           describe: "Overwrite existing subtitle files",
         }),
     async (argv) => {
-      const handlers = await createHandlers(argv["debug"] as boolean | undefined);
+      const level: LogLevel = argv["verbose"] ? "debug" : argv["quiet"] ? "error" : "info";
+      const logger = createLogger(level);
+      const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
       if (!handlers) return;
-      const tracker = createProgressTracker();
-      tracker.start("Fetching subtitles...");
-      await handlers.fetch(argv.path, { language: argv.lang, force: argv.force }, tracker.ctx);
-      tracker.stop("Done");
+      const result = await handlers.fetch(
+        argv.path,
+        { language: argv.lang, force: argv.force },
+        logger,
+      );
+      console.log(JSON.stringify(result));
     },
   );
 }

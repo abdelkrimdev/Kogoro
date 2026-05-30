@@ -1,14 +1,9 @@
 import { existsSync } from "node:fs";
 import { relative, sep } from "node:path";
-import {
-  type ConfigManager,
-  MatchCache,
-  SCHEMA_DEFAULTS,
-  type TaskContext,
-  walk,
-} from "@kogoro/core";
+import { type ConfigManager, MatchCache, SCHEMA_DEFAULTS, walk } from "@kogoro/core";
 import type { SubtitlePlugin } from "@kogoro/plugins";
 import { resolveMediaExtensions } from "../extensions";
+import type { Logger } from "../logger";
 
 export interface SubtitleHandlerOptions {
   subtitlePlugin: SubtitlePlugin;
@@ -19,6 +14,12 @@ export interface SubtitleHandlerOptions {
 export interface SubtitleFetchOptions {
   language?: string;
   force?: boolean;
+}
+
+export interface SubtitleResult {
+  downloaded: number;
+  skipped: number;
+  failed: number;
 }
 
 function resolveLanguage(cliLang: string | undefined, config?: ConfigManager): string {
@@ -34,87 +35,82 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
   async function fetch(
     dirPath: string,
     opts: SubtitleFetchOptions = {},
-    ctx?: TaskContext,
-  ): Promise<void> {
+    logger: Logger,
+  ): Promise<SubtitleResult> {
     const language = resolveLanguage(opts.language, options.config);
     const force = opts.force ?? false;
     let downloaded = 0;
     let skipped = 0;
     let failed = 0;
 
-    try {
-      const files = walk(dirPath, resolveMediaExtensions(options.config));
-      let completed = 0;
+    const files = walk(dirPath, resolveMediaExtensions(options.config));
+    let completed = 0;
 
-      for (const filePath of files) {
-        if (ctx?.abortSignal?.aborted) break;
+    for (const filePath of files) {
+      const hash = await MatchCache.hashFile(filePath);
+      const cached = cache.get(hash);
 
-        const hash = await MatchCache.hashFile(filePath);
-        const cached = cache.get(hash);
-
-        if (!cached) {
-          completed++;
-          ctx?.progress({ completed, total: files.length, file: filePath, status: "skipped" });
-          continue;
-        }
-
-        const animeTitle = cached.animeTitle ?? extractAnimeTitle(dirPath, filePath);
-        if (!animeTitle) {
-          completed++;
-          ctx?.progress({ completed, total: files.length, file: filePath, status: "skipped" });
-          continue;
-        }
-
-        const subtitlePath = `${filePath}.${language}.srt`;
-
-        if (!force && existsSync(subtitlePath)) {
-          skipped++;
-          completed++;
-          ctx?.progress({ completed, total: files.length, file: filePath, status: "skipped" });
-          continue;
-        }
-
-        const results = await subtitlePlugin.search(
-          animeTitle,
-          cached.season ?? undefined,
-          cached.episode ?? undefined,
-          language,
-        );
-
-        if (results.length === 0) {
-          failed++;
-          completed++;
-          ctx?.progress({ completed, total: files.length, file: filePath, status: "failed" });
-          continue;
-        }
-
-        const best = results[0];
-        if (best === undefined) {
-          failed++;
-          completed++;
-          ctx?.progress({ completed, total: files.length, file: filePath, status: "failed" });
-          continue;
-        }
-        const content = await subtitlePlugin.download(best.fileId);
-
-        if (!content) {
-          failed++;
-          completed++;
-          ctx?.progress({ completed, total: files.length, file: filePath, status: "failed" });
-          continue;
-        }
-
-        await Bun.write(subtitlePath, content);
-        downloaded++;
-        ctx?.log(`Downloaded: ${filePath} -> ${subtitlePath}`);
+      if (!cached) {
         completed++;
-        ctx?.progress({ completed, total: files.length, file: filePath, status: "downloaded" });
+        logger.progress(`matched=${completed}/${files.length} status=skipped`);
+        continue;
       }
 
-      ctx?.log(`\nSummary: ${downloaded} downloaded, ${skipped} skipped, ${failed} failed`);
-    } catch (err) {
-      ctx?.error(`Subtitle fetch failed: ${String(err)}`);
+      const animeTitle = cached.animeTitle ?? extractAnimeTitle(dirPath, filePath);
+      if (!animeTitle) {
+        completed++;
+        logger.progress(`matched=${completed}/${files.length} status=skipped`);
+        continue;
+      }
+
+      const subtitlePath = `${filePath}.${language}.srt`;
+
+      if (!force && existsSync(subtitlePath)) {
+        skipped++;
+        completed++;
+        logger.progress(`matched=${completed}/${files.length} status=skipped`);
+        continue;
+      }
+
+      const results = await subtitlePlugin.search(
+        animeTitle,
+        cached.season ?? undefined,
+        cached.episode ?? undefined,
+        language,
+      );
+
+      if (results.length === 0) {
+        failed++;
+        completed++;
+        logger.progress(`matched=${completed}/${files.length} status=failed`);
+        continue;
+      }
+
+      const best = results[0];
+      if (best === undefined) {
+        failed++;
+        completed++;
+        logger.progress(`matched=${completed}/${files.length} status=failed`);
+        continue;
+      }
+      const content = await subtitlePlugin.download(best.fileId);
+
+      if (!content) {
+        failed++;
+        completed++;
+        logger.progress(`matched=${completed}/${files.length} status=failed`);
+        continue;
+      }
+
+      await Bun.write(subtitlePath, content);
+      downloaded++;
+      logger.info(`Downloaded: ${filePath} -> ${subtitlePath}`);
+      completed++;
+      logger.progress(`matched=${completed}/${files.length} status=downloaded`);
     }
+
+    logger.info(`Summary: ${downloaded} downloaded, ${skipped} skipped, ${failed} failed`);
+    return { downloaded, skipped, failed };
   }
 
   return { fetch };

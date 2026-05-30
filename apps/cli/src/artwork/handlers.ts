@@ -1,8 +1,7 @@
-import { log } from "@clack/prompts";
 import { ArtworkFetcher, type ConfigManager, type HttpClient, MatchCache } from "@kogoro/core";
 import type { DatabasePlugin } from "@kogoro/plugins";
 import { resolveMediaExtensions } from "../extensions";
-import { createProgressTracker } from "../progress";
+import type { Logger } from "../logger";
 
 export interface ArtworkHandlerOptions {
   primaryDb: DatabasePlugin;
@@ -10,6 +9,13 @@ export interface ArtworkHandlerOptions {
   cache?: MatchCache;
   httpClient?: HttpClient;
   config?: ConfigManager;
+}
+
+export interface ArtworkResult {
+  total: number;
+  downloaded: number;
+  skipped: number;
+  noArtwork: number;
 }
 
 export function createArtworkHandlers(options: ArtworkHandlerOptions) {
@@ -26,29 +32,18 @@ export function createArtworkHandlers(options: ArtworkHandlerOptions) {
   return {
     async process(
       path: string,
-      cliOptions: { force?: boolean; verbose?: boolean; quiet?: boolean },
-    ): Promise<void> {
-      const tracker = createProgressTracker({
-        verbose: cliOptions.verbose,
-        quiet: cliOptions.quiet,
-      });
+      cliOptions: { force?: boolean },
+      logger: Logger,
+    ): Promise<ArtworkResult> {
+      logger.info("Fetching artwork...");
 
-      tracker.start("Fetching artwork...");
+      const summary = await fetcher.process(path, { force: cliOptions.force });
 
-      try {
-        const summary = await fetcher.process(path, { force: cliOptions.force }, tracker.ctx);
+      logger.info(
+        `Processed ${summary.total} anime: ${summary.downloaded} downloaded, ${summary.skipped} skipped, ${summary.noArtwork} not found`,
+      );
 
-        tracker.stop(`Processed ${summary.total} anime`);
-
-        const parts: string[] = [`${summary.total} anime processed`];
-        if (summary.downloaded > 0) parts.push(`${summary.downloaded} covers downloaded`);
-        if (summary.skipped > 0) parts.push(`${summary.skipped} already present`);
-        if (summary.noArtwork > 0) parts.push(`${summary.noArtwork} no artwork found`);
-        log.message(parts.join(", "));
-      } catch (err) {
-        tracker.stop("Failed");
-        log.error(String(err));
-      }
+      return summary;
     },
   };
 }
