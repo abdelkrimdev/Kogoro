@@ -1,5 +1,5 @@
 import type yargs from "yargs";
-import { createLogger, type Logger, type LogLevel } from "../logger";
+import { createLogger, type Logger, resolveLogLevel } from "../logger";
 import { wrapCommand } from "../wrap";
 import type { ArtworkSummary } from "./handlers";
 
@@ -34,8 +34,7 @@ export function registerArtwork(
           describe: "Overwrite existing cover.jpg files",
         }),
     async (argv) => {
-      const level: LogLevel = argv["verbose"] ? "debug" : argv["quiet"] ? "error" : "info";
-      const logger = createLogger(level);
+      const logger = createLogger(resolveLogLevel(argv));
       const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
       if (!handlers) return;
       await wrapCommand(async () => handlers.process(argv.path, { force: argv.force }, logger));

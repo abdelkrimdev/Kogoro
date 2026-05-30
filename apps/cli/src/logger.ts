@@ -7,6 +7,12 @@ export interface Logger {
   progress(msg: string): void;
 }
 
+export function resolveLogLevel(argv: Record<string, unknown>): LogLevel {
+  if (argv["verbose"]) return "debug";
+  if (argv["quiet"]) return "error";
+  return "info";
+}
+
 export function createLogger(
   level: LogLevel,
   write: (msg: string) => void = (msg: string) => process.stderr.write(`${msg}\n`),

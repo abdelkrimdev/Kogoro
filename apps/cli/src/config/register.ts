@@ -1,8 +1,12 @@
-import { OVERRIDE_TOML_KEYS } from "@kogoro/core";
+import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
+import { OVERRIDE_TOML_KEYS, type PromptsAPI } from "@kogoro/core";
 import type yargs from "yargs";
 import { wrapCommand } from "../wrap";
-import { getDefaultPrompts } from "./default-prompts";
 import { createConfigHandlers } from "./handlers";
+
+function getDefaultPrompts(): PromptsAPI {
+  return { intro, outro, select, text, confirm, cancel, isCancel };
+}
 
 export function registerConfig(parser: ReturnType<typeof yargs>): void {
   parser.command(

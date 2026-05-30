@@ -1,5 +1,23 @@
 import { describe, expect, test } from "bun:test";
-import { createLogger } from "./logger";
+import { createLogger, resolveLogLevel } from "./logger";
+
+describe("resolveLogLevel", () => {
+  test("returns debug when verbose is true", () => {
+    expect(resolveLogLevel({ verbose: true })).toBe("debug");
+  });
+
+  test("returns error when quiet is true", () => {
+    expect(resolveLogLevel({ quiet: true })).toBe("error");
+  });
+
+  test("returns info when neither verbose nor quiet is set", () => {
+    expect(resolveLogLevel({})).toBe("info");
+  });
+
+  test("verbose takes precedence over quiet", () => {
+    expect(resolveLogLevel({ verbose: true, quiet: true })).toBe("debug");
+  });
+});
 
 describe("createLogger", () => {
   test("prefixes info messages", () => {

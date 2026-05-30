@@ -1,6 +1,6 @@
 import { type RenameAction, SCHEMA_DEFAULTS, type ScanResult } from "@kogoro/core";
 import type yargs from "yargs";
-import { createLogger, type LogLevel } from "../logger";
+import { createLogger, resolveLogLevel } from "../logger";
 import { wrapCommand } from "../wrap";
 import type { ScanOptions } from "./handlers";
 
@@ -67,8 +67,7 @@ export function registerScan(
           describe: "Number of files to process concurrently",
         }),
     async (argv) => {
-      const level: LogLevel = argv["verbose"] ? "debug" : argv["quiet"] ? "error" : "info";
-      const logger = createLogger(level);
+      const logger = createLogger(resolveLogLevel(argv));
       const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
       if (!handlers) return;
       const extensions = argv.extensions

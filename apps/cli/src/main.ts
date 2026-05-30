@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { log } from "@clack/prompts";
 import { ConfigManager, createCredentialStore, MatchCache, OverrideStore } from "@kogoro/core";
-import { type DatabasePlugin, PluginFactory } from "@kogoro/plugins";
+import { PluginFactory } from "@kogoro/plugins";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { registerArtwork } from "./artwork/register";
@@ -28,33 +28,17 @@ export async function run(argv: string[]): Promise<void> {
   const config = new ConfigManager();
   const credentialStore = createCredentialStore();
 
-  function createFactory(debug?: boolean): PluginFactory {
-    return new PluginFactory(config, credentialStore, debug);
-  }
-
-  async function withDatabase<T>(
-    debug: boolean | undefined,
-    getDatabase: (factory: PluginFactory) => Promise<DatabasePlugin | undefined>,
-    buildHandlers: (database: DatabasePlugin) => T,
-  ): Promise<T | undefined> {
-    const factory = createFactory(debug);
-    const database = await getDatabase(factory);
-    if (!database) return undefined;
-    return buildHandlers(database);
-  }
-
   async function createDatabaseCommandsWithCredentials(debug?: boolean) {
     const { createDatabaseHandlers } = await import("./database/handlers");
-    return withDatabase(
-      debug,
-      (factory) => factory.primaryDatabase(),
-      (database) => createDatabaseHandlers(database),
-    );
+    const factory = new PluginFactory(config, credentialStore, debug);
+    const database = await factory.primaryDatabase();
+    if (!database) return undefined;
+    return createDatabaseHandlers(database);
   }
 
   async function createScanWithCredentials(debug?: boolean) {
     const { createScanHandlers } = await import("./scan/handlers");
-    const factory = createFactory(debug);
+    const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
     const fallbackDatabases = await factory.secondaryDatabases();
@@ -71,16 +55,15 @@ export async function run(argv: string[]): Promise<void> {
 
   async function createMetadataWithCredentials(debug?: boolean) {
     const { createMetadataHandlers } = await import("./metadata/handlers");
-    return withDatabase(
-      debug,
-      (factory) => factory.primaryDatabase(),
-      (database) => createMetadataHandlers({ database, config }),
-    );
+    const factory = new PluginFactory(config, credentialStore, debug);
+    const database = await factory.primaryDatabase();
+    if (!database) return undefined;
+    return createMetadataHandlers({ database, config });
   }
 
   async function createArtworkWithCredentials(debug?: boolean) {
     const { createArtworkHandlers } = await import("./artwork/handlers");
-    const factory = createFactory(debug);
+    const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
     const fallbackDatabases = await factory.secondaryDatabases();
@@ -89,7 +72,7 @@ export async function run(argv: string[]): Promise<void> {
 
   async function createSubtitleWithCredentials(debug?: boolean) {
     const { createSubtitleHandlers } = await import("./subtitle/handlers");
-    const factory = createFactory(debug);
+    const factory = new PluginFactory(config, credentialStore, debug);
     const subtitlePlugin = await factory.subtitle();
     if (!subtitlePlugin) return undefined;
     const cache = new MatchCache();
