@@ -46,15 +46,30 @@ export type {
   ProgressTrackerOptions,
   TaskContext,
 } from "./progress";
-export type {
-  AnimeGroup,
-  AnimeGroupEntry,
-  ReviewPlan,
-  SwapPair,
-} from "./rename-plan-aggregator";
+export type { AnimeGroupEntry } from "./rename-plan-aggregator";
 export { buildReviewPlan, detectSwaps, groupByAnime } from "./rename-plan-aggregator";
+export { aggregateReviewPlan } from "./rename-plan-aggregator";
 export type { RenameAction, RenamePlan, RenameResult } from "./renamer";
 export { Renamer } from "./renamer";
+export type {
+  ScanCompleteEvent,
+  ScanEvent,
+  ScanExecutionProgressEvent,
+  ScanOrchestratorOptions,
+  ScanPhaseCompleteEvent,
+  ScanProgressEvent,
+  ScanReviewReadyEvent,
+  ScanState,
+} from "./scan-orchestrator";
+export { ScanOrchestrator } from "./scan-orchestrator";
+export type {
+  AnimeGroup,
+  FileRow,
+  ReviewPlan,
+  ScanFileStatus,
+  ScanSummary,
+  SwapPair,
+} from "./scan-types";
 export type { ScanResult } from "./scanner";
 export { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
 export { render } from "./template-engine";
