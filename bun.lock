@@ -38,6 +38,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@kogoro/core": "workspace:*",
+        "@kogoro/plugins": "workspace:*",
         "@skeletonlabs/skeleton": "^3.1.2",
         "@skeletonlabs/skeleton-svelte": "^1.2.1",
         "electrobun": "^1.18.1",

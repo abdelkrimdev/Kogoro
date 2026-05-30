@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { CONFIG_DIR, ConfigManager, createCredentialStore, ScanOrchestrator } from "@kogoro/core";
 import { BrowserView, BrowserWindow } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
+import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
 import { shouldShowOnboarding } from "./onboarding";
 import { buildSettingsFormData } from "./settings";
@@ -76,6 +77,33 @@ function createScanOrchestrator(sessionId: string): ScanOrchestrator {
 
   scanOrchestrators.set(sessionId, orchestrator);
   return orchestrator;
+}
+
+async function handleEnrichment(params: { id: string }, command: "artwork" | "metadata") {
+  const send = rpc.send as unknown as {
+    enrichmentProgress?: (data: unknown) => void;
+    enrichmentComplete?: (data: unknown) => void;
+  };
+  const enrichment = createEnrichmentHandlers({
+    configManager,
+    credentialStore,
+    configDir: CONFIG_DIR,
+    send: {
+      enrichmentProgress: (data) => send.enrichmentProgress?.(data),
+      enrichmentComplete: (data) => send.enrichmentComplete?.(data),
+    },
+  });
+  const result =
+    command === "artwork"
+      ? await enrichment.enrichArtwork(params)
+      : await enrichment.enrichMetadata(params);
+  send.enrichmentComplete?.({
+    animeId: params.id,
+    command,
+    success: result.success,
+    error: result.error,
+  });
+  return result;
 }
 
 const rpc = BrowserView.defineRPC<AppRPC>({
@@ -238,6 +266,12 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         const { sessionId, fileAId, fileBId } = params;
         getOrchestrator(sessionId).swapFiles(fileAId, fileBId);
         return undefined;
+      },
+      enrichArtwork: async (params) => {
+        return handleEnrichment(params, "artwork") as any;
+      },
+      enrichMetadata: async (params) => {
+        return handleEnrichment(params, "metadata") as any;
       },
     },
     messages: {

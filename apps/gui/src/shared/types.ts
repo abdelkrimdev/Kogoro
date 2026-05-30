@@ -136,6 +136,22 @@ export type AppRPC = {
         params: { plugin: string; enabled: boolean };
         response: { success: boolean; error?: string };
       };
+      enrichArtwork: {
+        params: { id: string };
+        response: {
+          success: boolean;
+          summary?: { total: number; downloaded: number; skipped: number; noArtwork: number };
+          error?: string;
+        };
+      };
+      enrichMetadata: {
+        params: { id: string };
+        response: {
+          success: boolean;
+          summary?: { total: number; written: number; skipped: number; failed: number };
+          error?: string;
+        };
+      };
     };
     messages: {
       showOnboarding: Record<string, never>;
@@ -167,6 +183,20 @@ export type AppRPC = {
       scanComplete: {
         sessionId: string;
         summary: ScanSummary;
+      };
+      enrichmentProgress: {
+        animeId: string;
+        command: "artwork" | "metadata";
+        completed: number;
+        total: number;
+        file: string;
+        status: string;
+      };
+      enrichmentComplete: {
+        animeId: string;
+        command: "artwork" | "metadata";
+        success: boolean;
+        error?: string;
       };
     };
   }>;

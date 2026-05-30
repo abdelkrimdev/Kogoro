@@ -1,3 +1,10 @@
+export const ENTRY_LABELS: Record<string, string> = {
+  tv: "TV",
+  movie: "Movie",
+  ova: "OVA",
+  special: "Specials",
+};
+
 export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -22,16 +29,5 @@ export function typeBadgeClass(type: string): string {
 }
 
 export function entryTypeLabel(type: string): string {
-  switch (type) {
-    case "tv":
-      return "TV";
-    case "movie":
-      return "Movie";
-    case "ova":
-      return "OVA";
-    case "special":
-      return "Specials";
-    default:
-      return type;
-  }
+  return ENTRY_LABELS[type] ?? type;
 }
