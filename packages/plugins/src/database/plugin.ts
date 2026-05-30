@@ -1,4 +1,4 @@
-import type { AnimeResult, ArtworkResult, ArtworkType, EpisodeResult } from "./types";
+import type { AnimeResult, ArtworkResult, ArtworkType, EpisodeResult } from "@kogoro/core";
 
 export interface DatabasePlugin {
   searchAnime(title: string): Promise<AnimeResult[]>;

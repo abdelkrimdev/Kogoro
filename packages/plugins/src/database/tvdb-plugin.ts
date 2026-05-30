@@ -1,6 +1,12 @@
-import { HttpClient } from "@kogoro/core";
+import {
+  type AnimeResult,
+  type ArtworkResult,
+  type ArtworkType,
+  type EntryType,
+  type EpisodeResult,
+  HttpClient,
+} from "@kogoro/core";
 import type { DatabasePlugin } from "./plugin";
-import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types";
 
 const BASE_URL = "https://api4.thetvdb.com/v4";
 

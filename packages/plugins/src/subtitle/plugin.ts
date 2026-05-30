@@ -1,4 +1,4 @@
-import type { SubtitleResult } from "./types";
+import type { SubtitleResult } from "@kogoro/core";
 
 export interface SubtitlePlugin {
   search(

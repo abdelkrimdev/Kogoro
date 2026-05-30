@@ -1,8 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { createCallCounter, createMockHttpClient, mockJsonFetch, toUrlString } from "@kogoro/core";
+import {
+  type AnimeResult,
+  createCallCounter,
+  createMockHttpClient,
+  mockJsonFetch,
+  toUrlString,
+} from "@kogoro/core";
 import type { DatabasePlugin } from "./plugin";
 import { TVDBPlugin } from "./tvdb-plugin";
-import type { AnimeResult } from "./types";
 
 function mockFetch(
   data: unknown,

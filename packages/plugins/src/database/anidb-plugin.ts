@@ -1,8 +1,15 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CONFIG_DIR, HttpClient } from "@kogoro/core";
+import {
+  type AnimeResult,
+  type ArtworkResult,
+  type ArtworkType,
+  CONFIG_DIR,
+  type EntryType,
+  type EpisodeResult,
+  HttpClient,
+} from "@kogoro/core";
 import type { DatabasePlugin } from "./plugin";
-import type { AnimeResult, ArtworkResult, ArtworkType, EntryType, EpisodeResult } from "./types";
 
 const BASE_URL = "http://api.anidb.net:9001/httpapi";
 const TITLE_CACHE_FILENAME = "anime-titles.xml";
