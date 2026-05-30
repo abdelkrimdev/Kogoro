@@ -1,6 +1,7 @@
 import type { ReviewPlan } from "@kogoro/core";
 import { Electroview } from "electrobun/view";
 import type { AppRPC } from "../shared/types";
+import { renderAnimeDetail } from "./detail";
 import { renderLibrary } from "./library";
 import { renderReviewScreen } from "./review";
 import { renderSettings } from "./settings";
@@ -60,6 +61,15 @@ const rpc = Electroview.defineRPC<AppRPC>({
         currentPlan = null;
         render();
       },
+      enrichmentProgress: (data: unknown) => {
+        const event = data as { command: string; completed: number; total: number; status: string };
+        const statusText = document.getElementById("status-text");
+        if (statusText) {
+          const label = event.command === "artwork" ? "Cover art" : "Metadata";
+          statusText.textContent = `${label}: ${event.completed}/${event.total} - ${event.status}`;
+        }
+      },
+      enrichmentComplete: (_data: unknown) => {},
     } as any,
   },
 });
@@ -67,12 +77,13 @@ const rpc = Electroview.defineRPC<AppRPC>({
 const electrobun = new Electroview({ rpc });
 
 type Mode = "onboarding" | "main";
-type View = "scan" | "library" | "settings" | "review";
+type View = "scan" | "library" | "details" | "settings" | "review";
 
 let currentMode: Mode = "main";
 let currentView: View = "scan";
 let currentSessionId: string | null = null;
 let currentPlan: ReviewPlan | null = null;
+let currentDetailId: string | null = null;
 
 const views: Record<View, string> = {
   scan: `
@@ -96,6 +107,7 @@ const views: Record<View, string> = {
   `,
   settings: "",
   review: "",
+  details: "",
 };
 
 function setShellVisible(visible: boolean): void {
@@ -125,9 +137,25 @@ function renderMain(): void {
         },
       });
     } else if (currentView === "library") {
-      renderLibrary(content, rpc as any, statusText);
+      renderLibrary(content, rpc as any, statusText, (id: string) => {
+        currentDetailId = id;
+        currentView = "details";
+        render();
+      });
     } else if (currentView === "settings") {
       renderSettings(content, rpc as any);
+    } else if (currentView === "details" && currentDetailId) {
+      renderAnimeDetail(
+        content,
+        rpc as any,
+        currentDetailId,
+        () => {
+          currentView = "library";
+          currentDetailId = null;
+          render();
+        },
+        statusText,
+      );
     } else {
       content.innerHTML = views[currentView];
     }
@@ -145,6 +173,9 @@ function renderMain(): void {
         break;
       case "review":
         statusText.textContent = "Review plan";
+        break;
+      case "details":
+        statusText.textContent = "Anime details";
         break;
     }
   }

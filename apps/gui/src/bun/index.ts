@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { CONFIG_DIR, ConfigManager, createCredentialStore, ScanOrchestrator } from "@kogoro/core";
 import { BrowserView, BrowserWindow } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
+import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
 import { shouldShowOnboarding } from "./onboarding";
 import { buildSettingsFormData } from "./settings";
@@ -238,6 +239,52 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         const { sessionId, fileAId, fileBId } = params;
         getOrchestrator(sessionId).swapFiles(fileAId, fileBId);
         return undefined;
+      },
+      enrichArtwork: async (params) => {
+        const send = rpc.send as unknown as {
+          enrichmentProgress?: (data: unknown) => void;
+          enrichmentComplete?: (data: unknown) => void;
+        };
+        const enrichment = createEnrichmentHandlers({
+          configManager,
+          credentialStore,
+          configDir: CONFIG_DIR,
+          send: {
+            enrichmentProgress: (data) => send.enrichmentProgress?.(data),
+            enrichmentComplete: (data) => send.enrichmentComplete?.(data),
+          },
+        });
+        const result = await enrichment.enrichArtwork(params);
+        send.enrichmentComplete?.({
+          animeId: params.id,
+          command: "artwork",
+          success: result.success,
+          error: result.error,
+        });
+        return result;
+      },
+      enrichMetadata: async (params) => {
+        const send = rpc.send as unknown as {
+          enrichmentProgress?: (data: unknown) => void;
+          enrichmentComplete?: (data: unknown) => void;
+        };
+        const enrichment = createEnrichmentHandlers({
+          configManager,
+          credentialStore,
+          configDir: CONFIG_DIR,
+          send: {
+            enrichmentProgress: (data) => send.enrichmentProgress?.(data),
+            enrichmentComplete: (data) => send.enrichmentComplete?.(data),
+          },
+        });
+        const result = await enrichment.enrichMetadata(params);
+        send.enrichmentComplete?.({
+          animeId: params.id,
+          command: "metadata",
+          success: result.success,
+          error: result.error,
+        });
+        return result;
       },
     },
     messages: {

@@ -1,3 +1,5 @@
+import { ENTRY_LABELS, escapeHtml, typeBadgeClass } from "./shared";
+
 type LibraryItem = {
   id: string;
   titleEn: string;
@@ -17,21 +19,6 @@ interface LibraryState {
 
 const ENTRY_TYPES = ["tv", "movie", "ova", "special"];
 
-const ENTRY_LABELS: Record<string, string> = {
-  tv: "TV",
-  movie: "Movie",
-  ova: "OVA",
-  special: "Specials",
-};
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 function renderNoResults(): string {
   return `
     <div class="flex flex-col items-center justify-center h-full gap-3 py-16">
@@ -43,25 +30,11 @@ function renderNoResults(): string {
   `;
 }
 
-function typeBadgeClass(type: string): string {
-  switch (type) {
-    case "tv":
-      return "bg-primary-500/20 text-primary-400";
-    case "movie":
-      return "bg-emerald-500/20 text-emerald-400";
-    case "ova":
-      return "bg-amber-500/20 text-amber-400";
-    case "special":
-      return "bg-rose-500/20 text-rose-400";
-    default:
-      return "bg-surface-600 text-surface-300";
-  }
-}
-
 export function renderLibrary(
   container: HTMLElement,
   rpc: { request: (method: string, params: unknown) => Promise<unknown> },
   statusText: HTMLElement | null,
+  onOpenAnime?: (id: string) => void,
 ): void {
   const state: LibraryState = {
     items: [],
@@ -298,7 +271,11 @@ export function renderLibrary(
     container.querySelectorAll("[data-action='open-anime']").forEach((el) => {
       el.addEventListener("click", () => {
         const id = el.getAttribute("data-id");
-        console.log("Navigate to anime detail:", id);
+        if (id && onOpenAnime) {
+          onOpenAnime(id);
+        } else {
+          console.log("Navigate to anime detail:", id);
+        }
       });
     });
   }
