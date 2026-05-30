@@ -62,6 +62,7 @@ export function renderLibrary(
   container: HTMLElement,
   rpc: { request: (method: string, params: unknown) => Promise<unknown> },
   statusText: HTMLElement | null,
+  onAnimeClick?: (id: string) => void,
 ): void {
   const state: LibraryState = {
     items: [],
@@ -298,7 +299,9 @@ export function renderLibrary(
     container.querySelectorAll("[data-action='open-anime']").forEach((el) => {
       el.addEventListener("click", () => {
         const id = el.getAttribute("data-id");
-        console.log("Navigate to anime detail:", id);
+        if (id && onAnimeClick) {
+          onAnimeClick(id);
+        }
       });
     });
   }

@@ -88,10 +88,13 @@ describe("getAnimeDetail handler", () => {
       expect(result?.anime.titleJa).toBe("呪術廻戦");
       expect(result?.anime.entryType).toBe("tv");
       expect(result?.anime.coverArt).toBe("/covers/jjk.jpg");
-      expect(result?.episodes).toHaveLength(2);
+      expect(result?.episodes).toHaveLength(24);
       expect(result?.episodes[0]?.episode).toBe(1);
       expect(result?.episodes[0]?.titleEn).toBe("Ryomen Sukuna");
       expect(result?.episodes[1]?.episode).toBe(2);
+      expect(result?.episodes[2]?.episode).toBe(3);
+      expect(result?.episodes[2]?.missing).toBe(true);
+      expect(result?.filesOnDisk).toBe(2);
     });
   });
 

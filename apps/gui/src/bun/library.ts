@@ -15,6 +15,8 @@ export interface LibraryAnimeDetail {
     titleEn: string;
     titleJa?: string;
     entryType: string;
+    sourceDb: string;
+    totalEpisodes: number;
     coverArt?: string;
   };
   episodes: Array<{
@@ -22,7 +24,10 @@ export interface LibraryAnimeDetail {
     season: number;
     episode: number;
     titleEn: string;
+    filePath: string;
+    missing: boolean;
   }>;
+  filesOnDisk: number;
 }
 
 export function createLibraryHandlers(configDir: string) {
@@ -54,21 +59,46 @@ export function createLibraryHandlers(configDir: string) {
         const anime = db.getAnime(Number(params.id));
         if (!anime) return null;
 
-        const episodes = db.getEpisodesByAnimeId(anime.id);
+        const dbEpisodes = db.getEpisodesByAnimeId(anime.id);
+
+        const totalEpisodes = anime.episodeCount;
+
+        const allEpisodes: LibraryAnimeDetail["episodes"] = [];
+        for (let epNum = 1; epNum <= totalEpisodes; epNum++) {
+          const dbEp = dbEpisodes.find((e) => e.episodeNumber === epNum);
+          if (dbEp) {
+            allEpisodes.push({
+              id: String(dbEp.id),
+              season: dbEp.season ?? 1,
+              episode: dbEp.episodeNumber,
+              titleEn: dbEp.title ?? `Episode ${dbEp.episodeNumber}`,
+              filePath: dbEp.filePath,
+              missing: false,
+            });
+          } else {
+            allEpisodes.push({
+              id: `missing-${anime.id}-${epNum}`,
+              season: 1,
+              episode: epNum,
+              titleEn: `Episode ${epNum}`,
+              filePath: "",
+              missing: true,
+            });
+          }
+        }
+
         return {
           anime: {
             id: String(anime.id),
             titleEn: anime.title,
             titleJa: anime.titleJapanese,
             entryType: anime.entryType,
+            sourceDb: anime.sourceDb,
+            totalEpisodes,
             coverArt: anime.coverArtPath,
           },
-          episodes: episodes.map((ep) => ({
-            id: String(ep.id),
-            season: ep.season ?? 1,
-            episode: ep.episodeNumber,
-            titleEn: ep.title ?? `Episode ${ep.episodeNumber}`,
-          })),
+          episodes: allEpisodes,
+          filesOnDisk: dbEpisodes.length,
         };
       } finally {
         db.close();

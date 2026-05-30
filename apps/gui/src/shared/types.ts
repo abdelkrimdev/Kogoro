@@ -43,6 +43,8 @@ export type AppRPC = {
             titleEn: string;
             titleJa?: string;
             entryType: string;
+            sourceDb: string;
+            totalEpisodes: number;
             coverArt?: string;
           };
           episodes: Array<{
@@ -50,7 +52,10 @@ export type AppRPC = {
             season: number;
             episode: number;
             titleEn: string;
+            filePath: string;
+            missing: boolean;
           }>;
+          filesOnDisk: number;
         } | null;
       };
       scanStart: {

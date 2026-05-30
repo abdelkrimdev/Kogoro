@@ -1,6 +1,7 @@
 import type { ReviewPlan } from "@kogoro/core";
 import { Electroview } from "electrobun/view";
 import type { AppRPC } from "../shared/types";
+import { renderAnimeDetail } from "./detail";
 import { renderLibrary } from "./library";
 import { renderReviewScreen } from "./review";
 import { renderSettings } from "./settings";
@@ -67,12 +68,13 @@ const rpc = Electroview.defineRPC<AppRPC>({
 const electrobun = new Electroview({ rpc });
 
 type Mode = "onboarding" | "main";
-type View = "scan" | "library" | "settings" | "review";
+type View = "scan" | "library" | "settings" | "review" | "detail";
 
 let currentMode: Mode = "main";
 let currentView: View = "scan";
 let currentSessionId: string | null = null;
 let currentPlan: ReviewPlan | null = null;
+let currentDetailAnimeId: string | null = null;
 
 const views: Record<View, string> = {
   scan: `
@@ -96,6 +98,7 @@ const views: Record<View, string> = {
   `,
   settings: "",
   review: "",
+  detail: "",
 };
 
 function setShellVisible(visible: boolean): void {
@@ -125,7 +128,21 @@ function renderMain(): void {
         },
       });
     } else if (currentView === "library") {
-      renderLibrary(content, rpc as any, statusText);
+      renderLibrary(content, rpc as any, statusText, (id: string) => {
+        currentView = "detail";
+        currentDetailAnimeId = id;
+        renderMain();
+      });
+    } else if (currentView === "detail" && currentDetailAnimeId) {
+      renderAnimeDetail(content, {
+        rpc: rpc as any,
+        animeId: currentDetailAnimeId,
+        onBack: () => {
+          currentView = "library";
+          currentDetailAnimeId = null;
+          renderMain();
+        },
+      });
     } else if (currentView === "settings") {
       renderSettings(content, rpc as any);
     } else {
@@ -145,6 +162,9 @@ function renderMain(): void {
         break;
       case "review":
         statusText.textContent = "Review plan";
+        break;
+      case "detail":
+        statusText.textContent = "Anime detail";
         break;
     }
   }
