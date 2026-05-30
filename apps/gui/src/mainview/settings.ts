@@ -185,7 +185,7 @@ function renderPluginRow(name: string, type: string, source: string, enabled: bo
 
 export function renderSettings(
   container: HTMLElement,
-  rpc: { request: (method: string, params: any) => Promise<any> },
+  rpc: { request: (method: string, params: unknown) => Promise<unknown> },
 ): void {
   let data: Record<string, unknown> = {};
   let toastTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -209,7 +209,7 @@ export function renderSettings(
 
   async function loadSettings(): Promise<void> {
     try {
-      data = await rpc.request("getSettingsData", {});
+      data = (await rpc.request("getSettingsData", {})) as Record<string, unknown>;
       render();
     } catch {
       showToast("Failed to load settings");
@@ -234,7 +234,10 @@ export function renderSettings(
     }
 
     try {
-      const result = await rpc.request("updateSettings", params);
+      const result = (await rpc.request("updateSettings", params)) as {
+        success: boolean;
+        error?: string;
+      };
       if (result.success) {
         showToast("Settings saved");
       } else {
@@ -326,7 +329,10 @@ export function renderSettings(
         if (!current) return;
         const newEnabled = !current.enabled;
         try {
-          const result = await rpc.request("togglePlugin", { plugin, enabled: newEnabled });
+          const result = (await rpc.request("togglePlugin", { plugin, enabled: newEnabled })) as {
+            success: boolean;
+            error?: string;
+          };
           if (result.success) {
             current.enabled = newEnabled;
             render();
@@ -346,7 +352,7 @@ export function renderSettings(
 
 function promptApiKeyUpdate(
   container: HTMLElement,
-  rpc: { request: (method: string, params: any) => Promise<any> },
+  rpc: { request: (method: string, params: unknown) => Promise<unknown> },
   plugin: string,
   reload: () => Promise<void>,
   showToast: (msg: string) => void,
@@ -390,7 +396,10 @@ function promptApiKeyUpdate(
       return;
     }
     try {
-      const result = await rpc.request("updateApiKey", { plugin, apiKey });
+      const result = (await rpc.request("updateApiKey", { plugin, apiKey })) as {
+        success: boolean;
+        error?: string;
+      };
       if (result.success) {
         showToast(`${plugin} API key updated`);
         await reload();

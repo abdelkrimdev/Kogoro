@@ -1,7 +1,8 @@
 import { log } from "@clack/prompts";
-import { getDefaultPrompts, OVERRIDE_TOML_KEYS } from "@kogoro/core";
+import { OVERRIDE_TOML_KEYS } from "@kogoro/core";
 import type yargs from "yargs";
 import { createFormatter } from "../format";
+import { getDefaultPrompts } from "./default-prompts";
 import { createConfigHandlers } from "./handlers";
 
 export function registerConfig(parser: ReturnType<typeof yargs>): void {

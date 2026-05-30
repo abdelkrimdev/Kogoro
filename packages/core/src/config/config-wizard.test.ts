@@ -12,6 +12,7 @@ describe("ConfigWizard", () => {
       select: async () => "tvdb",
       text: async () => "",
       confirm: async () => true,
+      cancel: () => {},
       isCancel: () => false,
       ...overrides,
     };

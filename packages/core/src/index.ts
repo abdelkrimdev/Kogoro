@@ -4,7 +4,7 @@ export { BunSecretsKeytar } from "./config/bun-secrets-keytar";
 export type { SetResult } from "./config/config-manager";
 export { ConfigManager } from "./config/config-manager";
 export type { PromptsAPI } from "./config/config-wizard";
-export { getDefaultPrompts, runConfigWizard } from "./config/config-wizard";
+export { runConfigWizard } from "./config/config-wizard";
 export { CredentialStore, createCredentialStore } from "./config/credential-store";
 export type { Config, EpisodeNumbering } from "./config/schema";
 export {

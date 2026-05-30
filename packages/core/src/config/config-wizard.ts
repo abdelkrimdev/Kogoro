@@ -1,4 +1,3 @@
-import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
 import type { ConfigManager } from "./config-manager";
 import type { CredentialStore } from "./credential-store";
 import { TEMPLATE_PRESETS } from "./schema";
@@ -16,6 +15,7 @@ export interface PromptsAPI {
     defaultValue?: string;
   }): Promise<string | symbol>;
   confirm(opts: { message: string; initialValue: boolean }): Promise<boolean | symbol>;
+  cancel(message?: string): void;
   isCancel(value: unknown): boolean;
 }
 
@@ -34,33 +34,21 @@ const PRESET_OPTIONS: TemplatePreset[] = Object.keys(TEMPLATE_PRESETS).map((key)
   label: presetLabel(key),
 }));
 
-export function getDefaultPrompts(): PromptsAPI {
-  return {
-    intro,
-    outro,
-    select,
-    text,
-    confirm,
-    isCancel,
-  };
-}
-
 interface WizardDeps {
   config: ConfigManager;
   credentialStore: CredentialStore;
-  prompts?: PromptsAPI;
+  prompts: PromptsAPI;
 }
 
 export async function runConfigWizard(deps: WizardDeps): Promise<void> {
-  const { config, credentialStore } = deps;
-  const p = deps.prompts ?? getDefaultPrompts();
+  const { config, credentialStore, prompts: p } = deps;
 
   p.intro("Kogoro Setup");
 
   async function prompt<T>(promise: Promise<T | symbol>): Promise<T | undefined> {
     const result = await promise;
     if (p.isCancel(result)) {
-      cancel("Setup cancelled.");
+      p.cancel("Setup cancelled.");
       return undefined;
     }
     return result as T;

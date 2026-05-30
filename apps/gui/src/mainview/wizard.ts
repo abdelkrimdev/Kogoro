@@ -61,14 +61,14 @@ function readStepInputs(state: WizardState): void {
 
 async function submitConfig(
   state: WizardState,
-  rpc: { request: (method: string, params: any) => Promise<any> },
+  rpc: { request: (method: string, params: unknown) => Promise<unknown> },
 ): Promise<{ success: boolean; error?: string }> {
-  const result = await rpc.request("writeOnboardingConfig", {
+  const result = (await rpc.request("writeOnboardingConfig", {
     primaryDb: state.primaryDb,
     apiKey: state.apiKey,
     templatePreset: state.templatePreset,
     templateCustom: state.templateCustom,
-  });
+  })) as { success: boolean; error?: string };
   if (result.success) {
     state.apiKey = "";
   }
@@ -141,7 +141,7 @@ function renderStep(state: WizardState): string {
 
 export function renderWizard(
   container: HTMLElement,
-  rpc: { request: (method: string, params: any) => Promise<any> },
+  rpc: { request: (method: string, params: unknown) => Promise<unknown> },
   onComplete: () => void,
 ): void {
   const state: WizardState = {
@@ -174,8 +174,9 @@ export function renderWizard(
     if (backBtn) {
       backBtn.addEventListener("click", () => {
         const idx = stepIndex(state.step);
-        if (idx > 0) {
-          state.step = steps[idx - 1]!;
+        const prev = steps[idx - 1];
+        if (idx > 0 && prev) {
+          state.step = prev;
           state.error = null;
           update();
         }
@@ -208,8 +209,9 @@ export function renderWizard(
         }
 
         const idx = stepIndex(state.step);
-        if (idx < steps.length - 1) {
-          state.step = steps[idx + 1]!;
+        const next = steps[idx + 1];
+        if (idx < steps.length - 1 && next) {
+          state.step = next;
           state.error = null;
           update();
         }

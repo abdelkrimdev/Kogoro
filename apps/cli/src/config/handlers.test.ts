@@ -46,6 +46,7 @@ describe("Config CLI commands", () => {
         select: async () => "tvdb",
         text: async () => "",
         confirm: async () => true,
+        cancel: () => {},
         isCancel: () => false,
       };
       await handlers.init(prompts, () => {});

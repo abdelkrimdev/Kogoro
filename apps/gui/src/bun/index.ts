@@ -268,10 +268,18 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return undefined;
       },
       enrichArtwork: async (params) => {
-        return handleEnrichment(params, "artwork") as any;
+        return handleEnrichment(params, "artwork") as unknown as {
+          success: boolean;
+          summary?: { total: number; downloaded: number; skipped: number; noArtwork: number };
+          error?: string;
+        };
       },
       enrichMetadata: async (params) => {
-        return handleEnrichment(params, "metadata") as any;
+        return handleEnrichment(params, "metadata") as unknown as {
+          success: boolean;
+          summary?: { total: number; written: number; skipped: number; failed: number };
+          error?: string;
+        };
       },
     },
     messages: {

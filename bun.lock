@@ -28,8 +28,6 @@
         "yargs": "^18.0.0",
       },
       "devDependencies": {
-        "@types/bun": "^1.3.14",
-        "@types/node": "^25.9.1",
         "@types/yargs": "^17.0.35",
       },
     },
@@ -44,10 +42,6 @@
         "electrobun": "^1.18.1",
         "svelte": "^5.28.2",
       },
-      "devDependencies": {
-        "@types/bun": "^1.3.14",
-        "typescript": "^5.8.3",
-      },
     },
     "packages/core": {
       "name": "@kogoro/core",
@@ -56,20 +50,12 @@
         "@clack/prompts": "^1.5.0",
         "valibot": "^1.4.1",
       },
-      "devDependencies": {
-        "@types/bun": "^1.3.14",
-        "@types/node": "^25.9.1",
-      },
     },
     "packages/plugins": {
       "name": "@kogoro/plugins",
       "version": "0.1.0",
       "dependencies": {
         "@kogoro/core": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.3.14",
-        "@types/node": "^25.9.1",
       },
     },
   },

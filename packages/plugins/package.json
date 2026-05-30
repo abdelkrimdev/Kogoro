@@ -5,11 +5,10 @@
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
   "dependencies": {
     "@kogoro/core": "workspace:*"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.3.14",
-    "@types/node": "^25.9.1"
   }
 }

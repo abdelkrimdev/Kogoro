@@ -11,66 +11,89 @@ const rpc = Electroview.defineRPC<AppRPC>({
   handlers: {
     requests: {},
     messages: {
-      // Electrobun RPC types messages as Record<string, never> but handlers are functions
-      showOnboarding: () => {
-        currentMode = "onboarding";
-        render();
-      },
-      showMainApp: () => {
-        currentMode = "main";
-        render();
-      },
-      scanProgress: (data: unknown) => {
-        // Update status text with scan progress
-        const event = data as { completed: number; total: number; file: string; status: string };
-        const statusText = document.getElementById("status-text");
-        if (statusText) {
-          statusText.textContent = `Scanning: ${event.completed}/${event.total} - ${event.status}`;
+      "*": (message: string, data: unknown) => {
+        switch (message) {
+          case "showOnboarding":
+            currentMode = "onboarding";
+            render();
+            break;
+          case "showMainApp":
+            currentMode = "main";
+            render();
+            break;
+          case "scanProgress": {
+            const scanEvent = data as {
+              completed: number;
+              total: number;
+              file: string;
+              status: string;
+            };
+            const scanStatus = document.getElementById("status-text");
+            if (scanStatus) {
+              scanStatus.textContent = `Scanning: ${scanEvent.completed}/${scanEvent.total} - ${scanEvent.status}`;
+            }
+            break;
+          }
+          case "scanPhaseComplete": {
+            const phaseEvent = data as { phase: string; summary: { totalFiles: number } };
+            const phaseStatus = document.getElementById("status-text");
+            if (phaseStatus) {
+              phaseStatus.textContent = `Phase complete: ${phaseEvent.phase}`;
+            }
+            break;
+          }
+          case "scanReviewReady": {
+            const reviewEvent = data as { sessionId: string; plan: ReviewPlan };
+            currentSessionId = reviewEvent.sessionId;
+            currentPlan = reviewEvent.plan;
+            currentView = "review";
+            render();
+            break;
+          }
+          case "scanExecutionProgress": {
+            const execEvent = data as {
+              completed: number;
+              total: number;
+              file: string;
+              status: string;
+            };
+            const execStatus = document.getElementById("status-text");
+            if (execStatus) {
+              execStatus.textContent = `Executing: ${execEvent.completed}/${execEvent.total} - ${execEvent.status}`;
+            }
+            break;
+          }
+          case "scanComplete": {
+            const completeEvent = data as { summary: { renamed: number; renameFailed: number } };
+            const completeStatus = document.getElementById("status-text");
+            if (completeStatus) {
+              completeStatus.textContent = `Complete: ${completeEvent.summary.renamed} renamed, ${completeEvent.summary.renameFailed} failed`;
+            }
+            currentView = "scan";
+            currentSessionId = null;
+            currentPlan = null;
+            render();
+            break;
+          }
+          case "enrichmentProgress": {
+            const enrichEvent = data as {
+              command: string;
+              completed: number;
+              total: number;
+              status: string;
+            };
+            const enrichStatus = document.getElementById("status-text");
+            if (enrichStatus) {
+              const label = enrichEvent.command === "artwork" ? "Cover art" : "Metadata";
+              enrichStatus.textContent = `${label}: ${enrichEvent.completed}/${enrichEvent.total} - ${enrichEvent.status}`;
+            }
+            break;
+          }
+          case "enrichmentComplete":
+            break;
         }
       },
-      scanPhaseComplete: (data: unknown) => {
-        const event = data as { phase: string; summary: { totalFiles: number } };
-        const statusText = document.getElementById("status-text");
-        if (statusText) {
-          statusText.textContent = `Phase complete: ${event.phase}`;
-        }
-      },
-      scanReviewReady: (data: unknown) => {
-        const event = data as { sessionId: string; plan: ReviewPlan };
-        currentSessionId = event.sessionId;
-        currentPlan = event.plan;
-        currentView = "review";
-        render();
-      },
-      scanExecutionProgress: (data: unknown) => {
-        const event = data as { completed: number; total: number; file: string; status: string };
-        const statusText = document.getElementById("status-text");
-        if (statusText) {
-          statusText.textContent = `Executing: ${event.completed}/${event.total} - ${event.status}`;
-        }
-      },
-      scanComplete: (data: unknown) => {
-        const event = data as { summary: { renamed: number; renameFailed: number } };
-        const statusText = document.getElementById("status-text");
-        if (statusText) {
-          statusText.textContent = `Complete: ${event.summary.renamed} renamed, ${event.summary.renameFailed} failed`;
-        }
-        // Return to scan view after completion
-        currentView = "scan";
-        currentSessionId = null;
-        currentPlan = null;
-        render();
-      },
-      enrichmentProgress: (data: unknown) => {
-        const event = data as { command: string; completed: number; total: number; status: string };
-        const statusText = document.getElementById("status-text");
-        if (statusText) {
-          const label = event.command === "artwork" ? "Cover art" : "Metadata";
-          statusText.textContent = `${label}: ${event.completed}/${event.total} - ${event.status}`;
-        }
-      },
-      enrichmentComplete: (_data: unknown) => {},
-    } as any,
+    },
   },
 });
 
@@ -124,10 +147,10 @@ function renderMain(): void {
   const content = document.getElementById("content");
   const statusText = document.getElementById("status-text");
   if (content) {
-    if (currentView === "review" && currentPlan) {
+    if (currentView === "review" && currentPlan && currentSessionId) {
       renderReviewScreen(content, {
-        rpc: rpc as any,
-        sessionId: currentSessionId!,
+        rpc: rpc as { request: (method: string, params: unknown) => Promise<unknown> },
+        sessionId: currentSessionId,
         plan: currentPlan,
         onComplete: () => {
           currentView = "scan";
@@ -137,17 +160,25 @@ function renderMain(): void {
         },
       });
     } else if (currentView === "library") {
-      renderLibrary(content, rpc as any, statusText, (id: string) => {
-        currentDetailId = id;
-        currentView = "details";
-        render();
-      });
+      renderLibrary(
+        content,
+        rpc as { request: (method: string, params: unknown) => Promise<unknown> },
+        statusText,
+        (id: string) => {
+          currentDetailId = id;
+          currentView = "details";
+          render();
+        },
+      );
     } else if (currentView === "settings") {
-      renderSettings(content, rpc as any);
+      renderSettings(
+        content,
+        rpc as { request: (method: string, params: unknown) => Promise<unknown> },
+      );
     } else if (currentView === "details" && currentDetailId) {
       renderAnimeDetail(
         content,
-        rpc as any,
+        rpc as { request: (method: string, params: unknown) => Promise<unknown> },
         currentDetailId,
         () => {
           currentView = "library";
@@ -215,11 +246,15 @@ function renderOnboarding(): void {
   const content = document.getElementById("content");
   if (content) {
     // Electrobun RPC type mismatch between request/response schemas
-    renderWizard(content, rpc as any, () => {
-      // After onboarding completes, switch to main app
-      currentMode = "main";
-      render();
-    });
+    renderWizard(
+      content,
+      rpc as { request: (method: string, params: unknown) => Promise<unknown> },
+      () => {
+        // After onboarding completes, switch to main app
+        currentMode = "main";
+        render();
+      },
+    );
   }
 }
 

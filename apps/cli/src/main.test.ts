@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { captureConsoleLog } from "@kogoro/core";
 import type { PluginInfo } from "@kogoro/plugins";
 import { run } from "./main";
@@ -10,7 +11,7 @@ describe("kogoro CLI", () => {
   });
 
   test("package.json defines build:bin script for standalone binary", () => {
-    const pkg = JSON.parse(readFileSync("package.json", "utf-8")) as {
+    const pkg = JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf-8")) as {
       scripts?: Record<string, string>;
     };
     expect(pkg.scripts?.["build:bin"]).toBeDefined();
