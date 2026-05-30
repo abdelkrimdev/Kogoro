@@ -51,9 +51,8 @@ export function groupByAnime(results: ScanResult[]): Map<string, ScanResult[]> {
   return groups;
 }
 
-export function detectSwaps(results: ScanResult[]): SwapPair[] {
+function detectSwapsFromGroups(byAnime: Map<string, ScanResult[]>): SwapPair[] {
   const swaps: SwapPair[] = [];
-  const byAnime = groupByAnime(results);
 
   for (const [, group] of byAnime) {
     const withEpisodes = group.filter(
@@ -97,20 +96,30 @@ export function detectSwaps(results: ScanResult[]): SwapPair[] {
   return swaps;
 }
 
+export function detectSwaps(results: ScanResult[]): SwapPair[] {
+  return detectSwapsFromGroups(groupByAnime(results));
+}
+
 export function buildReviewPlan(
   results: ScanResult[],
   libraryDb?: LibraryDb,
   sourceDb?: string,
 ): ReviewPlan {
   const byAnime = groupByAnime(results);
-  const allSwaps = detectSwaps(results);
+  const allSwaps = detectSwapsFromGroups(byAnime);
+
+  const fileToAnimeId = new Map<string, string>();
+  for (const [animeId, scanResults] of byAnime) {
+    for (const sr of scanResults) {
+      fileToAnimeId.set(sr.file, animeId);
+    }
+  }
 
   const swapsByAnime = new Map<string, SwapPair[]>();
   for (const swap of allSwaps) {
     const firstFile = swap.files[0];
     if (!firstFile) continue;
-    const result = results.find((r) => r.file === firstFile);
-    const animeId = result?.match?.anime.id;
+    const animeId = fileToAnimeId.get(firstFile);
     if (!animeId) continue;
     const existing = swapsByAnime.get(animeId);
     if (existing) {
@@ -146,13 +155,7 @@ export function buildReviewPlan(
         return aEp - bEp;
       });
 
-    let mergeMode = false;
-    if (libraryDb) {
-      const existing = libraryDb.findAnime(animeId, sourceDb ?? "tvdb");
-      if (existing) {
-        mergeMode = true;
-      }
-    }
+    const mergeMode = libraryDb != null && libraryDb.findAnime(animeId, sourceDb ?? "tvdb") != null;
 
     groups.push({
       animeId,
