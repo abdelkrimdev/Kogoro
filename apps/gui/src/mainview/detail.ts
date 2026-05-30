@@ -1,40 +1,4 @@
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function typeBadgeClass(type: string): string {
-  switch (type) {
-    case "tv":
-      return "bg-primary-500/20 text-primary-400";
-    case "movie":
-      return "bg-emerald-500/20 text-emerald-400";
-    case "ova":
-      return "bg-amber-500/20 text-amber-400";
-    case "special":
-      return "bg-rose-500/20 text-rose-400";
-    default:
-      return "bg-surface-600 text-surface-300";
-  }
-}
-
-function entryTypeLabel(type: string): string {
-  switch (type) {
-    case "tv":
-      return "TV";
-    case "movie":
-      return "Movie";
-    case "ova":
-      return "OVA";
-    case "special":
-      return "Specials";
-    default:
-      return type;
-  }
-}
+import { entryTypeLabel, escapeHtml, typeBadgeClass } from "./shared";
 
 function sourceDbLabel(db: string): string {
   switch (db) {
@@ -112,29 +76,35 @@ export function renderAnimeDetail(container: HTMLElement, options: AnimeDetailOp
       `;
     }
 
-    const rows = episodes
-      .map((ep) => {
-        const isGap = gaps.has(ep.episode);
-        const rowClass = ep.missing
-          ? "text-surface-500 opacity-60"
-          : isGap
-            ? "text-amber-400"
-            : "text-surface-100";
+    function episodeRowClass(ep: EpisodeRow): string {
+      if (ep.missing) return "text-surface-500 opacity-60";
+      if (gaps.has(ep.episode)) return "text-amber-400";
+      return "text-surface-100";
+    }
 
-        return `
-        <tr class="border-t border-surface-700/50 ${rowClass}">
+    function episodeBadge(ep: EpisodeRow): string {
+      if (ep.missing)
+        return `<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400">Missing</span>`;
+      if (gaps.has(ep.episode))
+        return `<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400">Gap</span>`;
+      return "";
+    }
+
+    const rows = episodes
+      .map(
+        (ep) => `
+        <tr class="border-t border-surface-700/50 ${episodeRowClass(ep)}">
           <td class="px-4 py-2 text-sm font-medium whitespace-nowrap">
             ${ep.season}x${String(ep.episode).padStart(2, "0")}
-            ${ep.missing ? '<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400">Missing</span>' : ""}
-            ${isGap && !ep.missing ? '<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400">Gap</span>' : ""}
+            ${episodeBadge(ep)}
           </td>
           <td class="px-4 py-2 text-sm">${escapeHtml(ep.titleEn)}</td>
           <td class="px-4 py-2 text-sm text-surface-400 font-mono truncate max-w-xs">
             ${ep.filePath ? escapeHtml(ep.filePath) : '<span class="text-surface-600">—</span>'}
           </td>
         </tr>
-      `;
-      })
+      `,
+      )
       .join("");
 
     return `

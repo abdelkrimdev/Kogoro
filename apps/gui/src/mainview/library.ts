@@ -1,3 +1,5 @@
+import { entryTypeLabel, escapeHtml, typeBadgeClass } from "./shared";
+
 type LibraryItem = {
   id: string;
   titleEn: string;
@@ -17,21 +19,6 @@ interface LibraryState {
 
 const ENTRY_TYPES = ["tv", "movie", "ova", "special"];
 
-const ENTRY_LABELS: Record<string, string> = {
-  tv: "TV",
-  movie: "Movie",
-  ova: "OVA",
-  special: "Specials",
-};
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 function renderNoResults(): string {
   return `
     <div class="flex flex-col items-center justify-center h-full gap-3 py-16">
@@ -41,21 +28,6 @@ function renderNoResults(): string {
       <p class="text-surface-500">No anime matches your search.</p>
     </div>
   `;
-}
-
-function typeBadgeClass(type: string): string {
-  switch (type) {
-    case "tv":
-      return "bg-primary-500/20 text-primary-400";
-    case "movie":
-      return "bg-emerald-500/20 text-emerald-400";
-    case "ova":
-      return "bg-amber-500/20 text-amber-400";
-    case "special":
-      return "bg-rose-500/20 text-rose-400";
-    default:
-      return "bg-surface-600 text-surface-300";
-  }
 }
 
 export function renderLibrary(
@@ -126,7 +98,7 @@ export function renderLibrary(
       const cls = active
         ? "bg-primary-500/20 text-primary-400 border-primary-500/40"
         : "bg-surface-700 text-surface-400 border-surface-600";
-      return `<button data-action="toggle-type" data-type="${t}" class="px-3 py-1 rounded-full text-xs font-medium border transition-colors ${cls}">${ENTRY_LABELS[t] ?? t}</button>`;
+      return `<button data-action="toggle-type" data-type="${t}" class="px-3 py-1 rounded-full text-xs font-medium border transition-colors ${cls}">${entryTypeLabel(t)}</button>`;
     }).join("");
 
     return `
@@ -180,7 +152,7 @@ export function renderLibrary(
           <div class="p-3 space-y-1.5">
             <h3 class="text-sm font-medium text-surface-100 truncate group-hover:text-primary-400 transition-colors">${escapeHtml(item.titleEn)}</h3>
             <div class="flex items-center justify-between">
-              <span class="px-2 py-0.5 rounded text-[10px] font-medium ${typeBadgeClass(item.entryType)}">${ENTRY_LABELS[item.entryType] ?? item.entryType}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-medium ${typeBadgeClass(item.entryType)}">${entryTypeLabel(item.entryType)}</span>
               <span class="text-xs text-surface-500">${item.episodeCount} ep</span>
             </div>
           </div>
@@ -209,7 +181,7 @@ export function renderLibrary(
         (item) => `
         <tr data-action="open-anime" data-id="${item.id}" class="border-t border-surface-700 hover:bg-surface-700/50 cursor-pointer transition-colors">
           <td class="px-4 py-2.5 text-sm text-surface-50 font-medium">${escapeHtml(item.titleEn)}</td>
-          <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded text-[10px] font-medium ${typeBadgeClass(item.entryType)}">${ENTRY_LABELS[item.entryType] ?? item.entryType}</span></td>
+          <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded text-[10px] font-medium ${typeBadgeClass(item.entryType)}">${entryTypeLabel(item.entryType)}</span></td>
           <td class="px-4 py-2.5 text-sm text-surface-400 text-right">${item.episodeCount}</td>
         </tr>
       `,
