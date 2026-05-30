@@ -87,8 +87,6 @@ export {
   createDataMockDb,
   createEpisodeNumberingMatcher,
   createLibraryDb,
-  createLogCapture,
-  createMockClackPrompts,
   createMockDb,
   createMockHttpClient,
   createMockKeytar,
