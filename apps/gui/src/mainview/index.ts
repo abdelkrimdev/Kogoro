@@ -1,5 +1,9 @@
+import type { ReviewPlan } from "@kogoro/core";
 import { Electroview } from "electrobun/view";
 import type { AppRPC } from "../shared/types";
+import { renderLibrary } from "./library";
+import { renderReviewScreen } from "./review";
+import { renderSettings } from "./settings";
 import { renderWizard } from "./wizard";
 
 const rpc = Electroview.defineRPC<AppRPC>({
@@ -15,6 +19,47 @@ const rpc = Electroview.defineRPC<AppRPC>({
         currentMode = "main";
         render();
       },
+      scanProgress: (data: unknown) => {
+        // Update status text with scan progress
+        const event = data as { completed: number; total: number; file: string; status: string };
+        const statusText = document.getElementById("status-text");
+        if (statusText) {
+          statusText.textContent = `Scanning: ${event.completed}/${event.total} - ${event.status}`;
+        }
+      },
+      scanPhaseComplete: (data: unknown) => {
+        const event = data as { phase: string; summary: { totalFiles: number } };
+        const statusText = document.getElementById("status-text");
+        if (statusText) {
+          statusText.textContent = `Phase complete: ${event.phase}`;
+        }
+      },
+      scanReviewReady: (data: unknown) => {
+        const event = data as { sessionId: string; plan: ReviewPlan };
+        currentSessionId = event.sessionId;
+        currentPlan = event.plan;
+        currentView = "review";
+        render();
+      },
+      scanExecutionProgress: (data: unknown) => {
+        const event = data as { completed: number; total: number; file: string; status: string };
+        const statusText = document.getElementById("status-text");
+        if (statusText) {
+          statusText.textContent = `Executing: ${event.completed}/${event.total} - ${event.status}`;
+        }
+      },
+      scanComplete: (data: unknown) => {
+        const event = data as { summary: { renamed: number; renameFailed: number } };
+        const statusText = document.getElementById("status-text");
+        if (statusText) {
+          statusText.textContent = `Complete: ${event.summary.renamed} renamed, ${event.summary.renameFailed} failed`;
+        }
+        // Return to scan view after completion
+        currentView = "scan";
+        currentSessionId = null;
+        currentPlan = null;
+        render();
+      },
     } as any,
   },
 });
@@ -22,10 +67,12 @@ const rpc = Electroview.defineRPC<AppRPC>({
 const electrobun = new Electroview({ rpc });
 
 type Mode = "onboarding" | "main";
-type View = "scan" | "library" | "settings";
+type View = "scan" | "library" | "settings" | "review";
 
 let currentMode: Mode = "main";
 let currentView: View = "scan";
+let currentSessionId: string | null = null;
+let currentPlan: ReviewPlan | null = null;
 
 const views: Record<View, string> = {
   scan: `
@@ -33,6 +80,9 @@ const views: Record<View, string> = {
       <div class="text-center space-y-4">
         <h2 class="text-2xl font-bold">Scan</h2>
         <p class="text-surface-500">Drop a folder to scan for anime files.</p>
+        <button id="start-scan" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors">
+          Start Scan
+        </button>
       </div>
     </div>
   `,
@@ -44,14 +94,8 @@ const views: Record<View, string> = {
       </div>
     </div>
   `,
-  settings: `
-    <div class="flex items-center justify-center h-full">
-      <div class="text-center space-y-4">
-        <h2 class="text-xl font-bold">Settings</h2>
-        <p class="text-surface-500">Configure your Kogoro preferences.</p>
-      </div>
-    </div>
-  `,
+  settings: "",
+  review: "",
 };
 
 function setShellVisible(visible: boolean): void {
@@ -67,7 +111,27 @@ function renderMain(): void {
 
   const content = document.getElementById("content");
   const statusText = document.getElementById("status-text");
-  if (content) content.innerHTML = views[currentView];
+  if (content) {
+    if (currentView === "review" && currentPlan) {
+      renderReviewScreen(content, {
+        rpc: rpc as any,
+        sessionId: currentSessionId!,
+        plan: currentPlan,
+        onComplete: () => {
+          currentView = "scan";
+          currentSessionId = null;
+          currentPlan = null;
+          render();
+        },
+      });
+    } else if (currentView === "library") {
+      renderLibrary(content, rpc as any, statusText);
+    } else if (currentView === "settings") {
+      renderSettings(content, rpc as any);
+    } else {
+      content.innerHTML = views[currentView];
+    }
+  }
   if (statusText) {
     switch (currentView) {
       case "library":
@@ -78,6 +142,9 @@ function renderMain(): void {
         break;
       case "settings":
         statusText.textContent = "Settings";
+        break;
+      case "review":
+        statusText.textContent = "Review plan";
         break;
     }
   }
@@ -92,6 +159,23 @@ function renderMain(): void {
       el.classList.add("text-surface-400", "hover:text-surface-200");
     }
   });
+
+  const startScanBtn = document.getElementById("start-scan");
+  if (startScanBtn) {
+    startScanBtn.addEventListener("click", async () => {
+      try {
+        const result = (await rpc.request("scanStart", { path: "/tmp/test" })) as {
+          sessionId: string;
+        };
+        currentSessionId = result.sessionId;
+        if (statusText) {
+          statusText.textContent = "Scanning...";
+        }
+      } catch (err) {
+        console.error("Failed to start scan:", err);
+      }
+    });
+  }
 }
 
 function renderOnboarding(): void {

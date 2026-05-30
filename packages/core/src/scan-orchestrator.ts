@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { aggregateReviewPlan } from "./rename-plan-aggregator";
-import type { ReviewPlan, ScanFileStatus, ScanSummary } from "./scan-types";
+import type { AnimeGroup, ReviewPlan, ScanFileStatus, ScanSummary } from "./scan-types";
 import type { ScanResult } from "./scanner";
 
 export type ScanState = "idle" | "scan" | "plan" | "review" | "execute" | "done";
@@ -81,6 +81,28 @@ function buildSummary(
   results: ScanResult[],
   renameResults: Map<string, { success: boolean }>,
 ): ScanSummary {
+  let matched = 0;
+  let cached = 0;
+  let ambiguous = 0;
+  let failed = 0;
+
+  for (const r of results) {
+    switch (r.status) {
+      case "matched":
+        matched++;
+        break;
+      case "cached":
+        cached++;
+        break;
+      case "ambiguous":
+        ambiguous++;
+        break;
+      case "failed":
+        failed++;
+        break;
+    }
+  }
+
   let renamed = 0;
   let renameFailed = 0;
 
@@ -92,17 +114,17 @@ function buildSummary(
   return {
     sessionId,
     totalFiles: results.length,
-    matched: results.filter((r) => r.status === "matched").length,
-    cached: results.filter((r) => r.status === "cached").length,
-    ambiguous: results.filter((r) => r.status === "ambiguous").length,
-    failed: results.filter((r) => r.status === "failed").length,
+    matched,
+    cached,
+    ambiguous,
+    failed,
     renamed,
     renameFailed,
   };
 }
 
 export class ScanOrchestrator {
-  private _state: ScanState = "idle" as ScanState;
+  private _state: ScanState = "idle";
   private sessionId: string = "";
   private results: ScanResult[] = [];
   private plan: ReviewPlan | null = null;
@@ -113,16 +135,16 @@ export class ScanOrchestrator {
     this.options = options;
   }
 
-  private getStateNow(): ScanState {
-    return this._state as ScanState;
-  }
-
   private isDone(): boolean {
-    return this.getStateNow() === "done";
+    return this._state === "done";
   }
 
   getState(): ScanState {
-    return this.getStateNow();
+    return this._state;
+  }
+
+  getPlan(): ReviewPlan | null {
+    return this.plan;
   }
 
   on(_event: ScanEventType | "*", listener: ScanEventListener): void {
@@ -152,7 +174,7 @@ export class ScanOrchestrator {
     const filePaths = await this.options.walk(path);
 
     for (let i = 0; i < filePaths.length; i++) {
-      if ((this._state as ScanState) === "done") break;
+      if (this.isDone()) break;
 
       const filePath = filePaths[i];
       if (filePath === undefined) continue;
@@ -210,6 +232,54 @@ export class ScanOrchestrator {
       throw new Error("Cannot reject: not in review state");
     }
     this.finish(this.makeSummary());
+  }
+
+  swapFiles(fileAId: string, fileBId: string): void {
+    if (this._state !== "review") {
+      throw new Error("Cannot swap: not in review state");
+    }
+    if (!this.plan) {
+      throw new Error("Cannot swap: no plan available");
+    }
+
+    let targetGroup: AnimeGroup | null = null;
+    for (const group of this.plan.groups) {
+      const hasA = group.files.some((f) => f.fileId === fileAId);
+      const hasB = group.files.some((f) => f.fileId === fileBId);
+      if (hasA && hasB) {
+        targetGroup = group;
+        break;
+      }
+    }
+
+    if (!targetGroup) {
+      throw new Error("Cannot swap: files not in same group");
+    }
+
+    const fileA = targetGroup.files.find((f) => f.fileId === fileAId);
+    const fileB = targetGroup.files.find((f) => f.fileId === fileBId);
+
+    if (!fileA || !fileB) {
+      throw new Error("Cannot swap: file not found");
+    }
+
+    const tempPath = fileA.proposedPath;
+    fileA.proposedPath = fileB.proposedPath;
+    fileB.proposedPath = tempPath;
+
+    const tempEpisodeId = fileA.episodeId;
+    fileA.episodeId = fileB.episodeId;
+    fileB.episodeId = tempEpisodeId;
+
+    const tempEpisode = fileA.episode;
+    fileA.episode = fileB.episode;
+    fileB.episode = tempEpisode;
+
+    this.emit({
+      type: "scanReviewReady",
+      sessionId: this.sessionId,
+      plan: this.plan,
+    });
   }
 
   cancel(): void {

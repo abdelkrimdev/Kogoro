@@ -419,4 +419,222 @@ describe("ScanOrchestrator", () => {
       expect(() => orch.cancel()).toThrow("not running");
     });
   });
+
+  describe("swapFiles", () => {
+    test("swaps proposed paths between two files in same group", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
+        scanFile: async (_file, _options, index) => {
+          if (index === 0) {
+            return makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                episode: {
+                  id: "101",
+                  animeId: "1",
+                  season: 1,
+                  episode: 1,
+                  titleEn: "Ep 1",
+                  entryType: "tv",
+                },
+              }),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                targetDir: "Jujutsu Kaisen/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            });
+          }
+          return makeScanResult("/a/ep2.mkv", {
+            match: makeMatchResult({
+              episode: {
+                id: "102",
+                animeId: "1",
+                season: 1,
+                episode: 2,
+                titleEn: "Ep 2",
+                entryType: "tv",
+              },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: "/a/ep2.mkv",
+              targetPath: "Jujutsu Kaisen/Season 1/S01E02.mkv",
+              targetDir: "Jujutsu Kaisen/Season 1",
+              targetFilename: "S01E02.mkv",
+              action: "move",
+            },
+          });
+        },
+      });
+      await orch.startScan("/test/path");
+
+      const plan = orch.getPlan();
+      expect(plan).toBeDefined();
+
+      // Get file IDs from the plan
+      const group = plan?.groups[0];
+      expect(group).toBeDefined();
+      const fileAId = group?.files[0]?.fileId;
+      const fileBId = group?.files[1]?.fileId;
+      expect(fileAId).toBeDefined();
+      expect(fileBId).toBeDefined();
+
+      // Swap the files
+      if (fileAId && fileBId) {
+        orch.swapFiles(fileAId, fileBId);
+      }
+
+      // Verify the proposed paths are swapped
+      const updatedPlan = orch.getPlan();
+      const updatedGroup = updatedPlan?.groups[0];
+      expect(updatedGroup?.files[0]?.proposedPath).toBe("Jujutsu Kaisen/Season 1/S01E02.mkv");
+      expect(updatedGroup?.files[1]?.proposedPath).toBe("Jujutsu Kaisen/Season 1/S01E01.mkv");
+    });
+
+    test("emits scanReviewReady after swap", async () => {
+      const events: ScanEvent[] = [];
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
+        scanFile: async (_file, _options, index) => {
+          if (index === 0) {
+            return makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                episode: {
+                  id: "101",
+                  animeId: "1",
+                  season: 1,
+                  episode: 1,
+                  titleEn: "Ep 1",
+                  entryType: "tv",
+                },
+              }),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                targetDir: "Jujutsu Kaisen/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            });
+          }
+          return makeScanResult("/a/ep2.mkv", {
+            match: makeMatchResult({
+              episode: {
+                id: "102",
+                animeId: "1",
+                season: 1,
+                episode: 2,
+                titleEn: "Ep 2",
+                entryType: "tv",
+              },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: "/a/ep2.mkv",
+              targetPath: "Jujutsu Kaisen/Season 1/S01E02.mkv",
+              targetDir: "Jujutsu Kaisen/Season 1",
+              targetFilename: "S01E02.mkv",
+              action: "move",
+            },
+          });
+        },
+      });
+      orch.on("*", (e) => events.push(e));
+      await orch.startScan("/test/path");
+
+      const plan = orch.getPlan();
+      const group = plan?.groups[0];
+      const fileAId = group?.files[0]?.fileId;
+      const fileBId = group?.files[1]?.fileId;
+
+      // Clear events from initial scan
+      events.length = 0;
+
+      // Swap the files
+      if (fileAId && fileBId) {
+        orch.swapFiles(fileAId, fileBId);
+      }
+
+      // Verify scanReviewReady is emitted
+      const reviewEvents = events.filter((e) => e.type === "scanReviewReady");
+      expect(reviewEvents.length).toBe(1);
+    });
+
+    test("rejects swapFiles if not in review state", () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [],
+        scanFile: async () => makeScanResult("dummy"),
+      });
+      expect(() => orch.swapFiles("file-a", "file-b")).toThrow("not in review");
+    });
+
+    test("rejects swapFiles if files not in same group", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
+        scanFile: async (_file, _options, index) => {
+          if (index === 0) {
+            return makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                anime: { id: "1", titleEn: "Anime A", entryType: "tv" },
+                episode: {
+                  id: "101",
+                  animeId: "1",
+                  season: 1,
+                  episode: 1,
+                  titleEn: "Ep 1",
+                  entryType: "tv",
+                },
+              }),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Anime A/Season 1/S01E01.mkv",
+                targetDir: "Anime A/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            });
+          }
+          return makeScanResult("/b/ep1.mkv", {
+            match: makeMatchResult({
+              anime: { id: "2", titleEn: "Anime B", entryType: "tv" },
+              episode: {
+                id: "201",
+                animeId: "2",
+                season: 1,
+                episode: 1,
+                titleEn: "Ep 1",
+                entryType: "tv",
+              },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: "/b/ep1.mkv",
+              targetPath: "Anime B/Season 1/S01E01.mkv",
+              targetDir: "Anime B/Season 1",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          });
+        },
+      });
+      await orch.startScan("/test/path");
+
+      const plan = orch.getPlan();
+      const fileAId = plan?.groups[0]?.files[0]?.fileId;
+      const fileBId = plan?.groups[1]?.files[0]?.fileId;
+
+      if (fileAId && fileBId) {
+        expect(() => orch.swapFiles(fileAId, fileBId)).toThrow("not in same group");
+      }
+    });
+  });
 });

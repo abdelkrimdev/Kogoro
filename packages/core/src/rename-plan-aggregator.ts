@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { LibraryDb } from "./library-db";
 import type {
-  AnimeGroup as ScanAnimeGroup,
   FileRow,
-  ReviewPlan as ScanReviewPlan,
+  AnimeGroup as ScanAnimeGroup,
   ScanFileStatus,
+  ReviewPlan as ScanReviewPlan,
   SwapPair as ScanSwapPair,
 } from "./scan-types";
 import type { ScanResult } from "./scanner";
@@ -198,7 +198,7 @@ export function buildReviewPlan(
 
 // --- Scan workflow aggregator (issue-62) ---
 
-function fileIdFromPath(_path: string): string {
+function generateFileId(): string {
   return randomUUID();
 }
 
@@ -242,15 +242,15 @@ function extractEpisodeFromPath(path: string | null): number | null {
 }
 
 function toFileRow(result: ScanResult): FileRow {
-  const status: ScanFileStatus =
-    result.status === "matched" || result.status === "cached"
-      ? result.plan
-        ? "matched"
-        : "cached"
-      : (result.status as ScanFileStatus);
+  let status: ScanFileStatus;
+  if (result.status === "matched" || result.status === "cached") {
+    status = result.plan ? "matched" : "cached";
+  } else {
+    status = result.status as ScanFileStatus;
+  }
 
   return {
-    fileId: fileIdFromPath(result.file),
+    fileId: generateFileId(),
     sourcePath: result.file,
     proposedPath: result.plan?.targetPath ?? null,
     status,

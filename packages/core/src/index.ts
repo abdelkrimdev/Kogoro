@@ -47,8 +47,12 @@ export type {
   TaskContext,
 } from "./progress";
 export type { AnimeGroupEntry } from "./rename-plan-aggregator";
-export { buildReviewPlan, detectSwaps, groupByAnime } from "./rename-plan-aggregator";
-export { aggregateReviewPlan } from "./rename-plan-aggregator";
+export {
+  aggregateReviewPlan,
+  buildReviewPlan,
+  detectSwaps,
+  groupByAnime,
+} from "./rename-plan-aggregator";
 export type { RenameAction, RenamePlan, RenameResult } from "./renamer";
 export { Renamer } from "./renamer";
 export type {

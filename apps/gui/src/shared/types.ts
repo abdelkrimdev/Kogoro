@@ -25,6 +25,34 @@ export type AppRPC = {
         params: Record<string, never>;
         response: { needsOnboarding: boolean };
       };
+      getLibrary: {
+        params: Record<string, never>;
+        response: Array<{
+          id: string;
+          titleEn: string;
+          entryType: string;
+          episodeCount: number;
+          coverArt?: string;
+        }>;
+      };
+      getAnimeDetail: {
+        params: { id: string };
+        response: {
+          anime: {
+            id: string;
+            titleEn: string;
+            titleJa?: string;
+            entryType: string;
+            coverArt?: string;
+          };
+          episodes: Array<{
+            id: string;
+            season: number;
+            episode: number;
+            titleEn: string;
+          }>;
+        } | null;
+      };
       scanStart: {
         params: { path: string };
         response: { sessionId: string };
@@ -49,6 +77,59 @@ export type AppRPC = {
       cancelScan: {
         params: { sessionId: string };
         response: undefined;
+      };
+      swapFiles: {
+        params: { sessionId: string; fileAId: string; fileBId: string };
+        response: undefined;
+      };
+      getSettingsData: {
+        params: Record<string, never>;
+        response: {
+          primaryDb: string;
+          secondaryDbs: string;
+          templatePreset: string;
+          templateCustom: string;
+          directoryTemplate: string;
+          mediaExtensions: string;
+          excludePatterns: string;
+          scanConcurrency: number;
+          fetchConcurrency: number;
+          episodeNumbering: string;
+          renameAction: string;
+          subtitleLanguage: string;
+          apiKeys: Record<string, string>;
+          plugins: Array<{
+            name: string;
+            type: "database" | "subtitle";
+            source: "built-in";
+            enabled: boolean;
+          }>;
+        };
+      };
+      updateSettings: {
+        params: {
+          primaryDb?: string;
+          secondaryDbs?: string;
+          templatePreset?: string;
+          templateCustom?: string;
+          directoryTemplate?: string;
+          mediaExtensions?: string;
+          excludePatterns?: string;
+          scanConcurrency?: number;
+          fetchConcurrency?: number;
+          episodeNumbering?: string;
+          renameAction?: string;
+          subtitleLanguage?: string;
+        };
+        response: { success: boolean; error?: string };
+      };
+      updateApiKey: {
+        params: { plugin: string; apiKey: string };
+        response: { success: boolean; error?: string };
+      };
+      togglePlugin: {
+        params: { plugin: string; enabled: boolean };
+        response: { success: boolean; error?: string };
       };
     };
     messages: {
@@ -86,33 +167,6 @@ export type AppRPC = {
   }>;
   webview: RPCSchema<{
     requests: {
-      getLibrary: {
-        params: Record<string, never>;
-        response: Array<{
-          id: string;
-          titleEn: string;
-          entryType: string;
-          image?: string;
-        }>;
-      };
-      getAnimeDetail: {
-        params: { id: string };
-        response: {
-          anime: {
-            id: string;
-            titleEn: string;
-            titleJa?: string;
-            entryType: string;
-            image?: string;
-          };
-          episodes: Array<{
-            id: string;
-            season: number;
-            episode: number;
-            titleEn: string;
-          }>;
-        } | null;
-      };
       getConfig: {
         params: Record<string, never>;
         response: Record<string, unknown> | null;
