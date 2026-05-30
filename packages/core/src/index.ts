@@ -46,6 +46,13 @@ export type {
   ProgressTrackerOptions,
   TaskContext,
 } from "./progress";
+export type {
+  AnimeGroup,
+  AnimeGroupEntry,
+  ReviewPlan,
+  SwapPair,
+} from "./rename-plan-aggregator";
+export { buildReviewPlan, detectSwaps, groupByAnime } from "./rename-plan-aggregator";
 export type { RenameAction, RenamePlan, RenameResult } from "./renamer";
 export { Renamer } from "./renamer";
 export type { ScanResult } from "./scanner";
