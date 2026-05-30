@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createCallCounter, createMockHttpClient, toUrlString } from "@kogoro/core";
+import { createCallCounter, createMockHttpClient, mockJsonFetch, toUrlString } from "@kogoro/core";
 import type { DatabasePlugin } from "./plugin";
 import { TVDBPlugin } from "./tvdb-plugin";
 import type { AnimeResult } from "./types";
@@ -18,17 +18,6 @@ function mockFetch(
       });
     }
     return new Response(JSON.stringify({ data }), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    });
-  };
-}
-
-function mockFetchFailure(
-  status = 401,
-): (url: string | URL, init?: RequestInit) => Promise<Response> {
-  return async (_url: string | URL, _init?: RequestInit) => {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status,
       headers: { "Content-Type": "application/json" },
     });
@@ -69,7 +58,7 @@ describe("TVDBPlugin", () => {
   });
 
   describe("searchAnime", () => {
-    test("returns AnimeResult array from TVDB search API", async () => {
+    test("returns matching anime results", async () => {
       const searchResponse = [
         {
           id: 12345,
@@ -109,7 +98,7 @@ describe("TVDBPlugin", () => {
       expect(results).toEqual([]);
     });
 
-    test("resolves titleEn from translations when name is not English", async () => {
+    test("uses English translation name", async () => {
       const searchResponse = [
         {
           id: 281270,
@@ -129,7 +118,7 @@ describe("TVDBPlugin", () => {
       expect(results[0]?.titleEn).toBe("Barakamon");
     });
 
-    test("populates titleJa from aliases", async () => {
+    test("includes Japanese title from aliases", async () => {
       const searchResponse = [
         {
           id: 54321,
@@ -146,7 +135,7 @@ describe("TVDBPlugin", () => {
       expect(results[0]?.titleJa).toBe("進撃の巨人");
     });
 
-    test("strips series- prefix from string IDs", async () => {
+    test("normalizes series- prefixed IDs", async () => {
       const searchResponse = [
         {
           id: "series-421069",
@@ -166,7 +155,7 @@ describe("TVDBPlugin", () => {
       expect(results[0]?.id).toBe("421069");
     });
 
-    test("prefers tvdb_id over prefixed string ID", async () => {
+    test("prefers numeric tvdb_id over string ID", async () => {
       const searchResponse = [
         {
           id: "series-421069",
@@ -186,7 +175,7 @@ describe("TVDBPlugin", () => {
   });
 
   describe("getEpisodes", () => {
-    test("returns EpisodeResult array from TVDB episodes API", async () => {
+    test("returns episode results", async () => {
       const episodesResponse = {
         id: 12345,
         name: "Jujutsu Kaisen",
@@ -243,7 +232,7 @@ describe("TVDBPlugin", () => {
       expect(results).toEqual([]);
     });
 
-    test("derives entry type from isMovie and seasonNumber", async () => {
+    test("derives movie, tv, and special entry types", async () => {
       const episodesResponse = {
         id: 100,
         name: "Test",
@@ -270,7 +259,7 @@ describe("TVDBPlugin", () => {
       expect(results.find((e) => e.titleEn === "Special")?.entryType).toBe("special");
     });
 
-    test("fetches all pages of episodes when response has links.next", async () => {
+    test("fetches all pages of episodes", async () => {
       const page0Response = {
         data: {
           episodes: [
@@ -381,7 +370,7 @@ describe("TVDBPlugin", () => {
       expect(results[0]?.episode).toBe(1);
     });
 
-    test("stops fetching when links.next is null", async () => {
+    test("stops fetching when last page reached", async () => {
       const singlePage = {
         data: {
           episodes: [
@@ -424,7 +413,7 @@ describe("TVDBPlugin", () => {
     });
 
     describe("Japanese titles", () => {
-      test("merges English and Japanese titles from locale endpoints", async () => {
+      test("merges Japanese episode titles into results", async () => {
         const engEpisodesResponse = {
           id: 12345,
           name: "Jujutsu Kaisen",
@@ -538,7 +527,7 @@ describe("TVDBPlugin", () => {
   });
 
   describe("getAnime", () => {
-    test("returns anime details with translations", async () => {
+    test("returns anime details with translated names", async () => {
       const seriesResponse = {
         id: 12345,
         slug: "jujutsu-kaisen",
@@ -585,7 +574,7 @@ describe("TVDBPlugin", () => {
       expect(result?.entryType).toBe("tv");
     });
 
-    test("falls back to aliases when translations are unavailable", async () => {
+    test("uses alias names when translations unavailable", async () => {
       const seriesResponse = {
         id: 12345,
         slug: "jujutsu-kaisen",
@@ -628,7 +617,7 @@ describe("TVDBPlugin", () => {
     test("returns null when anime ID does not exist", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
-        httpClient: createMockHttpClient(mockFetchFailure(404)),
+        httpClient: createMockHttpClient(mockJsonFetch({ error: "Unauthorized" }, 404)),
       });
       const result = await plugin.getAnime("99999");
       expect(result).toBeNull();
@@ -639,7 +628,7 @@ describe("TVDBPlugin", () => {
     test("returns empty array on login failure", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "bad-key",
-        httpClient: createMockHttpClient(mockFetchFailure(401)),
+        httpClient: createMockHttpClient(mockJsonFetch({ error: "Unauthorized" }, 401)),
       });
       const results = await plugin.searchAnime("Jujutsu Kaisen");
       expect(results).toEqual([]);
@@ -671,7 +660,7 @@ describe("TVDBPlugin", () => {
       expect(fetchCalls.get()).toBe(2);
     });
 
-    test("caches login token across multiple API calls", async () => {
+    test("reuses login token across requests", async () => {
       const loginCalls = createCallCounter();
       const fetch = async (url: string | URL, _init?: RequestInit) => {
         const urlStr = toUrlString(url);

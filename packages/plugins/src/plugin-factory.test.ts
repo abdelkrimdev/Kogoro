@@ -3,16 +3,6 @@ import { createMockKeytar, withMockFetch, withTestConfig } from "@kogoro/core";
 import { PluginFactory } from "./plugin-factory";
 
 describe("PluginFactory", () => {
-  test("has four public methods", async () => {
-    await withTestConfig("basic", async (_dir, config, credentialStore) => {
-      const factory = new PluginFactory(config, credentialStore);
-      expect(factory.primaryDatabase).toBeInstanceOf(Function);
-      expect(factory.secondaryDatabases).toBeInstanceOf(Function);
-      expect(factory.database).toBeInstanceOf(Function);
-      expect(factory.subtitle).toBeInstanceOf(Function);
-    });
-  });
-
   describe("database", () => {
     describe("tvdb", () => {
       test("constructs TVDBPlugin with correct API key", async () => {
@@ -84,7 +74,7 @@ describe("PluginFactory", () => {
     });
 
     describe("unknown plugin name", () => {
-      test("falls through to PluginRegistry for external plugins", async () => {
+      test("loads external plugin via dynamic import", async () => {
         mock.module("kogoro-plugin-myextdb", () => ({
           default: class ExternalPlugin {
             async searchAnime() {
@@ -110,6 +100,73 @@ describe("PluginFactory", () => {
             expect(plugin).toBeDefined();
             expect(plugin?.searchAnime).toBeInstanceOf(Function);
             expect(plugin?.getEpisodes).toBeInstanceOf(Function);
+          },
+          null,
+        );
+      });
+
+      test("caches external plugin instance", async () => {
+        mock.module("kogoro-plugin-cached-ext", () => ({
+          default: class CachedPlugin {
+            id = Math.random();
+            async searchAnime() {
+              return [];
+            }
+            async getEpisodes() {
+              return [];
+            }
+            async getArtwork() {
+              return [];
+            }
+            async getAnime() {
+              return null;
+            }
+          },
+        }));
+
+        await withTestConfig(
+          "external-cache-test",
+          async (_dir, config, credentialStore) => {
+            const factory = new PluginFactory(config, credentialStore);
+            const first = await factory.database("cached-ext");
+            const second = await factory.database("cached-ext");
+            expect(first).toBe(second);
+          },
+          null,
+        );
+      });
+
+      test("returns undefined when default export is not a constructor", async () => {
+        mock.module("kogoro-plugin-badctorext", () => ({
+          default: "not a constructor",
+        }));
+
+        await withTestConfig(
+          "external-badctor-test",
+          async (_dir, config, credentialStore) => {
+            const factory = new PluginFactory(config, credentialStore);
+            const plugin = await factory.database("badctorext");
+            expect(plugin).toBeUndefined();
+          },
+          null,
+        );
+      });
+
+      test("returns undefined when plugin does not implement DatabasePlugin", async () => {
+        mock.module("kogoro-plugin-badimpl", () => ({
+          default: class BadPlugin {
+            async searchAnime() {
+              return [];
+            }
+          },
+        }));
+
+        await withTestConfig(
+          "external-badimpl-test",
+          async (_dir, config, credentialStore) => {
+            const factory = new PluginFactory(config, credentialStore);
+            const plugin = await factory.database("badimpl");
+            expect(plugin).toBeUndefined();
           },
           null,
         );

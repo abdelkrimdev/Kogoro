@@ -16,6 +16,22 @@ const RATE_LIMITS = {
   anidb: 2000,
 } as const;
 
+function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
+  if (obj === null || typeof obj !== "object") return false;
+  const p = obj as {
+    searchAnime?: unknown;
+    getAnime?: unknown;
+    getEpisodes?: unknown;
+    getArtwork?: unknown;
+  };
+  return (
+    typeof p.searchAnime === "function" &&
+    typeof p.getAnime === "function" &&
+    typeof p.getEpisodes === "function" &&
+    typeof p.getArtwork === "function"
+  );
+}
+
 function prettifyBody(body: string): string {
   try {
     const parsed = JSON.parse(body) as unknown;
@@ -27,6 +43,7 @@ function prettifyBody(body: string): string {
 
 export class PluginFactory {
   private registry: PluginRegistry;
+  private externalCache: Map<string, DatabasePlugin> = new Map();
 
   constructor(
     private config: ConfigManager,
@@ -89,10 +106,8 @@ export class PluginFactory {
           httpClient,
         });
       }
-      default: {
-        const plugin = await this.registry.instantiate(name, this.debug ? { debug: true } : {});
-        return plugin ?? undefined;
-      }
+      default:
+        return this.loadExternalDatabasePlugin(name);
     }
   }
 
@@ -105,6 +120,30 @@ export class PluginFactory {
     }
     const httpClient = new HttpClient(this.debugOptions());
     return new OpenSubtitlesPlugin({ apiKey, httpClient });
+  }
+
+  private async loadExternalDatabasePlugin(name: string): Promise<DatabasePlugin | undefined> {
+    const cached = this.externalCache.get(name);
+    if (cached) return cached;
+
+    try {
+      const mod = await import(`kogoro-plugin-${name}`);
+      const PluginConstructor = mod.default as new (options: Record<string, unknown>) => unknown;
+      if (typeof PluginConstructor !== "function") {
+        console.warn(`Plugin "${name}" does not export a constructor as default`);
+        return undefined;
+      }
+      const instance = new PluginConstructor(this.debug ? { debug: true } : {});
+      if (!isDatabasePlugin(instance)) {
+        console.warn(`Plugin "${name}" does not implement DatabasePlugin interface`);
+        return undefined;
+      }
+      this.externalCache.set(name, instance);
+      return instance;
+    } catch (err) {
+      console.warn(`Failed to load external plugin "${name}": ${String(err)}`);
+      return undefined;
+    }
   }
 
   private debugOptions(): { onDebug?: (entry: DebugEntry) => void } {

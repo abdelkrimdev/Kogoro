@@ -28,7 +28,7 @@ const animetitlesXml = `<?xml version="1.0" encoding="UTF-8"?>
 
 describe("AniDBPlugin", () => {
   describe("searchAnime", () => {
-    test("returns AnimeResult array from cached animetitles XML", async () => {
+    test("returns matching anime from title cache", async () => {
       await withTempDir("anidb-cache", async (dir) => {
         writeFileSync(join(dir, "anime-titles.xml"), animetitlesXml);
         const plugin = new AniDBPlugin({
@@ -201,7 +201,7 @@ describe("AniDBPlugin", () => {
       expect(results).toEqual([]);
     });
 
-    test("maps anime type to entry type", async () => {
+    test("maps anime types to entry types", async () => {
       const movieXml = `<?xml version="1.0"?>
 <anime>
   <id>111</id>
@@ -281,7 +281,7 @@ describe("AniDBPlugin", () => {
       expect(results[0]?.season).toBe(1);
     });
 
-    test("walks Prequel chain to resolve season", async () => {
+    test("resolves season from prequel", async () => {
       const prequelXml = `<?xml version="1.0"?>
 <anime>
   <id>111</id>
@@ -314,7 +314,7 @@ describe("AniDBPlugin", () => {
       expect(results[0]?.season).toBe(2);
     });
 
-    test("walks deep Prequel chain across multiple hops", async () => {
+    test("resolves season across multiple prequels", async () => {
       const grandparentXml = `<?xml version="1.0"?>
 <anime>
   <id>111</id>
@@ -359,7 +359,7 @@ describe("AniDBPlugin", () => {
       expect(results[0]?.season).toBe(3);
     });
 
-    test("uses absolute episode number from epno", async () => {
+    test("uses absolute episode numbers", async () => {
       const multiSeasonXml = `<?xml version="1.0"?>
 <anime>
   <id>12345</id>
@@ -446,7 +446,7 @@ describe("AniDBPlugin", () => {
       expect(results[0]?.url).toBe("https://cdn.anidb.net/images/main/12345.jpg");
     });
 
-    test("returns empty array when no picture element", async () => {
+    test("returns empty array when no picture available", async () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
@@ -544,7 +544,7 @@ describe("AniDBPlugin", () => {
       );
     });
 
-    test("returns root franchise title for sequel in prequel chain", async () => {
+    test("returns franchise root title for sequel", async () => {
       const prequelXml = `<?xml version="1.0"?>
 <anime>
   <id>111</id>
