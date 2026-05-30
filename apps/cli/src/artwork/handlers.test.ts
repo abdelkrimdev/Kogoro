@@ -4,31 +4,20 @@ import { join } from "node:path";
 import {
   createArtworkDb,
   createMockHttpClient,
+  makeMockLogger,
   mockFetch,
   seedCacheEntry,
   testImageBytes,
   withTempDir,
 } from "@kogoro/core";
-import { createLogger, type Logger } from "../logger";
 import { createArtworkHandlers } from "./handlers";
 
 describe("artwork CLI commands", () => {
-  const logLines: string[] = [];
-  const errorLines: string[] = [];
-
-  function makeLogger(level: "info" | "error" = "info"): Logger {
-    return createLogger(level, (msg) => {
-      if (msg.startsWith("[kogoro]")) {
-        logLines.push(msg);
-      } else {
-        errorLines.push(msg);
-      }
-    });
-  }
+  const mock = makeMockLogger();
 
   afterEach(() => {
-    logLines.length = 0;
-    errorLines.length = 0;
+    mock.infoLines.length = 0;
+    mock.errorLines.length = 0;
   });
 
   test("downloads cover and returns summary", async () => {
@@ -51,7 +40,7 @@ describe("artwork CLI commands", () => {
         httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
-      const result = await handlers.process(dir, {}, makeLogger());
+      const result = await handlers.process(dir, {}, mock.logger);
 
       expect(result.total).toBe(1);
       expect(result.downloaded).toBe(1);
@@ -59,7 +48,7 @@ describe("artwork CLI commands", () => {
     });
   });
 
-  test("returns noArtwork when DB has no covers", async () => {
+  test("returns nothing when database has no artwork", async () => {
     await withTempDir("artwork", async (dir) => {
       const animeDir = join(dir, "TV", "Jujutsu Kaisen");
       mkdirSync(animeDir, { recursive: true });
@@ -76,7 +65,7 @@ describe("artwork CLI commands", () => {
         cache,
       });
 
-      const result = await handlers.process(dir, {}, makeLogger());
+      const result = await handlers.process(dir, {}, mock.logger);
 
       expect(result.total).toBe(1);
       expect(result.noArtwork).toBe(1);

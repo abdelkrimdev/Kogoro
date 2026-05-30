@@ -1,5 +1,6 @@
 import type yargs from "yargs";
 import { createLogger, type Logger, type LogLevel } from "../logger";
+import { wrapCommand } from "../wrap";
 import type { MetadataResult } from "./handlers";
 
 type MetadataHandlerFactory = (debug?: boolean) => Promise<
@@ -33,8 +34,7 @@ export function registerMetadata(
       const logger = createLogger(level);
       const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
       if (!handlers) return;
-      const result = await handlers.write(argv.path, { force: argv.force }, logger);
-      console.log(JSON.stringify(result));
+      await wrapCommand(async () => handlers.write(argv.path, { force: argv.force }, logger));
     },
   );
 }

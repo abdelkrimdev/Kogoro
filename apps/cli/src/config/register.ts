@@ -1,5 +1,6 @@
 import { OVERRIDE_TOML_KEYS } from "@kogoro/core";
 import type yargs from "yargs";
+import { wrapCommand } from "../wrap";
 import { getDefaultPrompts } from "./default-prompts";
 import { createConfigHandlers } from "./handlers";
 
@@ -18,9 +19,9 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               demandOption: true,
               describe: "Config key to get",
             }),
-          (argv) => {
+          async (argv) => {
             const handlers = createConfigHandlers();
-            console.log(JSON.stringify(handlers.get(argv.key)));
+            await wrapCommand(async () => handlers.get(argv.key));
           },
         )
         .command(
@@ -38,9 +39,9 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
                 demandOption: true,
                 describe: "Value to set",
               }),
-          (argv) => {
+          async (argv) => {
             const handlers = createConfigHandlers();
-            console.log(JSON.stringify(handlers.set(argv.key, argv.value)));
+            await wrapCommand(async () => handlers.set(argv.key, argv.value));
           },
         )
         .command(
@@ -50,8 +51,7 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
           async () => {
             const prompts = getDefaultPrompts();
             const handlers = createConfigHandlers();
-            await handlers.init(prompts);
-            console.log(JSON.stringify(true));
+            await wrapCommand(async () => handlers.init(prompts), { redirectStdout: true });
           },
         )
         .command("override", "Manage per-directory overrides in kogoro.toml", (yargs) =>
@@ -78,21 +78,19 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
                     type: "string",
                     describe: "Entry type (tv, movie, ova, special)",
                   }),
-              (argv) => {
+              async (argv) => {
                 const handlers = createConfigHandlers();
-                console.log(
-                  JSON.stringify(
-                    handlers.overrideSet(argv.hash, {
-                      animeId: argv[OVERRIDE_TOML_KEYS.ANIME_ID],
-                      episodeId: argv[OVERRIDE_TOML_KEYS.EPISODE_ID],
-                      entryType: argv[OVERRIDE_TOML_KEYS.ENTRY_TYPE] as
-                        | "tv"
-                        | "movie"
-                        | "ova"
-                        | "special"
-                        | undefined,
-                    }),
-                  ),
+                await wrapCommand(async () =>
+                  handlers.overrideSet(argv.hash, {
+                    animeId: argv[OVERRIDE_TOML_KEYS.ANIME_ID],
+                    episodeId: argv[OVERRIDE_TOML_KEYS.EPISODE_ID],
+                    entryType: argv[OVERRIDE_TOML_KEYS.ENTRY_TYPE] as
+                      | "tv"
+                      | "movie"
+                      | "ova"
+                      | "special"
+                      | undefined,
+                  }),
                 );
               },
             )
@@ -100,9 +98,9 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
               "list",
               "List all overrides",
               () => {},
-              () => {
+              async () => {
                 const handlers = createConfigHandlers();
-                console.log(JSON.stringify(handlers.overrideList()));
+                await wrapCommand(async () => handlers.overrideList());
               },
             )
             .command(
@@ -114,9 +112,9 @@ export function registerConfig(parser: ReturnType<typeof yargs>): void {
                   demandOption: true,
                   describe: "File hash to remove override for",
                 }),
-              (argv) => {
+              async (argv) => {
                 const handlers = createConfigHandlers();
-                console.log(JSON.stringify(handlers.overrideRemove(argv.hash)));
+                await wrapCommand(async () => handlers.overrideRemove(argv.hash));
               },
             )
             .demandCommand(1, "Please specify an override action: set, list, or remove"),

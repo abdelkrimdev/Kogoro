@@ -1,6 +1,7 @@
 import type yargs from "yargs";
 import { createLogger, type Logger, type LogLevel } from "../logger";
-import type { ArtworkResult } from "./handlers";
+import { wrapCommand } from "../wrap";
+import type { ArtworkSummary } from "./handlers";
 
 type ArtworkHandlerFactory = (debug?: boolean) => Promise<
   | {
@@ -8,7 +9,7 @@ type ArtworkHandlerFactory = (debug?: boolean) => Promise<
         path: string,
         cliOptions: { force?: boolean },
         logger: Logger,
-      ): Promise<ArtworkResult>;
+      ): Promise<ArtworkSummary>;
     }
   | undefined
 >;
@@ -37,8 +38,7 @@ export function registerArtwork(
       const logger = createLogger(level);
       const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
       if (!handlers) return;
-      const result = await handlers.process(argv.path, { force: argv.force }, logger);
-      console.log(JSON.stringify(result));
+      await wrapCommand(async () => handlers.process(argv.path, { force: argv.force }, logger));
     },
   );
 }

@@ -1,6 +1,7 @@
 import { type RenameAction, SCHEMA_DEFAULTS, type ScanResult } from "@kogoro/core";
 import type yargs from "yargs";
 import { createLogger, type LogLevel } from "../logger";
+import { wrapCommand } from "../wrap";
 import type { ScanOptions } from "./handlers";
 
 type ScanHandlerFactory = (debug?: boolean) => Promise<
@@ -76,20 +77,32 @@ export function registerScan(
             .map((e) => e.trim())
             .filter(Boolean)
         : undefined;
-      const results = await handlers.scan(
-        argv.path,
+      await wrapCommand(
+        async () =>
+          handlers.scan(
+            argv.path,
+            {
+              dryRun: argv["dry-run"] ?? false,
+              yes: argv.yes ?? false,
+              force: argv.force ?? false,
+              action: argv.action as RenameAction,
+              episodeNumbering: argv["episode-numbering"] as "absolute" | "relative" | undefined,
+              extensions,
+              concurrency: argv.concurrency,
+            },
+            logger,
+          ),
         {
-          dryRun: argv["dry-run"] ?? false,
-          yes: argv.yes ?? false,
-          force: argv.force ?? false,
-          action: argv.action as RenameAction,
-          episodeNumbering: argv["episode-numbering"] as "absolute" | "relative" | undefined,
-          extensions,
-          concurrency: argv.concurrency,
+          redirectStdout: true,
+          getExitCode: (result) => {
+            const results = result as ScanResult[];
+            const failedCount = results.filter(
+              (r) => r.status === "failed" && r.failureReason,
+            ).length;
+            return failedCount > 0 ? 3 : 0;
+          },
         },
-        logger,
       );
-      console.log(JSON.stringify(results));
     },
   );
 }

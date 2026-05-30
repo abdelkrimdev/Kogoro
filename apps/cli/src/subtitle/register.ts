@@ -1,7 +1,8 @@
 import { SCHEMA_DEFAULTS } from "@kogoro/core";
 import type yargs from "yargs";
 import { createLogger, type Logger, type LogLevel } from "../logger";
-import type { SubtitleResult } from "./handlers";
+import { wrapCommand } from "../wrap";
+import type { SubtitleSummary } from "./handlers";
 
 type SubtitleHandlerFactory = (debug?: boolean) => Promise<
   | {
@@ -9,7 +10,7 @@ type SubtitleHandlerFactory = (debug?: boolean) => Promise<
         dirPath: string,
         opts: { language?: string; force?: boolean },
         logger: Logger,
-      ): Promise<SubtitleResult>;
+      ): Promise<SubtitleSummary>;
     }
   | undefined
 >;
@@ -43,12 +44,9 @@ export function registerSubtitle(
       const logger = createLogger(level);
       const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
       if (!handlers) return;
-      const result = await handlers.fetch(
-        argv.path,
-        { language: argv.lang, force: argv.force },
-        logger,
+      await wrapCommand(async () =>
+        handlers.fetch(argv.path, { language: argv.lang, force: argv.force }, logger),
       );
-      console.log(JSON.stringify(result));
     },
   );
 }

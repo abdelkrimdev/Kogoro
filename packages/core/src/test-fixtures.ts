@@ -301,18 +301,6 @@ export async function withTestConfig(
   });
 }
 
-export function captureConsoleLog<T>(fn: () => T): { result: T; logs: string[] } {
-  const origLog = console.log;
-  const logs: string[] = [];
-  console.log = (msg: string) => logs.push(msg);
-  try {
-    const result = fn();
-    return { result, logs };
-  } finally {
-    console.log = origLog;
-  }
-}
-
 export function createStandardMockDb(overrides?: Partial<MockDbOptions>): DatabasePlugin {
   return createMockDb({
     searchAnime: (title: string) => [{ id: "12345", titleEn: title, entryType: "tv" as const }],
@@ -543,4 +531,78 @@ export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {
       return null;
     },
   };
+}
+
+export function makeMockLogger(): {
+  logger: {
+    info(msg: string): void;
+    error(msg: string): void;
+    debug(msg: string): void;
+    progress(msg: string): void;
+  };
+  infoLines: string[];
+  errorLines: string[];
+  debugLines: string[];
+  progressLines: string[];
+} {
+  const infoLines: string[] = [];
+  const errorLines: string[] = [];
+  const debugLines: string[] = [];
+  const progressLines: string[] = [];
+  return {
+    logger: {
+      info(msg: string) {
+        infoLines.push(msg);
+      },
+      error(msg: string) {
+        errorLines.push(msg);
+      },
+      debug(msg: string) {
+        debugLines.push(msg);
+      },
+      progress(msg: string) {
+        progressLines.push(msg);
+      },
+    },
+    infoLines,
+    errorLines,
+    debugLines,
+    progressLines,
+  };
+}
+
+export function createMockPlugin(): DatabasePlugin {
+  return createMockDb({
+    searchAnime: (title: string): AnimeResult[] => {
+      if (title === "Jujutsu Kaisen") {
+        return [
+          {
+            id: "12345",
+            titleEn: "Jujutsu Kaisen",
+            titleJa: "呪術廻戦",
+            overview: "A boy fights curses.",
+            year: 2020,
+            entryType: "tv",
+          },
+        ];
+      }
+      return [];
+    },
+    getEpisodes: (animeId: string): EpisodeResult[] => {
+      if (animeId === "12345") {
+        return [
+          {
+            id: "1001",
+            animeId: "12345",
+            season: 1,
+            episode: 1,
+            titleEn: "Ryomen Sukuna",
+            airDate: "2020-10-03",
+            entryType: "tv",
+          },
+        ];
+      }
+      return [];
+    },
+  });
 }

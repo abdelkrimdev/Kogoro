@@ -1,4 +1,5 @@
 import type yargs from "yargs";
+import { wrapCommand } from "../wrap";
 
 type DatabaseHandlerFactory = (debug?: boolean) => Promise<
   | {
@@ -29,8 +30,7 @@ export function registerDb(
           async (argv) => {
             const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
             if (!handlers) return;
-            const result = await handlers.search(argv.title);
-            console.log(JSON.stringify(result));
+            await wrapCommand(() => handlers.search(argv.title));
           },
         )
         .command(
@@ -45,8 +45,7 @@ export function registerDb(
           async (argv) => {
             const handlers = await createHandlers(argv["verbose"] as boolean | undefined);
             if (!handlers) return;
-            const result = await handlers.episodes(argv.animeId);
-            console.log(JSON.stringify(result));
+            await wrapCommand(() => handlers.episodes(argv.animeId));
           },
         )
         .demandCommand(1, "Please specify a db action: search or episodes"),

@@ -4,28 +4,21 @@ import { join } from "node:path";
 import {
   createCache,
   createMockSubtitlePlugin,
+  makeMockLogger,
   seedCacheEntry,
   withTempDir,
   writeTempFile,
 } from "@kogoro/core";
-import type { Logger } from "../logger";
 import { createSubtitleHandlers } from "./handlers";
 
 describe("subtitle CLI commands", () => {
-  function makeLogger(): { logger: Logger; info: string[]; progress: string[] } {
-    const info: string[] = [];
-    const progress: string[] = [];
-    const logger: Logger = {
-      info: (msg) => {
-        info.push(msg);
-      },
-      error: () => {},
-      debug: () => {},
-      progress: (msg) => {
-        progress.push(msg);
-      },
-    };
-    return { logger, info, progress };
+  function makeCtx() {
+    const { logger, infoLines, progressLines } = makeMockLogger();
+    return { logger, info: infoLines, progress: progressLines };
+  }
+
+  function makeLogger() {
+    return makeCtx();
   }
 
   test("downloads subtitles for cached entries", async () => {

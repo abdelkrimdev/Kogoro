@@ -6,7 +6,7 @@ import { createLogger } from "../logger";
 import { createMetadataHandlers } from "./handlers";
 
 describe("metadata CLI commands", () => {
-  test("write generates NFO and returns summary", async () => {
+  test("write produces metadata file and returns summary", async () => {
     await withTempDir("cli-meta", async (dir) => {
       await seedCacheEntry(dir, "Test.mkv", {
         episodeId: "10",
@@ -25,7 +25,7 @@ describe("metadata CLI commands", () => {
     });
   });
 
-  test("write with database enriches NFO with showtitle, plot, and aired", async () => {
+  test("write with database includes show title, plot summary, and air date", async () => {
     await withTempDir("cli-meta", async (dir) => {
       await seedCacheEntry(dir, "Anime - 1x01.mkv", {
         animeId: "42",
@@ -66,7 +66,7 @@ describe("metadata CLI commands", () => {
     });
   });
 
-  test("write with force overwrites existing NFO", async () => {
+  test("write with force overwrites existing metadata file", async () => {
     await withTempDir("cli-meta", async (dir) => {
       await seedCacheEntry(dir, "Force.mkv", {
         episodeId: "10",

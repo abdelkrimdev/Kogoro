@@ -16,7 +16,7 @@ export interface SubtitleFetchOptions {
   force?: boolean;
 }
 
-export interface SubtitleResult {
+export interface SubtitleSummary {
   downloaded: number;
   skipped: number;
   failed: number;
@@ -36,7 +36,7 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
     dirPath: string,
     opts: SubtitleFetchOptions = {},
     logger: Logger,
-  ): Promise<SubtitleResult> {
+  ): Promise<SubtitleSummary> {
     const language = resolveLanguage(opts.language, options.config);
     const force = opts.force ?? false;
     let downloaded = 0;

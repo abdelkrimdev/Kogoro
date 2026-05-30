@@ -11,7 +11,7 @@ export interface ArtworkHandlerOptions {
   config?: ConfigManager;
 }
 
-export interface ArtworkResult {
+export interface ArtworkSummary {
   total: number;
   downloaded: number;
   skipped: number;
@@ -34,7 +34,7 @@ export function createArtworkHandlers(options: ArtworkHandlerOptions) {
       path: string,
       cliOptions: { force?: boolean },
       logger: Logger,
-    ): Promise<ArtworkResult> {
+    ): Promise<ArtworkSummary> {
       logger.info("Fetching artwork...");
 
       const summary = await fetcher.process(path, { force: cliOptions.force });

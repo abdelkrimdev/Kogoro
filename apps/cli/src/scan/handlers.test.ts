@@ -8,6 +8,7 @@ import {
   createCache,
   createStandardMockDb,
   makeEpisodes,
+  makeMockLogger,
   makeThrowingDb,
   OverrideStore,
   SCHEMA_DEFAULTS,
@@ -95,7 +96,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("auto-resolves ambiguous DB results in non-interactive mode", async () => {
+  test("resolves ambiguous results when non-interactive", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "Some Anime - 01.mkv", "content");
 
@@ -117,7 +118,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("directory scan with mixed outcomes returns correct statuses", async () => {
+  test("returns matched and failed statuses for mixed files", async () => {
     await withTempDir("scan-mixed", async (dir) => {
       writeTempFile(dir, "[Group] One Piece - 01.mkv", "");
       writeTempFile(dir, "[Group] One Piece - 02.mkv", "");
@@ -165,7 +166,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("isAlreadyOrganized detects files in organized directory structure", () => {
+  test("detects files in an organized location", () => {
     expect(isAlreadyOrganized("/media/Jujutsu Kaisen/TV/Jujutsu Kaisen - 1x01.mkv")).toBe(true);
     expect(isAlreadyOrganized("/media/One Piece/Movies/One Piece - Movie 01.mkv")).toBe(true);
     expect(isAlreadyOrganized("/media/Naruto/OVA/Naruto - OVA 01.mkv")).toBe(true);
@@ -174,7 +175,7 @@ describe("scan CLI commands", () => {
     expect(isAlreadyOrganized("/media/Anime/TV")).toBe(false);
   });
 
-  test("skips already-organized files without hashing or DB lookup", async () => {
+  test("skips already-organized files without hashing or database query", async () => {
     await withTempDir("scan-organized", async (dir) => {
       const tvDir = join(dir, "Jujutsu Kaisen", "TV");
       mkdirSync(tvDir, { recursive: true });
@@ -192,7 +193,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("uses scanRoot as baseDir for files in subdirectories", async () => {
+  test("organizes files from subdirectories into the scan root", async () => {
     await withTempDir("scan-root", async (dir) => {
       const subDir = join(dir, "out", "Oshi no Ko");
       mkdirSync(subDir, { recursive: true });
@@ -210,7 +211,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("uses template.preset for filename template via ConfigManager", async () => {
+  test("applies preset filename template", async () => {
     await withTempDir("scan-preset", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
 
@@ -228,7 +229,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("prefers template.custom over template.preset when both are set", async () => {
+  test("prefers custom filename template over preset", async () => {
     await withTempDir("scan-preset-override", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
 
@@ -263,7 +264,7 @@ describe("scan CLI commands", () => {
     });
   });
 
-  test("uses pre-existing override and skips DB query", async () => {
+  test("applies a stored override without querying database", async () => {
     await withTempDir("scan-override", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Some Show - 01.mkv", "content");
 
@@ -334,7 +335,7 @@ describe("scan CLI commands", () => {
   });
 
   describe("resolution chains", () => {
-    test("resolve episode numbering from config over schema default", async () => {
+    test("prioritizes config episode numbering over built-in default", async () => {
       await withTempDir("scan-numbering-chain", async (dir) => {
         writeTempFile(dir, "[Group] Test Anime - S02E06.mkv", "content");
 
@@ -358,7 +359,7 @@ describe("scan CLI commands", () => {
       });
     });
 
-    test("resolve episode numbering from schema default when neither CLI nor config set", async () => {
+    test("falls back to built-in default for episode numbering", async () => {
       await withTempDir("scan-numbering-default", async (dir) => {
         writeTempFile(dir, "[Group] Test Anime - S02E06.mkv", "content");
 
@@ -377,7 +378,7 @@ describe("scan CLI commands", () => {
       });
     });
 
-    test("uses config rename-action instead of the built-in default", async () => {
+    test("prioritizes config action over built-in default", async () => {
       await withTempDir("scan-action-chain", async (dir) => {
         const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
@@ -396,7 +397,7 @@ describe("scan CLI commands", () => {
       });
     });
 
-    test("resolve concurrency from config over schema default", async () => {
+    test("prioritizes config concurrency over built-in default", async () => {
       await withTempDir("scan-concurrency-chain", async (dir) => {
         writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
 
@@ -413,7 +414,7 @@ describe("scan CLI commands", () => {
       });
     });
 
-    test("resolve exclude patterns from config", async () => {
+    test("prioritizes config exclude patterns", async () => {
       await withTempDir("scan-exclude-chain", async (dir) => {
         writeTempFile(dir, "[Group] Anime - 01.nfo", "content");
         writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
@@ -431,7 +432,7 @@ describe("scan CLI commands", () => {
       });
     });
 
-    test("resolve media extensions from config", async () => {
+    test("prioritizes config media extensions", async () => {
       await withTempDir("scan-ext-chain", async (dir) => {
         writeTempFile(dir, "video.custom", "content");
         writeTempFile(dir, "video.mkv", "content");
@@ -449,6 +450,31 @@ describe("scan CLI commands", () => {
 
         expect(results).toHaveLength(1);
         expect(results[0]?.file).toContain(".custom");
+      });
+    });
+  });
+
+  describe("progress events", () => {
+    test("emits scan:progress events to logger", async () => {
+      await withTempDir("scan-progress", async (dir) => {
+        writeTempFile(dir, "[Group] Test Anime - 01.mkv", "content");
+
+        const { logger, progressLines } = makeMockLogger();
+        const handlers = createScanHandlers({ database: createStandardMockDb() });
+        await handlers.scan(dir, { yes: true }, logger);
+
+        expect(progressLines.length).toBeGreaterThanOrEqual(1);
+        const firstProgress = progressLines[0] ?? "";
+        expect(firstProgress).toStartWith("scan:progress ");
+        const parsed = JSON.parse(firstProgress.slice("scan:progress ".length)) as {
+          completed: number;
+          total: number;
+          file: string;
+          status: string;
+        };
+        expect(parsed.completed).toBe(1);
+        expect(parsed.total).toBe(1);
+        expect(parsed.status).toBe("matched");
       });
     });
   });

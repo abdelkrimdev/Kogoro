@@ -271,7 +271,9 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           episodeNumbering,
           extensions,
           ctx: {
-            progress() {},
+            progress(p) {
+              l.progress(`scan:progress ${JSON.stringify(p)}`);
+            },
             log(msg) {
               l.info(msg);
             },

@@ -48,7 +48,7 @@ describe("Config CLI commands", () => {
     });
   });
 
-  describe("config set template.preset", () => {
+  describe("config set with template presets", () => {
     test("accepts valid preset name", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ configDir: dir });
@@ -121,7 +121,7 @@ describe("Config CLI commands", () => {
   });
 
   describe("config override", () => {
-    test("stores an override in kogoro.toml", async () => {
+    test("set stores an override entry", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
         const result = handlers.overrideSet("hash1", {
@@ -140,7 +140,7 @@ describe("Config CLI commands", () => {
       });
     });
 
-    test("override list returns all overrides", async () => {
+    test("list returns all entries", async () => {
       await withTempDir("cli-config", async (dir) => {
         const store = new OverrideStore(dir);
         store.set("hash1", { animeId: "tvdb-1", entryType: "movie" });
@@ -153,7 +153,7 @@ describe("Config CLI commands", () => {
       });
     });
 
-    test("override remove deletes an existing override", async () => {
+    test("remove deletes an existing entry", async () => {
       await withTempDir("cli-config", async (dir) => {
         const store1 = new OverrideStore(dir);
         store1.set("hash1", { animeId: "tvdb-42" });
@@ -167,14 +167,14 @@ describe("Config CLI commands", () => {
       });
     });
 
-    test("override remove throws for non-existent hash", async () => {
+    test("remove throws for missing entry", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
         expect(() => handlers.overrideRemove("nonexistent")).toThrow("not found");
       });
     });
 
-    test("override set with animeId only", async () => {
+    test("set stores with only animeId", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
         handlers.overrideSet("hash1", { animeId: "tvdb-99" });
@@ -184,7 +184,7 @@ describe("Config CLI commands", () => {
       });
     });
 
-    test("override set with entryType only", async () => {
+    test("set stores with only entryType", async () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ overrideDir: dir });
         handlers.overrideSet("hash1", { entryType: "special" });

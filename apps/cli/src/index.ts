@@ -2,4 +2,4 @@
 
 import { run } from "./main";
 
-run(process.argv);
+await run(process.argv);

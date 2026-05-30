@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { styleText } from "node:util";
+import { log } from "@clack/prompts";
 import { ConfigManager, createCredentialStore, MatchCache, OverrideStore } from "@kogoro/core";
 import { type DatabasePlugin, PluginFactory } from "@kogoro/plugins";
 import yargs from "yargs";
@@ -24,31 +24,7 @@ function readVersion(): string {
   }
 }
 
-interface WrapCommandOptions {
-  stdout?: (msg: string) => void;
-  stderr?: (msg: string) => void;
-  exit?: (code: number) => void;
-}
-
-export async function wrapCommand(
-  handler: () => Promise<unknown>,
-  options: WrapCommandOptions = {},
-): Promise<void> {
-  const stdout = options.stdout ?? console.log;
-  const stderr = options.stderr ?? console.error;
-  const exit = options.exit ?? process.exit;
-
-  try {
-    const result = await handler();
-    stdout(JSON.stringify(result));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    stderr(JSON.stringify({ error: message }));
-    exit(1);
-  }
-}
-
-export function run(argv: string[]): void {
+export async function run(argv: string[]): Promise<void> {
   const config = new ConfigManager();
   const credentialStore = createCredentialStore();
 
@@ -153,11 +129,11 @@ export function run(argv: string[]): void {
     .strict()
     .fail((msg, err) => {
       if (err) {
-        console.error(styleText("red", err.stack ?? String(err)));
+        log.error(err.stack ?? String(err));
       } else {
-        console.error(styleText("red", msg));
+        log.error(msg);
       }
       process.exit(1);
     })
-    .parse();
+    .parseAsync();
 }

@@ -78,7 +78,6 @@ export type { ScanResult } from "./scanner";
 export { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
 export { render } from "./template-engine";
 export {
-  captureConsoleLog,
   createAmbiguousMatcher,
   createArtworkDb,
   createCache,
@@ -91,6 +90,7 @@ export {
   createMockHttpClient,
   createMockKeytar,
   createMockMatcher,
+  createMockPlugin,
   createMockResponse,
   createMockSubtitlePlugin,
   createSequenceFetch,
@@ -101,6 +101,7 @@ export {
   makeCachedMatch,
   makeEpisodes,
   makeMatchResult,
+  makeMockLogger,
   makeNoMatchResult,
   makeParsedResult,
   makeThrowingDb,

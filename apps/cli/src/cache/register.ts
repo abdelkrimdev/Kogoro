@@ -1,4 +1,5 @@
 import type yargs from "yargs";
+import { wrapCommand } from "../wrap";
 import { createCacheHandlers } from "./handlers";
 
 export function registerCache(parser: ReturnType<typeof yargs>): void {
@@ -11,9 +12,9 @@ export function registerCache(parser: ReturnType<typeof yargs>): void {
           "list",
           "List all cached Match entries",
           () => {},
-          () => {
+          async () => {
             const handlers = createCacheHandlers();
-            console.log(JSON.stringify(handlers.list()));
+            await wrapCommand(async () => handlers.list());
           },
         )
         .command(
@@ -25,18 +26,18 @@ export function registerCache(parser: ReturnType<typeof yargs>): void {
               demandOption: true,
               describe: "SHA-256 hash of the file",
             }),
-          (argv) => {
+          async (argv) => {
             const handlers = createCacheHandlers();
-            console.log(JSON.stringify(handlers.lookup(argv.hash)));
+            await wrapCommand(async () => handlers.lookup(argv.hash));
           },
         )
         .command(
           "clear",
           "Clear all cached Match entries",
           () => {},
-          () => {
+          async () => {
             const handlers = createCacheHandlers();
-            console.log(JSON.stringify(handlers.clear()));
+            await wrapCommand(async () => handlers.clear());
           },
         )
         .demandCommand(1, "Please specify a cache action: list, lookup, or clear"),
