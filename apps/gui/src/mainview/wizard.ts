@@ -1,5 +1,3 @@
-// AppRPC type imported for reference only
-
 type WizardStep = "database" | "apikey" | "template" | "completion";
 
 interface WizardState {
@@ -23,6 +21,58 @@ const PRESETS = [
 
 function stepIndex(step: WizardStep): number {
   return steps.indexOf(step);
+}
+
+function renderNavigation(state: WizardState): string {
+  const showBack = state.step !== "database";
+  const showNext = state.step !== "completion";
+  const nextLabel = state.step === "template" ? "Finish" : "Next";
+
+  return `
+    <div class="flex justify-between mt-8">
+      ${
+        showBack
+          ? `<button id="backBtn" class="px-4 py-2 rounded-lg border border-surface-700 hover:border-surface-500 transition-colors">Back</button>`
+          : `<div></div>`
+      }
+      ${
+        showNext
+          ? `<button id="nextBtn" class="px-4 py-2 rounded-lg bg-primary-500 hover:bg-primary-600 transition-colors">${nextLabel}</button>`
+          : ""
+      }
+    </div>
+  `;
+}
+
+function readStepInputs(state: WizardState): void {
+  if (state.step === "database") {
+    const selected = document.querySelector('input[name="primaryDb"]:checked') as HTMLInputElement;
+    if (selected) state.primaryDb = selected.value;
+  } else if (state.step === "apikey") {
+    const input = document.getElementById("apiKeyInput") as HTMLInputElement;
+    state.apiKey = input.value.trim();
+  } else if (state.step === "template") {
+    const selected = document.querySelector(
+      'input[name="templatePreset"]:checked',
+    ) as HTMLInputElement;
+    if (selected) state.templatePreset = selected.value;
+  }
+}
+
+async function submitConfig(
+  state: WizardState,
+  rpc: { request: (method: string, params: any) => Promise<any> },
+): Promise<{ success: boolean; error?: string }> {
+  const result = await rpc.request("writeOnboardingConfig", {
+    primaryDb: state.primaryDb,
+    apiKey: state.apiKey,
+    templatePreset: state.templatePreset,
+    templateCustom: state.templateCustom,
+  });
+  if (result.success) {
+    state.apiKey = "";
+  }
+  return result;
 }
 
 function renderStep(state: WizardState): string {
@@ -112,31 +162,11 @@ export function renderWizard(
             <p class="text-surface-500">Configure your anime organizer</p>
           </div>
           ${renderStep(state)}
-          <div class="flex justify-between mt-8">
-            ${
-              state.step !== "database"
-                ? `
-              <button id="backBtn" class="px-4 py-2 rounded-lg border border-surface-700 hover:border-surface-500 transition-colors">
-                Back
-              </button>
-            `
-                : `<div></div>`
-            }
-            ${
-              state.step !== "completion"
-                ? `
-              <button id="nextBtn" class="px-4 py-2 rounded-lg bg-primary-500 hover:bg-primary-600 transition-colors">
-                ${state.step === "template" ? "Finish" : "Next"}
-              </button>
-            `
-                : ""
-            }
-          </div>
+          ${renderNavigation(state)}
         </div>
       </div>
     `;
 
-    // Event listeners
     const backBtn = document.getElementById("backBtn");
     const nextBtn = document.getElementById("nextBtn");
     const finishBtn = document.getElementById("finishBtn");
@@ -144,9 +174,8 @@ export function renderWizard(
     if (backBtn) {
       backBtn.addEventListener("click", () => {
         const idx = stepIndex(state.step);
-        const prev = steps[idx - 1];
-        if (idx > 0 && prev) {
-          state.step = prev;
+        if (idx > 0) {
+          state.step = steps[idx - 1]!;
           state.error = null;
           update();
         }
@@ -155,54 +184,32 @@ export function renderWizard(
 
     if (nextBtn) {
       nextBtn.addEventListener("click", async () => {
-        // Validate current step
-        if (state.step === "database") {
-          const selected = document.querySelector(
-            'input[name="primaryDb"]:checked',
-          ) as HTMLInputElement;
-          if (selected) state.primaryDb = selected.value;
-        } else if (state.step === "apikey") {
-          const input = document.getElementById("apiKeyInput") as HTMLInputElement;
-          state.apiKey = input.value.trim();
-          if (!state.apiKey) {
-            state.error = "API key is required";
-            update();
-            return;
-          }
-        } else if (state.step === "template") {
-          const selected = document.querySelector(
-            'input[name="templatePreset"]:checked',
-          ) as HTMLInputElement;
-          if (selected) state.templatePreset = selected.value;
-          // Submit configuration
+        readStepInputs(state);
+
+        if (state.step === "apikey" && !state.apiKey) {
+          state.error = "API key is required";
+          update();
+          return;
+        }
+
+        if (state.step === "template") {
           try {
-            const result = await rpc.request("writeOnboardingConfig", {
-              primaryDb: state.primaryDb,
-              apiKey: state.apiKey,
-              templatePreset: state.templatePreset,
-              templateCustom: state.templateCustom,
-            });
+            const result = await submitConfig(state, rpc);
             if (!result.success) {
               state.error = result.error ?? "Failed to save configuration";
               update();
               return;
             }
-            // Clear API key from memory after successful storage
-            state.apiKey = "";
-            // Clear the input field as well
-            const apiKeyInput = document.getElementById("apiKeyInput") as HTMLInputElement | null;
-            if (apiKeyInput) apiKeyInput.value = "";
           } catch (err) {
             state.error = err instanceof Error ? err.message : String(err);
             update();
             return;
           }
         }
-        // Move to next step
+
         const idx = stepIndex(state.step);
-        const next = steps[idx + 1];
-        if (idx < steps.length - 1 && next) {
-          state.step = next;
+        if (idx < steps.length - 1) {
+          state.step = steps[idx + 1]!;
           state.error = null;
           update();
         }

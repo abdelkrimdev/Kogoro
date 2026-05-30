@@ -6,6 +6,7 @@ const rpc = Electroview.defineRPC<AppRPC>({
   handlers: {
     requests: {},
     messages: {
+      // Electrobun RPC types messages as Record<string, never> but handlers are functions
       showOnboarding: () => {
         currentMode = "onboarding";
         render();
@@ -53,24 +54,33 @@ const views: Record<View, string> = {
   `,
 };
 
+function setShellVisible(visible: boolean): void {
+  const display = visible ? "" : "none";
+  for (const selector of ["aside", "header", "footer"]) {
+    const el = document.querySelector<HTMLElement>(selector);
+    if (el) el.style.display = display;
+  }
+}
+
 function renderMain(): void {
-  const sidebar = document.querySelector("aside");
-  const header = document.querySelector("header");
-  const footer = document.querySelector("footer");
-  if (sidebar) sidebar.style.display = "";
-  if (header) header.style.display = "";
-  if (footer) footer.style.display = "";
+  setShellVisible(true);
 
   const content = document.getElementById("content");
   const statusText = document.getElementById("status-text");
   if (content) content.innerHTML = views[currentView];
-  if (statusText)
-    statusText.textContent =
-      currentView === "library"
-        ? "Library ready"
-        : currentView === "scan"
-          ? "Ready to scan"
-          : "Settings";
+  if (statusText) {
+    switch (currentView) {
+      case "library":
+        statusText.textContent = "Library ready";
+        break;
+      case "scan":
+        statusText.textContent = "Ready to scan";
+        break;
+      case "settings":
+        statusText.textContent = "Settings";
+        break;
+    }
+  }
 
   document.querySelectorAll("[data-nav]").forEach((el) => {
     const navItem = el.getAttribute("data-nav");
@@ -85,15 +95,11 @@ function renderMain(): void {
 }
 
 function renderOnboarding(): void {
-  const sidebar = document.querySelector("aside");
-  const header = document.querySelector("header");
-  const footer = document.querySelector("footer");
-  if (sidebar) sidebar.style.display = "none";
-  if (header) header.style.display = "none";
-  if (footer) footer.style.display = "none";
+  setShellVisible(false);
 
   const content = document.getElementById("content");
   if (content) {
+    // Electrobun RPC type mismatch between request/response schemas
     renderWizard(content, rpc as any, () => {
       // After onboarding completes, switch to main app
       currentMode = "main";

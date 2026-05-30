@@ -54,7 +54,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
           if (!result3.success) return { success: false, error: result3.error };
         }
         // Store API key if provided
-        if (apiKey.length > 0) {
+        if (apiKey) {
           try {
             await credentialStore.setCredential(primaryDb, apiKey);
           } catch (err) {
@@ -64,8 +64,6 @@ const rpc = BrowserView.defineRPC<AppRPC>({
             };
           }
         }
-        // Initialize config (write to file)
-        configManager.init();
         return { success: true };
       },
     },
