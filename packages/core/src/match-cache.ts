@@ -125,7 +125,7 @@ export class MatchCache {
     const file = Bun.file(filePath);
     const stream = file.stream();
     const hash = new Bun.CryptoHasher("sha256");
-    for await (const chunk of stream) {
+    for await (const chunk of stream as unknown as AsyncIterable<Uint8Array>) {
       hash.update(chunk);
     }
     return hash.digest("hex");

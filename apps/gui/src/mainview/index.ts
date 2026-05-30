@@ -1,16 +1,31 @@
 import { Electroview } from "electrobun/view";
 import type { AppRPC } from "../shared/types";
+import { renderWizard } from "./wizard";
 
 const rpc = Electroview.defineRPC<AppRPC>({
   handlers: {
     requests: {},
-    messages: {},
+    messages: {
+      // Electrobun RPC types messages as Record<string, never> but handlers are functions
+      showOnboarding: () => {
+        currentMode = "onboarding";
+        render();
+      },
+      showMainApp: () => {
+        currentMode = "main";
+        render();
+      },
+    } as any,
   },
 });
 
 const electrobun = new Electroview({ rpc });
 
+type Mode = "onboarding" | "main";
 type View = "scan" | "library" | "settings";
+
+let currentMode: Mode = "main";
+let currentView: View = "scan";
 
 const views: Record<View, string> = {
   scan: `
@@ -32,26 +47,44 @@ const views: Record<View, string> = {
   settings: `
     <div class="flex items-center justify-center h-full">
       <div class="text-center space-y-4">
-        <h2 class="text-2xl font-bold">Settings</h2>
+        <h2 class="text-xl font-bold">Settings</h2>
         <p class="text-surface-500">Configure your Kogoro preferences.</p>
       </div>
     </div>
   `,
 };
 
-let currentView: View = "scan";
+function setShellVisible(visible: boolean): void {
+  const display = visible ? "" : "none";
+  for (const selector of ["aside", "header", "footer"]) {
+    const el = document.querySelector<HTMLElement>(selector);
+    if (el) el.style.display = display;
+  }
+}
 
-function renderView(view: View) {
+function renderMain(): void {
+  setShellVisible(true);
+
   const content = document.getElementById("content");
   const statusText = document.getElementById("status-text");
-  if (content) content.innerHTML = views[view];
-  if (statusText)
-    statusText.textContent =
-      view === "library" ? "Library ready" : view === "scan" ? "Ready to scan" : "Settings";
+  if (content) content.innerHTML = views[currentView];
+  if (statusText) {
+    switch (currentView) {
+      case "library":
+        statusText.textContent = "Library ready";
+        break;
+      case "scan":
+        statusText.textContent = "Ready to scan";
+        break;
+      case "settings":
+        statusText.textContent = "Settings";
+        break;
+    }
+  }
 
   document.querySelectorAll("[data-nav]").forEach((el) => {
     const navItem = el.getAttribute("data-nav");
-    if (navItem === view) {
+    if (navItem === currentView) {
       el.classList.add("bg-primary-500/20", "text-primary-500");
       el.classList.remove("text-surface-400", "hover:text-surface-200");
     } else {
@@ -61,13 +94,39 @@ function renderView(view: View) {
   });
 }
 
+function renderOnboarding(): void {
+  setShellVisible(false);
+
+  const content = document.getElementById("content");
+  if (content) {
+    // Electrobun RPC type mismatch between request/response schemas
+    renderWizard(content, rpc as any, () => {
+      // After onboarding completes, switch to main app
+      currentMode = "main";
+      render();
+    });
+  }
+}
+
+function render(): void {
+  if (currentMode === "onboarding") {
+    renderOnboarding();
+  } else {
+    renderMain();
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  renderView(currentView);
+  // Request onboarding status from main process
+  rpc.request("checkOnboarding", {}).then((result) => {
+    currentMode = result.needsOnboarding ? "onboarding" : "main";
+    render();
+  });
 
   document.querySelectorAll("[data-nav]").forEach((el) => {
     el.addEventListener("click", () => {
       currentView = el.getAttribute("data-nav") as View;
-      renderView(currentView);
+      renderMain();
     });
   });
 });
