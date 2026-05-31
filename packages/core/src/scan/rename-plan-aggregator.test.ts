@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { createLibraryDb, makeMatchResult, makeParsedResult, withTempDir } from "../fixtures";
+import type { RenamePlan } from "../rename/renamer";
+import type { AnimeResult, EpisodeResult } from "../types";
 import {
   aggregateReviewPlan,
   buildReviewPlan,
   detectSwaps,
   groupByAnime,
 } from "./rename-plan-aggregator";
-import type { RenamePlan } from "./renamer";
 import type { ScanResult } from "./scanner";
-import { createLibraryDb, makeMatchResult, makeParsedResult, withTempDir } from "./test-fixtures";
-import type { AnimeResult, EpisodeResult } from "./types";
 
 function makeScanResult(
   file: string,

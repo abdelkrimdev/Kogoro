@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { createMockMatcher, makeMatchResult, makeParsedResult } from "../fixtures";
+import type { ReviewPlan } from "../types";
 import {
   type ScanCompleteEvent,
   type ScanEvent,
   ScanOrchestrator,
   type ScanReviewReadyEvent,
 } from "./scan-orchestrator";
-import type { ReviewPlan } from "./scan-types";
 import type { ScanResult } from "./scanner";
-import { createMockMatcher, makeMatchResult, makeParsedResult } from "./test-fixtures";
 
 function makeScanResult(file: string, overrides?: Partial<ScanResult>): ScanResult {
   return {

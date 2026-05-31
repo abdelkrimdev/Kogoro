@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { makeEpisodes } from "../fixtures";
 import { absoluteToRelative, relativeToAbsolute } from "./numbering-converter";
-import { makeEpisodes } from "./test-fixtures";
 
 describe("relativeToAbsolute", () => {
   test("converts season-relative to absolute for 2-season anime with 24 episodes each", () => {

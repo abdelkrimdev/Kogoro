@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { withTestConfig } from "../test-fixtures";
+import { withTestConfig } from "../fixtures";
 import { ConfigManager } from "./config-manager";
 import { TEMPLATE_PRESETS } from "./schema";
 

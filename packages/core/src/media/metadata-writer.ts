@@ -1,10 +1,10 @@
 import { existsSync, writeFileSync } from "node:fs";
-import { SCHEMA_DEFAULTS } from "./config/schema";
-import { walk } from "./directory-walker";
-import { type CachedMatch, MatchCache } from "./match-cache";
-import { stripExtension } from "./parser";
-import type { TaskContext } from "./progress";
-import type { DatabasePlugin, EpisodeResult } from "./types";
+import { SCHEMA_DEFAULTS } from "../config/schema";
+import { walk } from "../io/directory-walker";
+import type { TaskContext } from "../io/progress";
+import { type CachedMatch, MatchCache } from "../match/match-cache";
+import { stripExtension } from "../parse/parser";
+import type { DatabasePlugin, EpisodeResult } from "../types";
 
 interface MetadataSummary {
   total: number;

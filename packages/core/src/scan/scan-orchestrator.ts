@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
+import type { AnimeGroup, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
 import { aggregateReviewPlan } from "./rename-plan-aggregator";
-import type { AnimeGroup, ReviewPlan, ScanFileStatus, ScanSummary } from "./scan-types";
 import type { ScanResult } from "./scanner";
 
 export type ScanState = "idle" | "scan" | "plan" | "review" | "execute" | "done";

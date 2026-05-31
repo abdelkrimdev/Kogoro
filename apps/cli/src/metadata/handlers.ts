@@ -1,6 +1,5 @@
-import { type ConfigManager, MatchCache, MetadataWriter } from "@kogoro/core";
+import { type ConfigManager, MatchCache, MetadataWriter, SCHEMA_DEFAULTS } from "@kogoro/core";
 import type { DatabasePlugin } from "@kogoro/plugins";
-import { resolveMediaExtensions } from "../extensions";
 import type { Logger } from "../logger";
 
 export interface MetadataHandlerOptions {
@@ -18,7 +17,8 @@ export interface MetadataResult {
 
 export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
   const cache = new MatchCache({ dbPath: options.dbPath });
-  const extensions = resolveMediaExtensions(options.config);
+  const extensions =
+    options.config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
   const writer = new MetadataWriter({ cache, database: options.database, extensions });
 
   return {

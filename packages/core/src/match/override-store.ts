@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { EntryType } from "./types";
+import type { EntryType } from "../types";
 
 export const OVERRIDE_TOML_KEYS = {
   ANIME_ID: "anime-id",

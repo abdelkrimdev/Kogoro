@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { createCountingFetch, createMockResponse, createSequenceFetch } from "../fixtures";
 import { type DebugEntry, HttpClient } from "./http-client";
-import { createCountingFetch, createMockResponse, createSequenceFetch } from "./test-fixtures";
 
 describe("HttpClient", () => {
   describe("rate limiting", () => {

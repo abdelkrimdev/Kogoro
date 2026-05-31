@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
-import { SCHEMA_DEFAULTS } from "./config/schema";
-import { walk } from "./directory-walker";
-import { HttpClient } from "./http-client";
-import { MatchCache } from "./match-cache";
-import type { TaskContext } from "./progress";
-import type { ArtworkResult, DatabasePlugin } from "./types";
+import { SCHEMA_DEFAULTS } from "../config/schema";
+import { walk } from "../io/directory-walker";
+import { HttpClient } from "../io/http-client";
+import type { TaskContext } from "../io/progress";
+import { MatchCache } from "../match/match-cache";
+import type { ArtworkResult, DatabasePlugin } from "../types";
 
 interface ArtworkFetcherOptions {
   primaryDb: DatabasePlugin;

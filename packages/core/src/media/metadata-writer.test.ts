@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { MetadataWriter } from "./metadata-writer";
-import type { ProgressEvent, TaskContext } from "./progress";
 import {
   createCache,
   createMockDb,
@@ -10,7 +8,9 @@ import {
   seedCacheEntry,
   withTempDir,
   writeTempFile,
-} from "./test-fixtures";
+} from "../fixtures";
+import type { ProgressEvent, TaskContext } from "../io/progress";
+import { MetadataWriter } from "./metadata-writer";
 
 describe("MetadataWriter", () => {
   describe("generateEpisodeNfo", () => {

@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { OverrideStore } from "./override-store";
-import type { ProgressEvent, TaskContext } from "./progress";
-import { Renamer } from "./renamer";
-import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
 import {
   createAmbiguousMatcher,
   createCache,
@@ -15,7 +11,11 @@ import {
   makeNoMatchResult,
   withTempDir,
   writeTempFile,
-} from "./test-fixtures";
+} from "../fixtures";
+import type { ProgressEvent, TaskContext } from "../io/progress";
+import { OverrideStore } from "../match/override-store";
+import { Renamer } from "../rename/renamer";
+import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
 
 describe("Scanner", () => {
   test("scanFile parses filename and returns auto-resolved match", async () => {

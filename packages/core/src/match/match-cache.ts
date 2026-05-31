@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { CONFIG_DIR } from "./config/schema";
+import { CONFIG_DIR } from "../config/schema";
 
 export interface CachedMatch {
   animeId: string;

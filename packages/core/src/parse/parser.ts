@@ -6,7 +6,7 @@ export interface ParsedTags {
   audio: string | null;
 }
 
-import { SCHEMA_DEFAULTS } from "./config/schema";
+import { SCHEMA_DEFAULTS } from "../config/schema";
 
 export interface ParsedResult {
   title: string | null;

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { createMockKeytar, withTestConfig } from "../test-fixtures";
+import { createMockKeytar, withTestConfig } from "../fixtures";
 import { type PromptsAPI, runConfigWizard } from "./config-wizard";
 
 describe("ConfigWizard", () => {

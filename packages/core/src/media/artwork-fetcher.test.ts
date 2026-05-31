@@ -2,9 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ArtworkFetcher } from "./artwork-fetcher";
-import { MatchCache } from "./match-cache";
-import type { ProgressEvent, TaskContext } from "./progress";
 import {
   createArtworkDb,
   createCache,
@@ -14,7 +11,10 @@ import {
   mockFetch,
   testImageBytes,
   writeTempFile,
-} from "./test-fixtures";
+} from "../fixtures";
+import type { ProgressEvent, TaskContext } from "../io/progress";
+import { MatchCache } from "../match/match-cache";
+import { ArtworkFetcher } from "./artwork-fetcher";
 
 describe("ArtworkFetcher", () => {
   function setup() {

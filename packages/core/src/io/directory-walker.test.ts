@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
+import { withTempDir, writeTempFile } from "../fixtures";
 import { walk } from "./directory-walker";
-import { withTempDir, writeTempFile } from "./test-fixtures";
 
 describe("DirectoryWalker", () => {
   test("walk returns video files from a directory", async () => {

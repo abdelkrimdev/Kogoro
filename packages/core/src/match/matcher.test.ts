@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { createCallCounter, createDataMockDb, createMockDb, makeParsedResult } from "../fixtures";
+import type { DatabasePlugin, EpisodeResult } from "../types";
 import {
   Matcher,
   matchResultFromCache,
@@ -6,13 +8,6 @@ import {
   matchResultFromOverride,
   resolveEpisode,
 } from "./matcher";
-import {
-  createCallCounter,
-  createDataMockDb,
-  createMockDb,
-  makeParsedResult,
-} from "./test-fixtures";
-import type { DatabasePlugin, EpisodeResult } from "./types";
 
 describe("Matcher", () => {
   test("returns match when anime found and episode number matches", async () => {

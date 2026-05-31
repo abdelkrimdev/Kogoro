@@ -1,7 +1,7 @@
+import type { ParsedResult } from "../parse/parser";
+import type { AnimeResult, DatabasePlugin, EntryType, EpisodeResult } from "../types";
 import type { CachedMatch } from "./match-cache";
 import type { OverrideData } from "./override-store";
-import type { ParsedResult } from "./parser";
-import type { AnimeResult, DatabasePlugin, EntryType, EpisodeResult } from "./types";
 
 export interface MatchResult {
   anime: AnimeResult;

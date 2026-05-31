@@ -9,8 +9,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { makeMatchResult, withTempDir } from "../fixtures";
 import { Renamer } from "./renamer";
-import { makeMatchResult, withTempDir } from "./test-fixtures";
 
 describe("Renamer", () => {
   test("plans rename for TV episode with filename and directory templates", () => {

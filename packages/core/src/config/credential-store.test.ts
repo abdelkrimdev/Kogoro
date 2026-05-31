@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { createMockKeytar, silentBunSecrets, stubBunSecrets } from "../test-fixtures";
+import { createMockKeytar, silentBunSecrets, stubBunSecrets } from "../fixtures";
 import { CredentialStore, createCredentialStore } from "./credential-store";
 
 function setEnv(key: string, value: string): void {

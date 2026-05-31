@@ -20,7 +20,6 @@ import {
   walk,
 } from "@kogoro/core";
 import type { DatabasePlugin } from "@kogoro/plugins";
-import { resolveMediaExtensions } from "../extensions";
 import type { Logger } from "../logger";
 
 export interface ScanHandlerOptions {
@@ -54,7 +53,7 @@ function resolveExtensions(config?: ConfigManager, overrides?: string[]): readon
   if (overrides && overrides.length > 0) {
     return overrides.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`));
   }
-  return resolveMediaExtensions(config);
+  return config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
 }
 
 function resolveExcludePatterns(config?: ConfigManager): string[] {

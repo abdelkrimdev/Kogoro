@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { silentBunSecrets, stubBunSecrets } from "../test-fixtures";
+import { silentBunSecrets, stubBunSecrets } from "../fixtures";
 import { BunSecretsKeytar } from "./bun-secrets-keytar";
 
 describe("BunSecretsKeytar", () => {

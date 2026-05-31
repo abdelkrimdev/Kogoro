@@ -1,4 +1,4 @@
-import type { EpisodeResult } from "./types";
+import type { EpisodeResult } from "../types";
 
 export function relativeToAbsolute(
   season: number,

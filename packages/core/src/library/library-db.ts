@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { CONFIG_DIR } from "./config/schema";
-import type { EntryType } from "./types";
+import { CONFIG_DIR } from "../config/schema";
+import type { EntryType } from "../types";
 
 export interface LibraryAnime {
   id: number;

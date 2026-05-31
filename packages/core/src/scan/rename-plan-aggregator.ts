@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
-import type { LibraryDb } from "./library-db";
+import type { LibraryDb } from "../library/library-db";
 import type {
+  AnimeResult,
   FileRow,
   AnimeGroup as ScanAnimeGroup,
   ScanFileStatus,
   ReviewPlan as ScanReviewPlan,
   SwapPair as ScanSwapPair,
-} from "./scan-types";
+} from "../types";
 import type { ScanResult } from "./scanner";
-import type { AnimeResult } from "./types";
 
 export interface SwapPair {
   files: [string, string];

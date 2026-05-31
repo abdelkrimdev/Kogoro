@@ -1,7 +1,8 @@
 import { basename, dirname, extname } from "node:path";
-import { type EpisodeNumbering, ORGANIZED_DIRS } from "./config/schema";
-import type { CachedMatch } from "./match-cache";
-import { MatchCache } from "./match-cache";
+import { type EpisodeNumbering, ORGANIZED_DIRS } from "../config/schema";
+import type { TaskContext } from "../io/progress";
+import type { CachedMatch } from "../match/match-cache";
+import { MatchCache } from "../match/match-cache";
 import {
   AMBIGUOUS_MATCH_REASON,
   bestPerAnimeId,
@@ -11,13 +12,12 @@ import {
   matchResultFromCache,
   matchResultFromManual,
   matchResultFromOverride,
-} from "./matcher";
-import { relativeToAbsolute } from "./numbering-converter";
-import type { OverrideData, OverrideStore } from "./override-store";
-import { createEmptyResult, type ParsedResult, parse } from "./parser";
-import type { TaskContext } from "./progress";
-import type { RenameAction, RenamePlan, RenameResult, Renamer } from "./renamer";
-import type { EntryType } from "./types";
+} from "../match/matcher";
+import type { OverrideData, OverrideStore } from "../match/override-store";
+import { relativeToAbsolute } from "../parse/numbering-converter";
+import { createEmptyResult, type ParsedResult, parse } from "../parse/parser";
+import type { RenameAction, RenamePlan, RenameResult, Renamer } from "../rename/renamer";
+import type { EntryType } from "../types";
 
 type ScanStatus = "matched" | "cached" | "skipped" | "ambiguous" | "failed";
 

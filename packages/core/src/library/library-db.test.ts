@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { withTempDir } from "../fixtures";
 import { LibraryDb } from "./library-db";
-import { withTempDir } from "./test-fixtures";
 
 describe("LibraryDb", () => {
   test("creates schema and inserts anime", async () => {

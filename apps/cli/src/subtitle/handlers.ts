@@ -2,7 +2,6 @@ import { existsSync } from "node:fs";
 import { relative, sep } from "node:path";
 import { type ConfigManager, MatchCache, SCHEMA_DEFAULTS, walk } from "@kogoro/core";
 import type { SubtitlePlugin } from "@kogoro/plugins";
-import { resolveMediaExtensions } from "../extensions";
 import type { Logger } from "../logger";
 
 export interface SubtitleHandlerOptions {
@@ -43,7 +42,9 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
     let skipped = 0;
     let failed = 0;
 
-    const files = walk(dirPath, resolveMediaExtensions(options.config));
+    const extensions =
+      options.config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
+    const files = walk(dirPath, extensions);
     let completed = 0;
 
     for (const filePath of files) {

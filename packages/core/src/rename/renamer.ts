@@ -8,13 +8,13 @@ import {
   unlinkSync,
 } from "node:fs";
 import { join } from "node:path";
-import { ENTRY_TYPE_DIR_MAP, type RenameAction } from "./config/schema";
-import type { MatchResult } from "./matcher";
-import type { ParsedTags } from "./parser";
-import { stripExtension } from "./parser";
+import { ENTRY_TYPE_DIR_MAP, type RenameAction } from "../config/schema";
+import type { MatchResult } from "../match/matcher";
+import type { ParsedTags } from "../parse/parser";
+import { stripExtension } from "../parse/parser";
 import { render } from "./template-engine";
 
-export type { RenameAction } from "./config/schema";
+export type { RenameAction } from "../config/schema";
 
 type RenameErrorType = "permission" | "disk-full" | "collision" | "other";
 
