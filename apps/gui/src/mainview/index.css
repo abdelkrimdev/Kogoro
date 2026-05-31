@@ -1,6 +1,6 @@
 @import "tailwindcss";
-@plugin "@skeletonlabs/skeleton";
-@plugin "@skeletonlabs/skeleton-svelte";
+
+@import "@skeletonlabs/skeleton";
 
 :root {
   --color-primary-50: oklch(0.97 0.02 250);
