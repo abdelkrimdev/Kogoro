@@ -169,6 +169,19 @@ export type AppRPC = {
           error?: string;
         };
       };
+      getWatchStatusByAnime: {
+        params: { animeId: string };
+        response: Array<{
+          episodeId: string;
+          watched: boolean;
+          notes?: string;
+          updatedAt: string;
+        }>;
+      };
+      setWatchStatus: {
+        params: { episodeId: string; watched: boolean; notes?: string };
+        response: { success: boolean };
+      };
     };
     messages: {
       showOnboarding: Record<string, never>;

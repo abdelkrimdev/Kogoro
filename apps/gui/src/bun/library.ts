@@ -104,5 +104,36 @@ export function createLibraryHandlers(configDir: string) {
         db.close();
       }
     },
+
+    async getWatchStatusByAnime(params: {
+      animeId: string;
+    }): Promise<Array<{ episodeId: string; watched: boolean; notes?: string; updatedAt: string }>> {
+      const db = getDb();
+      try {
+        const statuses = db.getWatchStatusByAnimeId(Number(params.animeId));
+        return statuses.map((s) => ({
+          episodeId: String(s.episodeId),
+          watched: s.watched,
+          notes: s.notes,
+          updatedAt: s.updatedAt,
+        }));
+      } finally {
+        db.close();
+      }
+    },
+
+    async setWatchStatus(params: {
+      episodeId: string;
+      watched: boolean;
+      notes?: string;
+    }): Promise<{ success: boolean }> {
+      const db = getDb();
+      try {
+        db.setWatchStatus(Number(params.episodeId), params.watched, params.notes);
+        return { success: true };
+      } finally {
+        db.close();
+      }
+    },
   };
 }

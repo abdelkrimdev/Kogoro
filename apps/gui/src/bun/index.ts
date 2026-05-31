@@ -238,6 +238,8 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       },
       getLibrary: () => libraryHandlers.getLibrary(),
       getAnimeDetail: (params) => libraryHandlers.getAnimeDetail(params),
+      getWatchStatusByAnime: (params) => libraryHandlers.getWatchStatusByAnime(params),
+      setWatchStatus: (params) => libraryHandlers.setWatchStatus(params),
       getSettingsData: async () => {
         const apiKeys: Record<string, string | undefined> = {};
         for (const plugin of ["tvdb", "anidb", "opensubtitles"]) {

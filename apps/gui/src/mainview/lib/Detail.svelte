@@ -1,6 +1,11 @@
 <script lang="ts">
   import { ENTRY_LABELS, typeBadgeClass } from "../shared";
   import { getAnimeDirectory } from "../state/detail-state";
+  import {
+    type WatchStatusEntry,
+    enrichEpisodesWithWatchStatus,
+    computeWatchProgress,
+  } from "../state/watch-state";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -37,6 +42,7 @@
   let artworkLoading = $state(false);
   let metadataLoading = $state(false);
   let rescanLoading = $state(false);
+  let watchStatuses = $state<WatchStatusEntry[]>([]);
 
   function sourceDbLabel(db: string): string {
     switch (db) {
@@ -80,6 +86,50 @@
     loading = false;
   }
 
+  async function loadWatchStatus() {
+    try {
+      const result = (await rpc.request("getWatchStatusByAnime", { animeId })) as WatchStatusEntry[];
+      watchStatuses = result;
+    } catch (err) {
+      console.error("Failed to load watch status:", err);
+    }
+  }
+
+  async function toggleWatched(episodeId: string) {
+    const current = watchStatuses.find((ws) => ws.episodeId === episodeId);
+    const newWatched = !(current?.watched ?? false);
+    const now = new Date().toISOString();
+
+    watchStatuses = [
+      ...watchStatuses.filter((ws) => ws.episodeId !== episodeId),
+      { episodeId, watched: newWatched, notes: current?.notes, updatedAt: now },
+    ];
+
+    try {
+      await rpc.request("setWatchStatus", { episodeId, watched: newWatched, notes: current?.notes });
+    } catch (err) {
+      console.error("Failed to set watch status:", err);
+      await loadWatchStatus();
+    }
+  }
+
+  async function saveNotes(episodeId: string, notes: string) {
+    const current = watchStatuses.find((ws) => ws.episodeId === episodeId);
+    const now = new Date().toISOString();
+
+    watchStatuses = [
+      ...watchStatuses.filter((ws) => ws.episodeId !== episodeId),
+      { episodeId, watched: current?.watched ?? false, notes: notes || undefined, updatedAt: now },
+    ];
+
+    try {
+      await rpc.request("setWatchStatus", { episodeId, watched: current?.watched ?? false, notes: notes || undefined });
+    } catch (err) {
+      console.error("Failed to save notes:", err);
+      await loadWatchStatus();
+    }
+  }
+
   async function downloadArtwork() {
     artworkLoading = true;
     try {
@@ -116,9 +166,17 @@
 
   const gaps = $derived(detail ? detectGaps(detail.episodes) : new Set<number>());
   const missingCount = $derived(detail?.episodes.filter((ep) => ep.missing).length ?? 0);
+  const enrichedEpisodes = $derived(
+    detail ? enrichEpisodesWithWatchStatus(detail.episodes, watchStatuses) : [],
+  );
+  const progress = $derived(computeWatchProgress(enrichedEpisodes));
 
   $effect(() => {
     loadDetail();
+  });
+
+  $effect(() => {
+    loadWatchStatus();
   });
 </script>
 
@@ -219,6 +277,13 @@
                 <span class="text-sm text-surface-500">·</span>
                 <span class="text-sm text-amber-400">{missingCount} missing</span>
               {/if}
+              {#if progress.total > 0}
+                <span class="text-sm text-surface-500">·</span>
+                <span class="text-sm text-emerald-400">{progress.percent}% watched</span>
+                <div class="w-24 h-1.5 bg-surface-700 rounded-full overflow-hidden">
+                  <div class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: {progress.percent}%"></div>
+                </div>
+              {/if}
             </div>
 
             <div class="mt-6">
@@ -235,10 +300,12 @@
                         <th class="px-4 py-2 font-medium">Episode</th>
                         <th class="px-4 py-2 font-medium">Title</th>
                         <th class="px-4 py-2 font-medium">File Path</th>
+                        <th class="px-4 py-2 font-medium text-center w-16">Watched</th>
+                        <th class="px-4 py-2 font-medium">Notes</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {#each detail.episodes as ep (ep.id)}
+                      {#each enrichedEpisodes as ep (ep.id)}
                         {@const isGap = gaps.has(ep.episode)}
                         <tr class="border-t border-surface-700/50 {ep.missing ? 'text-surface-500 opacity-60' : isGap ? 'text-amber-400' : 'text-surface-100'}">
                           <td class="px-4 py-2 text-sm font-medium whitespace-nowrap">
@@ -253,6 +320,35 @@
                           <td class="px-4 py-2 text-sm text-surface-400 font-mono truncate max-w-xs">
                             {#if ep.filePath}
                               {ep.filePath}
+                            {:else}
+                              <span class="text-surface-600">—</span>
+                            {/if}
+                          </td>
+                          <td class="px-4 py-2 text-center">
+                            {#if !ep.missing}
+                              <button
+                                class="w-4 h-4 rounded border {ep.watched ? 'bg-emerald-500 border-emerald-500' : 'border-surface-500 hover:border-surface-300'} flex items-center justify-center transition-colors"
+                                onclick={() => toggleWatched(ep.id)}
+                              >
+                                {#if ep.watched}
+                                  <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                {/if}
+                              </button>
+                            {:else}
+                              <span class="text-surface-600">—</span>
+                            {/if}
+                          </td>
+                          <td class="px-4 py-2">
+                            {#if !ep.missing}
+                              <input
+                                type="text"
+                                class="w-full bg-transparent text-sm text-surface-300 border-b border-surface-700 focus:border-primary-500 focus:outline-none px-1 py-0.5 transition-colors placeholder-surface-600"
+                                placeholder="Add note..."
+                                value={ep.notes ?? ""}
+                                onchange={(e) => saveNotes(ep.id, (e.target as HTMLInputElement).value)}
+                              />
                             {:else}
                               <span class="text-surface-600">—</span>
                             {/if}
