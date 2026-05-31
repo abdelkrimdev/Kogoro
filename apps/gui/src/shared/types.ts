@@ -71,6 +71,23 @@ export type AppRPC = {
         };
         response: undefined;
       };
+      getResolveCandidates: {
+        params: {
+          sessionId: string;
+          fileId: string;
+        };
+        response: {
+          candidates: Array<{
+            animeId: string;
+            animeTitle: string;
+            entryType: string;
+            episodeId: string;
+            episodeNumber: number;
+            season: number;
+            score: number;
+          }>;
+        };
+      };
       approvePlan: {
         params: { sessionId: string };
         response: undefined;

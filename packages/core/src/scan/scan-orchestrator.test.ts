@@ -9,6 +9,10 @@ import {
 } from "./scan-orchestrator";
 import type { ScanResult } from "./scanner";
 
+function makeAmbiguousScanResult(file: string): ScanResult {
+  return makeScanResult(file, { status: "ambiguous" });
+}
+
 function makeScanResult(file: string, overrides?: Partial<ScanResult>): ScanResult {
   return {
     file,
@@ -635,6 +639,123 @@ describe("ScanOrchestrator", () => {
       if (fileAId && fileBId) {
         expect(() => orch.swapFiles(fileAId, fileBId)).toThrow("not in same group");
       }
+    });
+  });
+
+  describe("resolveMatch", () => {
+    test("resolves ambiguous file and updates plan", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv"],
+        scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+        resolveFile: async (_filePath, _animeId, _episodeId) =>
+          makeScanResult("/a/ep1.mkv", {
+            match: makeMatchResult({
+              anime: { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+              episode: {
+                id: "101",
+                animeId: "1",
+                season: 1,
+                episode: 1,
+                titleEn: "Ep 1",
+                entryType: "tv",
+              },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: "/a/ep1.mkv",
+              targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+              targetDir: "Jujutsu Kaisen/Season 1",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          }),
+      });
+      await orch.startScan("/test/path");
+
+      const plan = orch.getPlan();
+      const fileId = plan?.groups[0]?.files[0]?.fileId;
+      expect(fileId).toBeDefined();
+      if (!fileId) throw new Error("Test invariant: fileId is undefined");
+
+      await orch.resolveMatch(fileId, "1", "101");
+
+      const updatedPlan = orch.getPlan();
+      expect(updatedPlan?.ambiguousCount).toBe(0);
+      expect(updatedPlan?.groups[0]?.files[0]?.status).toBe("matched");
+      expect(updatedPlan?.groups[0]?.files[0]?.animeId).toBe("1");
+    });
+
+    test("emits scanReviewReady after resolve", async () => {
+      const events: ScanEvent[] = [];
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv"],
+        scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+        resolveFile: async (filePath) =>
+          makeScanResult(filePath, {
+            match: makeMatchResult(),
+            status: "matched",
+            plan: {
+              sourcePath: filePath,
+              targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+              targetDir: "Jujutsu Kaisen/Season 1",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          }),
+      });
+      orch.on("*", (e) => events.push(e));
+      await orch.startScan("/test/path");
+
+      const plan = orch.getPlan();
+      const fileId = plan?.groups[0]?.files[0]?.fileId;
+
+      events.length = 0;
+      if (!fileId) throw new Error("Test invariant: fileId is undefined");
+      await orch.resolveMatch(fileId, "1", "101");
+
+      const reviewEvents = events.filter((e) => e.type === "scanReviewReady");
+      expect(reviewEvents.length).toBe(1);
+    });
+
+    test("rejects resolveMatch if not in review state", () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [],
+        scanFile: async () => makeScanResult("dummy"),
+      });
+      expect(() => orch.resolveMatch("file-id", "anime-1", "ep-1")).toThrow("not in review");
+    });
+
+    test("rejects resolveMatch if fileId not found in plan", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv"],
+        scanFile: async () =>
+          makeScanResult("/a/ep1.mkv", {
+            match: makeMatchResult(),
+            status: "matched",
+          }),
+        resolveFile: async (filePath) =>
+          makeScanResult(filePath, { match: makeMatchResult(), status: "matched" }),
+      });
+      await orch.startScan("/test/path");
+      expect(() => orch.resolveMatch("nonexistent", "1", "101")).toThrow("file not found");
+    });
+
+    test("rejects resolveMatch if resolveFile callback not provided", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv"],
+        scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+      });
+      await orch.startScan("/test/path");
+
+      const plan = orch.getPlan();
+      const fileId = plan?.groups[0]?.files[0]?.fileId;
+      if (!fileId) throw new Error("Test invariant: fileId is undefined");
+      expect(() => orch.resolveMatch(fileId, "1", "101")).toThrow("resolve not available");
     });
   });
 });

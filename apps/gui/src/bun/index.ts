@@ -1,12 +1,15 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, extname, join } from "node:path";
+import type { MatchResult, ParsedResult } from "@kogoro/core";
 import {
+  bestPerAnimeId,
   CONFIG_DIR,
   ConfigManager,
   createCredentialStore,
   MatchCache,
   Matcher,
   OverrideStore,
+  parse,
   Renamer,
   SCHEMA_DEFAULTS,
   Scanner,
@@ -50,6 +53,7 @@ const credentialStore = createCredentialStore();
 const libraryHandlers = createLibraryHandlers(CONFIG_DIR);
 
 const scanOrchestrators = new Map<string, ScanOrchestrator>();
+const scanMatchers = new Map<string, Matcher>();
 
 function getOrchestrator(sessionId: string): ScanOrchestrator {
   const orchestrator = scanOrchestrators.get(sessionId);
@@ -57,6 +61,19 @@ function getOrchestrator(sessionId: string): ScanOrchestrator {
     throw new Error("Scan session not found");
   }
   return orchestrator;
+}
+
+async function findCandidateMatches(
+  matcher: Matcher,
+  filePath: string,
+): Promise<{ parsed: ParsedResult; best: MatchResult[] }> {
+  const parsed = parse(basename(filePath));
+  const matches = await matcher.match(parsed);
+  const scoredMatches = matches.filter((m) => !m.failureReason);
+  const hasEpisode = parsed.episode !== null;
+  const goodMatches = scoredMatches.filter((m) => (hasEpisode ? m.episode !== undefined : true));
+  const best = bestPerAnimeId(goodMatches);
+  return { parsed, best };
 }
 
 async function createScanOrchestrator(sessionId: string): Promise<ScanOrchestrator> {
@@ -78,6 +95,10 @@ async function createScanOrchestrator(sessionId: string): Promise<ScanOrchestrat
   });
 
   const scanner = matcher ? new Scanner({ matcher, cache, renamer, overrideStore }) : undefined;
+
+  if (matcher) {
+    scanMatchers.set(sessionId, matcher);
+  }
 
   const orchestrator = new ScanOrchestrator({
     scanner: { match: async () => [], matchBatch: async () => [] },
@@ -106,6 +127,41 @@ async function createScanOrchestrator(sessionId: string): Promise<ScanOrchestrat
       }
       return scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true });
     },
+    resolveFile: matcher
+      ? async (filePath: string, animeId: string, episodeId: string) => {
+          const { parsed, best } = await findCandidateMatches(matcher, filePath);
+
+          const chosen = best.find((m) => m.anime.id === animeId && m.episode?.id === episodeId);
+
+          if (!chosen) {
+            return {
+              file: filePath,
+              hash: "",
+              parsed,
+              match: null,
+              plan: null,
+              cached: false,
+              skipped: false,
+              status: "failed" as const,
+              failureReason: "Selected candidate not found",
+            };
+          }
+
+          const extension = extname(filePath).replace(".", "") || "mkv";
+          const plan = renamer.plan(filePath, chosen, extension);
+
+          return {
+            file: filePath,
+            hash: "",
+            parsed,
+            match: chosen,
+            plan,
+            cached: false,
+            skipped: false,
+            status: "matched" as const,
+          };
+        }
+      : undefined,
     executeRename: scanner
       ? async (plan, baseDir) => {
           const result = renamer.execute(plan, baseDir);
@@ -304,6 +360,46 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       swapFiles: async (params) => {
         const { sessionId, fileAId, fileBId } = params;
         getOrchestrator(sessionId).swapFiles(fileAId, fileBId);
+        return undefined;
+      },
+      getResolveCandidates: async (params) => {
+        const { sessionId, fileId } = params;
+        const orchestrator = getOrchestrator(sessionId);
+        const plan = orchestrator.getPlan();
+        if (!plan) return { candidates: [] };
+
+        let sourcePath: string | null = null;
+        for (const group of plan.groups) {
+          for (const file of group.files) {
+            if (file.fileId === fileId) {
+              sourcePath = file.sourcePath;
+              break;
+            }
+          }
+          if (sourcePath) break;
+        }
+        if (!sourcePath) return { candidates: [] };
+
+        const matcher = scanMatchers.get(sessionId);
+        if (!matcher) return { candidates: [] };
+
+        const { best } = await findCandidateMatches(matcher, sourcePath);
+
+        return {
+          candidates: best.map((m) => ({
+            animeId: m.anime.id,
+            animeTitle: m.anime.titleEn,
+            entryType: m.anime.entryType,
+            episodeId: m.episode?.id ?? "",
+            episodeNumber: m.episode?.episode ?? 0,
+            season: m.episode?.season ?? 1,
+            score: m.score,
+          })),
+        };
+      },
+      resolveMatch: async (params) => {
+        const { sessionId, fileId, animeId, episodeId } = params;
+        await getOrchestrator(sessionId).resolveMatch(fileId, animeId, episodeId);
         return undefined;
       },
       enrichArtwork: async (params) => {

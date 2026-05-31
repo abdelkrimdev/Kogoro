@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
   import { filterReviewGroups, deriveReviewStats, type StatusFilter } from "../state/review-state";
+  import type { ResolveCandidate } from "../state/resolve-state";
+  import ResolveModal from "./ResolveModal.svelte";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -14,6 +16,12 @@
   let searchQuery = $state("");
   let statusFilter = $state<StatusFilter>("all");
   let draggedFileId = $state<string | null>(null);
+
+  let resolveModalOpen = $state(false);
+  let resolveFileId = $state("");
+  let resolveSourcePath = $state("");
+  let resolveCandidates = $state<ResolveCandidate[]>([]);
+  let resolveLoading = $state(false);
 
   const filtered = $derived(
     filterReviewGroups({ plan, searchQuery, statusFilter }),
@@ -111,6 +119,47 @@
       }
     }
     draggedFileId = null;
+  }
+
+  async function openResolveModal(fileId: string, sourcePath: string) {
+    resolveFileId = fileId;
+    resolveSourcePath = sourcePath;
+    resolveModalOpen = true;
+    resolveLoading = true;
+    resolveCandidates = [];
+
+    try {
+      const result = (await rpc.request("getResolveCandidates", {
+        sessionId,
+        fileId,
+      })) as { candidates: ResolveCandidate[] };
+      resolveCandidates = result.candidates;
+    } catch (err) {
+      console.error("Failed to fetch candidates:", err);
+    } finally {
+      resolveLoading = false;
+    }
+  }
+
+  function closeResolveModal() {
+    resolveModalOpen = false;
+    resolveFileId = "";
+    resolveSourcePath = "";
+    resolveCandidates = [];
+  }
+
+  async function handleResolve(fileId: string, animeId: string, episodeId: string) {
+    try {
+      await rpc.request("resolveMatch", {
+        sessionId,
+        fileId,
+        animeId,
+        episodeId,
+      });
+      closeResolveModal();
+    } catch (err) {
+      console.error("Failed to resolve match:", err);
+    }
   }
 </script>
 
@@ -218,7 +267,10 @@
                     {/if}
                   </div>
                   {#if file.status === "ambiguous"}
-                    <button class="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs transition-colors">
+                    <button
+                      class="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs transition-colors"
+                      onclick={() => openResolveModal(file.fileId, file.sourcePath)}
+                    >
                       Resolve
                     </button>
                   {/if}
@@ -231,3 +283,13 @@
     {/if}
   </div>
 </div>
+
+<ResolveModal
+  open={resolveModalOpen}
+  fileId={resolveFileId}
+  sourcePath={resolveSourcePath}
+  candidates={resolveCandidates}
+  loading={resolveLoading}
+  onClose={closeResolveModal}
+  onResolve={handleResolve}
+/>

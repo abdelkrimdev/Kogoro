@@ -74,6 +74,7 @@ export interface ScanOrchestratorOptions {
     plan: NonNullable<ScanResult["plan"]>,
     baseDir: string,
   ) => Promise<{ success: boolean; error?: { type: string; message: string } }>;
+  resolveFile?: (filePath: string, animeId: string, episodeId: string) => Promise<ScanResult>;
 }
 
 function buildSummary(
@@ -287,6 +288,49 @@ export class ScanOrchestrator {
       throw new Error("Cannot cancel: not running");
     }
     this.finish(this.makeSummary());
+  }
+
+  async resolveMatch(fileId: string, animeId: string, episodeId: string): Promise<void> {
+    if (this._state !== "review") {
+      throw new Error("Cannot resolve: not in review state");
+    }
+    if (!this.plan) {
+      throw new Error("Cannot resolve: no plan available");
+    }
+
+    let sourcePath: string | null = null;
+    for (const group of this.plan.groups) {
+      for (const file of group.files) {
+        if (file.fileId === fileId) {
+          sourcePath = file.sourcePath;
+          break;
+        }
+      }
+      if (sourcePath) break;
+    }
+
+    if (!sourcePath) {
+      throw new Error("Cannot resolve: file not found");
+    }
+
+    if (!this.options.resolveFile) {
+      throw new Error("Cannot resolve: resolve not available");
+    }
+
+    const resultIndex = this.results.findIndex((r) => r.file === sourcePath);
+    if (resultIndex === -1) {
+      throw new Error("Cannot resolve: file not found");
+    }
+
+    const resolved = await this.options.resolveFile(sourcePath, animeId, episodeId);
+    this.results[resultIndex] = resolved;
+    this.plan = aggregateReviewPlan(this.results, this.sessionId);
+
+    this.emit({
+      type: "scanReviewReady",
+      sessionId: this.sessionId,
+      plan: this.plan,
+    });
   }
 
   private async executeApproved(): Promise<void> {
