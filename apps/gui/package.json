@@ -7,14 +7,18 @@
     "build": "electrobun build",
     "build:bin": "electrobun build --release",
     "check": "tsc --noEmit",
-    "dev": "electrobun dev"
+    "dev": "bun run scripts/start-dev.ts"
   },
   "dependencies": {
     "@kogoro/core": "workspace:*",
     "@kogoro/plugins": "workspace:*",
-    "electrobun": "^1.18.1",
-    "svelte": "^5.28.2",
     "@skeletonlabs/skeleton": "^3.1.2",
-    "@skeletonlabs/skeleton-svelte": "^1.2.1"
+    "electrobun": "^1.18.1",
+    "svelte": "^5.28.2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tailwindcss/vite": "^4.1.14",
+    "vite": "^7.3.1"
   }
 }

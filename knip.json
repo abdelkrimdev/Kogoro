@@ -4,15 +4,12 @@
     "apps/gui": {
       "entry": [
         "src/bun/index.ts",
-        "src/mainview/index.ts",
         "src/mainview/index.html",
+        "scripts/build-webview.ts",
+        "scripts/copy-webview.ts",
         "electrobun.config.ts"
       ],
-      "ignoreDependencies": [
-        "svelte",
-        "@skeletonlabs/skeleton",
-        "@skeletonlabs/skeleton-svelte"
-      ]
+      "ignoreDependencies": []
     }
   }
 }

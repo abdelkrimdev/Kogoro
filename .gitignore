@@ -38,3 +38,4 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # GUI build output
 apps/gui/build/
+apps/gui/dist-webview/

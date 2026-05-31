@@ -12,15 +12,13 @@ export default {
   build: {
     bun: {
       entrypoint: "src/bun/index.ts",
-    },
-    views: {
-      mainview: {
-        entrypoint: "src/mainview/index.ts",
+      define: {
+        "process.env.VITE_DEV_SERVER_URL": JSON.stringify(process.env["VITE_DEV_SERVER_URL"] ?? ""),
       },
     },
-    copy: {
-      "src/mainview/index.html": "views/mainview/index.html",
-      "src/mainview/index.css": "views/mainview/index.css",
-    },
+  },
+  scripts: {
+    preBuild: "scripts/build-webview.ts",
+    postBuild: "scripts/copy-webview.ts",
   },
 } satisfies ElectrobunConfig;

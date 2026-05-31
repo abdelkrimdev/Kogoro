@@ -1,3 +1,4 @@
+import "./index.css";
 import { Electroview } from "electrobun/view";
 import { mount } from "svelte";
 import type { AppRPC } from "../shared/types";
