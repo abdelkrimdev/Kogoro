@@ -5,14 +5,6 @@ export const ENTRY_LABELS: Record<string, string> = {
   special: "Specials",
 };
 
-export function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 export function typeBadgeClass(type: string): string {
   switch (type) {
     case "tv":

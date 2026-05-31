@@ -44,5 +44,13 @@
       <span id="status-text" class="text-xs text-surface-500">Ready</span>
     </footer>
   </div>
+  <script>
+    document.querySelectorAll("[data-nav]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const nav = el.getAttribute("data-nav");
+        window.dispatchEvent(new CustomEvent("kogoro:navigate", { detail: { view: nav } }));
+      });
+    });
+  </script>
 </body>
 </html>
