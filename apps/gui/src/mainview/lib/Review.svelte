@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
-  import { filterReviewGroups, deriveReviewStats, type StatusFilter } from "../state/review-state";
+  import { filterReviewGroups, deriveReviewStats, findSwapPairForFile, type StatusFilter } from "../state/review-state";
   import type { ResolveCandidate } from "../state/resolve-state";
   import ResolveModal from "./ResolveModal.svelte";
 
@@ -184,6 +184,9 @@
       <span>{stats.totalFiles} files</span>
       <span>{stats.totalGroups} anime</span>
       <span>{stats.ambiguousCount} ambiguous</span>
+      {#if stats.swapsCount > 0}
+        <span class="text-amber-400">{stats.swapsCount} swapped</span>
+      {/if}
     </div>
 
     <div class="flex gap-4">
@@ -243,8 +246,9 @@
 
           <div class="divide-y divide-surface-700">
             {#each group.files as file (file.fileId)}
+              {@const swapPartner = findSwapPairForFile(group, file.fileId)}
               <div
-                class="p-3 hover:bg-surface-700/50 transition-colors cursor-move"
+                class="p-3 hover:bg-surface-700/50 transition-colors cursor-move {swapPartner ? 'border-l-2 border-amber-500' : ''}"
                 draggable="true"
                 ondragstart={(e) => handleDragStart(e, file.fileId)}
                 ondragover={handleDragOver}
@@ -260,6 +264,11 @@
                       <span class="px-2 py-0.5 rounded text-xs font-medium {getStatusBadgeClass(file.status)}">
                         {file.status}
                       </span>
+                      {#if swapPartner}
+                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-amber-500/20 text-amber-400">
+                          Swapped
+                        </span>
+                      {/if}
                     </div>
                     <div class="text-xs text-surface-500 truncate">{file.sourcePath}</div>
                     {#if file.proposedPath}

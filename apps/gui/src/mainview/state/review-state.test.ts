@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { AnimeGroup, FileRow, ReviewPlan } from "@kogoro/core";
-import { deriveReviewStats, filterReviewGroups, type ReviewState } from "./review-state";
+import {
+  deriveReviewStats,
+  filterReviewGroups,
+  findSwapPairForFile,
+  type ReviewState,
+} from "./review-state";
 
 const makeFile = (overrides: Partial<FileRow> = {}): FileRow => ({
   fileId: overrides.fileId ?? "f1",
@@ -231,5 +236,38 @@ describe("deriveReviewStats", () => {
     ]);
     const stats = deriveReviewStats(plan);
     expect(stats.swapsCount).toBe(1);
+  });
+});
+
+describe("findSwapPairForFile", () => {
+  it("returns paired file ID when file is fileA in a swap pair", () => {
+    const group = makeGroup({
+      swapPairs: [{ fileAId: "f1", fileBId: "f2" }],
+    });
+    expect(findSwapPairForFile(group, "f1")).toBe("f2");
+  });
+
+  it("returns paired file ID when file is fileB in a swap pair", () => {
+    const group = makeGroup({
+      swapPairs: [{ fileAId: "f1", fileBId: "f2" }],
+    });
+    expect(findSwapPairForFile(group, "f2")).toBe("f1");
+  });
+
+  it("returns null when file is not in any swap pair", () => {
+    const group = makeGroup({
+      swapPairs: [{ fileAId: "f1", fileBId: "f2" }],
+    });
+    expect(findSwapPairForFile(group, "f3")).toBeNull();
+  });
+
+  it("returns correct pair when group has multiple swap pairs", () => {
+    const group = makeGroup({
+      swapPairs: [
+        { fileAId: "f1", fileBId: "f2" },
+        { fileAId: "f3", fileBId: "f4" },
+      ],
+    });
+    expect(findSwapPairForFile(group, "f3")).toBe("f4");
   });
 });

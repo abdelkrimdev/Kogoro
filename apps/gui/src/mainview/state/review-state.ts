@@ -48,6 +48,14 @@ export interface ReviewStats {
   swapsCount: number;
 }
 
+export function findSwapPairForFile(group: AnimeGroup, fileId: string): string | null {
+  for (const pair of group.swapPairs) {
+    if (pair.fileAId === fileId) return pair.fileBId;
+    if (pair.fileBId === fileId) return pair.fileAId;
+  }
+  return null;
+}
+
 export function deriveReviewStats(plan: ReviewPlan): ReviewStats {
   let ambiguousCount = 0;
   let issuesCount = 0;
