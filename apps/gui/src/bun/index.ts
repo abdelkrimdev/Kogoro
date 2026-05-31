@@ -1,6 +1,19 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CONFIG_DIR, ConfigManager, createCredentialStore, ScanOrchestrator } from "@kogoro/core";
+import {
+  CONFIG_DIR,
+  ConfigManager,
+  createCredentialStore,
+  MatchCache,
+  Matcher,
+  OverrideStore,
+  Renamer,
+  SCHEMA_DEFAULTS,
+  Scanner,
+  ScanOrchestrator,
+  walk,
+} from "@kogoro/core";
+import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
@@ -46,33 +59,59 @@ function getOrchestrator(sessionId: string): ScanOrchestrator {
   return orchestrator;
 }
 
-function createScanOrchestrator(sessionId: string): ScanOrchestrator {
+async function createScanOrchestrator(sessionId: string): Promise<ScanOrchestrator> {
+  const factory = new PluginFactory(configManager, credentialStore);
+  const database = await factory.primaryDatabase();
+
+  const matcher = database ? new Matcher({ database }) : undefined;
+  const cache = new MatchCache();
+  const overrideStore = new OverrideStore(CONFIG_DIR);
+
+  const filenameTemplate = configManager.getTemplate();
+  const directoryTemplate =
+    (configManager.get("template.directory") as string) ?? SCHEMA_DEFAULTS.template.directory;
+  const renamer = new Renamer({
+    filenameTemplate: filenameTemplate.includes("{ext}")
+      ? filenameTemplate
+      : `${filenameTemplate}.{ext}`,
+    directoryTemplate,
+  });
+
+  const scanner = matcher ? new Scanner({ matcher, cache, renamer, overrideStore }) : undefined;
+
   const orchestrator = new ScanOrchestrator({
-    scanner: {
-      async match(_parsed: unknown) {
-        return [];
-      },
+    scanner: { match: async () => [], matchBatch: async () => [] },
+    walk: async (path: string) =>
+      walk(path, SCHEMA_DEFAULTS["media-extensions"], {
+        excludePatterns: configManager.getList("exclude-patterns"),
+      }),
+    scanFile: async (filePath: string, options?: { dryRun?: boolean }) => {
+      if (!scanner) {
+        return {
+          file: filePath,
+          hash: "",
+          parsed: {
+            title: null,
+            season: null,
+            episode: null,
+            tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+          },
+          match: null,
+          plan: null,
+          cached: false,
+          skipped: false,
+          status: "failed" as const,
+          failureReason: "No database configured",
+        };
+      }
+      return scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true });
     },
-    walk: async (_path: string) => {
-      return [];
-    },
-    scanFile: async (_filePath: string) => {
-      return {
-        file: "",
-        hash: "",
-        parsed: {
-          title: null,
-          season: null,
-          episode: null,
-          tags: { group: null, resolution: null, source: null, codec: null, audio: null },
-        },
-        match: null,
-        plan: null,
-        cached: false,
-        skipped: false,
-        status: "failed" as const,
-      };
-    },
+    executeRename: scanner
+      ? async (plan, baseDir) => {
+          const result = renamer.execute(plan, baseDir);
+          return { success: result.success, error: result.error };
+        }
+      : undefined,
   });
 
   scanOrchestrators.set(sessionId, orchestrator);
@@ -211,7 +250,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       scanStart: async (params) => {
         const { path } = params;
         const sessionId = crypto.randomUUID();
-        const orchestrator = createScanOrchestrator(sessionId);
+        const orchestrator = await createScanOrchestrator(sessionId);
 
         const send = rpc.send as unknown as {
           scanProgress?: (data: unknown) => void;
