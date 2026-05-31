@@ -1,5 +1,9 @@
 # Agent Guidelines
 
+## API documentation
+
+Always use Context7 to fetch the latest API docs before using any library or framework. Do not rely on training-data knowledge for API signatures, options, or behavior — it may be outdated.
+
 ## Test fixtures (`src/fixtures.ts`)
 
 Before writing or modifying any test, review `src/fixtures.ts` to avoid duplicating test utilities. This file is the single source of truth for reusable test doubles, factories, and helpers.
