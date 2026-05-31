@@ -6,9 +6,10 @@
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
     onOpenAnime?: (id: string) => void;
+    onNavigate?: (view: string) => void;
   }
 
-  let { rpc, onOpenAnime }: Props = $props();
+  let { rpc, onOpenAnime, onNavigate }: Props = $props();
 
   let items = $state<LibraryItem[]>([]);
   let search = $state("");
@@ -24,11 +25,6 @@
   );
 
   const hasLibrary = $derived(items.length > 0);
-
-  async function loadLibrary() {
-    const result = await rpc.request("getLibrary", {});
-    items = result as LibraryItem[];
-  }
 
   function toggleType(type: string) {
     const idx = typeFilter.indexOf(type);
@@ -48,8 +44,16 @@
     }
   }
 
+  let effectVersion = 0;
+
   $effect(() => {
-    loadLibrary();
+    const version = ++effectVersion;
+    (async () => {
+      const result = await rpc.request("getLibrary", {});
+      if (version === effectVersion) {
+        items = result as LibraryItem[];
+      }
+    })();
   });
 </script>
 
@@ -59,7 +63,7 @@
     <p class="text-surface-500 text-sm">No library yet — scan a folder to get started.</p>
     <button
       class="btn preset-filled-primary-500 rounded-lg font-medium"
-      onclick={() => document.querySelector<HTMLElement>("[data-nav='scan']")?.click()}
+      onclick={() => onNavigate?.("scan")}
     >
       Go to Scan
     </button>
@@ -73,8 +77,7 @@
       <input
         type="text"
         placeholder="Search anime..."
-        value={search}
-        oninput={(e) => (search = (e.target as HTMLInputElement).value)}
+        bind:value={search}
         class="ig-input"
       />
     </div>

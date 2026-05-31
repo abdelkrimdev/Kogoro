@@ -17,6 +17,7 @@
   let searchQuery = $state("");
   let statusFilter = $state<StatusFilter>("all");
   let draggedFileId = $state<string | null>(null);
+  let dragOverFileId = $state<string | null>(null);
 
   let resolveModalOpen = $state(false);
   let resolveFileId = $state("");
@@ -72,24 +73,6 @@
     }
   }
 
-  async function approveGroup() {
-    try {
-      await rpc.request("approvePlan", { sessionId });
-      onComplete();
-    } catch (err) {
-      console.error("Failed to approve group:", err);
-    }
-  }
-
-  async function rejectGroup() {
-    try {
-      await rpc.request("rejectPlan", { sessionId });
-      onComplete();
-    } catch (err) {
-      console.error("Failed to reject group:", err);
-    }
-  }
-
   function handleDragStart(e: DragEvent, fileId: string) {
     draggedFileId = fileId;
     e.dataTransfer?.setData("text/plain", fileId);
@@ -97,16 +80,10 @@
 
   function handleDragOver(e: DragEvent) {
     e.preventDefault();
-    (e.currentTarget as HTMLElement).classList.add("bg-surface-600/50");
-  }
-
-  function handleDragLeave(e: DragEvent) {
-    (e.currentTarget as HTMLElement).classList.remove("bg-surface-600/50");
   }
 
   async function handleDrop(e: DragEvent, targetFileId: string) {
     e.preventDefault();
-    (e.currentTarget as HTMLElement).classList.remove("bg-surface-600/50");
 
     if (draggedFileId && draggedFileId !== targetFileId) {
       try {
@@ -198,14 +175,12 @@
         <input
           type="text"
           placeholder="Search files or anime..."
-          value={searchQuery}
-          oninput={(e) => (searchQuery = (e.target as HTMLInputElement).value)}
+          bind:value={searchQuery}
           class="ig-input"
         />
       </div>
       <select
-        value={statusFilter}
-        onchange={(e) => (statusFilter = (e.target as HTMLSelectElement).value as StatusFilter)}
+        bind:value={statusFilter}
         class="select text-sm px-3 py-2 rounded-lg bg-surface-700 border border-surface-600 text-surface-200 [color-scheme:dark] w-auto"
       >
         <option value="all">All Status</option>
@@ -237,14 +212,6 @@
                 <h3 class="font-medium text-surface-200 text-sm">{group.animeTitle}</h3>
                 <p class="text-sm text-surface-400">{group.files.length} files &bull; {group.entryType}</p>
               </div>
-              <div class="flex gap-2">
-                <button class="btn btn-sm preset-filled-success-500 rounded font-medium" onclick={approveGroup}>
-                  Approve
-                </button>
-                <button class="btn btn-sm preset-tonal-surface rounded font-medium" onclick={rejectGroup}>
-                  Reject
-                </button>
-              </div>
             </div>
           </div>
 
@@ -253,12 +220,12 @@
               {@const swapPartner = findSwapPairForFile(group, file.fileId)}
               <div
                 role="listitem"
-                class="p-3 hover:bg-surface-700/50 transition-colors cursor-move {swapPartner ? 'border-l-2 border-warning-500' : ''}"
+                class="p-3 hover:bg-surface-700/50 transition-colors cursor-move {swapPartner ? 'border-l-2 border-warning-500' : ''} {dragOverFileId === file.fileId ? 'bg-surface-600/50' : ''}"
                 draggable="true"
                 ondragstart={(e) => handleDragStart(e, file.fileId)}
-                ondragover={handleDragOver}
-                ondragleave={handleDragLeave}
-                ondrop={(e) => handleDrop(e, file.fileId)}
+                ondragover={(e) => { handleDragOver(e); dragOverFileId = file.fileId; }}
+                ondragleave={() => { dragOverFileId = null; }}
+                ondrop={(e) => { handleDrop(e, file.fileId); dragOverFileId = null; }}
               >
                 <div class="flex items-center gap-3">
                   <div class="flex-1 min-w-0">

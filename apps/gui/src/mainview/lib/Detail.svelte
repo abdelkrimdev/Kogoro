@@ -174,9 +174,6 @@
 
   $effect(() => {
     loadDetail();
-  });
-
-  $effect(() => {
     loadWatchStatus();
   });
 </script>

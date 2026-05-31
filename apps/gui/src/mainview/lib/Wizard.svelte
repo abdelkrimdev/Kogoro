@@ -16,7 +16,8 @@
   let templateCustom = $state("");
   let error = $state<string | null>(null);
 
-  const state = $derived({ step, primaryDb, apiKey, templatePreset, templateCustom, error });
+  const showBack = $derived(canGoBack(step));
+  const showNext = $derived(canAdvance(step, apiKey));
 
   const PRESETS = [
     { value: "standard", label: "Standard (Recommended)" },
@@ -27,7 +28,7 @@
   ];
 
   function goBack() {
-    const prev = getPreviousStep(state);
+    const prev = getPreviousStep(step);
     if (prev) {
       step = prev;
       error = null;
@@ -58,7 +59,7 @@
       }
     }
 
-    const next = getNextStep(state);
+    const next = getNextStep(step);
     if (next) {
       step = next;
       error = null;
@@ -126,14 +127,14 @@
     {/if}
 
     <div class="flex justify-between mt-8">
-      {#if canGoBack(state)}
+      {#if showBack}
         <button class="btn preset-outlined-surface-950-50 rounded-lg font-medium" onclick={goBack}>
           Back
         </button>
       {:else}
         <div></div>
       {/if}
-      {#if canAdvance(state)}
+      {#if showNext}
         <button class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={goNext}>
           {step === "template" ? "Finish" : "Next"}
         </button>

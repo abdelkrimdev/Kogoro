@@ -34,18 +34,22 @@
     { type: "text", key: "subtitleLanguage", label: "Subtitle Language", placeholder: "en" },
   ];
 
-  let data = $state<Record<string, unknown>>({});
+  let settingsData = $state<Record<string, unknown>>({});
   let editingApiKey = $state<string | null>(null);
   let newApiKey = $state("");
 
-  const apiKeys = $derived((data["apiKeys"] as Record<string, string>) ?? {});
+  const apiKeys = $derived((settingsData["apiKeys"] as Record<string, string>) ?? {});
   const plugins = $derived(
-    (data["plugins"] as Array<{ name: string; type: string; source: string; enabled: boolean }>) ?? [],
+    (settingsData["plugins"] as Array<{ name: string; type: string; source: string; enabled: boolean }>) ?? [],
   );
+
+  function updateField(key: string, value: unknown) {
+    settingsData[key] = value;
+  }
 
   async function loadSettings() {
     try {
-      data = (await rpc.request("getSettingsData", {})) as Record<string, unknown>;
+      settingsData = (await rpc.request("getSettingsData", {})) as Record<string, unknown>;
     } catch {
       showNotification("Failed to load settings");
     }
@@ -53,17 +57,8 @@
 
   async function saveSettings() {
     const params: Record<string, unknown> = {};
-
     for (const field of [...GENERAL_FIELDS, ...ADVANCED_FIELDS]) {
-      if (field.type === "radio") {
-        const checked = document.querySelector(`input[name="${field.key}"]:checked`) as HTMLInputElement;
-        if (checked) params[field.key] = checked.value;
-      } else {
-        const input = document.querySelector(`[data-field="${field.key}"]`) as HTMLInputElement;
-        if (input) {
-          params[field.key] = field.type === "number" ? Number(input.value) : input.value;
-        }
-      }
+      params[field.key] = settingsData[field.key];
     }
 
     try {
@@ -151,28 +146,33 @@
         <div>
           <label for={field.key} class="block text-sm font-medium text-surface-300 mb-1">{field.label}</label>
           {#if field.type === "select"}
-            <select id={field.key} data-field={field.key} class="select w-full text-sm px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 [color-scheme:dark]">
+            <select
+              id={field.key}
+              value={String(settingsData[field.key] ?? "")}
+              onchange={(e) => updateField(field.key, (e.target as HTMLSelectElement).value)}
+              class="select w-full text-sm px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 [color-scheme:dark]"
+            >
               {#each field.options as option}
-                <option value={option.value} selected={data[field.key] === option.value}>{option.label}</option>
+                <option value={option.value}>{option.label}</option>
               {/each}
             </select>
           {:else if field.type === "text" || field.type === "tag-input"}
             <input
               type="text"
               id={field.key}
-              data-field={field.key}
-              value={String(data[field.key] ?? "")}
+              value={String(settingsData[field.key] ?? "")}
               placeholder={field.placeholder ?? ""}
+              oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
               class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
             />
           {:else if field.type === "number"}
             <input
               type="number"
               id={field.key}
-              data-field={field.key}
-              value={Number(data[field.key] ?? 0)}
+              value={Number(settingsData[field.key] ?? 0)}
               min={field.min ?? 1}
               max={field.max ?? 16}
+              oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
               class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
             />
           {/if}
@@ -195,34 +195,46 @@
             <input
               type="number"
               id={field.key}
-              data-field={field.key}
-              value={Number(data[field.key] ?? 0)}
+              value={Number(settingsData[field.key] ?? 0)}
               min={field.min ?? 1}
               max={field.max ?? 16}
+              oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
               class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
             />
           {:else if field.type === "radio"}
             <div class="flex gap-4">
               {#each field.options as option}
                 <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name={field.key} value={option.value} checked={data[field.key] === option.value} class="radio" />
+                  <input
+                    type="radio"
+                    name={field.key}
+                    value={option.value}
+                    checked={settingsData[field.key] === option.value}
+                    onchange={() => updateField(field.key, option.value)}
+                    class="radio"
+                  />
                   <span class="text-sm">{option.label}</span>
                 </label>
               {/each}
             </div>
           {:else if field.type === "select"}
-            <select id={field.key} data-field={field.key} class="select w-full text-sm px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 [color-scheme:dark]">
+            <select
+              id={field.key}
+              value={String(settingsData[field.key] ?? "")}
+              onchange={(e) => updateField(field.key, (e.target as HTMLSelectElement).value)}
+              class="select w-full text-sm px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 [color-scheme:dark]"
+            >
               {#each field.options as option}
-                <option value={option.value} selected={data[field.key] === option.value}>{option.label}</option>
+                <option value={option.value}>{option.label}</option>
               {/each}
             </select>
           {:else}
             <input
               type="text"
               id={field.key}
-              data-field={field.key}
-              value={String(data[field.key] ?? "")}
+              value={String(settingsData[field.key] ?? "")}
               placeholder={field.placeholder ?? ""}
+              oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
               class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
             />
           {/if}
