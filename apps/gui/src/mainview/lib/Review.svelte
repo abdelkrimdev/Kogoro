@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
+  import { Search, Tv } from '@lucide/svelte';
   import { filterReviewGroups, deriveReviewStats, findSwapPairForFile, type StatusFilter } from "../state/review-state";
   import type { ResolveCandidate } from "../state/resolve-state";
   import ResolveModal from "./ResolveModal.svelte";
@@ -32,15 +33,15 @@
   function getStatusBadgeClass(status: string): string {
     switch (status) {
       case "matched":
-        return "bg-green-500/20 text-green-400";
+        return "badge bg-success-500/20 text-success-400";
       case "ambiguous":
-        return "bg-yellow-500/20 text-yellow-400";
+        return "badge bg-warning-500/20 text-warning-400";
       case "failed":
-        return "bg-red-500/20 text-red-400";
+        return "badge bg-error-500/20 text-error-400";
       case "cached":
-        return "bg-blue-500/20 text-blue-400";
+        return "badge bg-primary-500/20 text-primary-400";
       default:
-        return "bg-surface-500/20 text-surface-400";
+        return "badge bg-surface-500/20 text-surface-400";
     }
   }
 
@@ -168,13 +169,13 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-bold">Review Rename Plan</h2>
       <div class="flex gap-2">
-        <button class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors" onclick={approveAll}>
+        <button class="btn preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
           Approve All
         </button>
-        <button class="px-4 py-2 bg-surface-600 hover:bg-surface-500 text-white rounded-lg text-sm font-medium transition-colors" onclick={rejectAll}>
+        <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={rejectAll}>
           Reject All
         </button>
-        <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors" onclick={cancel}>
+        <button class="btn preset-filled-error-500 rounded-lg font-medium" onclick={cancel}>
           Cancel
         </button>
       </div>
@@ -185,22 +186,27 @@
       <span>{stats.totalGroups} anime</span>
       <span>{stats.ambiguousCount} ambiguous</span>
       {#if stats.swapsCount > 0}
-        <span class="text-amber-400">{stats.swapsCount} swapped</span>
+        <span class="text-warning-400">{stats.swapsCount} swapped</span>
       {/if}
     </div>
 
     <div class="flex gap-4">
-      <input
-        type="text"
-        placeholder="Search files or anime..."
-        value={searchQuery}
-        oninput={(e) => (searchQuery = (e.target as HTMLInputElement).value)}
-        class="flex-1 px-3 py-2 bg-surface-700 border border-surface-600 rounded-lg text-sm text-surface-200 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-      />
+      <div class="input-group grid-cols-[auto_1fr] flex-1">
+        <div class="ig-cell preset-tonal">
+          <Search class="size-4" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search files or anime..."
+          value={searchQuery}
+          oninput={(e) => (searchQuery = (e.target as HTMLInputElement).value)}
+          class="ig-input"
+        />
+      </div>
       <select
         value={statusFilter}
         onchange={(e) => (statusFilter = (e.target as HTMLSelectElement).value as StatusFilter)}
-        class="px-3 py-2 bg-surface-700 border border-surface-600 rounded-lg text-sm text-surface-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        class="select text-sm px-3 py-2 rounded-lg bg-surface-700 border border-surface-600 text-surface-200 [color-scheme:dark] w-auto"
       >
         <option value="all">All Status</option>
         <option value="matched">Matched</option>
@@ -224,20 +230,18 @@
                 <img src={group.image} alt={group.animeTitle} class="w-12 h-12 rounded object-cover" />
               {:else}
                 <div class="w-12 h-12 rounded bg-surface-700 flex items-center justify-center">
-                  <svg class="w-6 h-6 text-surface-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
+                  <Tv class="size-6 text-surface-500" />
                 </div>
               {/if}
               <div class="flex-1">
-                <h3 class="font-semibold text-surface-200">{group.animeTitle}</h3>
-                <p class="text-sm text-surface-400">{group.files.length} files • {group.entryType}</p>
+                <h3 class="font-medium text-surface-200 text-sm">{group.animeTitle}</h3>
+                <p class="text-sm text-surface-400">{group.files.length} files &bull; {group.entryType}</p>
               </div>
               <div class="flex gap-2">
-                <button class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors" onclick={approveGroup}>
+                <button class="btn btn-sm preset-filled-success-500 rounded font-medium" onclick={approveGroup}>
                   Approve
                 </button>
-                <button class="px-3 py-1 bg-surface-600 hover:bg-surface-500 text-white rounded text-sm transition-colors" onclick={rejectGroup}>
+                <button class="btn btn-sm preset-tonal-surface rounded font-medium" onclick={rejectGroup}>
                   Reject
                 </button>
               </div>
@@ -248,7 +252,8 @@
             {#each group.files as file (file.fileId)}
               {@const swapPartner = findSwapPairForFile(group, file.fileId)}
               <div
-                class="p-3 hover:bg-surface-700/50 transition-colors cursor-move {swapPartner ? 'border-l-2 border-amber-500' : ''}"
+                role="listitem"
+                class="p-3 hover:bg-surface-700/50 transition-colors cursor-move {swapPartner ? 'border-l-2 border-warning-500' : ''}"
                 draggable="true"
                 ondragstart={(e) => handleDragStart(e, file.fileId)}
                 ondragover={handleDragOver}
@@ -261,23 +266,23 @@
                       <span class="text-sm font-medium text-surface-200 truncate">
                         {file.sourcePath.split("/").pop()}
                       </span>
-                      <span class="px-2 py-0.5 rounded text-xs font-medium {getStatusBadgeClass(file.status)}">
+                      <span class="{getStatusBadgeClass(file.status)} text-xs">
                         {file.status}
                       </span>
                       {#if swapPartner}
-                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-amber-500/20 text-amber-400">
+                        <span class="badge bg-warning-500/20 text-warning-400 text-xs">
                           Swapped
                         </span>
                       {/if}
                     </div>
                     <div class="text-xs text-surface-500 truncate">{file.sourcePath}</div>
                     {#if file.proposedPath}
-                      <div class="text-xs text-green-400 truncate mt-1">→ {file.proposedPath}</div>
+                      <div class="text-xs text-success-400 truncate mt-1">&rarr; {file.proposedPath}</div>
                     {/if}
                   </div>
                   {#if file.status === "ambiguous"}
                     <button
-                      class="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs transition-colors"
+                      class="btn btn-sm preset-filled-warning-500 rounded font-medium"
                       onclick={() => openResolveModal(file.fileId, file.sourcePath)}
                     >
                       Resolve

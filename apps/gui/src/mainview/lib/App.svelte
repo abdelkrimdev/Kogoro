@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
+  import { FolderSearch } from '@lucide/svelte';
   import Wizard from "./Wizard.svelte";
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
@@ -143,10 +144,10 @@
   {:else}
     <div class="flex items-center justify-center h-full">
       <div class="text-center space-y-4">
-        <h2 class="text-2xl font-bold">Scan</h2>
-        <p class="text-surface-500">Drop a folder to scan for anime files.</p>
+        <FolderSearch class="size-16 text-surface-600 mx-auto" />
+        <p class="text-surface-500 text-sm">Drop a folder to scan for anime files.</p>
         <button
-          class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
+          class="btn preset-filled-primary-500 rounded-lg font-medium"
           onclick={async () => {
             try {
               const result = (await rpc.request("scanStart", { path: "/tmp/test" })) as { sessionId: string };

@@ -2,7 +2,16 @@
 
 @import "@skeletonlabs/skeleton";
 
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+
 :root {
+  --heading-font-family: 'Inter', sans-serif;
+  --base-font-family: 'Inter', sans-serif;
+  --anchor-font-family: 'inherit';
+
   --color-primary-50: oklch(0.97 0.02 250);
   --color-primary-100: oklch(0.93 0.04 250);
   --color-primary-200: oklch(0.87 0.08 250);
@@ -26,12 +35,21 @@
   --color-surface-800: oklch(0.25 0.005 260);
   --color-surface-900: oklch(0.18 0.005 260);
   --color-surface-950: oklch(0.12 0.005 260);
+
+  --color-success-400: oklch(0.68 0.14 155);
+  --color-success-500: oklch(0.55 0.17 155);
+  --color-success-contrast-500: oklch(0.98 0 0);
+  --color-warning-400: oklch(0.75 0.12 80);
+  --color-warning-500: oklch(0.65 0.15 80);
+  --color-warning-contrast-500: oklch(0.15 0.02 80);
+  --color-error-400: oklch(0.63 0.16 25);
+  --color-error-500: oklch(0.5 0.2 25);
+  --color-error-contrast-500: oklch(0.98 0 0);
 }
 
 html, body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 [data-nav] {

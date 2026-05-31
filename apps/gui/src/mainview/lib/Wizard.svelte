@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Check } from '@lucide/svelte';
   import { canAdvance, canGoBack, getNextStep, getPreviousStep, type WizardStep } from "../state/wizard-state";
 
   interface Props {
@@ -69,20 +70,20 @@
   <div class="w-full max-w-md p-8">
     <div class="mb-8">
       <h1 class="text-2xl font-bold mb-2">Kogoro Setup</h1>
-      <p class="text-surface-500">Configure your anime organizer</p>
+      <p class="text-surface-500 text-sm">Configure your anime organizer</p>
     </div>
 
     {#if step === "database"}
       <div class="space-y-6">
         <h2 class="text-xl font-bold">Select Primary Database</h2>
-        <p class="text-surface-400">Choose the database Kogoro will use for anime lookups.</p>
+        <p class="text-surface-400 text-sm">Choose the database Kogoro will use for anime lookups.</p>
         <div class="space-y-2">
           <label class="flex items-center gap-3 p-4 rounded-lg border border-surface-700 hover:border-primary-500 cursor-pointer transition-colors">
-            <input type="radio" name="primaryDb" value="tvdb" bind:group={primaryDb} class="w-4 h-4 text-primary-500" />
+            <input type="radio" name="primaryDb" value="tvdb" bind:group={primaryDb} class="radio" />
             <span>TVDB (default)</span>
           </label>
           <label class="flex items-center gap-3 p-4 rounded-lg border border-surface-700 hover:border-primary-500 cursor-pointer transition-colors">
-            <input type="radio" name="primaryDb" value="anidb" bind:group={primaryDb} class="w-4 h-4 text-primary-500" />
+            <input type="radio" name="primaryDb" value="anidb" bind:group={primaryDb} class="radio" />
             <span>AniDB</span>
           </label>
         </div>
@@ -90,25 +91,25 @@
     {:else if step === "apikey"}
       <div class="space-y-6">
         <h2 class="text-xl font-bold">Enter API Key</h2>
-        <p class="text-surface-400">Your API key will be stored securely in your OS keyring.</p>
+        <p class="text-surface-400 text-sm">Your API key will be stored securely in your OS keyring.</p>
         <input
           type="password"
           placeholder="Required"
           bind:value={apiKey}
-          class="w-full px-4 py-2 rounded-lg bg-surface-800 border border-surface-700 focus:border-primary-500 focus:outline-none"
+          class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
         />
         {#if error}
-          <p class="text-red-500 text-sm">{error}</p>
+          <p class="text-error-500 text-sm">{error}</p>
         {/if}
       </div>
     {:else if step === "template"}
       <div class="space-y-6">
         <h2 class="text-xl font-bold">Select Filename Template</h2>
-        <p class="text-surface-400">Choose how your organized files will be named.</p>
+        <p class="text-surface-400 text-sm">Choose how your organized files will be named.</p>
         <div class="space-y-2">
           {#each PRESETS as preset}
             <label class="flex items-center gap-3 p-4 rounded-lg border border-surface-700 hover:border-primary-500 cursor-pointer transition-colors">
-              <input type="radio" name="templatePreset" value={preset.value} bind:group={templatePreset} class="w-4 h-4 text-primary-500" />
+              <input type="radio" name="templatePreset" value={preset.value} bind:group={templatePreset} class="radio" />
               <span>{preset.label}</span>
             </label>
           {/each}
@@ -117,23 +118,23 @@
     {:else if step === "completion"}
       <div class="space-y-6 text-center">
         <h2 class="text-xl font-bold">You're All Set!</h2>
-        <p class="text-surface-400">Kogoro is configured and ready to organize your anime collection.</p>
-        <button class="px-6 py-2 rounded-lg bg-primary-500 hover:bg-primary-600 transition-colors" onclick={onComplete}>
-          Enter Kogoro
+        <p class="text-surface-400 text-sm">Kogoro is configured and ready to organize your anime collection.</p>
+        <button class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={onComplete}>
+          <Check class="size-4 inline-block mr-1" /> Enter Kogoro
         </button>
       </div>
     {/if}
 
     <div class="flex justify-between mt-8">
       {#if canGoBack(state)}
-        <button class="px-4 py-2 rounded-lg border border-surface-700 hover:border-surface-500 transition-colors" onclick={goBack}>
+        <button class="btn preset-outlined-surface-950-50 rounded-lg font-medium" onclick={goBack}>
           Back
         </button>
       {:else}
         <div></div>
       {/if}
       {#if canAdvance(state)}
-        <button class="px-4 py-2 rounded-lg bg-primary-500 hover:bg-primary-600 transition-colors" onclick={goNext}>
+        <button class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={goNext}>
           {step === "template" ? "Finish" : "Next"}
         </button>
       {/if}

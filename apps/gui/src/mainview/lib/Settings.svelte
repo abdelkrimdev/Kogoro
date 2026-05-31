@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Switch, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
+
   type SettingsField =
     | { type: "select"; key: string; label: string; options: Array<{ value: string; label: string }> }
     | { type: "text"; key: string; label: string; placeholder?: string }
@@ -11,6 +13,8 @@
   }
 
   let { rpc }: Props = $props();
+
+  const toaster = createToaster();
 
   const GENERAL_FIELDS: SettingsField[] = [
     { type: "select", key: "primaryDb", label: "Primary Database", options: [{ value: "tvdb", label: "TVDB" }, { value: "anidb", label: "AniDB" }] },
@@ -31,8 +35,6 @@
   ];
 
   let data = $state<Record<string, unknown>>({});
-  let showToast = $state(false);
-  let toastMessage = $state("");
   let editingApiKey = $state<string | null>(null);
   let newApiKey = $state("");
 
@@ -77,11 +79,11 @@
   }
 
   function showNotification(message: string) {
-    toastMessage = message;
-    showToast = true;
-    setTimeout(() => {
-      showToast = false;
-    }, 2000);
+    toaster.create({
+      type: 'info',
+      title: message,
+      duration: 2000,
+    });
   }
 
   async function updateApiKey(plugin: string) {
@@ -123,16 +125,21 @@
   });
 </script>
 
-<div class="max-w-2xl mx-auto p-6 space-y-8">
-  {#if showToast}
-    <div class="fixed top-16 right-6 px-4 py-2 rounded-lg bg-primary-500 text-white text-sm font-medium z-50 transition-opacity duration-300">
-      {toastMessage}
-    </div>
-  {/if}
+<Toast.Group {toaster}>
+  {#snippet children(toast)}
+    <Toast {toast}>
+      <Toast.Message>
+        <Toast.Title>{toast.title}</Toast.Title>
+      </Toast.Message>
+      <Toast.CloseTrigger />
+    </Toast>
+  {/snippet}
+</Toast.Group>
 
+<div class="max-w-2xl mx-auto p-6 space-y-8">
   <div class="flex items-center justify-between">
     <h2 class="text-xl font-bold">Settings</h2>
-    <button class="px-4 py-2 rounded-lg bg-primary-500 hover:bg-primary-600 transition-colors text-sm font-medium" onclick={saveSettings}>
+    <button class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={saveSettings}>
       Save Changes
     </button>
   </div>
@@ -142,9 +149,9 @@
     <div class="grid grid-cols-1 gap-4">
       {#each GENERAL_FIELDS as field}
         <div>
-          <label class="block text-sm font-medium text-surface-300 mb-1">{field.label}</label>
+          <label for={field.key} class="block text-sm font-medium text-surface-300 mb-1">{field.label}</label>
           {#if field.type === "select"}
-            <select data-field={field.key} class="w-full px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 focus:border-primary-500 focus:outline-none text-sm">
+            <select id={field.key} data-field={field.key} class="select w-full text-sm px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 [color-scheme:dark]">
               {#each field.options as option}
                 <option value={option.value} selected={data[field.key] === option.value}>{option.label}</option>
               {/each}
@@ -152,19 +159,21 @@
           {:else if field.type === "text" || field.type === "tag-input"}
             <input
               type="text"
+              id={field.key}
               data-field={field.key}
               value={String(data[field.key] ?? "")}
               placeholder={field.placeholder ?? ""}
-              class="w-full px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 focus:border-primary-500 focus:outline-none text-sm"
+              class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
             />
           {:else if field.type === "number"}
             <input
               type="number"
+              id={field.key}
               data-field={field.key}
               value={Number(data[field.key] ?? 0)}
               min={field.min ?? 1}
               max={field.max ?? 16}
-              class="w-full px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 focus:border-primary-500 focus:outline-none text-sm"
+              class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
             />
           {/if}
         </div>
@@ -177,27 +186,32 @@
     <div class="grid grid-cols-2 gap-4">
       {#each ADVANCED_FIELDS as field}
         <div>
-          <label class="block text-sm font-medium text-surface-300 mb-1">{field.label}</label>
+          {#if field.type === "radio"}
+            <label class="block text-sm font-medium text-surface-300 mb-1">{field.label}</label>
+          {:else}
+            <label for={field.key} class="block text-sm font-medium text-surface-300 mb-1">{field.label}</label>
+          {/if}
           {#if field.type === "number"}
             <input
               type="number"
+              id={field.key}
               data-field={field.key}
               value={Number(data[field.key] ?? 0)}
               min={field.min ?? 1}
               max={field.max ?? 16}
-              class="w-full px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 focus:border-primary-500 focus:outline-none text-sm"
+              class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
             />
           {:else if field.type === "radio"}
             <div class="flex gap-4">
               {#each field.options as option}
                 <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name={field.key} value={option.value} checked={data[field.key] === option.value} class="w-4 h-4 text-primary-500" />
+                  <input type="radio" name={field.key} value={option.value} checked={data[field.key] === option.value} class="radio" />
                   <span class="text-sm">{option.label}</span>
                 </label>
               {/each}
             </div>
           {:else if field.type === "select"}
-            <select data-field={field.key} class="w-full px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 focus:border-primary-500 focus:outline-none text-sm">
+            <select id={field.key} data-field={field.key} class="select w-full text-sm px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 [color-scheme:dark]">
               {#each field.options as option}
                 <option value={option.value} selected={data[field.key] === option.value}>{option.label}</option>
               {/each}
@@ -205,10 +219,11 @@
           {:else}
             <input
               type="text"
+              id={field.key}
               data-field={field.key}
               value={String(data[field.key] ?? "")}
               placeholder={field.placeholder ?? ""}
-              class="w-full px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 focus:border-primary-500 focus:outline-none text-sm"
+              class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
             />
           {/if}
         </div>
@@ -226,12 +241,12 @@
               type="password"
               placeholder="Enter new {name} API key"
               bind:value={newApiKey}
-              class="flex-1 px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 focus:border-primary-500 focus:outline-none text-sm"
+              class="input flex-1 rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
             />
-            <button class="px-3 py-1 text-xs rounded-lg bg-primary-500 hover:bg-primary-600 transition-colors" onclick={() => updateApiKey(name)}>
+            <button class="btn btn-sm preset-filled-primary-500 rounded-lg" onclick={() => updateApiKey(name)}>
               Save
             </button>
-            <button class="px-3 py-1 text-xs rounded-lg border border-surface-700 hover:border-surface-500 transition-colors" onclick={() => { editingApiKey = null; newApiKey = ""; }}>
+            <button class="btn btn-sm preset-outlined-surface-950-50 rounded-lg" onclick={() => { editingApiKey = null; newApiKey = ""; }}>
               Cancel
             </button>
           </div>
@@ -241,7 +256,7 @@
               <span class="font-medium text-sm">{name}</span>
               <span class="text-surface-500 text-sm font-mono">{masked}</span>
             </div>
-            <button class="px-3 py-1 text-xs rounded-lg border border-surface-700 hover:border-primary-500 transition-colors" onclick={() => { editingApiKey = name; newApiKey = ""; }}>
+            <button class="btn btn-sm preset-outlined-surface-950-50 rounded-lg" onclick={() => { editingApiKey = name; newApiKey = ""; }}>
               Update
             </button>
           </div>
@@ -257,15 +272,18 @@
         <div class="flex items-center justify-between p-3 rounded-lg bg-surface-800 border border-surface-700">
           <div class="flex items-center gap-3">
             <span class="font-medium text-sm">{plugin.name}</span>
-            <span class="text-surface-500 text-xs px-2 py-0.5 rounded bg-surface-700">{plugin.type}</span>
+            <span class="badge bg-surface-500/20 text-surface-400 text-xs">{plugin.type}</span>
             <span class="text-surface-500 text-xs">{plugin.source}</span>
           </div>
-          <button
-            class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors {plugin.enabled ? 'bg-primary-500' : 'bg-surface-600'}"
-            onclick={() => togglePlugin(plugin.name, plugin.enabled)}
+          <Switch
+            checked={plugin.enabled}
+            onCheckedChange={() => togglePlugin(plugin.name, plugin.enabled)}
           >
-            <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform {plugin.enabled ? 'translate-x-4' : 'translate-x-1'}"></span>
-          </button>
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            <Switch.HiddenInput />
+          </Switch>
         </div>
       {/each}
     </div>

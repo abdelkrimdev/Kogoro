@@ -10,9 +10,12 @@
     "dev": "bun run scripts/start-dev.ts"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
     "@kogoro/core": "workspace:*",
     "@kogoro/plugins": "workspace:*",
+    "@lucide/svelte": "^1.17.0",
     "@skeletonlabs/skeleton": "^3.1.2",
+    "@skeletonlabs/skeleton-svelte": "^4.15.2",
     "electrobun": "^1.18.1",
     "svelte": "^5.28.2"
   },
