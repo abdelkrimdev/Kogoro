@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { Switch, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
 
   type SettingsField =
@@ -115,7 +116,7 @@
     }
   }
 
-  $effect(() => {
+  onMount(() => {
     loadSettings();
   });
 </script>

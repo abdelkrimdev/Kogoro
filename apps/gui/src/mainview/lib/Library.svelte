@@ -49,9 +49,13 @@
   $effect(() => {
     const version = ++effectVersion;
     (async () => {
-      const result = await rpc.request("getLibrary", {});
-      if (version === effectVersion) {
-        items = result as LibraryItem[];
+      try {
+        const result = await rpc.request("getLibrary", {});
+        if (version === effectVersion) {
+          items = result as LibraryItem[];
+        }
+      } catch (err) {
+        console.error("Failed to load library:", err);
       }
     })();
   });
