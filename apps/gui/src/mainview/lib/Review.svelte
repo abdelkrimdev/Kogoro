@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
   import { Search, Tv } from '@lucide/svelte';
+  import { Button, Input, Select } from '@skeletonlabs/skeleton-svelte';
   import { filterReviewGroups, deriveReviewStats, findSwapPairForFile, type StatusFilter } from "../state/review-state";
   import type { ResolveCandidate } from "../state/resolve-state";
   import ResolveModal from "./ResolveModal.svelte";
@@ -142,28 +143,28 @@
 </script>
 
 <div class="h-full flex flex-col">
-  <div class="p-4 border-b border-surface-700 bg-surface-800/50">
+  <div class="p-4 border-b border-surface-300-700 bg-surface-200-800/50">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-bold">Review Rename Plan</h2>
       <div class="flex gap-2">
-        <button class="btn preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
+        <Button class="preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
           Approve All
-        </button>
-        <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={rejectAll}>
+        </Button>
+        <Button class="preset-tonal-surface rounded-lg font-medium" onclick={rejectAll}>
           Reject All
-        </button>
-        <button class="btn preset-filled-error-500 rounded-lg font-medium" onclick={cancel}>
+        </Button>
+        <Button class="preset-filled-error-500 rounded-lg font-medium" onclick={cancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
 
-    <div class="flex items-center gap-4 text-sm text-surface-400 mb-4">
+    <div class="flex items-center gap-4 text-sm text-surface-700-300 mb-4">
       <span>{stats.totalFiles} files</span>
       <span>{stats.totalGroups} anime</span>
       <span>{stats.ambiguousCount} ambiguous</span>
       {#if stats.swapsCount > 0}
-        <span class="text-warning-400">{stats.swapsCount} swapped</span>
+        <span class="text-warning-400-400">{stats.swapsCount} swapped</span>
       {/if}
     </div>
 
@@ -172,55 +173,55 @@
         <div class="ig-cell preset-tonal">
           <Search class="size-4" />
         </div>
-        <input
+        <Input
           type="text"
           placeholder="Search files or anime..."
           bind:value={searchQuery}
-          class="ig-input"
+          class="flex-1"
         />
       </div>
-      <select
+      <Select
         bind:value={statusFilter}
-        class="select text-sm px-3 py-2 rounded-lg bg-surface-700 border border-surface-600 text-surface-200 [color-scheme:dark] w-auto"
+        class="text-sm px-3 py-2 rounded-lg w-auto"
       >
         <option value="all">All Status</option>
         <option value="matched">Matched</option>
         <option value="ambiguous">Ambiguous</option>
         <option value="needs-attention">Needs Attention</option>
-      </select>
+      </Select>
     </div>
   </div>
 
   <div class="flex-1 overflow-auto p-4 space-y-4">
     {#if filtered.length === 0}
-      <div class="text-center text-surface-500 py-8">
+      <div class="text-center text-surface-600-400 py-8">
         No files match your search or filter.
       </div>
     {:else}
       {#each filtered as group (group.animeId)}
-        <div class="bg-surface-800 rounded-lg border border-surface-700 overflow-hidden">
-          <div class="p-4 border-b border-surface-700 bg-surface-800/80">
+        <div class="bg-surface-200-800 rounded-lg border border-surface-300-700 overflow-hidden">
+          <div class="p-4 border-b border-surface-300-700 bg-surface-200-800/80">
             <div class="flex items-center gap-3">
               {#if group.image}
                 <img src={group.image} alt={group.animeTitle} class="w-12 h-12 rounded object-cover" />
               {:else}
-                <div class="w-12 h-12 rounded bg-surface-700 flex items-center justify-center">
-                  <Tv class="size-6 text-surface-500" />
+                <div class="w-12 h-12 rounded bg-surface-300-700 flex items-center justify-center">
+                  <Tv class="size-6 text-surface-600-400" />
                 </div>
               {/if}
               <div class="flex-1">
-                <h3 class="font-medium text-surface-200 text-sm">{group.animeTitle}</h3>
-                <p class="text-sm text-surface-400">{group.files.length} files &bull; {group.entryType}</p>
+                <h3 class="font-medium text-surface-200-800 text-sm">{group.animeTitle}</h3>
+                <p class="text-sm text-surface-700-300">{group.files.length} files &bull; {group.entryType}</p>
               </div>
             </div>
           </div>
 
-          <div class="divide-y divide-surface-700">
+          <div class="divide-y divide-surface-300-700">
             {#each group.files as file (file.fileId)}
               {@const swapPartner = findSwapPairForFile(group, file.fileId)}
               <div
                 role="listitem"
-                class="p-3 hover:bg-surface-700/50 transition-colors cursor-move {swapPartner ? 'border-l-2 border-warning-500' : ''} {dragOverFileId === file.fileId ? 'bg-surface-600/50' : ''}"
+                class="p-3 hover:bg-surface-300-700/50 transition-colors cursor-move {swapPartner ? 'border-l-2 border-warning-500-500' : ''} {dragOverFileId === file.fileId ? 'bg-surface-300-700/50' : ''}"
                 draggable="true"
                 ondragstart={(e) => handleDragStart(e, file.fileId)}
                 ondragover={(e) => { handleDragOver(e); dragOverFileId = file.fileId; }}
@@ -230,7 +231,7 @@
                 <div class="flex items-center gap-3">
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
-                      <span class="text-sm font-medium text-surface-200 truncate">
+                      <span class="text-sm font-medium text-surface-200-800 truncate">
                         {file.sourcePath.split("/").pop()}
                       </span>
                       <span class="{getStatusBadgeClass(file.status)} text-xs">
@@ -242,18 +243,18 @@
                         </span>
                       {/if}
                     </div>
-                    <div class="text-xs text-surface-500 truncate">{file.sourcePath}</div>
+                    <div class="text-xs text-surface-600-400 truncate">{file.sourcePath}</div>
                     {#if file.proposedPath}
-                      <div class="text-xs text-success-400 truncate mt-1">&rarr; {file.proposedPath}</div>
+                      <div class="text-xs text-success-400-400 truncate mt-1">&rarr; {file.proposedPath}</div>
                     {/if}
                   </div>
                   {#if file.status === "ambiguous"}
-                    <button
-                      class="btn btn-sm preset-filled-warning-500 rounded font-medium"
+                    <Button
+                      class="btn-sm preset-filled-warning-500 rounded font-medium"
                       onclick={() => openResolveModal(file.fileId, file.sourcePath)}
                     >
                       Resolve
-                    </button>
+                    </Button>
                   {/if}
                 </div>
               </div>

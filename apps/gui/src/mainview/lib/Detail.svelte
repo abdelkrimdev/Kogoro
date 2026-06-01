@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, LoaderCircle } from '@lucide/svelte';
+  import { Button, Checkbox, Input } from '@skeletonlabs/skeleton-svelte';
   import { ENTRY_LABELS, typeBadgeClass } from "../shared";
   import { getAnimeDirectory } from "../state/detail-state";
   import {
@@ -181,100 +182,100 @@
 {#if loading}
   <div class="flex items-center justify-center h-full">
     <div class="text-center space-y-3">
-      <LoaderCircle class="size-8 animate-spin text-primary-500 mx-auto" />
-      <p class="text-surface-500 text-sm">Loading anime details...</p>
+      <LoaderCircle class="size-8 animate-spin text-primary-500-400 mx-auto" />
+      <p class="text-surface-600-400 text-sm">Loading anime details...</p>
     </div>
   </div>
 {:else if error || !detail}
   <div class="flex flex-col items-center justify-center h-full gap-4">
-    <TriangleAlert class="size-12 text-error-400" />
-    <p class="text-surface-400 text-sm">{error ?? "Unknown error"}</p>
-    <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
+    <TriangleAlert class="size-12 text-error-400-400" />
+    <p class="text-surface-700-300 text-sm">{error ?? "Unknown error"}</p>
+    <Button class="preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
       Back to Library
-    </button>
+    </Button>
   </div>
 {:else}
   <div class="flex flex-col h-full">
-    <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-700 bg-surface-800/50 flex-shrink-0">
-      <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-300-700 bg-surface-200-800/50 flex-shrink-0">
+      <Button class="preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
         <ChevronLeft class="size-4" /> Library
-      </button>
+      </Button>
     </div>
 
     <div class="flex-1 overflow-y-auto">
       <div class="p-6">
         <div class="flex gap-6">
           <div class="w-48 flex-shrink-0">
-            <div class="aspect-[2/3] bg-surface-700 rounded-xl overflow-hidden">
+            <div class="aspect-[2/3] bg-surface-300-700 rounded-xl overflow-hidden">
               {#if detail.anime.coverArt}
                 <img src={detail.anime.coverArt} alt={detail.anime.titleEn} class="w-full h-full object-cover" />
               {:else}
                 <div class="w-full h-full flex items-center justify-center">
-                  <Tv class="size-12 text-surface-600" />
+                  <Tv class="size-12 text-surface-600-400" />
                 </div>
               {/if}
             </div>
             <div class="flex flex-col gap-2 mt-4">
               {#if artworkLoading}
-                <button disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                <Button disabled class="flex items-center gap-2 preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
                   <LoaderCircle class="size-4 animate-spin" /> Downloading...
-                </button>
+                </Button>
               {:else}
-                <button class="flex items-center gap-2 btn preset-filled-primary-500 rounded-lg font-medium" onclick={downloadArtwork}>
+                <Button class="flex items-center gap-2 preset-filled-primary-500 rounded-lg font-medium" onclick={downloadArtwork}>
                   <ImageDown class="size-4" /> Download Cover Art
-                </button>
+                </Button>
               {/if}
               {#if rescanLoading}
-                <button disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                <Button disabled class="flex items-center gap-2 preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
                   <LoaderCircle class="size-4 animate-spin" /> Scanning...
-                </button>
+                </Button>
               {:else}
-                <button class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium" onclick={rescan}>
+                <Button class="flex items-center gap-2 preset-tonal-surface rounded-lg font-medium" onclick={rescan}>
                   <RefreshCw class="size-4" /> Rescan
-                </button>
+                </Button>
               {/if}
               {#if metadataLoading}
-                <button disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                <Button disabled class="flex items-center gap-2 preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
                   <LoaderCircle class="size-4 animate-spin" /> Generating...
-                </button>
+                </Button>
               {:else}
-                <button class="flex items-center gap-2 btn preset-filled-success-500 rounded-lg font-medium" onclick={generateMetadata}>
+                <Button class="flex items-center gap-2 preset-filled-success-500 rounded-lg font-medium" onclick={generateMetadata}>
                   <FileText class="size-4" /> Generate Metadata
-                </button>
+                </Button>
               {/if}
             </div>
           </div>
 
           <div class="flex-1 min-w-0">
-            <h1 class="text-xl font-bold text-surface-50">{detail.anime.titleEn}</h1>
+            <h1 class="text-xl font-bold text-surface-950-50">{detail.anime.titleEn}</h1>
             {#if detail.anime.titleJa}
-              <p class="text-surface-400 text-sm mt-1">{detail.anime.titleJa}</p>
+              <p class="text-surface-700-300 text-sm mt-1">{detail.anime.titleJa}</p>
             {/if}
             <div class="flex flex-wrap items-center gap-3 mt-3">
               <span class="{typeBadgeClass(detail.anime.entryType)} text-xs">
                 {ENTRY_LABELS[detail.anime.entryType] ?? detail.anime.entryType}
               </span>
-              <span class="text-sm text-surface-400">{sourceDbLabel(detail.anime.sourceDb)}</span>
-              <span class="text-sm text-surface-500">·</span>
-              <span class="text-sm text-surface-300">{detail.anime.totalEpisodes} episodes</span>
-              <span class="text-sm text-surface-500">·</span>
-              <span class="text-sm text-surface-300">{detail.filesOnDisk} files on disk</span>
+              <span class="text-sm text-surface-700-300">{sourceDbLabel(detail.anime.sourceDb)}</span>
+              <span class="text-sm text-surface-600-400">·</span>
+              <span class="text-sm text-surface-700-300">{detail.anime.totalEpisodes} episodes</span>
+              <span class="text-sm text-surface-600-400">·</span>
+              <span class="text-sm text-surface-700-300">{detail.filesOnDisk} files on disk</span>
               {#if missingCount > 0}
-                <span class="text-sm text-surface-500">·</span>
-                <span class="text-sm text-warning-400">{missingCount} missing</span>
+                <span class="text-sm text-surface-600-400">·</span>
+                <span class="text-sm text-warning-400-400">{missingCount} missing</span>
               {/if}
               {#if progress.total > 0}
-                <span class="text-sm text-surface-500">·</span>
-                <span class="text-sm text-success-400">{progress.percent}% watched</span>
-                <progress class="progress w-24" value={progress.percent} max="100"></progress>
+                <span class="text-sm text-surface-600-400">·</span>
+                <span class="text-sm text-success-400-400">{progress.percent}% watched</span>
+                <progress class="progress w-24 appearance-none" value={progress.percent} max="100"></progress>
               {/if}
             </div>
 
             <div class="mt-6">
-              <h2 class="text-sm font-semibold text-surface-400 uppercase tracking-wide mb-2">Episodes</h2>
-              <div class="table-wrap rounded-xl border border-surface-700/50 overflow-hidden">
+              <h2 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide mb-2">Episodes</h2>
+              <div class="table-wrap rounded-xl border border-surface-300-700/50 overflow-hidden">
                 {#if detail.episodes.length === 0}
-                  <div class="text-center text-surface-500 py-8">
+                  <div class="text-center text-surface-600-400 py-8">
                     No episodes found.
                   </div>
                 {:else}
@@ -291,7 +292,7 @@
                     <tbody class="[&>tr]:hover:preset-tonal-primary">
                       {#each enrichedEpisodes as ep (ep.id)}
                         {@const isGap = gaps.has(ep.episode)}
-                        <tr class="{ep.missing ? 'text-surface-500 opacity-60' : isGap ? 'text-warning-400' : ''}">
+                        <tr class="{ep.missing ? 'text-surface-600-400 opacity-60' : isGap ? 'text-warning-400-400' : ''}">
                           <td class="text-sm font-medium whitespace-nowrap">
                             {ep.season}x{String(ep.episode).padStart(2, "0")}
                             {#if ep.missing}
@@ -301,36 +302,35 @@
                             {/if}
                           </td>
                           <td class="text-sm">{ep.titleEn}</td>
-                          <td class="text-sm text-surface-400 font-mono truncate max-w-xs">
+                          <td class="text-sm text-surface-700-300 font-mono truncate max-w-xs">
                             {#if ep.filePath}
                               {ep.filePath}
                             {:else}
-                              <span class="text-surface-600">—</span>
+                              <span class="text-surface-600-400">—</span>
                             {/if}
                           </td>
                           <td class="text-center">
                             {#if !ep.missing}
-                              <input
-                                type="checkbox"
-                                class="checkbox"
+                              <Checkbox
                                 checked={ep.watched}
                                 onchange={() => toggleWatched(ep.id)}
+                                class="text-primary-500"
                               />
                             {:else}
-                              <span class="text-surface-600">—</span>
+                              <span class="text-surface-600-400">—</span>
                             {/if}
                           </td>
                           <td>
                             {#if !ep.missing}
-                              <input
+                              <Input
                                 type="text"
-                                class="input w-full text-sm text-surface-300 border-b border-surface-700 focus:border-primary-500 px-1 py-0.5"
+                                class="w-full text-sm text-surface-700-300 border-b border-surface-300-700 focus:border-primary-500 px-1 py-0.5"
                                 placeholder="Add note..."
                                 value={ep.notes ?? ""}
                                 onchange={(e) => saveNotes(ep.id, (e.target as HTMLInputElement).value)}
                               />
                             {:else}
-                              <span class="text-surface-600">—</span>
+                              <span class="text-surface-600-400">—</span>
                             {/if}
                           </td>
                         </tr>

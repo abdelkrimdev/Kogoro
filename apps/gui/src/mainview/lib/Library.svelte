@@ -1,6 +1,7 @@
 <script lang="ts">
   import { type LibraryItem, filterAndSort } from "../state/library-state";
   import { typeBadgeClass, entryTypeLabel } from "../shared";
+  import { Button } from '@skeletonlabs/skeleton-svelte';
   import { Search, LayoutGrid, List, Folder, ChevronUp, ChevronDown } from '@lucide/svelte';
 
   interface Props {
@@ -63,17 +64,17 @@
 
 {#if !hasLibrary}
   <div class="flex flex-col items-center justify-center h-full gap-4">
-    <Folder class="size-16 text-surface-600" />
-    <p class="text-surface-500 text-sm">No library yet — scan a folder to get started.</p>
-    <button
-      class="btn preset-filled-primary-500 rounded-lg font-medium"
+    <Folder class="size-16 text-surface-600-400" />
+    <p class="text-surface-600-400 text-sm">No library yet — scan a folder to get started.</p>
+    <Button
+      class="preset-filled-primary-500 rounded-lg font-medium"
       onclick={() => onNavigate?.("scan")}
     >
       Go to Scan
-    </button>
+    </Button>
   </div>
 {:else}
-  <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-700 bg-surface-800/50 flex-shrink-0">
+  <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-300-700 bg-surface-200-800/50 flex-shrink-0">
     <div class="input-group grid-cols-[auto_1fr] flex-1 max-w-xs">
       <div class="ig-cell preset-tonal">
         <Search class="size-4" />
@@ -98,7 +99,7 @@
         </button>
       {/each}
     </div>
-    <div class="flex items-center bg-surface-700 rounded-lg border border-surface-600 p-0.5">
+    <div class="flex items-center bg-surface-300-700 rounded-lg border border-surface-300-700 p-0.5">
       <button
         class="btn-icon btn-icon-sm {viewMode === 'grid' ? 'preset-filled-primary-500' : 'hover:preset-tonal'}"
         onclick={() => (viewMode = 'grid')}
@@ -116,8 +117,8 @@
 
   {#if filtered.length === 0}
     <div class="flex flex-col items-center justify-center h-full gap-3 py-16">
-      <Search class="size-12 text-surface-600" />
-      <p class="text-surface-500">No anime matches your search.</p>
+      <Search class="size-12 text-surface-600-400" />
+      <p class="text-surface-600-400">No anime matches your search.</p>
     </div>
   {:else if viewMode === 'grid'}
     <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 p-4">
@@ -126,24 +127,24 @@
           class="group card preset-tonal-surface cursor-pointer transition-all text-left overflow-hidden"
           onclick={() => onOpenAnime?.(item.id)}
         >
-          <div class="aspect-[2/3] bg-surface-700 relative overflow-hidden">
+          <div class="aspect-[2/3] bg-surface-300-700 relative overflow-hidden">
             {#if item.coverArt}
               <img src={item.coverArt} alt={item.titleEn} class="w-full h-full object-cover" />
             {:else}
               <div class="absolute inset-0 flex items-center justify-center">
-                <Folder class="size-12 text-surface-600" />
+                <Folder class="size-12 text-surface-600-400" />
               </div>
             {/if}
           </div>
           <div class="p-3 space-y-1.5">
-            <h3 class="text-sm font-medium text-surface-100 truncate group-hover:text-primary-400 transition-colors">
+            <h3 class="text-sm font-medium text-surface-950-50 truncate group-hover:text-primary-400 transition-colors">
               {item.titleEn}
             </h3>
             <div class="flex items-center justify-between">
               <span class="{typeBadgeClass(item.entryType)} text-xs">
                 {entryTypeLabel(item.entryType)}
               </span>
-              <span class="text-xs text-surface-500">{item.episodeCount} ep</span>
+              <span class="text-xs text-surface-600-400">{item.episodeCount} ep</span>
             </div>
           </div>
         </button>
@@ -154,21 +155,21 @@
       <table class="table">
         <thead>
             <tr>
-              <th class="font-medium cursor-pointer hover:text-surface-200 transition-colors" onclick={() => setSort('titleEn')}>
+              <th class="font-medium cursor-pointer hover:text-primary-400 transition-colors" onclick={() => setSort('titleEn')}>
                 <span class="inline-flex items-center gap-1">Title
                   {#if sortField === 'titleEn'}
                     {#if sortAsc}<ChevronUp class="size-3" />{:else}<ChevronDown class="size-3" />{/if}
                   {/if}
                 </span>
               </th>
-              <th class="font-medium cursor-pointer hover:text-surface-200 transition-colors" onclick={() => setSort('entryType')}>
+              <th class="font-medium cursor-pointer hover:text-primary-400 transition-colors" onclick={() => setSort('entryType')}>
                 <span class="inline-flex items-center gap-1">Type
                   {#if sortField === 'entryType'}
                     {#if sortAsc}<ChevronUp class="size-3" />{:else}<ChevronDown class="size-3" />{/if}
                   {/if}
                 </span>
               </th>
-              <th class="font-medium cursor-pointer hover:text-surface-200 transition-colors text-right" onclick={() => setSort('episodeCount')}>
+              <th class="font-medium cursor-pointer hover:text-primary-400 transition-colors text-right" onclick={() => setSort('episodeCount')}>
                 <span class="inline-flex items-center gap-1">Episodes
                   {#if sortField === 'episodeCount'}
                     {#if sortAsc}<ChevronUp class="size-3" />{:else}<ChevronDown class="size-3" />{/if}
@@ -180,13 +181,13 @@
         <tbody class="[&>tr]:hover:preset-tonal-primary">
           {#each filtered as item (item.id)}
             <tr class="cursor-pointer" onclick={() => onOpenAnime?.(item.id)}>
-              <td class="text-sm text-surface-50 font-medium">{item.titleEn}</td>
+              <td class="text-sm text-surface-950-50 font-medium">{item.titleEn}</td>
               <td>
                 <span class="{typeBadgeClass(item.entryType)} text-xs">
                   {entryTypeLabel(item.entryType)}
                 </span>
               </td>
-              <td class="text-sm text-surface-400 text-right">{item.episodeCount}</td>
+              <td class="text-sm text-surface-700-300 text-right">{item.episodeCount}</td>
             </tr>
           {/each}
         </tbody>

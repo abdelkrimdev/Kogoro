@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Switch, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
+  import { Button, Input, Label, Radio, Select, Switch, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
 
   type SettingsField =
     | { type: "select"; key: string; label: string; options: Array<{ value: string; label: string }> }
@@ -122,59 +122,61 @@
 </script>
 
 <Toast.Group {toaster}>
-  {#snippet children(toast)}
-    <Toast {toast}>
-      <Toast.Message>
-        <Toast.Title>{toast.title}</Toast.Title>
-      </Toast.Message>
-      <Toast.CloseTrigger />
-    </Toast>
+  {#snippet children(toasts)}
+    {#each toasts as toast}
+      <Toast {toast}>
+        <Toast.Message>
+          <Toast.Title>{toast.title}</Toast.Title>
+        </Toast.Message>
+        <Toast.CloseTrigger />
+      </Toast>
+    {/each}
   {/snippet}
 </Toast.Group>
 
 <div class="max-w-2xl mx-auto p-6 space-y-8">
   <div class="flex items-center justify-between">
     <h2 class="text-xl font-bold">Settings</h2>
-    <button class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={saveSettings}>
+    <Button class="preset-filled-primary-500 rounded-lg font-medium" onclick={saveSettings}>
       Save Changes
-    </button>
+    </Button>
   </div>
 
   <section class="space-y-4">
-    <h3 class="text-sm font-semibold text-surface-400 uppercase tracking-wide">General</h3>
+    <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">General</h3>
     <div class="grid grid-cols-1 gap-4">
       {#each GENERAL_FIELDS as field}
         <div>
-          <label for={field.key} class="block text-sm font-medium text-surface-300 mb-1">{field.label}</label>
+          <Label for={field.key} class="block text-sm font-medium text-surface-700-300 mb-1">{field.label}</Label>
           {#if field.type === "select"}
-            <select
+            <Select
               id={field.key}
               value={String(settingsData[field.key] ?? "")}
               onchange={(e) => updateField(field.key, (e.target as HTMLSelectElement).value)}
-              class="select w-full text-sm px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 [color-scheme:dark]"
+              class="w-full text-sm rounded-lg border-surface-300-700"
             >
               {#each field.options as option}
                 <option value={option.value}>{option.label}</option>
               {/each}
-            </select>
+            </Select>
           {:else if field.type === "text" || field.type === "tag-input"}
-            <input
+            <Input
               type="text"
               id={field.key}
               value={String(settingsData[field.key] ?? "")}
               placeholder={field.placeholder ?? ""}
               oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
-              class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
+              class="w-full rounded-lg border-surface-300-700 text-sm py-2"
             />
           {:else if field.type === "number"}
-            <input
+            <Input
               type="number"
               id={field.key}
               value={Number(settingsData[field.key] ?? 0)}
               min={field.min ?? 1}
               max={field.max ?? 16}
               oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
-              class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
+              class="w-full rounded-lg border-surface-300-700 text-sm py-2"
             />
           {/if}
         </div>
@@ -183,60 +185,59 @@
   </section>
 
   <section class="space-y-4">
-    <h3 class="text-sm font-semibold text-surface-400 uppercase tracking-wide">Advanced</h3>
+    <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Advanced</h3>
     <div class="grid grid-cols-2 gap-4">
       {#each ADVANCED_FIELDS as field}
         <div>
           {#if field.type === "radio"}
-            <label class="block text-sm font-medium text-surface-300 mb-1">{field.label}</label>
+            <Label class="block text-sm font-medium text-surface-700-300 mb-1">{field.label}</Label>
           {:else}
-            <label for={field.key} class="block text-sm font-medium text-surface-300 mb-1">{field.label}</label>
+            <Label for={field.key} class="block text-sm font-medium text-surface-700-300 mb-1">{field.label}</Label>
           {/if}
           {#if field.type === "number"}
-            <input
+            <Input
               type="number"
               id={field.key}
               value={Number(settingsData[field.key] ?? 0)}
               min={field.min ?? 1}
               max={field.max ?? 16}
               oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
-              class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
+              class="w-full rounded-lg border-surface-300-700 text-sm py-2"
             />
           {:else if field.type === "radio"}
             <div class="flex gap-4">
               {#each field.options as option}
                 <label class="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
+                  <Radio
                     name={field.key}
                     value={option.value}
                     checked={settingsData[field.key] === option.value}
                     onchange={() => updateField(field.key, option.value)}
-                    class="radio"
+                    class="text-primary-500"
                   />
                   <span class="text-sm">{option.label}</span>
                 </label>
               {/each}
             </div>
           {:else if field.type === "select"}
-            <select
+            <Select
               id={field.key}
               value={String(settingsData[field.key] ?? "")}
               onchange={(e) => updateField(field.key, (e.target as HTMLSelectElement).value)}
-              class="select w-full text-sm px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 [color-scheme:dark]"
+              class="w-full text-sm rounded-lg border-surface-300-700"
             >
               {#each field.options as option}
                 <option value={option.value}>{option.label}</option>
               {/each}
-            </select>
+            </Select>
           {:else}
-            <input
+            <Input
               type="text"
               id={field.key}
               value={String(settingsData[field.key] ?? "")}
               placeholder={field.placeholder ?? ""}
               oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
-              class="input w-full rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
+              class="w-full rounded-lg border-surface-300-700 text-sm py-2"
             />
           {/if}
         </div>
@@ -245,33 +246,33 @@
   </section>
 
   <section class="space-y-4">
-    <h3 class="text-sm font-semibold text-surface-400 uppercase tracking-wide">API Keys</h3>
+    <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">API Keys</h3>
     <div class="space-y-2">
       {#each Object.entries(apiKeys) as [name, masked]}
         {#if editingApiKey === name}
           <div class="flex items-center gap-2 p-3">
-            <input
+            <Input
               type="password"
               placeholder="Enter new {name} API key"
               bind:value={newApiKey}
-              class="input flex-1 rounded-lg bg-surface-800 border border-surface-700 text-sm py-2"
+              class="flex-1 rounded-lg border-surface-300-700 text-sm py-2"
             />
-            <button class="btn btn-sm preset-filled-primary-500 rounded-lg" onclick={() => updateApiKey(name)}>
+            <Button class="btn-sm preset-filled-primary-500 rounded-lg" onclick={() => updateApiKey(name)}>
               Save
-            </button>
-            <button class="btn btn-sm preset-outlined-surface-950-50 rounded-lg" onclick={() => { editingApiKey = null; newApiKey = ""; }}>
+            </Button>
+            <Button class="btn-sm preset-outlined-surface-300-700 rounded-lg" onclick={() => { editingApiKey = null; newApiKey = ""; }}>
               Cancel
-            </button>
+            </Button>
           </div>
         {:else}
-          <div class="flex items-center justify-between p-3 rounded-lg bg-surface-800 border border-surface-700">
+          <div class="flex items-center justify-between p-3 rounded-lg bg-surface-200-800 border border-surface-300-700">
             <div class="flex items-center gap-3">
-              <span class="font-medium text-sm">{name}</span>
-              <span class="text-surface-500 text-sm font-mono">{masked}</span>
+              <span class="font-medium text-sm text-surface-950-50">{name}</span>
+              <span class="text-surface-600-400 text-sm font-mono">{masked}</span>
             </div>
-            <button class="btn btn-sm preset-outlined-surface-950-50 rounded-lg" onclick={() => { editingApiKey = name; newApiKey = ""; }}>
+            <Button class="btn-sm preset-outlined-surface-300-700 rounded-lg" onclick={() => { editingApiKey = name; newApiKey = ""; }}>
               Update
-            </button>
+            </Button>
           </div>
         {/if}
       {/each}
@@ -279,14 +280,14 @@
   </section>
 
   <section class="space-y-4">
-    <h3 class="text-sm font-semibold text-surface-400 uppercase tracking-wide">Plugins</h3>
+    <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Plugins</h3>
     <div class="space-y-2">
       {#each plugins as plugin}
-        <div class="flex items-center justify-between p-3 rounded-lg bg-surface-800 border border-surface-700">
+        <div class="flex items-center justify-between p-3 rounded-lg bg-surface-200-800 border border-surface-300-700">
           <div class="flex items-center gap-3">
             <span class="font-medium text-sm">{plugin.name}</span>
             <span class="badge preset-tonal-surface text-xs">{plugin.type}</span>
-            <span class="text-surface-500 text-xs">{plugin.source}</span>
+            <span class="text-surface-600-400 text-xs">{plugin.source}</span>
           </div>
           <Switch
             checked={plugin.enabled}

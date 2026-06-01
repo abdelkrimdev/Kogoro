@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
   import { FolderSearch, Search, LayoutGrid, Settings } from '@lucide/svelte';
-  import { Navigation, AppBar } from '@skeletonlabs/skeleton-svelte';
+  import { Navigation, AppBar, Button } from '@skeletonlabs/skeleton-svelte';
   import Wizard from "./Wizard.svelte";
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
@@ -134,10 +134,10 @@
         </Navigation.Content>
       </Navigation>
       <main class="flex-1 flex flex-col overflow-hidden">
-        <AppBar class="h-12 !p-0 border-b border-surface-200-800" style="-webkit-app-region: drag;">
+        <AppBar class="h-12 !p-0 border-b border-surface-300-700" style="-webkit-app-region: drag;">
           <AppBar.Toolbar>
             <AppBar.Headline>
-              <span class="text-sm font-medium text-surface-400">Kogoro</span>
+              <span class="text-sm font-medium text-surface-700-300">Kogoro</span>
             </AppBar.Headline>
           </AppBar.Toolbar>
         </AppBar>
@@ -153,22 +153,22 @@
           {:else}
             <div class="flex items-center justify-center h-full">
               <div class="text-center space-y-4">
-                <FolderSearch class="size-16 text-surface-600 mx-auto" />
-                <p class="text-surface-500 text-sm">Drop a folder to scan for anime files.</p>
-                <button
-                  class="btn preset-filled-primary-500 rounded-lg font-medium"
+                <FolderSearch class="size-16 text-surface-600-400 mx-auto" />
+                <p class="text-surface-600-400 text-sm">Drop a folder to scan for anime files.</p>
+                <Button
+                  class="preset-filled-primary-500 rounded-lg font-medium"
                   onclick={startScan}
                 >
                   Start Scan
-                </button>
+                </Button>
               </div>
             </div>
           {/if}
         </div>
       </main>
     </div>
-    <footer class="h-8 flex items-center px-4 border-t border-surface-700 bg-surface-800 flex-shrink-0">
-      <span class="text-xs text-surface-500">{statusText}</span>
+    <footer class="h-8 flex items-center px-4 border-t border-surface-300-700 bg-surface-200-800 flex-shrink-0">
+      <span class="text-xs text-surface-600-400">{statusText}</span>
     </footer>
   </div>
 {/if}
