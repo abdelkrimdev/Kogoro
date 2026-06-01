@@ -50,14 +50,14 @@
           {:else}
             {#each candidates as candidate (candidate.animeId + candidate.episodeId)}
               <button
-                class="w-full text-left p-3 rounded-lg border border-surface-600 hover:border-primary-500 hover:bg-surface-700/50 transition-all group"
+                class="w-full text-left p-3 rounded-container border border-surface-200-800 hover:preset-tonal transition-all group"
                 onclick={() => handleResolve(candidate)}
               >
                 <div class="flex items-center justify-between mb-1">
                   <span class="font-medium text-surface-200 text-sm group-hover:text-primary-400 transition-colors">
                     {candidate.animeTitle}
                   </span>
-                  <span class="badge bg-surface-500/20 text-surface-400 text-xs">
+                  <span class="badge preset-tonal-surface text-xs">
                     {candidate.entryType}
                   </span>
                 </div>

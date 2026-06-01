@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
   import { FolderSearch, Search, LayoutGrid, Settings } from '@lucide/svelte';
+  import { Navigation, AppBar } from '@skeletonlabs/skeleton-svelte';
   import Wizard from "./Wizard.svelte";
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
@@ -117,23 +118,29 @@
 {:else}
   <div class="h-full flex flex-col">
     <div class="flex-1 flex overflow-hidden">
-      <aside class="w-64 bg-surface-800 border-r border-surface-700 flex flex-col pt-12">
-        <nav class="flex-1 p-2 space-y-1">
-          {#each NAV_ITEMS as item}
-            <button
-              class="btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors {currentView === item.view ? 'bg-primary-500/20 text-primary-500' : 'text-surface-400 hover:text-surface-200 hover:preset-tonal'}"
-              onclick={() => navigate(item.view)}
-            >
-              <item.icon class="size-5" />
-              {item.label}
-            </button>
-          {/each}
-        </nav>
-      </aside>
+      <Navigation layout="sidebar" class="w-64 border-r border-surface-200-800">
+        <Navigation.Content>
+          <Navigation.Menu>
+            {#each NAV_ITEMS as item}
+              <Navigation.Trigger
+                class="{currentView === item.view ? 'preset-tonal-primary' : ''}"
+                onclick={() => navigate(item.view)}
+              >
+                <item.icon class="size-4" />
+                <Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+              </Navigation.Trigger>
+            {/each}
+          </Navigation.Menu>
+        </Navigation.Content>
+      </Navigation>
       <main class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 flex items-center px-4 border-b border-surface-700 bg-surface-800/50" style="-webkit-app-region: drag;">
-          <span class="text-sm font-medium text-surface-400">Kogoro</span>
-        </header>
+        <AppBar class="h-12 !p-0 border-b border-surface-200-800" style="-webkit-app-region: drag;">
+          <AppBar.Toolbar>
+            <AppBar.Headline>
+              <span class="text-sm font-medium text-surface-400">Kogoro</span>
+            </AppBar.Headline>
+          </AppBar.Toolbar>
+        </AppBar>
         <div class="flex-1 overflow-auto">
           {#if currentView === "review" && currentPlan && currentSessionId}
             <Review {rpc} sessionId={currentSessionId} plan={currentPlan} onComplete={onReviewComplete} />

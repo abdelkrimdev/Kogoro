@@ -79,11 +79,11 @@
         <h2 class="text-xl font-bold">Select Primary Database</h2>
         <p class="text-surface-400 text-sm">Choose the database Kogoro will use for anime lookups.</p>
         <div class="space-y-2">
-          <label class="flex items-center gap-3 p-4 rounded-lg border border-surface-700 hover:border-primary-500 cursor-pointer transition-colors">
+          <label class="flex items-center gap-3 p-4 rounded-container border border-surface-200-800 hover:border-primary-500 cursor-pointer transition-colors">
             <input type="radio" name="primaryDb" value="tvdb" bind:group={primaryDb} class="radio" />
             <span>TVDB (default)</span>
           </label>
-          <label class="flex items-center gap-3 p-4 rounded-lg border border-surface-700 hover:border-primary-500 cursor-pointer transition-colors">
+          <label class="flex items-center gap-3 p-4 rounded-container border border-surface-200-800 hover:border-primary-500 cursor-pointer transition-colors">
             <input type="radio" name="primaryDb" value="anidb" bind:group={primaryDb} class="radio" />
             <span>AniDB</span>
           </label>
@@ -109,7 +109,7 @@
         <p class="text-surface-400 text-sm">Choose how your organized files will be named.</p>
         <div class="space-y-2">
           {#each PRESETS as preset}
-            <label class="flex items-center gap-3 p-4 rounded-lg border border-surface-700 hover:border-primary-500 cursor-pointer transition-colors">
+            <label class="flex items-center gap-3 p-4 rounded-container border border-surface-200-800 hover:border-primary-500 cursor-pointer transition-colors">
               <input type="radio" name="templatePreset" value={preset.value} bind:group={templatePreset} class="radio" />
               <span>{preset.label}</span>
             </label>

@@ -85,9 +85,9 @@
       {#each ENTRY_TYPES as type}
         {@const active = typeFilter.length === 0 || typeFilter.includes(type)}
         <button
-          class="badge {active
-            ? 'bg-primary-500/20 text-primary-400 border border-primary-500/40'
-            : 'bg-surface-700 text-surface-400 border border-surface-600'}"
+          class="{active
+            ? 'badge preset-tonal-primary'
+            : 'badge preset-tonal-surface'}"
           onclick={() => toggleType(type)}
         >
           {entryTypeLabel(type)}
@@ -96,13 +96,13 @@
     </div>
     <div class="flex items-center bg-surface-700 rounded-lg border border-surface-600 p-0.5">
       <button
-        class="btn-icon btn-icon-sm {viewMode === 'grid' ? 'preset-filled-primary-500' : 'text-surface-400 hover:text-surface-200'}"
+        class="btn-icon btn-icon-sm {viewMode === 'grid' ? 'preset-filled-primary-500' : 'hover:preset-tonal'}"
         onclick={() => (viewMode = 'grid')}
       >
         <LayoutGrid class="size-4" />
       </button>
       <button
-        class="btn-icon btn-icon-sm {viewMode === 'list' ? 'preset-filled-primary-500' : 'text-surface-400 hover:text-surface-200'}"
+        class="btn-icon btn-icon-sm {viewMode === 'list' ? 'preset-filled-primary-500' : 'hover:preset-tonal'}"
         onclick={() => (viewMode = 'list')}
       >
         <List class="size-4" />
@@ -119,7 +119,7 @@
     <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 p-4">
       {#each filtered as item (item.id)}
         <button
-          class="group card hover:bg-surface-800/80 bg-surface-800 border border-surface-700 overflow-hidden cursor-pointer hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/5 transition-all text-left"
+          class="group card preset-tonal-surface cursor-pointer transition-all text-left overflow-hidden"
           onclick={() => onOpenAnime?.(item.id)}
         >
           <div class="aspect-[2/3] bg-surface-700 relative overflow-hidden">

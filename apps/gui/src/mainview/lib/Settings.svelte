@@ -284,7 +284,7 @@
         <div class="flex items-center justify-between p-3 rounded-lg bg-surface-800 border border-surface-700">
           <div class="flex items-center gap-3">
             <span class="font-medium text-sm">{plugin.name}</span>
-            <span class="badge bg-surface-500/20 text-surface-400 text-xs">{plugin.type}</span>
+            <span class="badge preset-tonal-surface text-xs">{plugin.type}</span>
             <span class="text-surface-500 text-xs">{plugin.source}</span>
           </div>
           <Switch

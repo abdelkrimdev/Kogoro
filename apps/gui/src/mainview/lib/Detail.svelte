@@ -295,9 +295,9 @@
                           <td class="text-sm font-medium whitespace-nowrap">
                             {ep.season}x{String(ep.episode).padStart(2, "0")}
                             {#if ep.missing}
-                                <span class="badge bg-warning-500/20 text-warning-400 ml-2 text-xs">Missing</span>
+                                <span class="badge preset-tonal-warning ml-2 text-xs">Missing</span>
                               {:else if isGap}
-                                <span class="badge bg-warning-500/20 text-warning-400 ml-2 text-xs">Gap</span>
+                                <span class="badge preset-tonal-warning ml-2 text-xs">Gap</span>
                             {/if}
                           </td>
                           <td class="text-sm">{ep.titleEn}</td>

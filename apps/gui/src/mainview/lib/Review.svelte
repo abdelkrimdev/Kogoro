@@ -34,15 +34,15 @@
   function getStatusBadgeClass(status: string): string {
     switch (status) {
       case "matched":
-        return "badge bg-success-500/20 text-success-400";
+        return "badge preset-tonal-success";
       case "ambiguous":
-        return "badge bg-warning-500/20 text-warning-400";
+        return "badge preset-tonal-warning";
       case "failed":
-        return "badge bg-error-500/20 text-error-400";
+        return "badge preset-tonal-error";
       case "cached":
-        return "badge bg-primary-500/20 text-primary-400";
+        return "badge preset-tonal-primary";
       default:
-        return "badge bg-surface-500/20 text-surface-400";
+        return "badge preset-tonal-surface";
     }
   }
 
@@ -237,7 +237,7 @@
                         {file.status}
                       </span>
                       {#if swapPartner}
-                        <span class="badge bg-warning-500/20 text-warning-400 text-xs">
+                        <span class="badge preset-tonal-warning text-xs">
                           Swapped
                         </span>
                       {/if}
