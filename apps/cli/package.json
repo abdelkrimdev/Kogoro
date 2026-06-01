@@ -2,15 +2,12 @@
   "name": "@kogoro/cli",
   "version": "0.1.1",
   "type": "module",
-  "private": true,
-  "main": "src/index.ts",
-  "types": "src/index.ts",
   "bin": {
     "kogoro": "src/index.ts"
   },
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun",
-    "build:bin": "bun build --compile src/index.ts --outfile dist/kogoro",
+    "build:bin": "bun build --compile ${TARGET:+--target $TARGET} src/index.ts --outfile dist/${OUTFILE:-kogoro}",
     "check": "tsc --noEmit",
     "dev": "bun run src/index.ts"
   },

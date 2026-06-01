@@ -2,10 +2,9 @@
   "name": "@kogoro/gui",
   "version": "0.1.1",
   "type": "module",
-  "private": true,
   "scripts": {
     "build": "electrobun build",
-    "build:bin": "electrobun build --release",
+    "build:bin": "electrobun build --release --env=stable",
     "check": "tsc --noEmit",
     "dev": "bun run scripts/start-dev.ts"
   },

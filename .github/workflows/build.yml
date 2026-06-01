@@ -46,7 +46,7 @@ jobs:
 
       - name: Build GUI
         working-directory: apps/gui
-        run: bunx electrobun build --env=stable
+        run: bun run build:bin
 
       - name: Upload GUI artifacts
         env:
@@ -80,7 +80,10 @@ jobs:
 
       - name: Build CLI
         working-directory: apps/cli
-        run: bun build --compile --target ${{ matrix.target }} src/index.ts --outfile dist/${{ matrix.name }}
+        run: bun run build:bin
+        env:
+          TARGET: ${{ matrix.target }}
+          OUTFILE: ${{ matrix.name }}
 
       - name: Upload CLI artifact
         env:
