@@ -1,7 +1,6 @@
 {
   "name": "kogoro",
-  "description": "",
-  "version": "0.1.0",
+  "description": "Kogoro intelligently organizes and renames anime collections using AniDB/TVDB matches. Features a safe 4-phase workflow (Scan, Plan, Review, Execute), auto-merge, and both CLI + GUI.",
   "type": "module",
   "private": true,
   "workspaces": [
@@ -13,7 +12,7 @@
     "test": "bun test",
     "lint": "biome lint --write .",
     "format": "biome format --write .",
-    "knip": "bun x knip --include exports,files,dependencies",
+    "knip": "knip --include exports,files,dependencies",
     "check:all": "biome check . && bun knip && bun check && bun test",
     "start:cli": "bun run --filter @kogoro/cli dev",
     "start:gui": "bun run --filter @kogoro/gui dev",
@@ -24,6 +23,7 @@
     "@biomejs/biome": "^2.4.16",
     "@types/bun": "^1.3.14",
     "@types/node": "^25.9.1",
+    "@varlock/bumpy": "^1.10.2",
     "knip": "^6.15.0",
     "lefthook": "^2.1.9",
     "typescript": "^5.9.3"

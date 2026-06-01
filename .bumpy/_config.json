@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dmno-dev/bumpy/main/packages/bumpy/config-schema.json",
+  "baseBranch": "main",
+  "changelog": "github",
+  "fixed": [["@kogoro/cli", "@kogoro/gui"]],
+  "privatePackages": {
+    "version": true,
+    "tag": true
+  },
+  "publish": {
+    "publishManager": "npm"
+  },
+  "packages": {
+    "@kogoro/cli": {
+      "skipNpmPublish": true
+    },
+    "@kogoro/gui": {
+      "skipNpmPublish": true
+    }
+  },
+  "versionPr": {
+    "title": "Release Kogoro",
+    "branch": "bumpy/version-packages"
+  }
+}
