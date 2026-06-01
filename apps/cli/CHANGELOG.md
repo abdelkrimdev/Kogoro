@@ -36,13 +36,8 @@ First public release of Kogoro — an anime media organizer powered by AI databa
 ### Bug fixes
 - Handle anidb as built-in primary database in scan
 - Ensure `getPassword` returns null instead of undefined when secret is missing
-- Correct import statements in CSS and HTML files
-- Fix debug text in AppBar headline
 
 ### Refactoring
-- Migrate GUI from imperative DOM to Svelte components
-- Build webview with Vite instead of Electrobun views
-- Migrate to Skeleton UI components and Lucide icons
 - Restructure single-package repo into monorepo
 - Extract shared DirectoryWalker module
 - Consolidate MatchResult builders into matcher.ts
