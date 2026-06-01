@@ -4,6 +4,14 @@
 
 Always use Context7 to fetch the latest API docs before using any library or framework. Do not rely on training-data knowledge for API signatures, options, or behavior — it may be outdated.
 
+## Svelte
+
+Always use the `svelte-5` skill when working with Svelte 5.
+
+## UI Components
+
+Always use the `skeleton-svelte` skill when building, reviewing, or styling components.
+
 ## Test fixtures (`src/fixtures.ts`)
 
 Before writing or modifying any test, review `src/fixtures.ts` to avoid duplicating test utilities. This file is the single source of truth for reusable test doubles, factories, and helpers.
@@ -29,3 +37,7 @@ All `describe` and `test` names must be descriptive, clear, and consistent. Foll
 - Avoid implementation details in test names (e.g. reference to internal filenames like `"kogoro.toml is written to disk"`, or internal method names like `"matchBatch"`). Describe the observable outcome instead.
 - Test names should be short enough to read at a glance. If a name exceeds ~80 characters, consider whether the test is doing too much.
 - Use consistent verb tense: prefer present-tense `"returns"`, `"skips"`, `"downloads"` over passive or future constructions.
+
+## Bumpy bump files
+
+Every commit that introduces a user-facing change (feature, bug fix, improvement) must include a corresponding bump file in `.bumpy/`. Use the `bumpy` skill for details on creating bump files and the release workflow.
