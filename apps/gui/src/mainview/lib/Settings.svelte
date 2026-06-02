@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Button, Input, Label, Radio, Select, Switch, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
+  import { Switch, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
 
   type SettingsField =
     | { type: "select"; key: string; label: string; options: Array<{ value: string; label: string }> }
@@ -137,9 +137,9 @@
 <div class="max-w-2xl mx-auto p-6 space-y-8">
   <div class="flex items-center justify-between">
     <h2 class="text-xl font-bold">Settings</h2>
-    <Button class="preset-filled-primary-500 rounded-lg font-medium" onclick={saveSettings}>
+    <button class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={saveSettings}>
       Save Changes
-    </Button>
+    </button>
   </div>
 
   <section class="space-y-4">
@@ -147,36 +147,36 @@
     <div class="grid grid-cols-1 gap-4">
       {#each GENERAL_FIELDS as field}
         <div>
-          <Label for={field.key} class="block text-sm font-medium text-surface-700-300 mb-1">{field.label}</Label>
+          <label for={field.key} class="block text-sm font-medium text-surface-700-300 mb-1">{field.label}</label>
           {#if field.type === "select"}
-            <Select
+            <select
               id={field.key}
               value={String(settingsData[field.key] ?? "")}
               onchange={(e) => updateField(field.key, (e.target as HTMLSelectElement).value)}
-              class="w-full text-sm rounded-lg border-surface-300-700"
+              class="select w-full text-sm rounded-lg border-surface-300-700"
             >
               {#each field.options as option}
                 <option value={option.value}>{option.label}</option>
               {/each}
-            </Select>
+            </select>
           {:else if field.type === "text" || field.type === "tag-input"}
-            <Input
+            <input
               type="text"
               id={field.key}
               value={String(settingsData[field.key] ?? "")}
               placeholder={field.placeholder ?? ""}
               oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
-              class="w-full rounded-lg border-surface-300-700 text-sm py-2"
+              class="input w-full rounded-lg border-surface-300-700 text-sm py-2"
             />
           {:else if field.type === "number"}
-            <Input
+            <input
               type="number"
               id={field.key}
               value={Number(settingsData[field.key] ?? 0)}
               min={field.min ?? 1}
               max={field.max ?? 16}
               oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
-              class="w-full rounded-lg border-surface-300-700 text-sm py-2"
+              class="input w-full rounded-lg border-surface-300-700 text-sm py-2"
             />
           {/if}
         </div>
@@ -190,54 +190,55 @@
       {#each ADVANCED_FIELDS as field}
         <div>
           {#if field.type === "radio"}
-            <Label class="block text-sm font-medium text-surface-700-300 mb-1">{field.label}</Label>
+            <label class="block text-sm font-medium text-surface-700-300 mb-1">{field.label}</label>
           {:else}
-            <Label for={field.key} class="block text-sm font-medium text-surface-700-300 mb-1">{field.label}</Label>
+            <label for={field.key} class="block text-sm font-medium text-surface-700-300 mb-1">{field.label}</label>
           {/if}
           {#if field.type === "number"}
-            <Input
+            <input
               type="number"
               id={field.key}
               value={Number(settingsData[field.key] ?? 0)}
               min={field.min ?? 1}
               max={field.max ?? 16}
               oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
-              class="w-full rounded-lg border-surface-300-700 text-sm py-2"
+              class="input w-full rounded-lg border-surface-300-700 text-sm py-2"
             />
           {:else if field.type === "radio"}
             <div class="flex gap-4">
               {#each field.options as option}
                 <label class="flex items-center gap-2 cursor-pointer">
-                  <Radio
+                  <input
+                    type="radio"
                     name={field.key}
                     value={option.value}
                     checked={settingsData[field.key] === option.value}
                     onchange={() => updateField(field.key, option.value)}
-                    class="text-primary-500"
+                    class="radio text-primary-500"
                   />
                   <span class="text-sm">{option.label}</span>
                 </label>
               {/each}
             </div>
           {:else if field.type === "select"}
-            <Select
+            <select
               id={field.key}
               value={String(settingsData[field.key] ?? "")}
               onchange={(e) => updateField(field.key, (e.target as HTMLSelectElement).value)}
-              class="w-full text-sm rounded-lg border-surface-300-700"
+              class="select w-full text-sm rounded-lg border-surface-300-700"
             >
               {#each field.options as option}
                 <option value={option.value}>{option.label}</option>
               {/each}
-            </Select>
+            </select>
           {:else}
-            <Input
+            <input
               type="text"
               id={field.key}
               value={String(settingsData[field.key] ?? "")}
               placeholder={field.placeholder ?? ""}
               oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
-              class="w-full rounded-lg border-surface-300-700 text-sm py-2"
+              class="input w-full rounded-lg border-surface-300-700 text-sm py-2"
             />
           {/if}
         </div>
@@ -251,18 +252,18 @@
       {#each Object.entries(apiKeys) as [name, masked]}
         {#if editingApiKey === name}
           <div class="flex items-center gap-2 p-3">
-            <Input
+            <input
               type="password"
               placeholder="Enter new {name} API key"
               bind:value={newApiKey}
-              class="flex-1 rounded-lg border-surface-300-700 text-sm py-2"
+              class="input flex-1 rounded-lg border-surface-300-700 text-sm py-2"
             />
-            <Button class="btn-sm preset-filled-primary-500 rounded-lg" onclick={() => updateApiKey(name)}>
+            <button class="btn btn-sm preset-filled-primary-500 rounded-lg" onclick={() => updateApiKey(name)}>
               Save
-            </Button>
-            <Button class="btn-sm preset-outlined-surface-300-700 rounded-lg" onclick={() => { editingApiKey = null; newApiKey = ""; }}>
+            </button>
+            <button class="btn btn-sm preset-outlined-surface-300-700 rounded-lg" onclick={() => { editingApiKey = null; newApiKey = ""; }}>
               Cancel
-            </Button>
+            </button>
           </div>
         {:else}
           <div class="flex items-center justify-between p-3 rounded-lg bg-surface-200-800 border border-surface-300-700">
@@ -270,9 +271,9 @@
               <span class="font-medium text-sm text-surface-950-50">{name}</span>
               <span class="text-surface-600-400 text-sm font-mono">{masked}</span>
             </div>
-            <Button class="btn-sm preset-outlined-surface-300-700 rounded-lg" onclick={() => { editingApiKey = name; newApiKey = ""; }}>
+            <button class="btn btn-sm preset-outlined-surface-300-700 rounded-lg" onclick={() => { editingApiKey = name; newApiKey = ""; }}>
               Update
-            </Button>
+            </button>
           </div>
         {/if}
       {/each}

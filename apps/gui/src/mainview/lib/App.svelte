@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
   import { FolderSearch, Search, LayoutGrid, Settings } from '@lucide/svelte';
-  import { Navigation, AppBar, Button } from '@skeletonlabs/skeleton-svelte';
+  import { Navigation, AppBar } from '@skeletonlabs/skeleton-svelte';
   import Wizard from "./Wizard.svelte";
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
@@ -155,12 +155,12 @@
               <div class="text-center space-y-4">
                 <FolderSearch class="size-16 text-surface-600-400 mx-auto" />
                 <p class="text-surface-600-400 text-sm">Drop a folder to scan for anime files.</p>
-                <Button
-                  class="preset-filled-primary-500 rounded-lg font-medium"
+                <button
+                  class="btn preset-filled-primary-500 rounded-lg font-medium"
                   onclick={startScan}
                 >
                   Start Scan
-                </Button>
+                </button>
               </div>
             </div>
           {/if}

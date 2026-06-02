@@ -1,6 +1,6 @@
 <script lang="ts">
   import { X, LoaderCircle } from '@lucide/svelte';
-  import { Button, Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
+  import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import type { ResolveCandidate } from "../state/resolve-state";
 
   interface Props {
@@ -28,7 +28,7 @@
         <div class="p-4 border-b border-surface-300-700">
           <div class="flex items-center justify-between mb-2">
             <Dialog.Title class="text-lg font-semibold text-surface-950-50">Resolve Ambiguous Match</Dialog.Title>
-            <Dialog.CloseTrigger class="preset-tonal-surface btn-icon-sm rounded-lg">
+            <Dialog.CloseTrigger class="btn preset-tonal-surface btn-icon-sm rounded-lg">
               <X class="size-4" />
             </Dialog.CloseTrigger>
           </div>

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Check } from '@lucide/svelte';
-  import { Button, Input, Radio } from '@skeletonlabs/skeleton-svelte';
   import { canAdvance, canGoBack, getNextStep, getPreviousStep, type WizardStep } from "../state/wizard-state";
 
   interface Props {
@@ -81,11 +80,11 @@
         <p class="text-surface-700-300 text-sm">Choose the database Kogoro will use for anime lookups.</p>
         <div class="space-y-2">
           <label class="flex items-center gap-3 p-4 rounded-container border border-surface-200-800 hover:border-primary-500 cursor-pointer transition-colors">
-            <Radio name="primaryDb" value="tvdb" bind:group={primaryDb} class="text-primary-500" />
+            <input type="radio" name="primaryDb" value="tvdb" bind:group={primaryDb} class="radio text-primary-500" />
             <span>TVDB (default)</span>
           </label>
           <label class="flex items-center gap-3 p-4 rounded-container border border-surface-200-800 hover:border-primary-500 cursor-pointer transition-colors">
-            <Radio name="primaryDb" value="anidb" bind:group={primaryDb} class="text-primary-500" />
+            <input type="radio" name="primaryDb" value="anidb" bind:group={primaryDb} class="radio text-primary-500" />
             <span>AniDB</span>
           </label>
         </div>
@@ -94,11 +93,11 @@
       <div class="space-y-6">
         <h2 class="text-xl font-bold">Enter API Key</h2>
         <p class="text-surface-700-300 text-sm">Your API key will be stored securely in your OS keyring.</p>
-        <Input
+        <input
           type="password"
           placeholder="Required"
           bind:value={apiKey}
-          class="w-full rounded-lg border-surface-300-700 text-sm py-2"
+          class="input w-full rounded-lg border-surface-300-700 text-sm py-2"
         />
         {#if error}
           <p class="text-error-500-400 text-sm">{error}</p>
@@ -111,7 +110,7 @@
         <div class="space-y-2">
           {#each PRESETS as preset}
             <label class="flex items-center gap-3 p-4 rounded-container border border-surface-200-800 hover:border-primary-500 cursor-pointer transition-colors">
-              <Radio name="templatePreset" value={preset.value} bind:group={templatePreset} class="text-primary-500" />
+              <input type="radio" name="templatePreset" value={preset.value} bind:group={templatePreset} class="radio text-primary-500" />
               <span>{preset.label}</span>
             </label>
           {/each}
@@ -121,24 +120,24 @@
       <div class="space-y-6 text-center">
         <h2 class="text-xl font-bold">You're All Set!</h2>
         <p class="text-surface-700-300 text-sm">Kogoro is configured and ready to organize your anime collection.</p>
-        <Button class="preset-filled-primary-500 rounded-lg font-medium" onclick={onComplete}>
+        <button class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={onComplete}>
           <Check class="size-4 inline-block mr-1" /> Enter Kogoro
-        </Button>
+        </button>
       </div>
     {/if}
 
     <div class="flex justify-between mt-8">
       {#if showBack}
-        <Button class="preset-outlined-surface-300-700 rounded-lg font-medium" onclick={goBack}>
+        <button class="btn preset-outlined-surface-300-700 rounded-lg font-medium" onclick={goBack}>
           Back
-        </Button>
+        </button>
       {:else}
         <div></div>
       {/if}
       {#if showNext}
-        <Button class="preset-filled-primary-500 rounded-lg font-medium" onclick={goNext}>
+        <button class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={goNext}>
           {step === "template" ? "Finish" : "Next"}
-        </Button>
+        </button>
       {/if}
     </div>
   </div>

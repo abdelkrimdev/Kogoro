@@ -1,6 +1,5 @@
 <script lang="ts">
   import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, LoaderCircle } from '@lucide/svelte';
-  import { Button, Checkbox, Input } from '@skeletonlabs/skeleton-svelte';
   import { ENTRY_LABELS, typeBadgeClass } from "../shared";
   import { getAnimeDirectory } from "../state/detail-state";
   import {
@@ -190,16 +189,16 @@
   <div class="flex flex-col items-center justify-center h-full gap-4">
     <TriangleAlert class="size-12 text-error-400-400" />
     <p class="text-surface-700-300 text-sm">{error ?? "Unknown error"}</p>
-    <Button class="preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
+    <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
       Back to Library
-    </Button>
+    </button>
   </div>
 {:else}
   <div class="flex flex-col h-full">
     <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-300-700 bg-surface-200-800/50 flex-shrink-0">
-      <Button class="preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
+      <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
         <ChevronLeft class="size-4" /> Library
-      </Button>
+      </button>
     </div>
 
     <div class="flex-1 overflow-y-auto">
@@ -217,31 +216,31 @@
             </div>
             <div class="flex flex-col gap-2 mt-4">
               {#if artworkLoading}
-                <Button disabled class="flex items-center gap-2 preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                <button disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
                   <LoaderCircle class="size-4 animate-spin" /> Downloading...
-                </Button>
+                </button>
               {:else}
-                <Button class="flex items-center gap-2 preset-filled-primary-500 rounded-lg font-medium" onclick={downloadArtwork}>
+                <button class="flex items-center gap-2 btn preset-filled-primary-500 rounded-lg font-medium" onclick={downloadArtwork}>
                   <ImageDown class="size-4" /> Download Cover Art
-                </Button>
+                </button>
               {/if}
               {#if rescanLoading}
-                <Button disabled class="flex items-center gap-2 preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                <button disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
                   <LoaderCircle class="size-4 animate-spin" /> Scanning...
-                </Button>
+                </button>
               {:else}
-                <Button class="flex items-center gap-2 preset-tonal-surface rounded-lg font-medium" onclick={rescan}>
+                <button class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium" onclick={rescan}>
                   <RefreshCw class="size-4" /> Rescan
-                </Button>
+                </button>
               {/if}
               {#if metadataLoading}
-                <Button disabled class="flex items-center gap-2 preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                <button disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
                   <LoaderCircle class="size-4 animate-spin" /> Generating...
-                </Button>
+                </button>
               {:else}
-                <Button class="flex items-center gap-2 preset-filled-success-500 rounded-lg font-medium" onclick={generateMetadata}>
+                <button class="flex items-center gap-2 btn preset-filled-success-500 rounded-lg font-medium" onclick={generateMetadata}>
                   <FileText class="size-4" /> Generate Metadata
-                </Button>
+                </button>
               {/if}
             </div>
           </div>
@@ -311,10 +310,11 @@
                           </td>
                           <td class="text-center">
                             {#if !ep.missing}
-                              <Checkbox
+                              <input
+                                type="checkbox"
+                                class="checkbox"
                                 checked={ep.watched}
                                 onchange={() => toggleWatched(ep.id)}
-                                class="text-primary-500"
                               />
                             {:else}
                               <span class="text-surface-600-400">—</span>
@@ -322,9 +322,9 @@
                           </td>
                           <td>
                             {#if !ep.missing}
-                              <Input
+                              <input
                                 type="text"
-                                class="w-full text-sm text-surface-700-300 border-b border-surface-300-700 focus:border-primary-500 px-1 py-0.5"
+                                class="input w-full text-sm text-surface-700-300 border-b border-surface-300-700 focus:border-primary-500 px-1 py-0.5"
                                 placeholder="Add note..."
                                 value={ep.notes ?? ""}
                                 onchange={(e) => saveNotes(ep.id, (e.target as HTMLInputElement).value)}

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { type LibraryItem, filterAndSort } from "../state/library-state";
   import { typeBadgeClass, entryTypeLabel } from "../shared";
-  import { Button } from '@skeletonlabs/skeleton-svelte';
   import { Search, LayoutGrid, List, Folder, ChevronUp, ChevronDown } from '@lucide/svelte';
 
   interface Props {
@@ -66,12 +65,12 @@
   <div class="flex flex-col items-center justify-center h-full gap-4">
     <Folder class="size-16 text-surface-600-400" />
     <p class="text-surface-600-400 text-sm">No library yet — scan a folder to get started.</p>
-    <Button
-      class="preset-filled-primary-500 rounded-lg font-medium"
+    <button
+      class="btn preset-filled-primary-500 rounded-lg font-medium"
       onclick={() => onNavigate?.("scan")}
     >
       Go to Scan
-    </Button>
+    </button>
   </div>
 {:else}
   <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-300-700 bg-surface-200-800/50 flex-shrink-0">

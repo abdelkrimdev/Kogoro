@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
   import { Search, Tv } from '@lucide/svelte';
-  import { Button, Input, Select } from '@skeletonlabs/skeleton-svelte';
   import { filterReviewGroups, deriveReviewStats, findSwapPairForFile, type StatusFilter } from "../state/review-state";
   import type { ResolveCandidate } from "../state/resolve-state";
   import ResolveModal from "./ResolveModal.svelte";
@@ -147,15 +146,15 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-bold">Review Rename Plan</h2>
       <div class="flex gap-2">
-        <Button class="preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
+        <button class="btn preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
           Approve All
-        </Button>
-        <Button class="preset-tonal-surface rounded-lg font-medium" onclick={rejectAll}>
+        </button>
+        <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={rejectAll}>
           Reject All
-        </Button>
-        <Button class="preset-filled-error-500 rounded-lg font-medium" onclick={cancel}>
+        </button>
+        <button class="btn preset-filled-error-500 rounded-lg font-medium" onclick={cancel}>
           Cancel
-        </Button>
+        </button>
       </div>
     </div>
 
@@ -173,22 +172,22 @@
         <div class="ig-cell preset-tonal">
           <Search class="size-4" />
         </div>
-        <Input
+        <input
           type="text"
           placeholder="Search files or anime..."
           bind:value={searchQuery}
-          class="flex-1"
+          class="input flex-1"
         />
       </div>
-      <Select
+      <select
         bind:value={statusFilter}
-        class="text-sm px-3 py-2 rounded-lg w-auto"
+        class="select text-sm px-3 py-2 rounded-lg w-auto"
       >
         <option value="all">All Status</option>
         <option value="matched">Matched</option>
         <option value="ambiguous">Ambiguous</option>
         <option value="needs-attention">Needs Attention</option>
-      </Select>
+      </select>
     </div>
   </div>
 
@@ -249,12 +248,12 @@
                     {/if}
                   </div>
                   {#if file.status === "ambiguous"}
-                    <Button
-                      class="btn-sm preset-filled-warning-500 rounded font-medium"
+                    <button
+                      class="btn btn-sm preset-filled-warning-500 rounded font-medium"
                       onclick={() => openResolveModal(file.fileId, file.sourcePath)}
                     >
                       Resolve
-                    </Button>
+                    </button>
                   {/if}
                 </div>
               </div>
