@@ -16,10 +16,12 @@
 
   let { rpc, onMessage }: Props = $props();
 
-  const themeState = createRPCThemeState(rpc);
-  let themeMode = $state(themeState.mode);
+  let themeState: ReturnType<typeof createRPCThemeState> | null = null;
+  let themeMode = $state<"light" | "dark">("light");
 
   $effect(() => {
+    themeState = createRPCThemeState(rpc);
+    themeMode = themeState.mode;
     themeState.load();
   });
 
@@ -41,11 +43,13 @@
   }
 
   $effect(() => {
+    if (!themeState) return;
     const cleanup = applyThemeToDocument(themeState);
     return cleanup;
   });
 
   $effect(() => {
+    if (!themeState) return;
     return themeState.onChange((mode) => {
       themeMode = mode;
     });
@@ -176,7 +180,7 @@
         <button
           type="button"
           class="btn-icon preset-tonal-surface"
-          onclick={() => themeState.toggle()}
+          onclick={() => themeState?.toggle()}
           aria-label="Toggle theme"
         >
           {#if themeMode === "dark"}
