@@ -1,7 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { ConfigManager, withTempDir } from "@kogoro/core";
+import { ConfigManager, withTempDir, writeTempFile } from "@kogoro/core";
 import { buildPluginList, buildSettingsFormData, maskApiKey } from "./settings";
 
 describe("maskApiKey", () => {
@@ -50,7 +48,7 @@ describe("buildPluginList", () => {
 describe("buildSettingsFormData", () => {
   test("builds form data from config and api keys", async () => {
     await withTempDir("settings", async (dir) => {
-      writeFileSync(join(dir, "config.toml"), 'primary-db = "anidb"\n');
+      writeTempFile(dir, "config.toml", 'primary-db = "anidb"\n');
       const reloaded = new ConfigManager({ configDir: dir });
 
       const formData = buildSettingsFormData(reloaded, {

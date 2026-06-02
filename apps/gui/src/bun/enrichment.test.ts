@@ -4,22 +4,20 @@ import { join } from "node:path";
 import type { DatabasePlugin } from "@kogoro/core";
 import {
   ConfigManager,
-  CredentialStore,
   createArtworkDb,
   createLibraryDb,
+  createSilentCredentialStore,
+  createTrackingEnrichmentSend,
   MatchCache,
   makeCachedMatch,
   mockFetch,
+  noopEnrichmentSend,
   testImageBytes,
   withMockFetch,
   withTempDir,
   writeTempFile,
 } from "@kogoro/core";
 import { createEnrichmentHandlers } from "./enrichment";
-
-function createSilentCredentialStore(): CredentialStore {
-  return new CredentialStore({ keytar: null });
-}
 
 async function seedLibraryAndCache(
   configDir: string,
@@ -65,16 +63,6 @@ async function seedLibraryAndCache(
   return { animeId: anime.id };
 }
 
-const noopSend = {};
-
-function makeSend(captured: Array<{ completed: number; total: number; status: string }>) {
-  return {
-    enrichmentProgress: (data: { completed: number; total: number; status: string }) => {
-      captured.push(data);
-    },
-  };
-}
-
 describe("enrichArtwork", () => {
   test("fails when anime is not found in library", async () => {
     await withTempDir("enrich-artwork-unknown", async (dir) => {
@@ -83,7 +71,7 @@ describe("enrichArtwork", () => {
         configManager,
         credentialStore: createSilentCredentialStore(),
         configDir: dir,
-        send: noopSend,
+        send: noopEnrichmentSend,
         database: createArtworkDb([]),
       });
 
@@ -110,7 +98,7 @@ describe("enrichArtwork", () => {
         configManager,
         credentialStore: createSilentCredentialStore(),
         configDir: dir,
-        send: noopSend,
+        send: noopEnrichmentSend,
         database: createArtworkDb([]),
       });
 
@@ -133,7 +121,7 @@ describe("enrichArtwork", () => {
           configManager,
           credentialStore: createSilentCredentialStore(),
           configDir: dir,
-          send: noopSend,
+          send: noopEnrichmentSend,
         });
 
         const result = await handlers.enrichArtwork({ id: String(animeId) });
@@ -173,7 +161,7 @@ describe("enrichArtwork", () => {
             configManager,
             credentialStore: createSilentCredentialStore(),
             configDir: dir,
-            send: noopSend,
+            send: noopEnrichmentSend,
             database: artworkDb,
           });
 
@@ -218,7 +206,7 @@ describe("enrichArtwork", () => {
             configManager,
             credentialStore: createSilentCredentialStore(),
             configDir: dir,
-            send: makeSend(progressEvents),
+            send: createTrackingEnrichmentSend(progressEvents),
             database: artworkDb,
           });
 
@@ -246,7 +234,7 @@ describe("enrichArtwork", () => {
         configManager,
         credentialStore: createSilentCredentialStore(),
         configDir: dir,
-        send: noopSend,
+        send: noopEnrichmentSend,
         database: artworkDb,
       });
 
@@ -266,7 +254,7 @@ describe("enrichMetadata", () => {
         configManager,
         credentialStore: createSilentCredentialStore(),
         configDir: dir,
-        send: noopSend,
+        send: noopEnrichmentSend,
         database: createArtworkDb([]),
       });
 
@@ -286,7 +274,7 @@ describe("enrichMetadata", () => {
         configManager,
         credentialStore: createSilentCredentialStore(),
         configDir: dir,
-        send: noopSend,
+        send: noopEnrichmentSend,
         database: createArtworkDb([]),
       });
 
@@ -316,7 +304,7 @@ describe("enrichMetadata", () => {
         configManager,
         credentialStore: createSilentCredentialStore(),
         configDir: dir,
-        send: makeSend(progressEvents),
+        send: createTrackingEnrichmentSend(progressEvents),
         database: createArtworkDb([]),
       });
 
@@ -338,7 +326,7 @@ describe("enrichMetadata", () => {
         configManager,
         credentialStore: createSilentCredentialStore(),
         configDir: dir,
-        send: noopSend,
+        send: noopEnrichmentSend,
       });
 
       const result = await handlers.enrichMetadata({ id: String(animeId) });

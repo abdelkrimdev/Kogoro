@@ -14,6 +14,7 @@ export {
   SCHEMA_DEFAULTS,
   TEMPLATE_PRESETS,
 } from "./config/schema";
+export type { EnrichmentSend } from "./fixtures";
 export {
   createAmbiguousMatcher,
   createArtworkDb,
@@ -32,7 +33,9 @@ export {
   createMockSubtitlePlugin,
   createSequenceFetch,
   createSequenceHttpClient,
+  createSilentCredentialStore,
   createStandardMockDb,
+  createTrackingEnrichmentSend,
   createTrackingFetch,
   createTrackingMatcher,
   makeCachedMatch,
@@ -44,6 +47,7 @@ export {
   makeThrowingDb,
   mockFetch,
   mockJsonFetch,
+  noopEnrichmentSend,
   seedCacheEntry,
   silentBunSecrets,
   stubBunSecrets,

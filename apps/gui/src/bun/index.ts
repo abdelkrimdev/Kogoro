@@ -1,70 +1,12 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, extname, join } from "node:path";
-import type { MatchResult, ParsedResult } from "@kogoro/core";
-import {
-  bestPerAnimeId,
-  CONFIG_DIR,
-  ConfigManager,
-  createCredentialStore,
-  MatchCache,
-  Matcher,
-  OverrideStore,
-  parse,
-  Renamer,
-  SCHEMA_DEFAULTS,
-  Scanner,
-  ScanOrchestrator,
-  walk,
-} from "@kogoro/core";
-import { PluginFactory } from "@kogoro/plugins";
+import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
 import { BrowserView, BrowserWindow } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
 import { shouldShowOnboarding } from "./onboarding";
-import { buildSettingsFormData } from "./settings";
-
-const STATE_FILE = join(import.meta.dir, "../../.window-state.json");
-const THEME_FILE = join(import.meta.dir, "../../.theme-state.json");
-
-function loadWindowState(): { x: number; y: number; width: number; height: number } | null {
-  try {
-    if (existsSync(STATE_FILE)) {
-      return JSON.parse(readFileSync(STATE_FILE, "utf-8"));
-    }
-  } catch {
-    // ignore corrupt state
-  }
-  return null;
-}
-
-function saveWindowState(state: { x: number; y: number; width: number; height: number }) {
-  try {
-    writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-  } catch {
-    // ignore write errors
-  }
-}
-
-function loadThemeMode(): "light" | "dark" | null {
-  try {
-    if (existsSync(THEME_FILE)) {
-      const data = JSON.parse(readFileSync(THEME_FILE, "utf-8"));
-      if (data.mode === "light" || data.mode === "dark") return data.mode;
-    }
-  } catch {
-    // ignore corrupt state
-  }
-  return null;
-}
-
-function saveThemeMode(mode: "light" | "dark") {
-  try {
-    writeFileSync(THEME_FILE, JSON.stringify({ mode }, null, 2));
-  } catch {
-    // ignore write errors
-  }
-}
+import { createScanOrchestrator, findCandidateMatches, getMatcher, getOrchestrator } from "./scan";
+import { applySettingsUpdate, buildSettingsFormData } from "./settings";
+import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "./state";
 
 const savedState = loadWindowState();
 
@@ -72,128 +14,6 @@ const configManager = new ConfigManager();
 const credentialStore = createCredentialStore();
 
 const libraryHandlers = createLibraryHandlers(CONFIG_DIR);
-
-const scanOrchestrators = new Map<string, ScanOrchestrator>();
-const scanMatchers = new Map<string, Matcher>();
-
-function getOrchestrator(sessionId: string): ScanOrchestrator {
-  const orchestrator = scanOrchestrators.get(sessionId);
-  if (!orchestrator) {
-    throw new Error("Scan session not found");
-  }
-  return orchestrator;
-}
-
-async function findCandidateMatches(
-  matcher: Matcher,
-  filePath: string,
-): Promise<{ parsed: ParsedResult; best: MatchResult[] }> {
-  const parsed = parse(basename(filePath));
-  const matches = await matcher.match(parsed);
-  const scoredMatches = matches.filter((m) => !m.failureReason);
-  const hasEpisode = parsed.episode !== null;
-  const goodMatches = scoredMatches.filter((m) => (hasEpisode ? m.episode !== undefined : true));
-  const best = bestPerAnimeId(goodMatches);
-  return { parsed, best };
-}
-
-async function createScanOrchestrator(sessionId: string): Promise<ScanOrchestrator> {
-  const factory = new PluginFactory(configManager, credentialStore);
-  const database = await factory.primaryDatabase();
-
-  const matcher = database ? new Matcher({ database }) : undefined;
-  const cache = new MatchCache();
-  const overrideStore = new OverrideStore(CONFIG_DIR);
-
-  const filenameTemplate = configManager.getTemplate();
-  const directoryTemplate =
-    (configManager.get("template.directory") as string) ?? SCHEMA_DEFAULTS.template.directory;
-  const renamer = new Renamer({
-    filenameTemplate: filenameTemplate.includes("{ext}")
-      ? filenameTemplate
-      : `${filenameTemplate}.{ext}`,
-    directoryTemplate,
-  });
-
-  const scanner = matcher ? new Scanner({ matcher, cache, renamer, overrideStore }) : undefined;
-
-  if (matcher) {
-    scanMatchers.set(sessionId, matcher);
-  }
-
-  const orchestrator = new ScanOrchestrator({
-    scanner: { match: async () => [], matchBatch: async () => [] },
-    walk: async (path: string) =>
-      walk(path, SCHEMA_DEFAULTS["media-extensions"], {
-        excludePatterns: configManager.getList("exclude-patterns"),
-      }),
-    scanFile: async (filePath: string, options?: { dryRun?: boolean }) => {
-      if (!scanner) {
-        return {
-          file: filePath,
-          hash: "",
-          parsed: {
-            title: null,
-            season: null,
-            episode: null,
-            tags: { group: null, resolution: null, source: null, codec: null, audio: null },
-          },
-          match: null,
-          plan: null,
-          cached: false,
-          skipped: false,
-          status: "failed" as const,
-          failureReason: "No database configured",
-        };
-      }
-      return scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true });
-    },
-    resolveFile: matcher
-      ? async (filePath: string, animeId: string, episodeId: string) => {
-          const { parsed, best } = await findCandidateMatches(matcher, filePath);
-
-          const chosen = best.find((m) => m.anime.id === animeId && m.episode?.id === episodeId);
-
-          if (!chosen) {
-            return {
-              file: filePath,
-              hash: "",
-              parsed,
-              match: null,
-              plan: null,
-              cached: false,
-              skipped: false,
-              status: "failed" as const,
-              failureReason: "Selected candidate not found",
-            };
-          }
-
-          const extension = extname(filePath).replace(".", "") || "mkv";
-          const plan = renamer.plan(filePath, chosen, extension);
-
-          return {
-            file: filePath,
-            hash: "",
-            parsed,
-            match: chosen,
-            plan,
-            cached: false,
-            skipped: false,
-            status: "matched" as const,
-          };
-        }
-      : undefined,
-    executeRename: scanner
-      ? async (plan, baseDir) => {
-          const result = renamer.execute(plan, baseDir);
-          return { success: result.success, error: result.error };
-        }
-      : undefined,
-  });
-
-  scanOrchestrators.set(sessionId, orchestrator);
-  return orchestrator;
-}
 
 async function handleEnrichment(params: { id: string }, command: "artwork" | "metadata") {
   const send = rpc.send as unknown as {
@@ -234,17 +54,14 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       },
       writeOnboardingConfig: async (params) => {
         const { primaryDb, apiKey, templatePreset, templateCustom } = params;
-        // Set primary-db
         const result1 = configManager.set("primary-db", primaryDb);
         if (!result1.success) return { success: false, error: result1.error };
-        // Set template
         const result2 = configManager.set("template.preset", templatePreset);
         if (!result2.success) return { success: false, error: result2.error };
         if (templateCustom) {
           const result3 = configManager.set("template.custom", templateCustom);
           if (!result3.success) return { success: false, error: result3.error };
         }
-        // Store API key if provided
         if (apiKey) {
           try {
             await credentialStore.setCredential(primaryDb, apiKey);
@@ -273,30 +90,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return buildSettingsFormData(configManager, apiKeys);
       },
       updateSettings: async (params) => {
-        const fieldMap: Record<string, string> = {
-          primaryDb: "primary-db",
-          secondaryDbs: "secondary-dbs",
-          templatePreset: "template.preset",
-          templateCustom: "template.custom",
-          directoryTemplate: "template.directory",
-          mediaExtensions: "media-extensions",
-          excludePatterns: "exclude-patterns",
-          scanConcurrency: "scan-concurrency",
-          fetchConcurrency: "fetch-concurrency",
-          episodeNumbering: "episode-numbering",
-          renameAction: "rename-action",
-          subtitleLanguage: "subtitle-language",
-        };
-
-        for (const [key, value] of Object.entries(params)) {
-          if (value === undefined) continue;
-          const configKey = fieldMap[key];
-          if (!configKey) continue;
-          const stringValue = Array.isArray(value) ? value.join(",") : String(value);
-          const result = configManager.set(configKey, stringValue);
-          if (!result.success) return { success: false, error: result.error };
-        }
-        return { success: true };
+        return applySettingsUpdate(configManager, params);
       },
       updateApiKey: async (params) => {
         const { plugin, apiKey } = params;
@@ -330,7 +124,11 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       scanStart: async (params) => {
         const { path } = params;
         const sessionId = crypto.randomUUID();
-        const orchestrator = await createScanOrchestrator(sessionId);
+        const orchestrator = await createScanOrchestrator(
+          sessionId,
+          configManager,
+          credentialStore,
+        );
 
         const send = rpc.send as unknown as {
           scanProgress?: (data: unknown) => void;
@@ -404,7 +202,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         }
         if (!sourcePath) return { candidates: [] };
 
-        const matcher = scanMatchers.get(sessionId);
+        const matcher = getMatcher(sessionId);
         if (!matcher) return { candidates: [] };
 
         const { best } = await findCandidateMatches(matcher, sourcePath);
@@ -469,7 +267,6 @@ const win = new BrowserWindow({
   rpc,
 });
 
-// Determine which view to show
 const needsOnboarding = shouldShowOnboarding(CONFIG_DIR);
 const send = rpc.send as unknown as { showOnboarding?: () => void; showMainApp?: () => void };
 if (needsOnboarding) {

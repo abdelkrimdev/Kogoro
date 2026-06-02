@@ -18,6 +18,23 @@ import type {
   SubtitleResult,
 } from "./types";
 
+export interface EnrichmentSend {
+  enrichmentProgress?: (data: {
+    animeId: string;
+    command: "artwork" | "metadata";
+    completed: number;
+    total: number;
+    file: string;
+    status: string;
+  }) => void;
+  enrichmentComplete?: (data: {
+    animeId: string;
+    command: "artwork" | "metadata";
+    success: boolean;
+    error?: string;
+  }) => void;
+}
+
 export function toUrlString(url: string | URL): string {
   return typeof url === "string" ? url : url.toString();
 }
@@ -605,4 +622,20 @@ export function createMockPlugin(): DatabasePlugin {
       return [];
     },
   });
+}
+
+export function createSilentCredentialStore(): CredentialStore {
+  return new CredentialStore({ keytar: null });
+}
+
+export const noopEnrichmentSend: EnrichmentSend = {};
+
+export function createTrackingEnrichmentSend(
+  captured: Array<{ completed: number; total: number; status: string }>,
+): EnrichmentSend {
+  return {
+    enrichmentProgress: (data: { completed: number; total: number; status: string }) => {
+      captured.push(data);
+    },
+  };
 }

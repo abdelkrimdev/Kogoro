@@ -7,6 +7,21 @@ export type PluginInfo = {
   enabled: boolean;
 };
 
+const SETTINGS_FIELD_MAP: Record<string, string> = {
+  primaryDb: "primary-db",
+  secondaryDbs: "secondary-dbs",
+  templatePreset: "template.preset",
+  templateCustom: "template.custom",
+  directoryTemplate: "template.directory",
+  mediaExtensions: "media-extensions",
+  excludePatterns: "exclude-patterns",
+  scanConcurrency: "scan-concurrency",
+  fetchConcurrency: "fetch-concurrency",
+  episodeNumbering: "episode-numbering",
+  renameAction: "rename-action",
+  subtitleLanguage: "subtitle-language",
+};
+
 export type SettingsFormData = {
   primaryDb: string;
   secondaryDbs: string[];
@@ -96,4 +111,19 @@ export function buildSettingsFormData(
     apiKeys: maskedKeys,
     plugins,
   };
+}
+
+export function applySettingsUpdate(
+  config: ConfigManager,
+  params: Record<string, unknown>,
+): { success: boolean; error?: string } {
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue;
+    const configKey = SETTINGS_FIELD_MAP[key];
+    if (!configKey) continue;
+    const stringValue = Array.isArray(value) ? value.join(",") : String(value);
+    const result = config.set(configKey, stringValue);
+    if (!result.success) return { success: false, error: result.error };
+  }
+  return { success: true };
 }
