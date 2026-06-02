@@ -9,7 +9,7 @@ export type PluginInfo = {
 
 export type SettingsFormData = {
   primaryDb: string;
-  secondaryDbs: string;
+  secondaryDbs: string[];
   templatePreset: string;
   templateCustom: string;
   directoryTemplate: string;
@@ -60,7 +60,7 @@ export function buildSettingsFormData(
   apiKeys: Record<string, string | undefined>,
 ): SettingsFormData {
   const primaryDb = String(config.get("primary-db") ?? "tvdb");
-  const secondaryDbs = String(config.get("secondary-dbs") ?? "");
+  const secondaryDbs = config.getList("secondary-dbs");
   const templatePreset = String(config.get("template.preset") ?? "standard");
   const templateCustom = String(config.get("template.custom") ?? "");
   const directoryTemplate = String(config.get("template.directory") ?? "{anime}/{type}");

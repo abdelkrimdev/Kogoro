@@ -205,7 +205,7 @@
       <div class="p-6">
         <div class="flex gap-6">
           <div class="w-48 shrink-0">
-            <div class="aspect-2/3 bg-surface-300-700 rounded-xl overflow-hidden">
+            <div class="card preset-outlined-surface-300-700 aspect-2/3 rounded-xl overflow-hidden">
               {#if detail.anime.coverArt}
                 <img src={detail.anime.coverArt} alt={detail.anime.titleEn} class="w-full h-full object-cover" />
               {:else}
@@ -272,7 +272,7 @@
 
             <div class="mt-6">
               <h2 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide mb-2">Episodes</h2>
-              <div class="table-wrap rounded-xl border border-surface-300-700/50 overflow-hidden">
+              <div class="card preset-outlined-surface-300-700 rounded-xl overflow-hidden">
                 {#if detail.episodes.length === 0}
                   <div class="text-center text-surface-600-400 py-8">
                     No episodes found.

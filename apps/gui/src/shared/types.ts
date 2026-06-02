@@ -108,7 +108,7 @@ export type AppRPC = {
         params: Record<string, never>;
         response: {
           primaryDb: string;
-          secondaryDbs: string;
+          secondaryDbs: string[];
           templatePreset: string;
           templateCustom: string;
           directoryTemplate: string;
@@ -131,7 +131,7 @@ export type AppRPC = {
       updateSettings: {
         params: {
           primaryDb?: string;
-          secondaryDbs?: string;
+          secondaryDbs?: string[];
           templatePreset?: string;
           templateCustom?: string;
           directoryTemplate?: string;
@@ -168,6 +168,14 @@ export type AppRPC = {
           summary?: { total: number; written: number; skipped: number; failed: number };
           error?: string;
         };
+      };
+      getThemeMode: {
+        params: Record<string, never>;
+        response: { mode: "light" | "dark" } | null;
+      };
+      setThemeMode: {
+        params: { mode: "light" | "dark" };
+        response: { success: boolean };
       };
       getWatchStatusByAnime: {
         params: { animeId: string };

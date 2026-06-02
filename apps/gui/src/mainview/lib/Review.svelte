@@ -4,6 +4,7 @@
   import { filterReviewGroups, deriveReviewStats, findSwapPairForFile, type StatusFilter } from "../state/review-state";
   import type { ResolveCandidate } from "../state/resolve-state";
   import ResolveModal from "./ResolveModal.svelte";
+  import SelectField from "./SelectField.svelte";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -18,6 +19,13 @@
   let statusFilter = $state<StatusFilter>("all");
   let draggedFileId = $state<string | null>(null);
   let dragOverFileId = $state<string | null>(null);
+
+  const STATUS_OPTIONS = [
+    { value: "all", label: "All Status" },
+    { value: "matched", label: "Matched" },
+    { value: "ambiguous", label: "Ambiguous" },
+    { value: "needs-attention", label: "Needs Attention" },
+  ];
 
   let resolveModalOpen = $state(false);
   let resolveFileId = $state("");
@@ -144,7 +152,7 @@
 <div class="h-full flex flex-col">
   <div class="p-4 border-b border-surface-300-700 bg-surface-200-800/50">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xl font-bold">Review Rename Plan</h2>
+      <h2 class="text-xl font-bold text-surface-950-50">Review Rename Plan</h2>
       <div class="flex gap-2">
         <button type="button" class="btn preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
           Approve All
@@ -179,15 +187,13 @@
           class="input flex-1"
         />
       </div>
-      <select
-        bind:value={statusFilter}
-        class="select text-sm px-3 py-2 rounded-lg w-auto"
-      >
-        <option value="all">All Status</option>
-        <option value="matched">Matched</option>
-        <option value="ambiguous">Ambiguous</option>
-        <option value="needs-attention">Needs Attention</option>
-      </select>
+      <SelectField
+        value={statusFilter}
+        options={STATUS_OPTIONS}
+        label=""
+        placeholder="Filter..."
+        onValueChange={(v) => { statusFilter = (v || "all") as StatusFilter; }}
+      />
     </div>
   </div>
 
@@ -198,7 +204,7 @@
       </div>
     {:else}
       {#each filtered as group (group.animeId)}
-        <div class="bg-surface-200-800 rounded-lg border border-surface-300-700 overflow-hidden">
+        <div class="card preset-outlined-surface-300-700 overflow-hidden">
           <div class="p-4 border-b border-surface-300-700 bg-surface-200-800/80">
             <div class="flex items-center gap-3">
               {#if group.image}

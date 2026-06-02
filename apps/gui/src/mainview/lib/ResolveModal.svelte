@@ -24,7 +24,7 @@
   <Portal>
     <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-950/60 backdrop-blur-sm" />
     <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <Dialog.Content class="card bg-surface-100-900 w-full max-w-lg max-h-[80vh] flex flex-col p-0 shadow-xl">
+      <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-lg max-h-[80vh] flex flex-col p-0 shadow-xl">
         <div class="p-4 border-b border-surface-300-700">
           <div class="flex items-center justify-between mb-2">
             <Dialog.Title class="text-lg font-semibold text-surface-950-50">Resolve Ambiguous Match</Dialog.Title>
@@ -51,7 +51,7 @@
             {#each candidates as candidate (candidate.animeId + candidate.episodeId)}
               <button
                 type="button"
-                class="w-full text-left p-3 rounded-container border border-surface-200-800 hover:preset-tonal transition-all group"
+                class="w-full text-left card card-hover preset-tonal-surface p-3 transition-all group"
                 onclick={() => handleResolve(candidate)}
               >
                 <div class="flex items-center justify-between mb-1">
@@ -74,7 +74,7 @@
         </div>
 
         <div class="p-4 border-t border-surface-300-700">
-          <Dialog.CloseTrigger class="w-full preset-tonal-surface rounded-lg font-medium">
+          <Dialog.CloseTrigger class="w-full btn preset-tonal-surface rounded-lg font-medium">
             Cancel
           </Dialog.CloseTrigger>
         </div>

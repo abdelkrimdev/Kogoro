@@ -25,6 +25,7 @@ import { shouldShowOnboarding } from "./onboarding";
 import { buildSettingsFormData } from "./settings";
 
 const STATE_FILE = join(import.meta.dir, "../../.window-state.json");
+const THEME_FILE = join(import.meta.dir, "../../.theme-state.json");
 
 function loadWindowState(): { x: number; y: number; width: number; height: number } | null {
   try {
@@ -40,6 +41,26 @@ function loadWindowState(): { x: number; y: number; width: number; height: numbe
 function saveWindowState(state: { x: number; y: number; width: number; height: number }) {
   try {
     writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  } catch {
+    // ignore write errors
+  }
+}
+
+function loadThemeMode(): "light" | "dark" | null {
+  try {
+    if (existsSync(THEME_FILE)) {
+      const data = JSON.parse(readFileSync(THEME_FILE, "utf-8"));
+      if (data.mode === "light" || data.mode === "dark") return data.mode;
+    }
+  } catch {
+    // ignore corrupt state
+  }
+  return null;
+}
+
+function saveThemeMode(mode: "light" | "dark") {
+  try {
+    writeFileSync(THEME_FILE, JSON.stringify({ mode }, null, 2));
   } catch {
     // ignore write errors
   }
@@ -418,6 +439,14 @@ const rpc = BrowserView.defineRPC<AppRPC>({
           summary?: { total: number; written: number; skipped: number; failed: number };
           error?: string;
         };
+      },
+      getThemeMode: () => {
+        const mode = loadThemeMode();
+        return mode ? { mode } : null;
+      },
+      setThemeMode: (params) => {
+        saveThemeMode(params.mode);
+        return { success: true };
       },
     },
     messages: {

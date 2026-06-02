@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
-  import { FolderSearch, Search, LayoutGrid, Settings } from '@lucide/svelte';
-  import { Navigation, AppBar } from '@skeletonlabs/skeleton-svelte';
+  import { FolderSearch, Search, LayoutGrid, Settings, Sun, Moon, PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
+  import { Navigation } from '@skeletonlabs/skeleton-svelte';
+  import { createRPCThemeState, applyThemeToDocument } from "../state/theme-state";
   import Wizard from "./Wizard.svelte";
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
@@ -14,6 +15,41 @@
   }
 
   let { rpc, onMessage }: Props = $props();
+
+  const themeState = createRPCThemeState(rpc);
+  let themeMode = $state(themeState.mode);
+
+  $effect(() => {
+    themeState.load();
+  });
+
+  const SIDEBAR_KEY = "kogoro-sidebar-collapsed";
+  function loadSidebarCollapsed(): boolean {
+    try {
+      const v = localStorage.getItem(SIDEBAR_KEY);
+      return v === "true";
+    } catch {
+      return false;
+    }
+  }
+  let sidebarCollapsed = $state(loadSidebarCollapsed());
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    try {
+      localStorage.setItem(SIDEBAR_KEY, String(sidebarCollapsed));
+    } catch {}
+  }
+
+  $effect(() => {
+    const cleanup = applyThemeToDocument(themeState);
+    return cleanup;
+  });
+
+  $effect(() => {
+    return themeState.onChange((mode) => {
+      themeMode = mode;
+    });
+  });
 
   type Mode = "onboarding" | "main";
   type View = "scan" | "library" | "details" | "settings" | "review";
@@ -119,8 +155,40 @@
   <Wizard {rpc} onComplete={onWizardComplete} />
 {:else}
   <div class="h-full flex flex-col">
+    <header class="h-12 flex items-center border-b border-surface-300-700 shrink-0" style="-webkit-app-region: drag;">
+      <div class="flex items-center gap-2 px-3" style="-webkit-app-region: no-drag;">
+        <button
+          type="button"
+          class="btn-icon preset-tonal-surface"
+          onclick={toggleSidebar}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {#if sidebarCollapsed}
+            <PanelLeftOpen class="size-5" />
+          {:else}
+            <PanelLeftClose class="size-5" />
+          {/if}
+        </button>
+      </div>
+      <span class="text-sm font-medium text-surface-700-300">Kogoro</span>
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-2 px-3" style="-webkit-app-region: no-drag;">
+        <button
+          type="button"
+          class="btn-icon preset-tonal-surface"
+          onclick={() => themeState.toggle()}
+          aria-label="Toggle theme"
+        >
+          {#if themeMode === "dark"}
+            <Sun class="size-5" />
+          {:else}
+            <Moon class="size-5" />
+          {/if}
+        </button>
+      </div>
+    </header>
     <div class="flex-1 flex overflow-hidden">
-      <Navigation layout="sidebar" class="w-64 border-r border-surface-200-800">
+      <Navigation layout="sidebar" class="{sidebarCollapsed ? 'w-16' : 'w-64'} border-r border-surface-200-800 transition-[width] duration-200 ease-in-out">
         <Navigation.Content>
           <Navigation.Menu>
             {#each NAV_ITEMS as item}
@@ -129,48 +197,41 @@
                 onclick={() => navigate(item.view)}
               >
                 <item.icon class="size-4" />
-                <Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+                {#if !sidebarCollapsed}
+                  <Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+                {/if}
               </Navigation.Trigger>
             {/each}
           </Navigation.Menu>
         </Navigation.Content>
       </Navigation>
-      <main class="flex-1 flex flex-col overflow-hidden">
-        <AppBar class="h-12 p-0! border-b border-surface-300-700" style="-webkit-app-region: drag;">
-          <AppBar.Toolbar>
-            <AppBar.Headline>
-              <span class="text-sm font-medium text-surface-700-300">Kogoro</span>
-            </AppBar.Headline>
-          </AppBar.Toolbar>
-        </AppBar>
-        <div class="flex-1 overflow-auto">
-          {#if currentView === "review" && currentPlan && currentSessionId}
-            <Review {rpc} sessionId={currentSessionId} plan={currentPlan} onComplete={onReviewComplete} />
-          {:else if currentView === "library"}
-            <Library {rpc} onOpenAnime={openAnime} onNavigate={navigate} />
-          {:else if currentView === "settings"}
-            <SettingsView {rpc} />
-          {:else if currentView === "details" && currentDetailId}
-            <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
-          {:else}
-            <div class="flex items-center justify-center h-full">
-              <div class="text-center space-y-4">
-                <FolderSearch class="size-16 text-surface-600-400 mx-auto" />
-                <p class="text-surface-600-400 text-sm">Drop a folder to scan for anime files.</p>
-                <button
-                  type="button"
-                  class="btn preset-filled-primary-500 rounded-lg font-medium"
-                  onclick={startScan}
-                >
-                  Start Scan
-                </button>
-              </div>
+      <main class="flex-1 overflow-auto">
+        {#if currentView === "review" && currentPlan && currentSessionId}
+          <Review {rpc} sessionId={currentSessionId} plan={currentPlan} onComplete={onReviewComplete} />
+        {:else if currentView === "library"}
+          <Library {rpc} onOpenAnime={openAnime} onNavigate={navigate} />
+        {:else if currentView === "settings"}
+          <SettingsView {rpc} />
+        {:else if currentView === "details" && currentDetailId}
+          <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
+        {:else}
+          <div class="flex items-center justify-center h-full">
+            <div class="text-center space-y-4">
+              <FolderSearch class="size-16 text-surface-600-400 mx-auto" />
+              <p class="text-surface-600-400 text-sm">Drop a folder to scan for anime files.</p>
+              <button
+                type="button"
+                class="btn preset-filled-primary-500 rounded-lg font-medium"
+                onclick={startScan}
+              >
+                Start Scan
+              </button>
             </div>
-          {/if}
-        </div>
+          </div>
+        {/if}
       </main>
     </div>
-    <footer class="h-8 flex items-center px-4 border-t border-surface-300-700 bg-surface-200-800 shrink-0">
+    <footer class="h-8 flex items-center px-4 border-t border-surface-300-700 bg-surface-100-900 shrink-0">
       <span class="text-xs text-surface-600-400">{statusText}</span>
     </footer>
   </div>

@@ -130,7 +130,7 @@
       {#each filtered as item (item.id)}
         <button
           type="button"
-          class="group card preset-tonal-surface cursor-pointer transition-all text-left overflow-hidden"
+          class="group card card-hover preset-tonal-surface cursor-pointer transition-all text-left overflow-hidden"
           onclick={() => onOpenAnime?.(item.id)}
         >
           <div class="aspect-[2/3] bg-surface-300-700 relative overflow-hidden">
@@ -157,7 +157,7 @@
       {/each}
     </div>
   {:else}
-    <div class="table-wrap">
+    <div class="table-wrap rounded-xl border border-surface-300-700/50 overflow-hidden">
       <table class="table">
         <thead>
             <tr>

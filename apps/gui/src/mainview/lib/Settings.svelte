@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Switch, TagsInput, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
+  import SelectField from './SelectField.svelte';
 
   type SettingsField =
     | { type: "select"; key: string; label: string; options: Array<{ value: string; label: string }> }
@@ -19,7 +20,7 @@
 
   const GENERAL_FIELDS: SettingsField[] = [
     { type: "select", key: "primaryDb", label: "Primary Database", options: [{ value: "tvdb", label: "TVDB" }, { value: "anidb", label: "AniDB" }] },
-    { type: "text", key: "secondaryDbs", label: "Secondary Databases", placeholder: "Comma-separated" },
+    { type: "tag-input", key: "secondaryDbs", label: "Secondary Databases", placeholder: "e.g. anidb, opensubtitles" },
     { type: "select", key: "templatePreset", label: "Filename Template Preset", options: [{ value: "standard", label: "Standard (Recommended)" }, { value: "compact", label: "Compact" }, { value: "absolute", label: "Absolute" }, { value: "plex", label: "Plex" }, { value: "anidb", label: "AniDB" }] },
     { type: "text", key: "templateCustom", label: "Custom Template", placeholder: "{anime} - {season}x{episode:02} - {title}" },
     { type: "text", key: "directoryTemplate", label: "Directory Template", placeholder: "{anime}/{type}" },
@@ -134,7 +135,7 @@
 
 <div class="max-w-2xl mx-auto p-6 space-y-8">
   <div class="flex items-center justify-between">
-    <h2 class="text-xl font-bold">Settings</h2>
+    <h2 class="text-xl font-bold text-surface-950-50">Settings</h2>
     <button type="button" class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={saveSettings}>
       Save Changes
     </button>
@@ -142,136 +143,128 @@
 
   <section class="space-y-4">
     <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">General</h3>
-    <div class="grid grid-cols-1 gap-4">
-      {#each GENERAL_FIELDS as field}
-        {#if field.type === "select"}
-          <label class="label">
-            <span class="label-text">{field.label}</span>
-            <select
+    <div class="card preset-outlined-surface-300-700 p-4 space-y-4">
+      <div class="grid grid-cols-1 gap-4">
+        {#each GENERAL_FIELDS as field}
+          {#if field.type === "select"}
+            <SelectField
               value={String(settingsData[field.key] ?? "")}
-              onchange={(e) => updateField(field.key, (e.target as HTMLSelectElement).value)}
-              class="select"
-            >
-              {#each field.options as option}
-                <option value={option.value}>{option.label}</option>
-              {/each}
-            </select>
-          </label>
-        {:else if field.type === "text"}
-          <label class="label">
-            <span class="label-text">{field.label}</span>
-            <input
-              type="text"
-              value={String(settingsData[field.key] ?? "")}
-              placeholder={field.placeholder ?? ""}
-              oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
-              class="input"
+              options={field.options}
+              label={field.label}
+              onValueChange={(v) => updateField(field.key, v)}
             />
-          </label>
-        {:else if field.type === "tag-input"}
-          <label class="label">
-            <span class="label-text">{field.label}</span>
-            <TagsInput
-              value={(settingsData[field.key] as string[]) ?? []}
-              onValueChange={(details) => updateField(field.key, details.value)}
-            >
-              <TagsInput.Control>
-                <TagsInput.Context>
-                  {#snippet children(tagsInput)}
-                    {#each tagsInput().value as value, index (index)}
-                      <TagsInput.Item {value} {index}>
-                        <TagsInput.ItemPreview>
-                          <TagsInput.ItemText>{value}</TagsInput.ItemText>
-                          <TagsInput.ItemDeleteTrigger />
-                        </TagsInput.ItemPreview>
-                        <TagsInput.ItemInput />
-                      </TagsInput.Item>
-                    {/each}
-                  {/snippet}
-                </TagsInput.Context>
-                <TagsInput.Input placeholder={field.placeholder ?? ""} />
-              </TagsInput.Control>
-              <TagsInput.HiddenInput />
-            </TagsInput>
-          </label>
-        {:else if field.type === "number"}
-          <label class="label">
-            <span class="label-text">{field.label}</span>
-            <input
-              type="number"
-              value={Number(settingsData[field.key] ?? 0)}
-              min={field.min ?? 1}
-              max={field.max ?? 16}
-              oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
-              class="input"
-            />
-          </label>
-        {/if}
-      {/each}
+          {:else if field.type === "text"}
+            <label class="label">
+              <span class="label-text">{field.label}</span>
+              <input
+                type="text"
+                value={String(settingsData[field.key] ?? "")}
+                placeholder={field.placeholder ?? ""}
+                oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
+                class="input"
+              />
+            </label>
+          {:else if field.type === "tag-input"}
+            <label class="label">
+              <span class="label-text">{field.label}</span>
+              <TagsInput
+                value={(settingsData[field.key] as string[]) ?? []}
+                onValueChange={(details) => updateField(field.key, details.value)}
+              >
+                <TagsInput.Control>
+                  <TagsInput.Context>
+                    {#snippet children(tagsInput)}
+                      {#each tagsInput().value as value, index (index)}
+                        <TagsInput.Item {value} {index}>
+                          <TagsInput.ItemPreview>
+                            <TagsInput.ItemText>{value}</TagsInput.ItemText>
+                            <TagsInput.ItemDeleteTrigger />
+                          </TagsInput.ItemPreview>
+                          <TagsInput.ItemInput />
+                        </TagsInput.Item>
+                      {/each}
+                    {/snippet}
+                  </TagsInput.Context>
+                  <TagsInput.Input placeholder={field.placeholder ?? ""} />
+                </TagsInput.Control>
+                <TagsInput.HiddenInput />
+              </TagsInput>
+            </label>
+          {:else if field.type === "number"}
+            <label class="label">
+              <span class="label-text">{field.label}</span>
+              <input
+                type="number"
+                value={Number(settingsData[field.key] ?? 0)}
+                min={field.min ?? 1}
+                max={field.max ?? 16}
+                oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
+                class="input"
+              />
+            </label>
+          {/if}
+        {/each}
+      </div>
     </div>
   </section>
 
   <section class="space-y-4">
     <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Advanced</h3>
-    <div class="grid grid-cols-2 gap-4">
-      {#each ADVANCED_FIELDS as field}
-        {#if field.type === "radio"}
-          <fieldset class="label">
-            <legend class="label-text">{field.label}</legend>
-            <div class="flex gap-4">
-              {#each field.options as option}
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name={field.key}
-                    value={option.value}
-                    checked={settingsData[field.key] === option.value}
-                    onchange={() => updateField(field.key, option.value)}
-                    class="radio text-primary-500"
-                  />
-                  <span class="text-sm">{option.label}</span>
-                </label>
-              {/each}
-            </div>
-          </fieldset>
-        {:else if field.type === "select"}
-          <label class="label">
-            <span class="label-text">{field.label}</span>
-            <select
+    <div class="card preset-outlined-surface-300-700 p-4 space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        {#each ADVANCED_FIELDS as field}
+          {#if field.type === "radio"}
+            <fieldset class="label">
+              <legend class="label-text">{field.label}</legend>
+              <div class="flex gap-4">
+                {#each field.options as option}
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={field.key}
+                      value={option.value}
+                      checked={settingsData[field.key] === option.value}
+                      onchange={() => updateField(field.key, option.value)}
+                      class="radio text-primary-500"
+                    />
+                    <span class="text-sm text-surface-950-50">{option.label}</span>
+                  </label>
+                {/each}
+              </div>
+            </fieldset>
+          {:else if field.type === "select"}
+            <SelectField
               value={String(settingsData[field.key] ?? "")}
-              onchange={(e) => updateField(field.key, (e.target as HTMLSelectElement).value)}
-              class="select"
-            >
-              {#each field.options as option}
-                <option value={option.value}>{option.label}</option>
-              {/each}
-            </select>
-          </label>
-        {:else if field.type === "text"}
-          <label class="label">
-            <span class="label-text">{field.label}</span>
-            <input
-              type="text"
-              value={String(settingsData[field.key] ?? "")}
-              placeholder={field.placeholder ?? ""}
-              oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
-              class="input"
+              options={field.options}
+              label={field.label}
+              onValueChange={(v) => updateField(field.key, v)}
             />
-          </label>
-        {:else if field.type === "number"}
-          <label class="label">
-            <span class="label-text">{field.label}</span>
-            <input
-              type="number"
-              value={Number(settingsData[field.key] ?? 0)}
-              min={field.min ?? 1}
-              max={field.max ?? 16}
-              oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
-              class="input"
-            />
-          </label>
-        {/if}
-      {/each}
+          {:else if field.type === "text"}
+            <label class="label">
+              <span class="label-text">{field.label}</span>
+              <input
+                type="text"
+                value={String(settingsData[field.key] ?? "")}
+                placeholder={field.placeholder ?? ""}
+                oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
+                class="input"
+              />
+            </label>
+          {:else if field.type === "number"}
+            <label class="label">
+              <span class="label-text">{field.label}</span>
+              <input
+                type="number"
+                value={Number(settingsData[field.key] ?? 0)}
+                min={field.min ?? 1}
+                max={field.max ?? 16}
+                oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
+                class="input"
+              />
+            </label>
+          {/if}
+        {/each}
+      </div>
     </div>
   </section>
 
@@ -280,12 +273,12 @@
     <div class="space-y-2">
       {#each Object.entries(apiKeys) as [name, masked]}
         {#if editingApiKey === name}
-          <div class="flex items-center gap-2 p-3">
+          <div class="card preset-outlined-surface-300-700 flex items-center gap-2 p-3">
             <input
               type="password"
               placeholder="Enter new {name} API key"
               bind:value={newApiKey}
-              class="input flex-1 rounded-lg border-surface-300-700 text-sm py-2"
+              class="input flex-1 text-sm"
             />
             <button type="button" class="btn btn-sm preset-filled-primary-500 rounded-lg" onclick={() => updateApiKey(name)}>
               Save
@@ -295,7 +288,7 @@
             </button>
           </div>
         {:else}
-          <div class="flex items-center justify-between p-3 rounded-lg bg-surface-200-800 border border-surface-300-700">
+          <div class="card preset-outlined-surface-300-700 flex items-center justify-between p-3">
             <div class="flex items-center gap-3">
               <span class="font-medium text-sm text-surface-950-50">{name}</span>
               <span class="text-surface-600-400 text-sm font-mono">{masked}</span>
@@ -313,9 +306,9 @@
     <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Plugins</h3>
     <div class="space-y-2">
       {#each plugins as plugin}
-        <div class="flex items-center justify-between p-3 rounded-lg bg-surface-200-800 border border-surface-300-700">
+        <div class="card preset-outlined-surface-300-700 flex items-center justify-between p-3">
           <div class="flex items-center gap-3">
-            <span class="font-medium text-sm">{plugin.name}</span>
+            <span class="font-medium text-sm text-surface-950-50">{plugin.name}</span>
             <span class="badge preset-tonal-surface text-xs">{plugin.type}</span>
             <span class="text-surface-600-400 text-xs">{plugin.source}</span>
           </div>
