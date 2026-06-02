@@ -2,7 +2,7 @@
   import type { ReviewPlan } from "@kogoro/core";
   import { Search, Tv } from '@lucide/svelte';
   import { filterReviewGroups, deriveReviewStats, findSwapPairForFile, type StatusFilter } from "../state/review-state";
-  import type { ResolveCandidate } from "../state/resolve-state";
+  import type { ResolveCandidate } from "../../shared/types";
   import ResolveModal from "./ResolveModal.svelte";
   import SelectField from "./SelectField.svelte";
 

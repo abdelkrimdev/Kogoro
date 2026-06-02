@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, LoaderCircle } from '@lucide/svelte';
   import { ENTRY_LABELS, typeBadgeClass } from "../shared";
+  import type { AnimeDetail } from "../../shared/types";
   import { getAnimeDirectory } from "../state/detail-state";
   import {
     type WatchStatusEntry,
@@ -15,27 +16,6 @@
   }
 
   let { rpc, animeId, onBack }: Props = $props();
-
-  interface AnimeDetail {
-    anime: {
-      id: string;
-      titleEn: string;
-      titleJa?: string;
-      entryType: string;
-      sourceDb: string;
-      totalEpisodes: number;
-      coverArt?: string;
-    };
-    episodes: Array<{
-      id: string;
-      season: number;
-      episode: number;
-      titleEn: string;
-      filePath: string;
-      missing: boolean;
-    }>;
-    filesOnDisk: number;
-  }
 
   let detail = $state<AnimeDetail | null>(null);
   let loading = $state(true);

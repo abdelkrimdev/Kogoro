@@ -215,20 +215,6 @@ describe("deriveReviewStats", () => {
     expect(stats.ambiguousCount).toBe(2);
   });
 
-  it("counts files with issues (ambiguous + failed)", () => {
-    const plan = makePlan([
-      makeGroup({
-        files: [
-          makeFile({ status: "matched" }),
-          makeFile({ fileId: "f2", status: "ambiguous" }),
-          makeFile({ fileId: "f3", status: "failed" }),
-        ],
-      }),
-    ]);
-    const stats = deriveReviewStats(plan);
-    expect(stats.issuesCount).toBe(2);
-  });
-
   it("counts groups with swap pairs", () => {
     const plan = makePlan([
       makeGroup({ swapPairs: [{ fileAId: "f1", fileBId: "f2" }] }),

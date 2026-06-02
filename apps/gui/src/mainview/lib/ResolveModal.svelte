@@ -1,7 +1,7 @@
 <script lang="ts">
   import { X, LoaderCircle } from '@lucide/svelte';
   import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
-  import type { ResolveCandidate } from "../state/resolve-state";
+  import type { ResolveCandidate } from "../../shared/types";
 
   interface Props {
     open: boolean;

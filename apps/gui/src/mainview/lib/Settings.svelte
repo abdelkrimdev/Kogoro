@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { Switch, TagsInput, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
   import SelectField from './SelectField.svelte';
 
@@ -117,7 +116,7 @@
     }
   }
 
-  onMount(() => {
+  $effect(() => {
     loadSettings();
   });
 </script>

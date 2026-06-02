@@ -5,6 +5,37 @@ export type { ReviewPlan, ScanFileStatus, ScanSummary } from "@kogoro/core";
 
 export type ScanPhase = "scan" | "plan" | "review" | "execute";
 
+export interface ResolveCandidate {
+  animeId: string;
+  animeTitle: string;
+  entryType: string;
+  episodeId: string;
+  episodeNumber: number;
+  season: number;
+  score: number;
+}
+
+export interface AnimeDetail {
+  anime: {
+    id: string;
+    titleEn: string;
+    titleJa?: string;
+    entryType: string;
+    sourceDb: string;
+    totalEpisodes: number;
+    coverArt?: string;
+  };
+  episodes: Array<{
+    id: string;
+    season: number;
+    episode: number;
+    titleEn: string;
+    filePath: string;
+    missing: boolean;
+  }>;
+  filesOnDisk: number;
+}
+
 export type AppRPC = {
   bun: RPCSchema<{
     requests: {
