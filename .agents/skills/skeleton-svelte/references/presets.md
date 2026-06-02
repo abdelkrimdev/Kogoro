@@ -1,188 +1,123 @@
-# Skeleton Design Presets Reference
+# Design Presets
 
-## Built-in Preset Types
+Presets are shorthand class combinations that apply a complete background + text color treatment to any element. Use them on buttons, cards, badges, alerts - any element that should feel "filled", "tonal", or "outlined" in a specific color.
 
-Skeleton provides three primary preset styles for consistent component styling:
+## Three preset families
 
-### 1. Filled Preset
+| Family | Visual | Use for |
+| --- | --- | --- |
+| `preset-filled` | Solid background, auto contrast text | Primary actions, CTAs, emphasized cards |
+| `preset-tonal` | Soft tinted background, colored text | Secondary actions, alerts, status badges |
+| `preset-outlined` | Transparent background, colored border + text | Tertiary actions, subtle cards, low-emphasis surfaces |
 
-A filled preset with solid background color and automatic contrast color implementation.
+## Syntax
 
-```svelte
-<Button class="preset-filled-primary-500">Filled Primary</Button>
-<div class="preset-filled-success-600">Success Message</div>
+```
+preset-{family}-{color}
+preset-{family}-{color}-{shade}      (filled and outlined only)
 ```
 
-**Syntax:** `preset-filled-{color}-{lightShade}-{darkShade}`
+- **Colors:** `primary`, `secondary`, `tertiary`, `success`, `warning`, `error`, `surface`.
+- **Shades:** 50–950. Only the `500` shade is used by default; specify another for tone tuning.
+- **Tonal** uses a single fixed shade, so the `-{shade}` segment is not used.
 
-**Colors:** primary, secondary, tertiary, success, warning, error, surface
-
-**Shades:** 50-950 (customize for light/dark mode)
-
-### 2. Tonal Preset
-
-Ideal for alerts and auxiliary buttons and actions with a softer appearance.
-
-```svelte
-<Button class="preset-tonal-primary">Tonal Primary</Button>
-<Button class="preset-tonal-warning">Warning Alert</Button>
-```
-
-**Syntax:** `preset-tonal-{color}`
-
-**Colors:** primary, secondary, tertiary, success, warning, error, surface
-
-### 3. Outlined Preset
-
-Ideal for minimal interfaces, such as surrounding cards or subtle buttons.
-
-```svelte
-<Button class="preset-outlined-primary-500">Outlined Primary</Button>
-<Card class="preset-outlined-surface-300-700">Outlined Card</Card>
-```
-
-**Syntax:** `preset-outlined-{color}-{lightShade}-{darkShade}`
-
-**Colors:** primary, secondary, tertiary, success, warning, error, surface
-
-**Shades:** 50-950 (customize for light/dark mode)
-
-## Examples by Component
+## Examples
 
 ### Buttons
 
-```svelte
-<script>
-  import { Button } from '@skeletonlabs/skeleton-svelte';
-</script>
-
-<!-- Filled buttons for primary actions -->
-<Button class="preset-filled-primary-500">Primary Action</Button>
-<Button class="preset-filled-error-600">Delete</Button>
-
-<!-- Tonal buttons for secondary actions -->
-<Button class="preset-tonal-secondary">Secondary Action</Button>
-<Button class="preset-tonal-warning">Warning</Button>
-
-<!-- Outlined buttons for tertiary actions -->
-<Button class="preset-outlined-surface-300-700">Cancel</Button>
+```html
+<button class="btn preset-filled-primary-500">Primary</button>
+<button class="btn preset-tonal-secondary">Secondary</button>
+<button class="btn preset-outlined-surface-300-700">Cancel</button>
+<button class="btn preset-filled-error-500">Delete</button>
 ```
 
 ### Cards
 
-```svelte
-<Card class="preset-filled-surface-100-900">
-  <Card.Content>Filled card with surface color</Card.Content>
-</Card>
-
-<Card class="preset-outlined-primary-500">
-  <Card.Content>Outlined card with primary border</Card.Content>
-</Card>
+```html
+<div class="card preset-filled-surface-100-900 p-4">…</div>
+<div class="card preset-outlined-primary-500 p-4">…</div>
+<div class="card preset-tonal-success p-4">…</div>
 ```
 
-### Badges and Alerts
+### Badges / status pills
 
-```svelte
-<!-- Status indicators -->
-<span class="preset-tonal-success">Success</span>
-<span class="preset-tonal-error">Error</span>
-<span class="preset-tonal-warning">Warning</span>
-
-<!-- Filled badges -->
-<span class="preset-filled-primary-500">New</span>
-<span class="preset-filled-secondary-500">Featured</span>
+```html
+<span class="badge preset-tonal-success">Active</span>
+<span class="badge preset-tonal-warning">Pending</span>
+<span class="badge preset-tonal-error">Failed</span>
+<span class="badge preset-filled-primary-500">New</span>
 ```
 
-## Custom Preset Creation
+### Generic elements
 
-Create custom presets by combining Skeleton and Tailwind utilities in global stylesheets.
+Presets work on any element, not just `btn` / `card` / `badge`:
 
-### Glass Effect Preset
+```html
+<div class="preset-filled-primary-500 p-4 rounded-container">…</div>
+<p class="preset-tonal-error p-2">Inline notice.</p>
+```
+
+## Combining with utilities
+
+Layer presets with sizing, spacing, hover, and state utilities:
+
+```html
+<button class="btn preset-filled-primary-500 px-6 py-3 shadow-md">Large CTA</button>
+
+<button class="btn preset-tonal-primary hover:preset-filled-primary-500">
+  Hover fills
+</button>
+
+<button class="btn preset-outlined-surface-300-700 md:preset-filled-surface-100-900">
+  Responsive
+</button>
+```
+
+## Custom presets
+
+Define a custom preset in your global CSS using `@apply` to combine Skeleton utilities and Tailwind utilities. The `preset-` prefix is convention, not required.
 
 ```css
-/* In your global CSS */
-.preset-glass {
-  @apply border border-surface-300-700 bg-surface-50-950/10 backdrop-blur-md;
+/* app.css */
+@layer components {
+  .preset-elevated {
+    @apply preset-filled-surface-50-950 shadow-lg transition-shadow hover:shadow-xl;
+  }
+
+  .preset-glass {
+    @apply border border-surface-300-700 bg-surface-50-950/10 backdrop-blur-md;
+  }
 }
 ```
 
-```svelte
-<Card class="preset-glass">
-  <Card.Content>Glassmorphic card</Card.Content>
-</Card>
+```html
+<div class="card preset-elevated p-4">…</div>
+<div class="card preset-glass p-4">…</div>
 ```
 
-### Gradient Preset
+(For Tailwind v4 the `@layer components` wrapper is optional; in `@apply`-based setups it is the conventional location.)
+
+### Gradient presets
+
+Gradients combine two color stops via CSS variables:
 
 ```css
-.preset-gradient-primary {
-  @apply bg-gradient-to-br from-primary-400 to-primary-600 text-white;
-}
-
-.preset-gradient-sunset {
-  @apply bg-gradient-to-r from-error-400 via-warning-400 to-secondary-400;
-}
-```
-
-```svelte
-<Button class="preset-gradient-primary">Gradient Button</Button>
-<div class="preset-gradient-sunset p-8">Gradient Background</div>
-```
-
-### Input Validation Styling
-
-```css
-.preset-input-success {
-  @apply border-success-500 focus:ring-success-500;
-}
-
-.preset-input-error {
-  @apply border-error-500 focus:ring-error-500;
+@layer components {
+  .preset-gradient-primary {
+    background-image: linear-gradient(45deg, var(--color-primary-500), var(--color-tertiary-500));
+    color: var(--color-primary-contrast-500);
+  }
 }
 ```
 
-```svelte
-<Input class="preset-input-success" aria-invalid="false" />
-<Input class="preset-input-error" aria-invalid="true" />
+```html
+<button class="btn preset-gradient-primary">Gradient</button>
 ```
 
-### Elevated Preset
+## Agent Directives
 
-```css
-.preset-elevated {
-  @apply preset-filled-surface-50-950 shadow-lg transition-shadow hover:shadow-xl;
-}
-```
-
-```svelte
-<Card class="preset-elevated">
-  <Card.Content>Elevated card with shadow</Card.Content>
-</Card>
-```
-
-## Design Guidelines
-
-When building custom presets:
-
-1. **Maintain naming conventions** - Use `preset-{category}-{variant}` pattern
-2. **Apply across components** - Design presets to work with buttons, cards, inputs, badges
-3. **Consider reusability** - Extract commonly used presets to stylesheets or NPM packages
-4. **Combine with utilities** - Layer presets with additional Tailwind classes for fine-tuning
-5. **Test in both modes** - Verify presets work correctly in light and dark themes
-
-## Preset Combinations
-
-Presets can be combined with additional utilities:
-
-```svelte
-<!-- Preset + spacing + shadows -->
-<Button class="preset-filled-primary-500 px-6 py-3 shadow-md">Enhanced Button</Button>
-
-<!-- Preset + responsive utilities -->
-<Card class="preset-outlined-surface-300-700 md:preset-filled-surface-100-900">
-  Responsive styled card
-</Card>
-
-<!-- Preset + state utilities -->
-<Button class="preset-tonal-primary hover:preset-filled-primary-500">State-changing button</Button>
-```
+- **(Strict) Use presets for the visual treatment**, they are deliberately background + text only.
+- **(Freedom) Add standard Tailwind utilities** on top of presets for layout, sizing, and spacing.
+- **(Strict) Pick the family that matches emphasis.** Filled > tonal > outlined, from most to least attention.
+- **(Strict) For theme-aware surfaces, use pairings in the shade slot.** e.g. `preset-outlined-surface-200-800` adapts to light/dark.

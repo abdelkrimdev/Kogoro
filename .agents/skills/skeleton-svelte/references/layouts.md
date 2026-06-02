@@ -1,242 +1,204 @@
-# Skeleton Layout Patterns Reference
+# Layout Patterns
 
-## Core Layout Principles
+Skeleton does not provide layout components - layouts are built from **semantic HTML + Tailwind utilities**. Skeleton's contribution is the color/preset system applied to that HTML.
 
-### Semantic HTML Structure
+## Core principles
 
-Use semantic elements to organize page regions for better accessibility and SEO:
+### 1. Prefer semantic HTML
 
-- `<header>` - Introductory content, site navigation
-- `<main>` - Dominant page content
-- `<footer>` - Closing information, copyright, links
-- `<aside>` - Tangential content, sidebars
-- `<article>` - Self-contained compositions, blog posts
-- `<section>` - Thematic grouping of content
-- `<nav>` - Navigation links
+| Element | Role |
+| --- | --- |
+| `<header>` | Introductory content, top nav |
+| `<nav>` | Navigation links |
+| `<main>` | Dominant page content (only one per page) |
+| `<article>` | Self-contained composition (blog post, card) |
+| `<section>` | Thematic grouping, with a heading |
+| `<aside>` | Tangential content, sidebars |
+| `<footer>` | Closing information |
 
-```svelte
-<div class="h-full">
-  <header class="bg-surface-100-900">
-    <nav><!-- Navigation --></nav>
-  </header>
+Semantic elements give you keyboard navigation, screen reader landmarks, and SEO for free.
 
-  <main class="container mx-auto">
-    <article><!-- Main content --></article>
-    <aside><!-- Sidebar --></aside>
-  </main>
+### 2. Make `<body>` the scroller
 
-  <footer class="bg-surface-200-800">
-    <!-- Footer content -->
-  </footer>
-</div>
+Let the body scroll instead of inner containers. This preserves mobile pull-to-refresh, browser auto-hide UI, print styles, and framework-specific behavior.
+
+```css
+/* global CSS */
+html,
+body {
+  height: 100%;
+}
+body {
+  overflow-y: auto;
+}
 ```
 
-### Body Scrolling Priority
+Avoid `overflow-y-auto` on `<main>` or `<aside>` unless you have a specific reason (sticky toolbars inside scrolling panes).
 
-**Important:** Prioritize the `<body>` element as the scrollable page element over child elements.
+### 3. CSS Grid for page layout, Flexbox for components
 
-This approach preserves:
+- Use **grid** for major page regions (header / sidebar / main).
+- Use **flex** inside regions (toolbar with logo + nav + actions).
 
-- Mobile pull-to-refresh functionality
-- Browser UI auto-hiding behavior
-- Print styles and page breaks
-- Screen reader navigation
-- Framework consistency (SvelteKit, Next.js)
+## Grid
 
-```svelte
-<!-- app.html or root layout -->
-<html class="h-full">
-  <body class="h-full overflow-y-auto">
-    <!-- App content -->
-  </body>
-</html>
-```
-
-## Essential Tailwind Utilities
-
-### Grid System
-
-```svelte
-<!-- Basic grid -->
+```html
+<!-- Basic 3-column grid -->
 <div class="grid grid-cols-3 gap-4">
-  <div>Column 1</div>
-  <div>Column 2</div>
-  <div>Column 3</div>
+  <div>One</div>
+  <div>Two</div>
+  <div>Three</div>
 </div>
 
-<!-- Responsive grid -->
+<!-- Responsive columns -->
 <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-  <!-- Responsive columns -->
+  <!-- … -->
 </div>
 
-<!-- Custom column spans -->
+<!-- 12-column with spans -->
 <div class="grid grid-cols-12 gap-4">
-  <div class="col-span-8">Main content (8 columns)</div>
-  <div class="col-span-4">Sidebar (4 columns)</div>
+  <div class="col-span-8">Main</div>
+  <div class="col-span-4">Sidebar</div>
 </div>
 
-<!-- Row control -->
-<div class="grid h-screen grid-rows-3 gap-4">
-  <div class="row-span-1">Header</div>
-  <div class="row-span-2">Content</div>
+<!-- Fixed sidebar + flexible main -->
+<div class="grid h-full grid-cols-1 md:grid-cols-[250px_1fr]">
+  <aside class="bg-surface-100-900">…</aside>
+  <main>…</main>
+</div>
+
+<!-- Constrained middle column with side rails -->
+<div class="grid grid-cols-1 lg:grid-cols-[250px_minmax(0,900px)_250px]">
+  <aside>…</aside>
+  <main>…</main>
+  <aside>…</aside>
 </div>
 ```
 
-### Flexbox
+## Flexbox
 
-```svelte
-<!-- Horizontal layout -->
-<div class="flex gap-4">
-  <div>Item 1</div>
-  <div>Item 2</div>
-</div>
-
-<!-- Vertical layout -->
-<div class="flex flex-col gap-4">
-  <div>Item 1</div>
-  <div>Item 2</div>
-</div>
-
-<!-- Alignment -->
+```html
+<!-- Row with space between -->
 <div class="flex items-center justify-between">
-  <div>Left</div>
-  <div>Right</div>
+  <span>Left</span>
+  <span>Right</span>
 </div>
 
-<!-- Centering -->
+<!-- Column with gap -->
+<div class="flex flex-col gap-4">
+  <div>…</div>
+  <div>…</div>
+</div>
+
+<!-- Centered -->
 <div class="flex h-screen items-center justify-center">
-  <div>Centered content</div>
+  <div>Centered</div>
 </div>
 ```
 
-### Alignment Options
+**Common alignment utilities:**
 
-Both flexbox and grid support:
+- `justify-start|center|end|between|around|evenly`
+- `items-start|center|end|stretch|baseline`
+- `gap-{n}`, `gap-x-{n}`, `gap-y-{n}`
 
-- `justify-start`, `justify-center`, `justify-end`, `justify-between`
-- `items-start`, `items-center`, `items-end`, `items-stretch`
-- `content-start`, `content-center`, `content-end`
-- `place-items-center`, `place-content-center`
+## Responsive design
 
-### Responsive Design
+Mobile-first. Define the base style, then add breakpoints:
 
-Use Tailwind's mobile-first breakpoint prefixes:
+| Prefix | Min width |
+| --- | --- |
+| `sm:` | 640px |
+| `md:` | 768px |
+| `lg:` | 1024px |
+| `xl:` | 1280px |
+| `2xl:` | 1536px |
 
-- `sm:` - 640px and up
-- `md:` - 768px and up
-- `lg:` - 1024px and up
-- `xl:` - 1280px and up
-- `2xl:` - 1536px and up
-
-```svelte
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-  <!-- Responsive grid -->
+```html
+<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+  <!-- … -->
 </div>
 ```
 
-## Common Layout Patterns
+## Common page layouts
 
-### Single-Column Layout
+### Single column (blog, docs)
 
-```svelte
+```html
 <div class="flex h-full flex-col">
   <header class="sticky top-0 z-10 border-b border-surface-300-700 bg-surface-50-950">
-    <!-- Header content -->
+    <!-- Header -->
   </header>
 
   <main class="flex-1 overflow-y-auto">
     <div class="container mx-auto max-w-4xl px-4 py-8">
-      <!-- Main content -->
+      <!-- Content -->
     </div>
   </main>
 
   <footer class="border-t border-surface-300-700 bg-surface-100-900">
-    <!-- Footer content -->
+    <!-- Footer -->
   </footer>
 </div>
 ```
 
-### Two-Column Layout (Sidebar + Main)
+### Two-column (sidebar + main)
 
-```svelte
+```html
 <div class="grid h-full grid-cols-1 md:grid-cols-[250px_1fr]">
-  <!-- Sidebar -->
   <aside class="sticky top-0 h-screen overflow-y-auto bg-surface-100-900">
-    <nav class="p-4">
-      <!-- Navigation items -->
-    </nav>
+    <nav class="p-4">…</nav>
   </aside>
 
-  <!-- Main content -->
   <main class="overflow-y-auto">
-    <div class="container mx-auto px-4 py-8">
-      <!-- Content -->
-    </div>
+    <div class="container mx-auto px-4 py-8">…</div>
   </main>
 </div>
 ```
 
-### Three-Column Layout
+### Three-column (two sidebars + main)
 
-```svelte
-<div class="grid h-full grid-cols-1 gap-4 lg:grid-cols-[250px_minmax(0,900px)_250px]">
-  <!-- Left sidebar -->
-  <aside class="hidden bg-surface-100-900 lg:block">
-    <!-- Left nav -->
-  </aside>
-
-  <!-- Main content -->
-  <main class="overflow-y-auto">
-    <!-- Content -->
-  </main>
-
-  <!-- Right sidebar -->
-  <aside class="hidden bg-surface-100-900 lg:block">
-    <!-- Right nav -->
-  </aside>
+```html
+<div class="grid h-full grid-cols-1 gap-4 lg:grid-cols-[250px_minmax(0,1fr)_250px]">
+  <aside class="hidden bg-surface-100-900 lg:block">Left</aside>
+  <main>Main</main>
+  <aside class="hidden bg-surface-100-900 lg:block">Right</aside>
 </div>
 ```
 
-### Dashboard Layout
+### Dashboard
 
-```svelte
+```html
 <div class="grid h-full grid-rows-[auto_1fr]">
-  <!-- Top navigation -->
-  <header class="sticky top-0 z-20 border-b border-surface-300-700 bg-surface-50-950">
-    <!-- Header -->
-  </header>
+  <header class="sticky top-0 z-20 border-b border-surface-300-700 bg-surface-50-950">…</header>
 
   <div class="grid grid-cols-1 md:grid-cols-[200px_1fr]">
-    <!-- Side navigation -->
-    <aside class="overflow-y-auto bg-surface-100-900">
-      <!-- Sidebar -->
-    </aside>
+    <aside class="overflow-y-auto bg-surface-100-900">…</aside>
 
-    <!-- Main dashboard area -->
     <main class="overflow-y-auto p-6">
       <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <!-- Dashboard cards -->
+        <!-- Cards -->
       </div>
     </main>
   </div>
 </div>
 ```
 
-## Sticky Elements
+For the actual top nav use the `AppBar` framework component; for the actual sidebar use `Navigation`.
 
-### Sticky Header
+## Sticky elements
 
-```svelte
+### Single sticky header
+
+```html
 <header class="sticky top-0 z-10 bg-surface-50-950">
-  <nav class="container mx-auto px-4 py-3">
-    <!-- Navigation -->
-  </nav>
+  <nav class="container mx-auto px-4 py-3">…</nav>
 </header>
 ```
 
-### Stacked Sticky Elements
+### Stacked sticky elements
 
-When stacking multiple sticky elements, use CSS `calc()` for dynamic offsets:
+When multiple sticky elements stack, use a CSS variable for the offset:
 
 ```svelte
 <script>
@@ -244,99 +206,43 @@ When stacking multiple sticky elements, use CSS `calc()` for dynamic offsets:
   const subnavHeight = '48px';
 </script>
 
-<header class="sticky top-0 z-20 h-16 bg-surface-50-950">
-  <!-- Main header -->
-</header>
-
-<nav class="sticky z-10 bg-surface-100-900" style="top: {headerHeight}">
-  <!-- Sub-navigation -->
-</nav>
-
-<aside class="sticky z-5 bg-surface-50-950" style="top: calc({headerHeight} + {subnavHeight})">
-  <!-- Sidebar table of contents -->
-</aside>
+<header class="sticky top-0 z-20 h-16 bg-surface-50-950">…</header>
+<nav class="sticky z-10 bg-surface-100-900" style="top: {headerHeight}">…</nav>
+<aside class="sticky z-5 bg-surface-50-950" style="top: calc({headerHeight} + {subnavHeight})">…</aside>
 ```
 
-### Sticky Sidebar
+## Container utilities
 
-```svelte
-<div class="grid grid-cols-1 md:grid-cols-[250px_1fr]">
-  <aside class="sticky top-0 h-screen overflow-y-auto bg-surface-100-900">
-    <!-- Sidebar content -->
-  </aside>
+```html
+<!-- Centered, max-width by Tailwind config -->
+<div class="container mx-auto px-4">…</div>
 
-  <main class="overflow-y-auto">
-    <!-- Main content -->
-  </main>
-</div>
-```
-
-## Advanced Techniques
-
-### Responsive Grid with Max Width
-
-Use `minmax()` within grid definitions for responsive layouts that maintain maximum widths:
-
-```svelte
-<div class="mx-auto grid grid-cols-1 lg:grid-cols-[250px_minmax(0,900px)_250px]">
-  <!-- Left sidebar: 250px -->
-  <aside><!-- Sidebar --></aside>
-
-  <!-- Main content: Flexible but max 900px -->
-  <main><!-- Content --></main>
-
-  <!-- Right sidebar: 250px -->
-  <aside><!-- Sidebar --></aside>
-</div>
-```
-
-### Full-Height Layouts
-
-Ensure html and body extend full viewport height:
-
-```css
-/* In global CSS */
-html,
-body {
-  @apply h-full;
-}
-```
-
-```svelte
-<!-- Then use flex or grid for full-height layouts -->
-<div class="flex h-full flex-col">
-  <header><!-- Header --></header>
-  <main class="flex-1 overflow-y-auto"><!-- Main --></main>
-  <footer><!-- Footer --></footer>
-</div>
-```
-
-### Container Utilities
-
-```svelte
-<!-- Centered container with max-width -->
-<div class="container mx-auto px-4">
-  <!-- Content constrained to container width -->
-</div>
-
-<!-- Custom max-width -->
-<div class="mx-auto max-w-4xl px-4">
-  <!-- Content constrained to 896px -->
-</div>
+<!-- Explicit max-width -->
+<div class="mx-auto max-w-4xl px-4">…</div>
 
 <!-- Responsive padding -->
-<div class="container mx-auto px-4 sm:px-6 lg:px-8">
-  <!-- Responsive horizontal padding -->
-</div>
+<div class="container mx-auto px-4 sm:px-6 lg:px-8">…</div>
 ```
 
-## Best Practices
+## Layering and z-index
 
-1. **Use semantic HTML** - Improves accessibility and SEO
-2. **Prioritize body scrolling** - Maintains native browser behaviors
-3. **Mobile-first responsive** - Start with mobile layout, enhance for larger screens
-4. **CSS Grid for page layout** - Use grid for major page sections
-5. **Flexbox for components** - Use flex for component-level layouts
-6. **Sticky positioning** - Use sticky for headers, sidebars, and navigation
-7. **Container constraints** - Use max-width to prevent overly wide content
-8. **Proper z-index layering** - Maintain z-index hierarchy for overlapping elements
+Convention for sticky/fixed/overlay elements:
+
+| Layer | z-index |
+| --- | --- |
+| Base content | 0 |
+| Sticky toolbars | 10 |
+| Dropdown menus / popovers | 20 |
+| Modal backdrops | 40 |
+| Modal content | 50 |
+| Toasts | 60 |
+
+Skeleton framework components (Dialog, Popover, Tooltip) handle their own z-index, but you may need to override with `class="z-20!"` etc. on the `Positioner` when stacking floating UI over other sticky elements.
+
+## Agent Directives
+
+- **(Strict) Start mobile-first.** Default styles target small screens; add `md:` / `lg:` for larger.
+- **(Strict) Use the body as the scroller.** Reach for inner `overflow-auto` only when you need independent panes.
+- **(Strict) Use semantic elements.** Reach for `<div>` only when no semantic element fits.
+- **(Strict) Match the AppBar and Navigation framework components** for the actual top nav / sidebar where the user expects a complete shell.
+- **(Freedom) Arbitrary Layouts:** You are free to use standard Tailwind CSS Grid and Flexbox utilities to achieve any layout requirement not explicitly covered here.

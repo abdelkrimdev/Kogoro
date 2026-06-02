@@ -1,317 +1,167 @@
 ---
 name: skeleton-svelte
-description: Use this skill when working with Skeleton UI components in Svelte projects. It provides guidelines for Skeleton's component composition pattern, theme-aware color system, design presets, and layout patterns. Trigger when building UI components, styling elements, creating layouts, or working with Skeleton-specific features in Svelte 5 and SvelteKit 2+ projects.
+description: Build accessible, theme-aware UIs with Skeleton for Svelte 5. Skeleton has two layers - Tailwind utility classes for primitives (card, btn, input, badge) and 28 Svelte framework components (Dialog, Popover, Combobox, Tabs, etc.) powered by Zag.js. Use when building Svelte 5 UIs with Skeleton, choosing between Tailwind utilities and framework components, applying color pairings and presets, designing responsive layouts, or setting up Skeleton themes.
 ---
 
 # Skeleton Svelte
 
 ## Overview
 
-Skeleton is a design system built on Tailwind CSS that provides framework-specific UI components for Svelte via `@skeletonlabs/skeleton-svelte`. This skill provides workflows and reference documentation for building Svelte applications using Skeleton's component library, color system, and design patterns.
+Skeleton is a design system built on **Tailwind CSS 4** with a Svelte component layer powered by **Zag.js**. It ships two distinct surfaces that are easy to confuse:
 
-## Core Principles
+1. **Tailwind utility components** - CSS classes (`card`, `btn`, `input`, `badge`, …) applied to native HTML elements. No JS, no imports. This is the right choice for most primitives.
+2. **Framework components** - 28 Svelte exports from `@skeletonlabs/skeleton-svelte` (Dialog, Popover, Combobox, Tabs, Accordion, …) for stateful, accessible, keyboard-driven widgets. Built on Zag.js.
 
-Apply these fundamental principles when working with Skeleton:
+Both layers share the **color-pairing** and **preset** systems, so the visual language is consistent.
 
-### Component Composition
+## Agent Directives
 
-Use Skeleton's composed pattern with granular child components. Components accept arbitrary props and the `class` attribute for styling:
+### 1. Pick the Right Layer (Strict)
 
-```svelte
-<Card class="preset-filled-surface-100-900">
-  <Card.Header>
-    <Card.Title>Title</Card.Title>
-  </Card.Header>
-  <Card.Content>
-    <p>Content</p>
-  </Card.Content>
-</Card>
+| Need | Use | Why |
+| --- | --- | --- |
+| Button, card, badge, input, label, select, textarea, chip, progress, kbd, anchor, hr, code | Tailwind utility class on native HTML | Zero JS, smallest bundle, full HTML semantics |
+| Dialog, popover, combobox, listbox, menu, tabs, switch, slider, tooltip, accordion, date picker, file upload, pagination, toast, tree view, navigation, app bar, steps, rating group, tags input, toggle group, segmented control, carousel, collapsible, floating panel | Framework component from `@skeletonlabs/skeleton-svelte` | Need state, a11y, keyboard handling, focus management |
+
+### 2. Theming and Styling (Strict)
+
+Always use Skeleton's built-in systems for colors and base styles to maintain visual consistency:
+- **Color Pairings:** `{property}-{color}-{lightShade}-{darkShade}` (e.g., `bg-surface-50-950 text-surface-950-50`). No `dark:` prefixes. See `references/colors.md`.
+- **Presets:** `preset-filled-{color}-{shade}`, `preset-tonal-{color}`, `preset-outlined-{color}-{shade}`. Apply to interactive elements via `class`. See `references/presets.md`.
+
+### 3. Fill the Gaps (Freedom)
+
+You have full freedom to combine Skeleton primitives with standard Tailwind CSS utilities to achieve specific layouts, spacing, sizing, typography, and micro-interactions. If a design requirement isn't directly covered by a built-in Skeleton component or preset, use Tailwind to creatively solve the problem while adhering to the overall aesthetic.
+
+## Quick start
+
+```bash
+npm i -D @skeletonlabs/skeleton @skeletonlabs/skeleton-svelte
 ```
 
-### Theme-Aware Colors
-
-**Critical:** Always use color pairings for theme-aware styling. Never hard-code colors with `dark:` prefixes.
-
-✅ Correct:
-
-```svelte
-<div class="bg-surface-50-950 text-surface-950-50">
-  <p class="text-surface-700-300">Content</p>
-</div>
+```css
+/* app.css */
+@import 'tailwindcss';
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton/themes/cerberus';
 ```
 
-❌ Incorrect:
-
-```svelte
-<div class="bg-white text-black dark:bg-gray-950 dark:text-white">
-  <p class="text-gray-700 dark:text-gray-300">Content</p>
-</div>
+```html
+<html data-theme="cerberus">…</html>
 ```
-
-**Color pairing syntax:** `{property}-{color}-{lightShade}-{darkShade}`
-
-Examples:
-
-- `bg-surface-50-950` - Light background in light mode, dark in dark mode
-- `text-surface-950-50` - Dark text in light mode, light in dark mode
-- `border-surface-300-700` - Adaptive border colors
-
-**Reference:** See `references/colors.md` for comprehensive color system documentation.
-
-### Design Presets
-
-Use built-in presets for consistent styling:
-
-- `preset-filled-{color}-{shade}` - Solid backgrounds with contrast text
-- `preset-tonal-{color}` - Soft, tinted backgrounds
-- `preset-outlined-{color}-{shade}` - Bordered with transparent background
-
-```svelte
-<Button class="preset-filled-primary-500">Primary Action</Button>
-<Button class="preset-tonal-secondary">Secondary</Button>
-<Button class="preset-outlined-surface-300-700">Cancel</Button>
-```
-
-**Reference:** See `references/presets.md` for all preset variants and custom preset creation.
-
-## Workflow: Building UI Components
-
-### Step 1: Identify the Component Type
-
-Determine which Skeleton component best fits the requirement:
-
-- **Avatar** - User profile images with fallback
-- **Button** - Interactive actions
-- **Card** - Content containers
-- **Dialog** - Modal overlays
-- **Input/Label** - Form fields
-- **Badge** - Status indicators
-
-**Reference:** See `references/components.md` for complete component catalog with examples.
-
-### Step 2: Import and Structure
-
-Import the component and use the composed pattern:
 
 ```svelte
 <script>
-  import { Card, Button } from '@skeletonlabs/skeleton-svelte';
-</script>
-
-<Card class="preset-filled-surface-100-900">
-  <Card.Header>
-    <Card.Title>Component Title</Card.Title>
-  </Card.Header>
-  <Card.Content>
-    <!-- Content here -->
-  </Card.Content>
-  <Card.Footer>
-    <Button class="preset-filled-primary-500">Action</Button>
-  </Card.Footer>
-</Card>
-```
-
-### Step 3: Apply Theme-Aware Styling
-
-Add color pairings and presets using the `class` attribute:
-
-```svelte
-<Card class="preset-outlined-surface-300-700">
-  <Card.Content>
-    <h3 class="font-semibold text-surface-950-50">Heading</h3>
-    <p class="text-surface-700-300">Description text</p>
-  </Card.Content>
-</Card>
-```
-
-### Step 4: Add State Management (if needed)
-
-Use Svelte 5 runes for reactive state:
-
-```svelte
-<script>
-  import { Dialog, Button } from '@skeletonlabs/skeleton-svelte';
+  import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   let open = $state(false);
 </script>
 
-<Button onclick={() => (open = true)} class="preset-filled-primary-500">Open Dialog</Button>
+<button type="button" class="btn preset-filled-primary-500" onclick={() => (open = true)}>
+  Open dialog
+</button>
 
 <Dialog bind:open>
-  <Dialog.Content>
-    <!-- Dialog content -->
-  </Dialog.Content>
+  <Portal>
+    <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-50-950/50" />
+    <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <Dialog.Content class="card bg-surface-100-900 w-md p-4 space-y-2 shadow-xl">
+        <Dialog.Title class="text-2xl font-bold">Title</Dialog.Title>
+        <Dialog.Description>Body text.</Dialog.Description>
+        <Dialog.CloseTrigger class="btn preset-tonal">Close</Dialog.CloseTrigger>
+      </Dialog.Content>
+    </Dialog.Positioner>
+  </Portal>
 </Dialog>
 ```
 
-## Workflow: Creating Layouts
+Full setup: `references/installation.md`.
 
-### Step 1: Choose Layout Pattern
+## Workflow: building a UI
 
-Select an appropriate layout foundation:
+### Step 1 - Identify each piece
 
-- **Single-column** - Blog posts, documentation pages
-- **Two-column** - Sidebar + main content
-- **Three-column** - Dashboard with dual sidebars
-- **Dashboard** - Grid-based card layouts
+For each visual element, decide: native HTML + Tailwind class, or a framework component? Most "card with a button inside" patterns are utility classes with optional framework sub-components.
 
-**Reference:** See `references/layouts.md` for complete layout patterns and examples.
+### Step 2 - Style with pairings + presets
 
-### Step 2: Apply Semantic HTML
+Apply color pairings for backgrounds, text, borders. Apply presets for interactive elements (buttons, badges, alerts). Combine with Tailwind utilities for layout, spacing, sizing.
 
-Use semantic elements for proper structure:
+### Step 3 - Wire up state (framework components only)
+
+Framework components use Svelte 5 runes. Control via the `value` / `defaultValue` + `onXChange` props, or `bind:open` / `bind:checked` shortcuts:
 
 ```svelte
-<div class="h-full">
-  <header class="sticky top-0 z-10 bg-surface-50-950">
-    <nav><!-- Navigation --></nav>
-  </header>
-
-  <main class="flex-1 overflow-y-auto">
-    <div class="container mx-auto px-4 py-8">
-      <!-- Content -->
-    </div>
-  </main>
-
-  <footer class="bg-surface-100-900">
-    <!-- Footer -->
-  </footer>
-</div>
+<Dialog bind:open>…</Dialog>
+<Switch bind:checked>…</Switch>
+<Tabs {value} onValueChange={(d) => (value = d.value)}>…</Tabs>
 ```
 
-### Step 3: Implement Responsive Behavior
+Provider pattern for imperative control: `useX()` hook + `<X.Provider value={…}>` (see `references/framework-components.md`).
 
-Use Tailwind's responsive prefixes for mobile-first design:
+### Step 4 - Layer layout
 
-```svelte
-<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-  <!-- Responsive grid -->
-</div>
-```
+Use semantic HTML + Tailwind grid/flex for structure. See `references/layouts.md`.
 
-### Step 4: Add Theme-Aware Styling
+## Common patterns
 
-Apply color pairings throughout the layout:
+### Card with action footer
 
 ```svelte
-<header class="border-b border-surface-300-700 bg-surface-50-950">
-  <!-- Header content -->
-</header>
-
-<main class="bg-surface-100-900">
-  <!-- Main content -->
-</main>
-```
-
-## Common Patterns
-
-### Form with Validation
-
-```svelte
-<script>
-  import { Button, Input, Label } from '@skeletonlabs/skeleton-svelte';
-
-  let email = $state('');
-  let error = $state('');
-
-  function handleSubmit(e) {
-    e.preventDefault();
-    if (!email.includes('@')) {
-      error = 'Invalid email';
-      return;
-    }
-    // Process form
-  }
-</script>
-
-<form onsubmit={handleSubmit}>
-  <div>
-    <Label for="email">Email</Label>
-    <Input
-      id="email"
-      type="email"
-      bind:value={email}
-      class="border-surface-300-700"
-      aria-invalid={!!error}
-    />
-    {#if error}
-      <p class="mt-1 text-sm text-error-500">{error}</p>
-    {/if}
+<div class="card preset-filled-surface-100-900 p-4 space-y-3">
+  <h3 class="h3">Title</h3>
+  <p class="opacity-60">Body text.</p>
+  <div class="flex justify-end gap-2">
+    <button type="button" class="btn preset-outlined-surface-300-700">Cancel</button>
+    <button type="button" class="btn preset-filled-primary-500">Confirm</button>
   </div>
-  <Button type="submit" class="mt-4 preset-filled-primary-500">Submit</Button>
-</form>
-```
-
-### Responsive Card Grid
-
-```svelte
-<script>
-  import { Card } from '@skeletonlabs/skeleton-svelte';
-</script>
-
-<div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-  {#each items as item}
-    <Card class="preset-filled-surface-100-900">
-      <Card.Header>
-        <Card.Title>{item.title}</Card.Title>
-      </Card.Header>
-      <Card.Content>
-        <p class="text-surface-700-300">{item.description}</p>
-      </Card.Content>
-    </Card>
-  {/each}
 </div>
 ```
 
-### Status Badge
+### Form field
 
-```svelte
-<script>
-  import { Badge } from '@skeletonlabs/skeleton-svelte';
-</script>
-
-<Badge class="preset-tonal-success">Active</Badge>
-<Badge class="preset-tonal-warning">Pending</Badge>
-<Badge class="preset-tonal-error">Inactive</Badge>
+```html
+<label class="label">
+  <span class="label-text">Email</span>
+  <input class="input" type="email" placeholder="you@example.com" />
+</label>
 ```
 
-## Project-Specific Configuration
+### Status badge
 
-This project uses:
+```html
+<span class="badge preset-tonal-success">Active</span>
+<span class="badge preset-tonal-warning">Pending</span>
+<span class="badge preset-tonal-error">Failed</span>
+```
 
-- **Skeleton with Svelte 5** and **SvelteKit 2+**
-- **Tailwind CSS 4.x**
-- **Mona theme** (configured in `src/app.html`)
+### Theme-aware section
 
-The Mona theme provides specific color palettes and design tokens. When creating components, ensure they align with the theme's aesthetic.
+```html
+<section class="bg-surface-100-900 text-surface-950-50 p-6">
+  <h2 class="h2">Section</h2>
+  <p class="text-surface-700-300">Adapts to light and dark automatically.</p>
+</section>
+```
 
-## Resources
+## References
 
-### Reference Documentation
+- `references/installation.md` - packages, CSS imports, theme setup
+- `references/tailwind-components.md` - all utility-class primitives
+- `references/framework-components.md` - all 28 Svelte exports with anatomies
+- `references/colors.md` - color system, pairings, contrast, transparency
+- `references/presets.md` - filled/tonal/outlined + custom presets
+- `references/themes.md` - preset themes (cerberus, mona, vox, catppuccin) and custom themes
+- `references/layouts.md` - semantic HTML, grid/flex patterns, responsive design
 
-- `references/colors.md` - Complete color system, pairings, shades, and transparency
-- `references/presets.md` - Design presets, variants, and custom preset creation
-- `references/layouts.md` - Layout patterns, semantic HTML, responsive design
-- `references/components.md` - Comprehensive component catalog with examples
+## External resources
 
-### External Documentation
+- Docs: https://www.skeleton.dev
+- Components catalog: https://www.skeleton.dev/components
+- Themes: https://www.skeleton.dev/themes
+- Repository: https://github.com/skeletonlabs/skeleton
 
-- Official Documentation: https://www.skeleton.dev
-- Component Examples: https://www.skeleton.dev/components
-- Theme Generator: https://www.skeleton.dev/themes
+## Notes
 
-## Best Practices
-
-1. **Use color pairings** - Always use dual-tone syntax for theme support
-2. **Apply composition pattern** - Leverage child components for flexibility
-3. **Semantic HTML** - Use proper HTML elements for accessibility
-4. **Mobile-first responsive** - Start with mobile layout, enhance for larger screens
-5. **Preset consistency** - Use design presets for uniform styling
-6. **State with runes** - Use Svelte 5's `$state`, `$derived`, `$effect` for reactivity
-7. **Reference documentation** - Consult references/ files for detailed information
-
-## Important Notes
-
-- Components are built on **Zag.js** for state management
-- The design system is **framework agnostic** at its core
-- Cannot be used alongside **Flowbite** or **DaisyUI** (conflicting Tailwind modifications)
-- Component classes automatically get precedence over internal styles
+- Foundation: Tailwind CSS 4 + Zag.js (state machines, framework-agnostic).
+- Two packages: `@skeletonlabs/skeleton` (core CSS, themes) and `@skeletonlabs/skeleton-svelte` (Svelte components). Both are dev dependencies.
+- When in doubt, prefer the utility class over the framework component. The framework layer exists for behavior you cannot reasonably re-implement (focus traps, keyboard nav, ARIA wiring).
