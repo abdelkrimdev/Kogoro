@@ -22,9 +22,9 @@
 
 <Dialog open={open} onOpenChange={(details) => { if (!details.open) onClose(); }}>
   <Portal>
-    <Dialog.Backdrop class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+    <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-950/60 backdrop-blur-sm" />
     <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <Dialog.Content class="card bg-surface-200-800 border border-surface-300-700 w-full max-w-lg max-h-[80vh] flex flex-col p-0">
+      <Dialog.Content class="card bg-surface-100-900 w-full max-w-lg max-h-[80vh] flex flex-col p-0 shadow-xl">
         <div class="p-4 border-b border-surface-300-700">
           <div class="flex items-center justify-between mb-2">
             <Dialog.Title class="text-lg font-semibold text-surface-950-50">Resolve Ambiguous Match</Dialog.Title>
@@ -50,13 +50,14 @@
           {:else}
             {#each candidates as candidate (candidate.animeId + candidate.episodeId)}
               <button
+                type="button"
                 class="w-full text-left p-3 rounded-container border border-surface-200-800 hover:preset-tonal transition-all group"
                 onclick={() => handleResolve(candidate)}
               >
                 <div class="flex items-center justify-between mb-1">
-                  <span class="font-medium text-surface-200-800 text-sm group-hover:text-primary-400 transition-colors">
-                    {candidate.animeTitle}
-                  </span>
+                    <span class="font-medium text-surface-950-50 text-sm group-hover:text-primary-400 transition-colors">
+                      {candidate.animeTitle}
+                    </span>
                   <span class="badge preset-tonal-surface text-xs">
                     {candidate.entryType}
                   </span>

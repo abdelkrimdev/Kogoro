@@ -146,13 +146,13 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-bold">Review Rename Plan</h2>
       <div class="flex gap-2">
-        <button class="btn preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
+        <button type="button" class="btn preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
           Approve All
         </button>
-        <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={rejectAll}>
+        <button type="button" class="btn preset-tonal-surface rounded-lg font-medium" onclick={rejectAll}>
           Reject All
         </button>
-        <button class="btn preset-filled-error-500 rounded-lg font-medium" onclick={cancel}>
+        <button type="button" class="btn preset-filled-error-500 rounded-lg font-medium" onclick={cancel}>
           Cancel
         </button>
       </div>
@@ -163,7 +163,7 @@
       <span>{stats.totalGroups} anime</span>
       <span>{stats.ambiguousCount} ambiguous</span>
       {#if stats.swapsCount > 0}
-        <span class="text-warning-400-400">{stats.swapsCount} swapped</span>
+        <span class="text-warning-500-400">{stats.swapsCount} swapped</span>
       {/if}
     </div>
 
@@ -209,7 +209,7 @@
                 </div>
               {/if}
               <div class="flex-1">
-                <h3 class="font-medium text-surface-200-800 text-sm">{group.animeTitle}</h3>
+                <h3 class="font-medium text-surface-950-50 text-sm">{group.animeTitle}</h3>
                 <p class="text-sm text-surface-700-300">{group.files.length} files &bull; {group.entryType}</p>
               </div>
             </div>
@@ -230,7 +230,7 @@
                 <div class="flex items-center gap-3">
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
-                      <span class="text-sm font-medium text-surface-200-800 truncate">
+                      <span class="text-sm font-medium text-surface-950-50 truncate">
                         {file.sourcePath.split("/").pop()}
                       </span>
                       <span class="{getStatusBadgeClass(file.status)} text-xs">
@@ -244,12 +244,13 @@
                     </div>
                     <div class="text-xs text-surface-600-400 truncate">{file.sourcePath}</div>
                     {#if file.proposedPath}
-                      <div class="text-xs text-success-400-400 truncate mt-1">&rarr; {file.proposedPath}</div>
+                      <div class="text-xs text-success-500-400 truncate mt-1">&rarr; {file.proposedPath}</div>
                     {/if}
                   </div>
                   {#if file.status === "ambiguous"}
                     <button
-                      class="btn btn-sm preset-filled-warning-500 rounded font-medium"
+                      type="button"
+                      class="btn btn-sm preset-filled-warning-500 rounded-lg font-medium"
                       onclick={() => openResolveModal(file.fileId, file.sourcePath)}
                     >
                       Resolve

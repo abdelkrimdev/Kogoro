@@ -13,8 +13,8 @@ export type SettingsFormData = {
   templatePreset: string;
   templateCustom: string;
   directoryTemplate: string;
-  mediaExtensions: string;
-  excludePatterns: string;
+  mediaExtensions: string[];
+  excludePatterns: string[];
   scanConcurrency: number;
   fetchConcurrency: number;
   episodeNumbering: string;
@@ -64,8 +64,8 @@ export function buildSettingsFormData(
   const templatePreset = String(config.get("template.preset") ?? "standard");
   const templateCustom = String(config.get("template.custom") ?? "");
   const directoryTemplate = String(config.get("template.directory") ?? "{anime}/{type}");
-  const mediaExtensions = config.getList("media-extensions").join(", ");
-  const excludePatterns = config.getList("exclude-patterns").join(", ");
+  const mediaExtensions = config.getList("media-extensions");
+  const excludePatterns = config.getList("exclude-patterns");
   const scanConcurrency = Number(config.get("scan-concurrency") ?? 4);
   const fetchConcurrency = Number(config.get("fetch-concurrency") ?? 5);
   const episodeNumbering = String(config.get("episode-numbering") ?? "relative");

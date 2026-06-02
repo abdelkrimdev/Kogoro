@@ -112,8 +112,8 @@ export type AppRPC = {
           templatePreset: string;
           templateCustom: string;
           directoryTemplate: string;
-          mediaExtensions: string;
-          excludePatterns: string;
+          mediaExtensions: string[];
+          excludePatterns: string[];
           scanConcurrency: number;
           fetchConcurrency: number;
           episodeNumbering: string;
@@ -135,8 +135,8 @@ export type AppRPC = {
           templatePreset?: string;
           templateCustom?: string;
           directoryTemplate?: string;
-          mediaExtensions?: string;
-          excludePatterns?: string;
+          mediaExtensions?: string[];
+          excludePatterns?: string[];
           scanConcurrency?: number;
           fetchConcurrency?: number;
           episodeNumbering?: string;

@@ -187,16 +187,16 @@
   </div>
 {:else if error || !detail}
   <div class="flex flex-col items-center justify-center h-full gap-4">
-    <TriangleAlert class="size-12 text-error-400-400" />
+    <TriangleAlert class="size-12 text-error-500-400" />
     <p class="text-surface-700-300 text-sm">{error ?? "Unknown error"}</p>
-    <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
+    <button type="button" class="btn preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
       Back to Library
     </button>
   </div>
 {:else}
   <div class="flex flex-col h-full">
-    <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-300-700 bg-surface-200-800/50 flex-shrink-0">
-      <button class="btn preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-300-700 bg-surface-200-800/50 shrink-0">
+      <button type="button" class="btn preset-tonal-surface rounded-lg font-medium" onclick={onBack}>
         <ChevronLeft class="size-4" /> Library
       </button>
     </div>
@@ -204,8 +204,8 @@
     <div class="flex-1 overflow-y-auto">
       <div class="p-6">
         <div class="flex gap-6">
-          <div class="w-48 flex-shrink-0">
-            <div class="aspect-[2/3] bg-surface-300-700 rounded-xl overflow-hidden">
+          <div class="w-48 shrink-0">
+            <div class="aspect-2/3 bg-surface-300-700 rounded-xl overflow-hidden">
               {#if detail.anime.coverArt}
                 <img src={detail.anime.coverArt} alt={detail.anime.titleEn} class="w-full h-full object-cover" />
               {:else}
@@ -216,29 +216,29 @@
             </div>
             <div class="flex flex-col gap-2 mt-4">
               {#if artworkLoading}
-                <button disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                <button type="button" disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
                   <LoaderCircle class="size-4 animate-spin" /> Downloading...
                 </button>
               {:else}
-                <button class="flex items-center gap-2 btn preset-filled-primary-500 rounded-lg font-medium" onclick={downloadArtwork}>
+                <button type="button" class="flex items-center gap-2 btn preset-filled-primary-500 rounded-lg font-medium" onclick={downloadArtwork}>
                   <ImageDown class="size-4" /> Download Cover Art
                 </button>
               {/if}
               {#if rescanLoading}
-                <button disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                <button type="button" disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
                   <LoaderCircle class="size-4 animate-spin" /> Scanning...
                 </button>
               {:else}
-                <button class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium" onclick={rescan}>
+                <button type="button" class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium" onclick={rescan}>
                   <RefreshCw class="size-4" /> Rescan
                 </button>
               {/if}
               {#if metadataLoading}
-                <button disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                <button type="button" disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
                   <LoaderCircle class="size-4 animate-spin" /> Generating...
                 </button>
               {:else}
-                <button class="flex items-center gap-2 btn preset-filled-success-500 rounded-lg font-medium" onclick={generateMetadata}>
+                <button type="button" class="flex items-center gap-2 btn preset-filled-success-500 rounded-lg font-medium" onclick={generateMetadata}>
                   <FileText class="size-4" /> Generate Metadata
                 </button>
               {/if}
@@ -261,12 +261,12 @@
               <span class="text-sm text-surface-700-300">{detail.filesOnDisk} files on disk</span>
               {#if missingCount > 0}
                 <span class="text-sm text-surface-600-400">·</span>
-                <span class="text-sm text-warning-400-400">{missingCount} missing</span>
+                <span class="text-sm text-warning-500-400">{missingCount} missing</span>
               {/if}
               {#if progress.total > 0}
                 <span class="text-sm text-surface-600-400">·</span>
-                <span class="text-sm text-success-400-400">{progress.percent}% watched</span>
-                <progress class="progress w-24 appearance-none" value={progress.percent} max="100"></progress>
+                <span class="text-sm text-success-500-400">{progress.percent}% watched</span>
+                <progress class="progress w-24" value={progress.percent} max="100"></progress>
               {/if}
             </div>
 
@@ -291,7 +291,7 @@
                     <tbody class="[&>tr]:hover:preset-tonal-primary">
                       {#each enrichedEpisodes as ep (ep.id)}
                         {@const isGap = gaps.has(ep.episode)}
-                        <tr class="{ep.missing ? 'text-surface-600-400 opacity-60' : isGap ? 'text-warning-400-400' : ''}">
+                        <tr class="{ep.missing ? 'text-surface-600-400 opacity-60' : isGap ? 'text-warning-500-400' : ''}">
                           <td class="text-sm font-medium whitespace-nowrap">
                             {ep.season}x{String(ep.episode).padStart(2, "0")}
                             {#if ep.missing}

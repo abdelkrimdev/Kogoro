@@ -5,7 +5,7 @@
   "scripts": {
     "build": "electrobun build",
     "build:bin": "electrobun build --release --env=stable",
-    "check": "tsc --noEmit",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
     "dev": "bun run scripts/start-dev.ts"
   },
   "dependencies": {
@@ -21,6 +21,7 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tailwindcss/vite": "^4.1.14",
+    "svelte-check": "^4.5.0",
     "vite": "^7.3.1"
   }
 }

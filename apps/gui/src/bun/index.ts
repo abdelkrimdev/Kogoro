@@ -271,7 +271,8 @@ const rpc = BrowserView.defineRPC<AppRPC>({
           if (value === undefined) continue;
           const configKey = fieldMap[key];
           if (!configKey) continue;
-          const result = configManager.set(configKey, String(value));
+          const stringValue = Array.isArray(value) ? value.join(",") : String(value);
+          const result = configManager.set(configKey, stringValue);
           if (!result.success) return { success: false, error: result.error };
         }
         return { success: true };

@@ -66,6 +66,7 @@
     <Folder class="size-16 text-surface-600-400" />
     <p class="text-surface-600-400 text-sm">No library yet — scan a folder to get started.</p>
     <button
+      type="button"
       class="btn preset-filled-primary-500 rounded-lg font-medium"
       onclick={() => onNavigate?.("scan")}
     >
@@ -89,6 +90,7 @@
       {#each ENTRY_TYPES as type}
         {@const active = typeFilter.length === 0 || typeFilter.includes(type)}
         <button
+          type="button"
           class="{active
             ? 'badge preset-tonal-primary'
             : 'badge preset-tonal-surface'}"
@@ -100,13 +102,17 @@
     </div>
     <div class="flex items-center bg-surface-300-700 rounded-lg border border-surface-300-700 p-0.5">
       <button
+        type="button"
         class="btn-icon btn-icon-sm {viewMode === 'grid' ? 'preset-filled-primary-500' : 'hover:preset-tonal'}"
+        aria-label="Grid view"
         onclick={() => (viewMode = 'grid')}
       >
         <LayoutGrid class="size-4" />
       </button>
       <button
+        type="button"
         class="btn-icon btn-icon-sm {viewMode === 'list' ? 'preset-filled-primary-500' : 'hover:preset-tonal'}"
+        aria-label="List view"
         onclick={() => (viewMode = 'list')}
       >
         <List class="size-4" />
@@ -123,6 +129,7 @@
     <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 p-4">
       {#each filtered as item (item.id)}
         <button
+          type="button"
           class="group card preset-tonal-surface cursor-pointer transition-all text-left overflow-hidden"
           onclick={() => onOpenAnime?.(item.id)}
         >
