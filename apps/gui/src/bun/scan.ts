@@ -18,15 +18,17 @@ import {
 } from "@kogoro/core";
 import { PluginFactory } from "@kogoro/plugins";
 
-const scanOrchestrators = new Map<string, ScanOrchestrator>();
-const scanMatchers = new Map<string, Matcher>();
+const scanSessions = new Map<
+  string,
+  { orchestrator: ScanOrchestrator; matcher: Matcher | undefined }
+>();
 
 export function getOrchestrator(sessionId: string): ScanOrchestrator {
-  const orchestrator = scanOrchestrators.get(sessionId);
-  if (!orchestrator) {
+  const session = scanSessions.get(sessionId);
+  if (!session) {
     throw new Error("Scan session not found");
   }
-  return orchestrator;
+  return session.orchestrator;
 }
 
 export async function findCandidateMatches(
@@ -65,10 +67,6 @@ export async function createScanOrchestrator(
   });
 
   const scanner = matcher ? new Scanner({ matcher, cache, renamer, overrideStore }) : undefined;
-
-  if (matcher) {
-    scanMatchers.set(sessionId, matcher);
-  }
 
   const orchestrator = new ScanOrchestrator({
     scanner: { match: async () => [], matchBatch: async () => [] },
@@ -141,15 +139,14 @@ export async function createScanOrchestrator(
     sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
   });
 
-  scanOrchestrators.set(sessionId, orchestrator);
+  scanSessions.set(sessionId, { orchestrator, matcher });
   return orchestrator;
 }
 
 export function getMatcher(sessionId: string): Matcher | undefined {
-  return scanMatchers.get(sessionId);
+  return scanSessions.get(sessionId)?.matcher;
 }
 
 export function cleanupSession(sessionId: string): void {
-  scanOrchestrators.delete(sessionId);
-  scanMatchers.delete(sessionId);
+  scanSessions.delete(sessionId);
 }

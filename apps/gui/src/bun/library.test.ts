@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createLibraryDb, withTempDir } from "@kogoro/core";
+import { ConfigManager, createLibraryDb, withTempDir } from "@kogoro/core";
 import { createLibraryHandlers } from "./library";
 
 function seedLibrary(dir: string) {
@@ -51,7 +51,7 @@ describe("getLibrary handler", () => {
   test("returns formatted anime list from library database", async () => {
     await withTempDir("library-handler", async (dir) => {
       seedLibrary(dir);
-      const handlers = createLibraryHandlers(dir);
+      const handlers = createLibraryHandlers(dir, new ConfigManager({ configDir: dir }));
       const result = await handlers.getLibrary();
 
       expect(result).toHaveLength(2);
@@ -66,7 +66,7 @@ describe("getLibrary handler", () => {
 
   test("returns empty array when library is empty", async () => {
     await withTempDir("library-handler-empty", async (dir) => {
-      const handlers = createLibraryHandlers(dir);
+      const handlers = createLibraryHandlers(dir, new ConfigManager({ configDir: dir }));
       const result = await handlers.getLibrary();
       expect(result).toHaveLength(0);
     });
@@ -77,7 +77,7 @@ describe("getAnimeDetail handler", () => {
   test("returns anime with episodes for valid id", async () => {
     await withTempDir("library-handler-detail", async (dir) => {
       seedLibrary(dir);
-      const handlers = createLibraryHandlers(dir);
+      const handlers = createLibraryHandlers(dir, new ConfigManager({ configDir: dir }));
       const library = await handlers.getLibrary();
       const jjk = library.find((a) => a.titleEn === "Jujutsu Kaisen");
 
@@ -101,7 +101,7 @@ describe("getAnimeDetail handler", () => {
   test("returns null for unknown id", async () => {
     await withTempDir("library-handler-detail-miss", async (dir) => {
       seedLibrary(dir);
-      const handlers = createLibraryHandlers(dir);
+      const handlers = createLibraryHandlers(dir, new ConfigManager({ configDir: dir }));
       const result = await handlers.getAnimeDetail({ id: "99999" });
       expect(result).toBeNull();
     });
@@ -112,7 +112,7 @@ describe("getLibraryStats handler", () => {
   test("returns anime and episode counts from seeded library", async () => {
     await withTempDir("library-handler-stats", async (dir) => {
       seedLibrary(dir);
-      const handlers = createLibraryHandlers(dir);
+      const handlers = createLibraryHandlers(dir, new ConfigManager({ configDir: dir }));
       const result = await handlers.getLibraryStats();
 
       expect(result.animeCount).toBe(2);
@@ -122,11 +122,62 @@ describe("getLibraryStats handler", () => {
 
   test("returns zero counts when library is empty", async () => {
     await withTempDir("library-handler-stats-empty", async (dir) => {
-      const handlers = createLibraryHandlers(dir);
+      const handlers = createLibraryHandlers(dir, new ConfigManager({ configDir: dir }));
       const result = await handlers.getLibraryStats();
 
       expect(result.animeCount).toBe(0);
       expect(result.episodeCount).toBe(0);
+    });
+  });
+});
+
+describe("mergeMatches", () => {
+  test("merges match entries into library", async () => {
+    await withTempDir("library-merge", async (dir) => {
+      const handlers = createLibraryHandlers(dir, new ConfigManager({ configDir: dir }));
+
+      handlers.mergeMatches(
+        [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "My Anime",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ep 1",
+            filePath: "/media/My Anime/S01E01.mkv",
+          },
+        ],
+        "tvdb",
+      );
+
+      const library = await handlers.getLibrary();
+      expect(library).toHaveLength(1);
+      expect(library[0]?.titleEn).toBe("My Anime");
+    });
+  });
+});
+
+describe("rebuild", () => {
+  test("rebuilds library from existing data", async () => {
+    await withTempDir("library-rebuild", async (dir) => {
+      seedLibrary(dir);
+      const handlers = createLibraryHandlers(dir, new ConfigManager({ configDir: dir }));
+
+      const result = handlers.rebuild();
+      expect(result.success).toBe(true);
+
+      const library = await handlers.getLibrary();
+      expect(library.length).toBeGreaterThan(0);
+    });
+  });
+
+  test("returns success when library is empty", async () => {
+    await withTempDir("library-rebuild-empty", async (dir) => {
+      const handlers = createLibraryHandlers(dir, new ConfigManager({ configDir: dir }));
+      const result = handlers.rebuild();
+      expect(result.success).toBe(true);
     });
   });
 });

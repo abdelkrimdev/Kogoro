@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import type { ConfigManager, MatchEntry } from "@kogoro/core";
 import { LibraryDb } from "@kogoro/core";
 
 interface LibraryAnimeItem {
@@ -31,7 +32,7 @@ interface LibraryAnimeDetail {
   filesOnDisk: number;
 }
 
-export function createLibraryHandlers(configDir: string) {
+export function createLibraryHandlers(configDir: string, configManager: ConfigManager) {
   const dbPath = join(configDir, "library.db");
   function getDb(): LibraryDb {
     return new LibraryDb({ dbPath });
@@ -144,6 +145,33 @@ export function createLibraryHandlers(configDir: string) {
         return db.getStats();
       } finally {
         db.close();
+      }
+    },
+
+    mergeMatches(matches: MatchEntry[], sourceDb: string): void {
+      const db = getDb();
+      try {
+        db.mergeFromMatches(matches, sourceDb);
+      } finally {
+        db.close();
+      }
+    },
+
+    rebuild(): { success: boolean; error?: string } {
+      try {
+        const db = getDb();
+        try {
+          const matches = db.exportMatches();
+          db.rebuildFromMatches(matches, String(configManager.get("primary-db") ?? "tvdb"));
+          return { success: true };
+        } finally {
+          db.close();
+        }
+      } catch (err) {
+        return {
+          success: false,
+          error: `Rebuild failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
       }
     },
   };

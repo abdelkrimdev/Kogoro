@@ -1,5 +1,4 @@
-import { join } from "node:path";
-import { CONFIG_DIR, ConfigManager, createCredentialStore, LibraryDb } from "@kogoro/core";
+import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
 import { BrowserView, BrowserWindow } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
@@ -20,7 +19,7 @@ const savedState = loadWindowState();
 const configManager = new ConfigManager();
 const credentialStore = createCredentialStore();
 
-const libraryHandlers = createLibraryHandlers(CONFIG_DIR);
+const libraryHandlers = createLibraryHandlers(CONFIG_DIR, configManager);
 
 const enrichmentHandlers = createEnrichmentHandlers({
   configManager,
@@ -45,17 +44,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       getAnimeDetail: (params) => libraryHandlers.getAnimeDetail(params),
       getWatchStatusByAnime: (params) => libraryHandlers.getWatchStatusByAnime(params),
       setWatchStatus: (params) => libraryHandlers.setWatchStatus(params),
-      getSettingsData: async () => {
-        const apiKeys: Record<string, string | undefined> = {};
-        for (const plugin of ["tvdb", "anidb", "opensubtitles"]) {
-          try {
-            apiKeys[plugin] = (await credentialStore.getCredential(plugin)) ?? undefined;
-          } catch {
-            apiKeys[plugin] = undefined;
-          }
-        }
-        return buildSettingsFormData(configManager, apiKeys);
-      },
+      getSettingsData: async () => buildSettingsFormData(configManager, credentialStore),
       updateSettings: (params) => applySettingsUpdate(configManager, params),
       updateApiKey: (params) => updateApiKey(credentialStore, params),
       togglePlugin: (params) => togglePlugin(configManager, params),
@@ -103,13 +92,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         const matches = orchestrator.getMatchResults();
         const sourceDb = configManager.get("primary-db");
         if (matches.length > 0 && typeof sourceDb === "string" && sourceDb) {
-          const dbPath = join(CONFIG_DIR, "library.db");
-          const db = new LibraryDb({ dbPath });
-          try {
-            db.mergeFromMatches(matches, sourceDb);
-          } finally {
-            db.close();
-          }
+          libraryHandlers.mergeMatches(matches, sourceDb);
         }
 
         return undefined;
@@ -188,27 +171,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         saveThemeMode(params.mode);
         return { success: true };
       },
-      rebuildLibrary: async () => {
-        try {
-          const dbPath = join(CONFIG_DIR, "library.db");
-          const db = new LibraryDb({ dbPath });
-          try {
-            const matches = db.exportMatches();
-            const sourceDb = configManager.get("primary-db");
-            if (matches.length > 0 && typeof sourceDb === "string" && sourceDb) {
-              db.rebuildFromMatches(matches, sourceDb);
-            }
-            return { success: true };
-          } finally {
-            db.close();
-          }
-        } catch (err) {
-          return {
-            success: false,
-            error: `Rebuild failed: ${err instanceof Error ? err.message : String(err)}`,
-          };
-        }
-      },
+      rebuildLibrary: async () => libraryHandlers.rebuild(),
     },
     messages: {
       windowWillClose: (data) => {

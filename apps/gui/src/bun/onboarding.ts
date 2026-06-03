@@ -1,10 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { CredentialStore, SetResult } from "@kogoro/core";
-
-export interface ConfigSetter {
-  set(key: string, value: string): SetResult;
-}
+import type { ConfigManager, CredentialStore } from "@kogoro/core";
 
 export function shouldShowOnboarding(configDir: string): boolean {
   const configPath = join(configDir, "config.toml");
@@ -12,7 +8,7 @@ export function shouldShowOnboarding(configDir: string): boolean {
 }
 
 export async function writeOnboardingConfig(
-  configManager: ConfigSetter,
+  configManager: ConfigManager,
   credentialStore: CredentialStore,
   params: {
     primaryDb: string;

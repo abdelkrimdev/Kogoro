@@ -4,18 +4,16 @@ import type { ThemeMode } from "../shared/types";
 
 export type WindowFrame = { x: number; y: number; width: number; height: number };
 
-let stateDir = join(import.meta.dir, "../..");
-
-export function setStateDir(dir: string) {
-  stateDir = dir;
+function stateDir(): string {
+  return process.env["KOGORO_STATE_DIR"] ?? join(import.meta.dir, "../..");
 }
 
 function statePath() {
-  return join(stateDir, ".window-state.json");
+  return join(stateDir(), ".window-state.json");
 }
 
 function themePath() {
-  return join(stateDir, ".theme-state.json");
+  return join(stateDir(), ".theme-state.json");
 }
 
 export function loadWindowState(): WindowFrame | null {

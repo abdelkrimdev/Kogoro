@@ -64,10 +64,10 @@ function buildPluginList(
   ];
 }
 
-export function buildSettingsFormData(
+export async function buildSettingsFormData(
   config: ConfigManager,
-  apiKeys: Record<string, string | undefined>,
-): SettingsFormData {
+  credentialStore: CredentialStore,
+): Promise<SettingsFormData> {
   const primaryDb = String(config.get("primary-db") ?? "tvdb");
   const secondaryDbs = config.getList("secondary-dbs");
   const templatePreset = String(config.get("template.preset") ?? "standard");
@@ -86,7 +86,12 @@ export function buildSettingsFormData(
 
   const maskedKeys: Record<string, string> = {};
   for (const plugin of plugins) {
-    maskedKeys[plugin.name] = maskApiKey(apiKeys[plugin.name]);
+    try {
+      const key = (await credentialStore.getCredential(plugin.name)) ?? undefined;
+      maskedKeys[plugin.name] = maskApiKey(key);
+    } catch {
+      maskedKeys[plugin.name] = "Not set";
+    }
   }
 
   return {

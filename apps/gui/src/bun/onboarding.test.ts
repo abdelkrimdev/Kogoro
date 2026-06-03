@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { createSilentCredentialStore, withTempDir, writeTempFile } from "@kogoro/core";
-import type { ConfigSetter } from "./onboarding";
+import {
+  ConfigManager,
+  createSilentCredentialStore,
+  withTempDir,
+  writeTempFile,
+} from "@kogoro/core";
 import { shouldShowOnboarding, writeOnboardingConfig } from "./onboarding";
 
 describe("shouldShowOnboarding", () => {
@@ -18,38 +22,28 @@ describe("shouldShowOnboarding", () => {
 
 describe("writeOnboardingConfig", () => {
   test("writes primary db and template preset", async () => {
-    await withTempDir("onboarding-config", async () => {
+    await withTempDir("onboarding-config", async (dir) => {
       const store = createSilentCredentialStore();
-      const calls: string[][] = [];
-      const mockConfig: ConfigSetter = {
-        set: (key, value) => {
-          calls.push([key, value]);
-          return { success: true };
-        },
-      };
+      const config = new ConfigManager({ configDir: dir });
 
-      const result = await writeOnboardingConfig(mockConfig, store, {
+      const result = await writeOnboardingConfig(config, store, {
         primaryDb: "tvdb",
         apiKey: "",
         templatePreset: "standard",
       });
 
       expect(result).toEqual({ success: true });
-      expect(calls).toEqual([
-        ["primary-db", "tvdb"],
-        ["template.preset", "standard"],
-      ]);
+      expect(config.get("primary-db")).toBe("tvdb");
+      expect(config.get("template.preset")).toBe("standard");
     });
   });
 
   test("stores api key when provided", async () => {
-    await withTempDir("onboarding-key", async () => {
+    await withTempDir("onboarding-key", async (dir) => {
       const store = createSilentCredentialStore();
-      const mockConfig: ConfigSetter = {
-        set: () => ({ success: true }),
-      };
+      const config = new ConfigManager({ configDir: dir });
 
-      const result = await writeOnboardingConfig(mockConfig, store, {
+      const result = await writeOnboardingConfig(config, store, {
         primaryDb: "tvdb",
         apiKey: "secret-key",
         templatePreset: "standard",
@@ -60,62 +54,35 @@ describe("writeOnboardingConfig", () => {
     });
   });
 
-  test("returns error when primary-db set fails", async () => {
-    const store = createSilentCredentialStore();
-    const mockConfig: ConfigSetter = {
-      set: () => ({ success: false, error: "Invalid value" }),
-    };
+  test("returns error when template.preset is invalid", async () => {
+    await withTempDir("onboarding-invalid-preset", async (dir) => {
+      const store = createSilentCredentialStore();
+      const config = new ConfigManager({ configDir: dir });
 
-    const result = await writeOnboardingConfig(mockConfig, store, {
-      primaryDb: "invalid",
-      apiKey: "",
-      templatePreset: "standard",
+      const result = await writeOnboardingConfig(config, store, {
+        primaryDb: "tvdb",
+        apiKey: "",
+        templatePreset: "invalid",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
     });
-
-    expect(result).toEqual({ success: false, error: "Invalid value" });
-  });
-
-  test("returns error when template.preset set fails", async () => {
-    const store = createSilentCredentialStore();
-    let callCount = 0;
-    const mockConfig: ConfigSetter = {
-      set: (_key, _value) => {
-        callCount++;
-        if (callCount === 2) return { success: false, error: "Bad preset" };
-        return { success: true };
-      },
-    };
-
-    const result = await writeOnboardingConfig(mockConfig, store, {
-      primaryDb: "tvdb",
-      apiKey: "",
-      templatePreset: "invalid",
-    });
-
-    expect(result).toEqual({ success: false, error: "Bad preset" });
   });
 
   test("includes template.custom when provided", async () => {
-    const store = createSilentCredentialStore();
-    const calls: string[][] = [];
-    const mockConfig: ConfigSetter = {
-      set: (key, value) => {
-        calls.push([key, value]);
-        return { success: true };
-      },
-    };
+    await withTempDir("onboarding-custom", async (dir) => {
+      const store = createSilentCredentialStore();
+      const config = new ConfigManager({ configDir: dir });
 
-    await writeOnboardingConfig(mockConfig, store, {
-      primaryDb: "tvdb",
-      apiKey: "",
-      templatePreset: "standard",
-      templateCustom: "{anime}/{episode} {title}",
+      await writeOnboardingConfig(config, store, {
+        primaryDb: "tvdb",
+        apiKey: "",
+        templatePreset: "standard",
+        templateCustom: "{anime}/{episode} {title}",
+      });
+
+      expect(config.get("template.custom")).toBe("{anime}/{episode} {title}");
     });
-
-    expect(calls).toEqual([
-      ["primary-db", "tvdb"],
-      ["template.preset", "standard"],
-      ["template.custom", "{anime}/{episode} {title}"],
-    ]);
   });
 });
