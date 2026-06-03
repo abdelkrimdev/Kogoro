@@ -1,4 +1,5 @@
 import type { ScanFileStatus } from "@kogoro/core";
+import { statusColorClass } from "../shared";
 
 export interface ScanProgressEntry {
   file: string;
@@ -43,17 +44,8 @@ export function isIndeterminate(state: ScanProgressState): boolean {
   return state.phase === "walk";
 }
 
-const STATUS_COLORS: Partial<Record<ScanFileStatus, string>> = {
-  matched: "preset-tonal-success",
-  cached: "preset-tonal-success",
-  ambiguous: "preset-tonal-warning",
-  failed: "preset-tonal-error",
-  skipped: "preset-tonal-surface",
-  pending: "preset-tonal-surface",
-};
-
 export function getStatusColor(status: ScanFileStatus): string {
-  return STATUS_COLORS[status] ?? "preset-tonal-surface";
+  return statusColorClass(status);
 }
 
 export interface ScanBreakdown {

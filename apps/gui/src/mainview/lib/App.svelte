@@ -1,28 +1,52 @@
 <script lang="ts">
-  import type { ReviewPlan, ScanFileStatus } from "@kogoro/core";
   import type { AppRPC } from "../../shared/types";
-  import { Search, LayoutGrid, Settings, Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle } from '@lucide/svelte';
+  import { Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
   import { onMount } from 'svelte';
   import { createRPCThemeState, applyThemeToDocument } from "../state/theme-state";
+  import {
+    createInitialSnapshot,
+    reduceMessage,
+    reduceOnScanStarted,
+    reduceOnViewResults,
+    reduceClearAfterReview,
+    reduceClearAfterComplete,
+    type ScanSessionSnapshot,
+  } from "../state/scan-session-reducer";
+  import { NAV_ITEMS, loadSidebarCollapsed, saveSidebarCollapsed, type View } from "../state/nav";
   import Wizard from "./Wizard.svelte";
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
   import Detail from "./Detail.svelte";
   import SettingsView from "./Settings.svelte";
   import ScanView from "./ScanView.svelte";
-  import type { ScanProgressState } from "../state/scan-progress-state";
-  import { addScanProgressEvent, createScanProgressState } from "../state/scan-progress-state";
 
-  type View = "loading" | "onboarding" | "scan" | "library" | "details" | "settings" | "review";
+  type LibraryStats = AppRPC["bun"]["requests"]["getLibraryStats"]["response"];
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
     onMessage: (handler: (message: string, data: unknown) => void) => void;
-    initialView?: View;
   }
 
-  let { rpc, onMessage, initialView = "scan" }: Props = $props();
+  let { rpc, onMessage }: Props = $props();
+
+  let snap: ScanSessionSnapshot = $state(createInitialSnapshot());
+  let libraryStats: LibraryStats | null = $state(null);
+
+  async function refreshLibraryStats() {
+    try {
+      libraryStats = (await rpc.request("getLibraryStats", {})) as LibraryStats;
+    } catch {}
+  }
+
+  async function cancelExecution() {
+    if (!snap.sessionId) return;
+    try {
+      await rpc.request("cancelScan", { sessionId: snap.sessionId });
+    } catch (err) {
+      console.error("Failed to cancel execution:", err);
+    }
+  }
 
   let themeState: ReturnType<typeof createRPCThemeState> | null = null;
   let themeMode = $state<"light" | "dark">("light");
@@ -33,21 +57,10 @@
     themeState.load();
   });
 
-  const SIDEBAR_KEY = "kogoro-sidebar-collapsed";
-  function loadSidebarCollapsed(): boolean {
-    try {
-      const v = localStorage.getItem(SIDEBAR_KEY);
-      return v === "true";
-    } catch {
-      return false;
-    }
-  }
   let sidebarCollapsed = $state(loadSidebarCollapsed());
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
-    try {
-      localStorage.setItem(SIDEBAR_KEY, String(sidebarCollapsed));
-    } catch {}
+    saveSidebarCollapsed(sidebarCollapsed);
   }
 
   $effect(() => {
@@ -63,53 +76,20 @@
     });
   });
 
-  let currentView = $state<View>(initialView);
-  let currentSessionId = $state<string | null>(null);
-  let currentPlan = $state<ReviewPlan | null>(null);
+  let currentView = $state<View>("scan");
   let currentDetailId = $state<string | null>(null);
-  let statusText = $state("Ready");
-  let isScanning = $state(false);
-  let isExecuting = $state(false);
-  let scanProgressState = $state<ScanProgressState | null>(null);
-  type LibraryStats = AppRPC["bun"]["requests"]["getLibraryStats"]["response"];
+  let isLoading = $state(true);
 
-  let libraryStats = $state<LibraryStats | null>(null);
-
-  function refreshLibraryStats() {
-    (async () => {
-      try {
-        const stats = (await rpc.request("getLibraryStats", {})) as LibraryStats;
-        libraryStats = stats;
-      } catch {}
-    })();
-  }
-
-  const NAV_ITEMS = [
-    { view: "scan" as const, label: "Scan", icon: Search },
-    { view: "library" as const, label: "Library", icon: LayoutGrid },
-    { view: "settings" as const, label: "Settings", icon: Settings },
-  ];
-
-  const footerText = $derived(statusText);
   const isMainView = $derived(currentView !== "review" && currentView !== "details");
 
   $effect(() => {
-    if (currentView === "library" || statusText === "Ready") {
+    if (currentView === "library" || snap.statusText === "Ready") {
       refreshLibraryStats();
     }
   });
 
   function navigate(view: View) {
     currentView = view;
-  }
-
-  async function cancelExecution() {
-    if (!currentSessionId) return;
-    try {
-      await rpc.request("cancelScan", { sessionId: currentSessionId });
-    } catch (err) {
-      console.error("Failed to cancel execution:", err);
-    }
   }
 
   function openAnime(id: string) {
@@ -126,23 +106,15 @@
     currentView = "scan";
   }
 
-  function onScanStarted() {
-    scanProgressState = createScanProgressState();
-  }
-
   function onViewResults() {
     currentView = "review";
-    scanProgressState = null;
-    statusText = "Review ready";
+    snap = reduceOnViewResults(snap);
   }
 
   function onReviewComplete() {
     currentView = "scan";
-    currentSessionId = null;
-    currentPlan = null;
+    snap = reduceClearAfterReview(snap);
   }
-
-  let isLoading = $state(true);
 
   const MIN_SPINNER_MS = 500;
 
@@ -173,68 +145,14 @@
 
   $effect(() => {
     onMessage((message, data) => {
-      switch (message) {
-        case "showOnboarding":
-          currentView = "onboarding";
-          break;
-        case "scanProgress": {
-          const scanEvent = data as { completed: number; total: number; file: string; status: string };
-          statusText = `Scanning: ${scanEvent.completed}/${scanEvent.total} - ${scanEvent.status}`;
-          isScanning = true;
-          if (!scanProgressState) scanProgressState = createScanProgressState();
-          addScanProgressEvent(scanProgressState, {
-            file: scanEvent.file,
-            status: scanEvent.status as ScanFileStatus,
-            completed: scanEvent.completed,
-            total: scanEvent.total,
-          });
-          break;
-        }
-        case "scanPhaseComplete": {
-          const phaseEvent = data as { phase: string; summary: { totalFiles: number } };
-          statusText = `Phase complete: ${phaseEvent.phase}`;
-          break;
-        }
-        case "scanReviewReady": {
-          const reviewEvent = data as { sessionId: string; plan: ReviewPlan };
-          currentSessionId = reviewEvent.sessionId;
-          currentPlan = reviewEvent.plan;
-          isScanning = false;
-          statusText = "Scan complete — review results";
-          break;
-        }
-        case "scanExecutionProgress": {
-          const execEvent = data as { completed: number; total: number; file: string; status: string };
-          statusText = `Executing: ${execEvent.completed}/${execEvent.total} - ${execEvent.file.split("/").pop() ?? execEvent.file} - ${execEvent.status}`;
-          isExecuting = true;
-          break;
-        }
-        case "scanComplete": {
-          const completeEvent = data as {
-            summary: { renamed: number; renameFailed: number; renameFailures: Array<{ file: string; reason: string }> };
-          };
-          let text = `Complete: ${completeEvent.summary.renamed} renamed, ${completeEvent.summary.renameFailed} failed`;
-          if (completeEvent.summary.renameFailures.length > 0) {
-            const reasons = [...new Set(completeEvent.summary.renameFailures.map((f) => f.reason))].join(", ");
-            text += ` (${reasons})`;
-          }
-          statusText = text;
-          currentView = "scan";
-          currentSessionId = null;
-          currentPlan = null;
-          isScanning = false;
-          isExecuting = false;
-          scanProgressState = null;
-          refreshLibraryStats();
-          break;
-        }
-        case "enrichmentProgress": {
-          const enrichEvent = data as { command: string; completed: number; total: number; status: string };
-          const label = enrichEvent.command === "artwork" ? "Cover art" : "Metadata";
-          statusText = `${label}: ${enrichEvent.completed}/${enrichEvent.total} - ${enrichEvent.status}`;
-          break;
-        }
+      if (message === "scanComplete") {
+        snap = reduceMessage(snap, message, data);
+        currentView = "scan";
+        snap = reduceClearAfterComplete(snap);
+        refreshLibraryStats();
+        return;
       }
+      snap = reduceMessage(snap, message, data);
     });
   });
 </script>
@@ -293,7 +211,7 @@
                   onclick={() => navigate(item.view)}
                 >
                   <item.icon class="size-4" />
-                  {#if item.view === "scan" && isScanning}
+                  {#if item.view === "scan" && snap.isScanning}
                     <span class="mx-0.5 size-2 rounded-full bg-primary-500 animate-pulse"></span>
                   {/if}
                   {#if !sidebarCollapsed}
@@ -306,8 +224,8 @@
         </Navigation>
       {/if}
       <main class="flex-1 overflow-auto">
-        {#if currentView === "review" && currentPlan && currentSessionId}
-          <Review {rpc} sessionId={currentSessionId} plan={currentPlan} onComplete={onReviewComplete} />
+        {#if currentView === "review" && snap.plan && snap.sessionId}
+          <Review {rpc} sessionId={snap.sessionId} plan={snap.plan} onComplete={onReviewComplete} />
         {:else if currentView === "library"}
           <Library {rpc} onOpenAnime={openAnime} onStartScan={() => navigate("scan")} />
         {:else if currentView === "settings"}
@@ -315,13 +233,13 @@
         {:else if currentView === "details" && currentDetailId}
           <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
         {:else}
-          <ScanView {rpc} {scanProgressState} onScanStarted={onScanStarted} reviewReady={currentPlan !== null} {onViewResults} />
+          <ScanView {rpc} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} />
         {/if}
       </main>
     </div>
     <footer class="h-8 flex items-center px-4 border-t border-surface-300-700 bg-surface-100-900 shrink-0 gap-4">
-      <span class="text-xs text-surface-600-400">{footerText}</span>
-      {#if isExecuting}
+      <span class="text-xs text-surface-600-400">{snap.statusText}</span>
+      {#if snap.isExecuting}
         <button
           type="button"
           class="btn btn-sm preset-filled-error-500 rounded-lg text-xs ml-auto"
@@ -330,7 +248,7 @@
           Cancel
         </button>
       {/if}
-      {#if libraryStats && (footerText === "Ready" || currentView !== "scan")}
+      {#if libraryStats && (snap.statusText === "Ready" || currentView !== "scan")}
         <span class="text-xs text-surface-500-500">{libraryStats.animeCount} anime &bull; {libraryStats.episodeCount} episodes</span>
       {/if}
     </footer>

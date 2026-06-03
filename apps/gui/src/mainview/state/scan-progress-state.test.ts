@@ -127,8 +127,8 @@ describe("getStatusColor", () => {
     expect(getStatusColor("matched")).toBe("preset-tonal-success");
   });
 
-  it("returns success preset for cached status", () => {
-    expect(getStatusColor("cached")).toBe("preset-tonal-success");
+  it("returns primary preset for cached status", () => {
+    expect(getStatusColor("cached")).toBe("preset-tonal-primary");
   });
 
   it("returns warning preset for ambiguous status", () => {

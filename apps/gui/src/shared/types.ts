@@ -255,7 +255,6 @@ export type AppRPC = {
   webview: RPCSchema<{
     requests: Record<string, never>;
     messages: {
-      showOnboarding: Record<string, never>;
       scanProgress: {
         sessionId: string;
         file: string;

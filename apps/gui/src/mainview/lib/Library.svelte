@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type LibraryItem, filterAndSort } from "../state/library-state";
-  import { typeBadgeClass, entryTypeLabel } from "../shared";
+  import { ENTRY_LABELS, typeBadgeClass, entryTypeLabel } from "../shared";
   import { Search, LayoutGrid, List, Folder, ChevronUp, ChevronDown } from '@lucide/svelte';
 
   interface Props {
@@ -18,7 +18,7 @@
   let sortField = $state<"titleEn" | "entryType" | "episodeCount" | "filesOnDisk">("titleEn");
   let sortAsc = $state(true);
 
-  const ENTRY_TYPES = ["tv", "movie", "ova", "special"];
+  const ENTRY_TYPES = Object.keys(ENTRY_LABELS);
 
   const filtered = $derived(
     filterAndSort({ items, search, typeFilter, viewMode, sortField, sortAsc }),

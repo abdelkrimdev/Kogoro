@@ -29,19 +29,23 @@ export function typeBadgeClass(type: string): string {
   }
 }
 
-export function statusBadgeClass(status: string): string {
+export function statusColorClass(status: string): string {
   switch (status) {
     case "matched":
-      return "badge preset-tonal-success";
+      return "preset-tonal-success";
     case "ambiguous":
-      return "badge preset-tonal-warning";
+      return "preset-tonal-warning";
     case "failed":
-      return "badge preset-tonal-error";
+      return "preset-tonal-error";
     case "cached":
-      return "badge preset-tonal-primary";
+      return "preset-tonal-primary";
     default:
-      return "badge preset-tonal-surface";
+      return "preset-tonal-surface";
   }
+}
+
+export function statusBadgeClass(status: string): string {
+  return `badge ${statusColorClass(status)}`;
 }
 
 export function entryTypeLabel(type: string): string {

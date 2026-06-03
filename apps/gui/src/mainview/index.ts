@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const target = document.getElementById("content");
   if (!target) return;
 
-  mount(App, { target, props: { rpc: appRpc, onMessage, initialView: "loading" } });
+  mount(App, { target, props: { rpc: appRpc, onMessage } });
 });
 
 window.addEventListener("beforeunload", () => {

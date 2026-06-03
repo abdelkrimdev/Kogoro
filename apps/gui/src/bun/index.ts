@@ -195,10 +195,6 @@ const win = new BrowserWindow({
   rpc,
 });
 
-if (shouldShowOnboarding(CONFIG_DIR)) {
-  rpc.send.showOnboarding({});
-}
-
 win.on("resize", (event: unknown) => {
   const e = event as { data: { x: number; y: number; width: number; height: number } };
   saveWindowState({ x: e.data.x, y: e.data.y, width: e.data.width, height: e.data.height });
