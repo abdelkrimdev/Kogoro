@@ -176,6 +176,15 @@ export class ScanOrchestrator {
     return buildSummary(this.sessionId, this.results, renameResults ?? new Map());
   }
 
+  private refreshPlan(): void {
+    this.plan = aggregateReviewPlan(
+      this.results,
+      this.sessionId,
+      this.options.libraryDb,
+      this.options.sourceDb,
+    );
+  }
+
   async startScan(path: string): Promise<void> {
     if (this._state !== "idle" && this._state !== "done") {
       throw new Error("Scan already running");
@@ -220,12 +229,7 @@ export class ScanOrchestrator {
       summary: this.makeSummary(),
     });
 
-    this.plan = aggregateReviewPlan(
-      this.results,
-      this.sessionId,
-      this.options.libraryDb,
-      this.options.sourceDb,
-    );
+    this.refreshPlan();
     this._state = "review";
 
     this.emit({
@@ -377,12 +381,7 @@ export class ScanOrchestrator {
 
     const resolved = await this.options.resolveFile(sourcePath, animeId, episodeId);
     this.results[resultIndex] = resolved;
-    this.plan = aggregateReviewPlan(
-      this.results,
-      this.sessionId,
-      this.options.libraryDb,
-      this.options.sourceDb,
-    );
+    this.refreshPlan();
 
     this.emitReviewReady();
   }
