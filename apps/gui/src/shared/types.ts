@@ -1,9 +1,9 @@
-import type { ReviewPlan, ScanFileStatus, ScanSummary } from "@kogoro/core";
+import type { ReviewPlan, ScanFileStatus, ScanState, ScanSummary } from "@kogoro/core";
 import type { RPCSchema } from "electrobun";
 
-export type { ReviewPlan, ScanFileStatus, ScanSummary } from "@kogoro/core";
+export type { ReviewPlan, ScanFileStatus, ScanState, ScanSummary } from "@kogoro/core";
 
-export type ScanPhase = "scan" | "plan" | "review" | "execute";
+export type ThemeMode = "light" | "dark";
 
 export interface ResolveCandidate {
   animeId: string;
@@ -221,7 +221,22 @@ export type AppRPC = {
         params: { episodeId: string; watched: boolean; notes?: string };
         response: { success: boolean };
       };
+      openDirectoryPicker: {
+        params: Record<string, never>;
+        response: { path: string } | null;
+      };
     };
+    messages: {
+      windowWillClose: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+    };
+  }>;
+  webview: RPCSchema<{
+    requests: Record<string, never>;
     messages: {
       showOnboarding: Record<string, never>;
       showMainApp: Record<string, never>;
@@ -235,7 +250,7 @@ export type AppRPC = {
       };
       scanPhaseComplete: {
         sessionId: string;
-        phase: ScanPhase;
+        phase: ScanState;
         summary: ScanSummary;
       };
       scanReviewReady: {
@@ -266,26 +281,6 @@ export type AppRPC = {
         command: "artwork" | "metadata";
         success: boolean;
         error?: string;
-      };
-    };
-  }>;
-  webview: RPCSchema<{
-    requests: {
-      getConfig: {
-        params: Record<string, never>;
-        response: Record<string, unknown> | null;
-      };
-      updateConfig: {
-        params: Record<string, unknown>;
-        response: undefined;
-      };
-    };
-    messages: {
-      windowWillClose: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
       };
     };
   }>;

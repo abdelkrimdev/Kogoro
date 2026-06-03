@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import {
-  applyThemeToDocument,
-  createRPCThemeState,
-  createThemeState,
-  type ThemeMode,
-} from "./theme-state";
+import type { ThemeMode } from "../../shared/types";
+import { applyThemeToDocument, createRPCThemeState, createThemeState } from "./theme-state";
 
 describe("createThemeState", () => {
   it("defaults to light mode", () => {

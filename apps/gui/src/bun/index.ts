@@ -1,5 +1,5 @@
 import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
-import { BrowserView, BrowserWindow } from "electrobun/bun";
+import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
@@ -15,31 +15,16 @@ const credentialStore = createCredentialStore();
 
 const libraryHandlers = createLibraryHandlers(CONFIG_DIR);
 
-async function handleEnrichment(params: { id: string }, command: "artwork" | "metadata") {
-  const send = rpc.send as unknown as {
-    enrichmentProgress?: (data: unknown) => void;
-    enrichmentComplete?: (data: unknown) => void;
-  };
-  const enrichment = createEnrichmentHandlers({
+function createEnrichment() {
+  return createEnrichmentHandlers({
     configManager,
     credentialStore,
     configDir: CONFIG_DIR,
     send: {
-      enrichmentProgress: (data) => send.enrichmentProgress?.(data),
-      enrichmentComplete: (data) => send.enrichmentComplete?.(data),
+      enrichmentProgress: (data) => rpc.send.enrichmentProgress(data),
+      enrichmentComplete: (data) => rpc.send.enrichmentComplete(data),
     },
   });
-  const result =
-    command === "artwork"
-      ? await enrichment.enrichArtwork(params)
-      : await enrichment.enrichMetadata(params);
-  send.enrichmentComplete?.({
-    animeId: params.id,
-    command,
-    success: result.success,
-    error: result.error,
-  });
-  return result;
 }
 
 const rpc = BrowserView.defineRPC<AppRPC>({
@@ -130,30 +115,22 @@ const rpc = BrowserView.defineRPC<AppRPC>({
           credentialStore,
         );
 
-        const send = rpc.send as unknown as {
-          scanProgress?: (data: unknown) => void;
-          scanPhaseComplete?: (data: unknown) => void;
-          scanReviewReady?: (data: unknown) => void;
-          scanExecutionProgress?: (data: unknown) => void;
-          scanComplete?: (data: unknown) => void;
-        };
-
         orchestrator.on("*", (event) => {
           switch (event.type) {
             case "scanProgress":
-              send.scanProgress?.(event);
+              rpc.send.scanProgress(event);
               break;
             case "scanPhaseComplete":
-              send.scanPhaseComplete?.(event);
+              rpc.send.scanPhaseComplete(event);
               break;
             case "scanReviewReady":
-              send.scanReviewReady?.(event);
+              rpc.send.scanReviewReady(event);
               break;
             case "scanExecutionProgress":
-              send.scanExecutionProgress?.(event);
+              rpc.send.scanExecutionProgress(event);
               break;
             case "scanComplete":
-              send.scanComplete?.(event);
+              rpc.send.scanComplete(event);
               break;
           }
         });
@@ -225,18 +202,10 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return undefined;
       },
       enrichArtwork: async (params) => {
-        return handleEnrichment(params, "artwork") as unknown as {
-          success: boolean;
-          summary?: { total: number; downloaded: number; skipped: number; noArtwork: number };
-          error?: string;
-        };
+        return createEnrichment().enrichArtwork(params);
       },
       enrichMetadata: async (params) => {
-        return handleEnrichment(params, "metadata") as unknown as {
-          success: boolean;
-          summary?: { total: number; written: number; skipped: number; failed: number };
-          error?: string;
-        };
+        return createEnrichment().enrichMetadata(params);
       },
       getThemeMode: () => {
         const mode = loadThemeMode();
@@ -246,9 +215,23 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         saveThemeMode(params.mode);
         return { success: true };
       },
+      openDirectoryPicker: async () => {
+        const paths = await Utils.openFileDialog({
+          canChooseFiles: false,
+          canChooseDirectory: true,
+          allowsMultipleSelection: false,
+        });
+        const first = paths[0];
+        if (first) {
+          return { path: first };
+        }
+        return null;
+      },
     },
     messages: {
-      "*": () => {},
+      windowWillClose: (data) => {
+        saveWindowState({ x: data.x, y: data.y, width: data.width, height: data.height });
+      },
     },
   },
 });
@@ -268,11 +251,10 @@ const win = new BrowserWindow({
 });
 
 const needsOnboarding = shouldShowOnboarding(CONFIG_DIR);
-const send = rpc.send as unknown as { showOnboarding?: () => void; showMainApp?: () => void };
 if (needsOnboarding) {
-  send.showOnboarding?.();
+  rpc.send.showOnboarding({});
 } else {
-  send.showMainApp?.();
+  rpc.send.showMainApp({});
 }
 
 win.on("resize", (event: unknown) => {

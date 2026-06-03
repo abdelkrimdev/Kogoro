@@ -43,10 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 window.addEventListener("beforeunload", () => {
   const { innerWidth, innerHeight, screenX, screenY } = window;
-  const rpcSend = electrobun.rpc as unknown as {
-    send?: { windowWillClose?: (data: unknown) => void };
-  };
-  rpcSend.send?.windowWillClose?.({
+  electrobun?.rpc?.send.windowWillClose({
     x: screenX,
     y: screenY,
     width: innerWidth,

@@ -1,4 +1,4 @@
-export type ThemeMode = "light" | "dark";
+import type { ThemeMode } from "../../shared/types";
 
 export interface ThemeState {
   mode: ThemeMode;

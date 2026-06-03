@@ -97,8 +97,10 @@
 
   async function startScan() {
     try {
-      const result = (await rpc.request("scanStart", { path: "/tmp/test" })) as { sessionId: string };
-      currentSessionId = result.sessionId;
+      const result = (await rpc.request("openDirectoryPicker", {})) as { path: string } | null;
+      if (!result) return;
+      const scanResult = (await rpc.request("scanStart", { path: result.path })) as { sessionId: string };
+      currentSessionId = scanResult.sessionId;
       statusText = "Scanning...";
     } catch (err) {
       console.error("Failed to start scan:", err);

@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ThemeMode } from "../shared/types";
 
 export type WindowFrame = { x: number; y: number; width: number; height: number };
-export type ThemeMode = "light" | "dark";
 
 const DEFAULT_BASE = join(import.meta.dir, "../..");
 
