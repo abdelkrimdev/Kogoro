@@ -317,6 +317,36 @@ export class LibraryDb {
     }
   }
 
+  exportMatches(): MatchEntry[] {
+    const rows = this.db
+      .prepare(
+        `SELECT a.external_id, a.title, a.entry_type, e.episode_number, e.file_path, e.title as episode_title, e.season
+         FROM anime a
+         JOIN episodes e ON e.anime_id = a.id
+         ORDER BY a.title, e.season, e.episode_number`,
+      )
+      .all() as Array<{
+      external_id: string;
+      title: string;
+      entry_type: string;
+      episode_number: number;
+      file_path: string;
+      episode_title: string | null;
+      season: number | null;
+    }>;
+
+    return rows.map((row) => ({
+      animeId: row.external_id,
+      animeTitle: row.title,
+      entryType: row.entry_type as EntryType,
+      episodeId: null,
+      episode: row.episode_number,
+      season: row.season ?? null,
+      title: row.episode_title ?? null,
+      filePath: row.file_path,
+    }));
+  }
+
   getStats(): { animeCount: number; episodeCount: number } {
     const animeRow = this.db.prepare("SELECT COUNT(*) as count FROM anime").get() as {
       count: number;

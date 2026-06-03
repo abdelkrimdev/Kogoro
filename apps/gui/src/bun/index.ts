@@ -1,20 +1,6 @@
 import { join } from "node:path";
-import type { EntryType } from "@kogoro/core";
-import {
-  CONFIG_DIR,
-  ConfigManager,
-  createCredentialStore,
-  LibraryDb,
-  MatchCache,
-  Matcher,
-  OverrideStore,
-  Renamer,
-  SCHEMA_DEFAULTS,
-  Scanner,
-  walk,
-} from "@kogoro/core";
-import { PluginFactory } from "@kogoro/plugins";
-import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
+import { CONFIG_DIR, ConfigManager, createCredentialStore, LibraryDb } from "@kogoro/core";
+import { BrowserView, BrowserWindow } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
@@ -264,81 +250,19 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return { success: true };
       },
       rebuildLibrary: async () => {
-        const paths = await Utils.openFileDialog({
-          canChooseFiles: false,
-          canChooseDirectory: true,
-          allowsMultipleSelection: false,
-        });
-        const dir = paths[0];
-        if (!dir) return { success: false, error: "No directory selected" };
-
         try {
-          const factory = new PluginFactory(configManager, credentialStore);
-          const database = await factory.primaryDatabase();
-          if (!database) return { success: false, error: "No primary database configured" };
-
-          const matcher = new Matcher({ database });
-          const cache = new MatchCache();
-          const overrideStore = new OverrideStore(CONFIG_DIR);
-
-          const template = configManager.getTemplate();
-          const filenameTemplate = template.includes("{ext}") ? template : `${template}.{ext}`;
-          const directoryTemplate =
-            (configManager.get("template.directory") as string) ??
-            SCHEMA_DEFAULTS.template.directory;
-
-          const renamer = new Renamer({ filenameTemplate, directoryTemplate });
-          const scanner = new Scanner({ matcher, cache, renamer, overrideStore });
-
-          const files = await walk(dir, SCHEMA_DEFAULTS["media-extensions"], {
-            excludePatterns: configManager.getList("exclude-patterns"),
-          });
-
-          const matches: Array<{
-            animeId: string;
-            animeTitle: string;
-            entryType: EntryType;
-            episodeId: string | null;
-            episode: number | null;
-            season: number | null;
-            title: string | null;
-            filePath: string;
-          }> = [];
-
-          for (const file of files) {
-            try {
-              const result = await scanner.scanFile(file, { dryRun: true });
-              if (result.match && (result.status === "matched" || result.status === "cached")) {
-                matches.push({
-                  animeId: result.match.anime.id,
-                  animeTitle: result.match.anime.titleEn,
-                  entryType: result.match.anime.entryType,
-                  episodeId: result.match.episode?.id ?? null,
-                  episode: result.match.episode?.episode ?? null,
-                  season: result.match.episode?.season ?? null,
-                  title: result.match.episode?.titleEn ?? null,
-                  filePath: result.file,
-                });
-              }
-            } catch {
-              // skip files that fail to scan
-            }
-          }
-
-          if (matches.length > 0) {
+          const dbPath = join(CONFIG_DIR, "library.db");
+          const db = new LibraryDb({ dbPath });
+          try {
+            const matches = db.exportMatches();
             const sourceDb = configManager.get("primary-db");
-            if (typeof sourceDb === "string" && sourceDb) {
-              const dbPath = join(CONFIG_DIR, "library.db");
-              const db = new LibraryDb({ dbPath });
-              try {
-                db.rebuildFromMatches(matches, sourceDb);
-              } finally {
-                db.close();
-              }
+            if (matches.length > 0 && typeof sourceDb === "string" && sourceDb) {
+              db.rebuildFromMatches(matches, sourceDb);
             }
+            return { success: true };
+          } finally {
+            db.close();
           }
-
-          return { success: true };
         } catch (err) {
           return {
             success: false,
