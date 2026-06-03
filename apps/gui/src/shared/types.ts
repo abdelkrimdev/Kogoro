@@ -66,6 +66,10 @@ export type AppRPC = {
           coverArt?: string;
         }>;
       };
+      getLibraryStats: {
+        params: Record<string, never>;
+        response: { animeCount: number; episodeCount: number };
+      };
       getAnimeDetail: {
         params: { id: string };
         response: {

@@ -623,6 +623,52 @@ describe("LibraryDb", () => {
     });
   });
 
+  test("getStats returns anime and episode counts", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const anime = db.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          entryType: "tv",
+          episodeCount: 24,
+        });
+        db.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 1,
+          filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+          season: 1,
+        });
+        db.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 2,
+          filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+          season: 1,
+        });
+
+        const stats = db.getStats();
+        expect(stats.animeCount).toBe(1);
+        expect(stats.episodeCount).toBe(2);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  test("getStats returns zero counts for empty library", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const stats = db.getStats();
+        expect(stats.animeCount).toBe(0);
+        expect(stats.episodeCount).toBe(0);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
   test("watch status persists across database instances", async () => {
     await withTempDir("library-db", async (dir) => {
       const dbPath = `${dir}/library.db`;

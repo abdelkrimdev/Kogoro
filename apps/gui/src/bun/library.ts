@@ -135,5 +135,14 @@ export function createLibraryHandlers(configDir: string) {
         db.close();
       }
     },
+
+    async getLibraryStats(): Promise<{ animeCount: number; episodeCount: number }> {
+      const db = getDb();
+      try {
+        return db.getStats();
+      } finally {
+        db.close();
+      }
+    },
   };
 }

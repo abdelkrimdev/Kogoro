@@ -66,6 +66,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return { success: true };
       },
       getLibrary: () => libraryHandlers.getLibrary(),
+      getLibraryStats: () => libraryHandlers.getLibraryStats(),
       getAnimeDetail: (params) => libraryHandlers.getAnimeDetail(params),
       getWatchStatusByAnime: (params) => libraryHandlers.getWatchStatusByAnime(params),
       setWatchStatus: (params) => libraryHandlers.setWatchStatus(params),

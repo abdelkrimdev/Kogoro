@@ -317,6 +317,16 @@ export class LibraryDb {
     }
   }
 
+  getStats(): { animeCount: number; episodeCount: number } {
+    const animeRow = this.db.prepare("SELECT COUNT(*) as count FROM anime").get() as {
+      count: number;
+    };
+    const episodeRow = this.db.prepare("SELECT COUNT(*) as count FROM episodes").get() as {
+      count: number;
+    };
+    return { animeCount: animeRow.count, episodeCount: episodeRow.count };
+  }
+
   close(): void {
     this.db.close();
   }
