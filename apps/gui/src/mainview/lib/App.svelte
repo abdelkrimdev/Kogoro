@@ -63,6 +63,7 @@
   let currentPlan = $state<ReviewPlan | null>(null);
   let currentDetailId = $state<string | null>(null);
   let statusText = $state("Ready");
+  let isScanning = $state(false);
 
   const NAV_ITEMS = [
     { view: "scan" as const, label: "Scan", icon: Search },
@@ -105,6 +106,7 @@
         case "scanProgress": {
           const scanEvent = data as { completed: number; total: number; file: string; status: string };
           statusText = `Scanning: ${scanEvent.completed}/${scanEvent.total} - ${scanEvent.status}`;
+          isScanning = true;
           break;
         }
         case "scanPhaseComplete": {
@@ -117,6 +119,7 @@
           currentSessionId = reviewEvent.sessionId;
           currentPlan = reviewEvent.plan;
           currentView = "review";
+          isScanning = false;
           break;
         }
         case "scanExecutionProgress": {
@@ -130,6 +133,7 @@
           currentView = "scan";
           currentSessionId = null;
           currentPlan = null;
+          isScanning = false;
           break;
         }
         case "enrichmentProgress": {
@@ -190,6 +194,9 @@
                   onclick={() => navigate(item.view)}
                 >
                   <item.icon class="size-4" />
+                  {#if item.view === "scan" && isScanning}
+                    <span class="mx-0.5 size-2 rounded-full bg-primary-500 animate-pulse"></span>
+                  {/if}
                   {#if !sidebarCollapsed}
                     <Navigation.TriggerText>{item.label}</Navigation.TriggerText>
                   {/if}
