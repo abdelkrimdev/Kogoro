@@ -182,6 +182,7 @@
                   {/if}
                 </span>
               </th>
+              <th class="font-medium text-right">Files</th>
             </tr>
         </thead>
         <tbody class="[&>tr]:hover:preset-tonal-primary">
@@ -193,6 +194,7 @@
                   {entryTypeLabel(item.entryType)}
                 </span>
               </td>
+              <td class="text-sm text-surface-700-300 text-right">{item.episodeCount}</td>
               <td class="text-sm text-surface-700-300 text-right">{item.episodeCount}</td>
             </tr>
           {/each}
