@@ -207,6 +207,15 @@
           currentPlan = null;
           isScanning = false;
           scanProgressState = null;
+          (async () => {
+            try {
+              const stats = (await rpc.request("getLibraryStats", {})) as {
+                animeCount: number;
+                episodeCount: number;
+              };
+              libraryStats = stats;
+            } catch {}
+          })();
           break;
         }
         case "enrichmentProgress": {
