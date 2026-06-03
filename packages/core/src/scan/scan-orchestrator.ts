@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AnimeGroup, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
+import type { AnimeGroup, EntryType, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
 import { aggregateReviewPlan } from "./rename-plan-aggregator";
 import type { ScanResult } from "./scanner";
 
@@ -148,6 +148,50 @@ export class ScanOrchestrator {
 
   getPlan(): ReviewPlan | null {
     return this.plan;
+  }
+
+  getMatchResults(): Array<{
+    animeId: string;
+    animeTitle: string;
+    entryType: EntryType;
+    episodeId: string | null;
+    episode: number | null;
+    season: number | null;
+    title: string | null;
+    filePath: string;
+  }> {
+    const results: Array<{
+      animeId: string;
+      animeTitle: string;
+      entryType: EntryType;
+      episodeId: string | null;
+      episode: number | null;
+      season: number | null;
+      title: string | null;
+      filePath: string;
+    }> = [];
+
+    for (const r of this.results) {
+      if (!r.match) continue;
+      if (r.status !== "matched" && r.status !== "cached") continue;
+
+      const animeId = r.match.anime.id;
+      if (this.rejectedAnimeIds.has(animeId)) continue;
+      if (this.approvedAnimeIds.size > 0 && !this.approvedAnimeIds.has(animeId)) continue;
+
+      results.push({
+        animeId: r.match.anime.id,
+        animeTitle: r.match.anime.titleEn,
+        entryType: r.match.anime.entryType,
+        episodeId: r.match.episode?.id ?? null,
+        episode: r.match.episode?.episode ?? null,
+        season: r.match.episode?.season ?? null,
+        title: r.match.episode?.titleEn ?? null,
+        filePath: r.file,
+      });
+    }
+
+    return results;
   }
 
   on(_event: ScanEventType | "*", listener: ScanEventListener): void {
