@@ -43,7 +43,7 @@ export function isIndeterminate(state: ScanProgressState): boolean {
   return state.phase === "walk";
 }
 
-const STATUS_COLORS: Record<string, string> = {
+const STATUS_COLORS: Partial<Record<ScanFileStatus, string>> = {
   matched: "preset-tonal-success",
   cached: "preset-tonal-success",
   ambiguous: "preset-tonal-warning",

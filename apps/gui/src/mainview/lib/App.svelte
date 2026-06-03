@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ReviewPlan } from "@kogoro/core";
+  import type { ReviewPlan, ScanFileStatus } from "@kogoro/core";
   import { Search, LayoutGrid, Settings, Sun, Moon, PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
   import { createRPCThemeState, applyThemeToDocument } from "../state/theme-state";
@@ -9,6 +9,7 @@
   import Detail from "./Detail.svelte";
   import SettingsView from "./Settings.svelte";
   import ScanView from "./ScanView.svelte";
+  import type { ScanProgressState } from "../state/scan-progress-state";
   import { addScanProgressEvent, createScanProgressState } from "../state/scan-progress-state";
 
   type View = "onboarding" | "scan" | "library" | "details" | "settings" | "review";
@@ -66,7 +67,7 @@
   let currentDetailId = $state<string | null>(null);
   let statusText = $state("Ready");
   let isScanning = $state(false);
-  let scanProgressState = $state<import("../state/scan-progress-state").ScanProgressState | null>(null);
+  let scanProgressState = $state<ScanProgressState | null>(null);
 
   const NAV_ITEMS = [
     { view: "scan" as const, label: "Scan", icon: Search },
@@ -117,7 +118,7 @@
           if (!scanProgressState) scanProgressState = createScanProgressState();
           addScanProgressEvent(scanProgressState, {
             file: scanEvent.file,
-            status: scanEvent.status as import("@kogoro/core").ScanFileStatus,
+            status: scanEvent.status as ScanFileStatus,
             completed: scanEvent.completed,
             total: scanEvent.total,
           });
