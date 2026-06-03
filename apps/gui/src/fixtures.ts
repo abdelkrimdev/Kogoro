@@ -1,7 +1,8 @@
-import type { AnimeGroup, FileRow, ReviewPlan } from "@kogoro/core";
+import type { AnimeGroup, FileRow, ReviewPlan, ScanFileStatus } from "@kogoro/core";
 import type { EpisodeRow } from "./mainview/state/detail-state";
 import type { LibraryItem, LibraryState } from "./mainview/state/library-state";
 import type { ReviewState, StatusFilter } from "./mainview/state/review-state";
+import type { ScanProgressEntry } from "./mainview/state/scan-progress-state";
 import type { WatchStatusEntry } from "./mainview/state/watch-state";
 
 export function makeEpisode(overrides: Partial<EpisodeRow> = {}): EpisodeRow {
@@ -85,6 +86,17 @@ export function makeLibraryState(overrides: Partial<LibraryState> = {}): Library
     viewMode: overrides.viewMode ?? "grid",
     sortField: overrides.sortField ?? "titleEn",
     sortAsc: overrides.sortAsc ?? true,
+  };
+}
+
+export function makeScanProgressEntry(
+  overrides: { file?: string; status?: ScanFileStatus; completed?: number; total?: number } = {},
+): ScanProgressEntry & { completed: number; total: number } {
+  return {
+    file: overrides.file ?? "/media/Steins;Gate/S01E01.mkv",
+    status: overrides.status ?? "matched",
+    completed: overrides.completed ?? 0,
+    total: overrides.total ?? 0,
   };
 }
 

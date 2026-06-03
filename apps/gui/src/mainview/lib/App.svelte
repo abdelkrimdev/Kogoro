@@ -9,6 +9,7 @@
   import Detail from "./Detail.svelte";
   import SettingsView from "./Settings.svelte";
   import ScanView from "./ScanView.svelte";
+  import { addScanProgressEvent, createScanProgressState } from "../state/scan-progress-state";
 
   type View = "onboarding" | "scan" | "library" | "details" | "settings" | "review";
 
@@ -65,6 +66,7 @@
   let currentDetailId = $state<string | null>(null);
   let statusText = $state("Ready");
   let isScanning = $state(false);
+  let scanProgressState = $state<import("../state/scan-progress-state").ScanProgressState | null>(null);
 
   const NAV_ITEMS = [
     { view: "scan" as const, label: "Scan", icon: Search },
@@ -92,6 +94,10 @@
     currentView = "scan";
   }
 
+  function onScanStarted() {
+    scanProgressState = createScanProgressState();
+  }
+
   function onReviewComplete() {
     currentView = "scan";
     currentSessionId = null;
@@ -108,6 +114,13 @@
           const scanEvent = data as { completed: number; total: number; file: string; status: string };
           statusText = `Scanning: ${scanEvent.completed}/${scanEvent.total} - ${scanEvent.status}`;
           isScanning = true;
+          if (!scanProgressState) scanProgressState = createScanProgressState();
+          addScanProgressEvent(scanProgressState, {
+            file: scanEvent.file,
+            status: scanEvent.status as import("@kogoro/core").ScanFileStatus,
+            completed: scanEvent.completed,
+            total: scanEvent.total,
+          });
           break;
         }
         case "scanPhaseComplete": {
@@ -121,6 +134,7 @@
           currentPlan = reviewEvent.plan;
           currentView = "review";
           isScanning = false;
+          scanProgressState = null;
           break;
         }
         case "scanExecutionProgress": {
@@ -135,6 +149,7 @@
           currentSessionId = null;
           currentPlan = null;
           isScanning = false;
+          scanProgressState = null;
           break;
         }
         case "enrichmentProgress": {
@@ -217,7 +232,7 @@
         {:else if currentView === "details" && currentDetailId}
           <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
         {:else}
-          <ScanView {rpc} />
+          <ScanView {rpc} {scanProgressState} onScanStarted={onScanStarted} />
         {/if}
       </main>
     </div>
