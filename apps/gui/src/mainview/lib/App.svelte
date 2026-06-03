@@ -101,34 +101,31 @@
 
   let isLoading = $state(true);
 
+  const MIN_SPINNER_MS = 500;
+
   onMount(async () => {
-    const minDisplayMs = 500;
     const startTime = Date.now();
 
-    const result = (await rpc.request("checkOnboarding", {})) as {
+    const { needsOnboarding } = (await rpc.request("checkOnboarding", {})) as {
       needsOnboarding: boolean;
     };
 
-    if (result.needsOnboarding) {
-      const elapsed = Date.now() - startTime;
-      if (elapsed < minDisplayMs) {
-        await new Promise((r) => setTimeout(r, minDisplayMs - elapsed));
-      }
-      isLoading = false;
-      currentView = "onboarding";
-      return;
+    let view: View;
+    if (needsOnboarding) {
+      view = "onboarding";
+    } else {
+      const { animeCount } = (await rpc.request("getLibraryStats", {})) as {
+        animeCount: number;
+        episodeCount: number;
+      };
+      view = animeCount > 0 ? "library" : "scan";
     }
-
-    const { animeCount } = (await rpc.request("getLibraryStats", {})) as {
-      animeCount: number;
-      episodeCount: number;
-    };
-    const view = animeCount > 0 ? "library" : "scan";
 
     const elapsed = Date.now() - startTime;
-    if (elapsed < minDisplayMs) {
-      await new Promise((r) => setTimeout(r, minDisplayMs - elapsed));
+    if (elapsed < MIN_SPINNER_MS) {
+      await new Promise((r) => setTimeout(r, MIN_SPINNER_MS - elapsed));
     }
+
     isLoading = false;
     currentView = view;
   });
