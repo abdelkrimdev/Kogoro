@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
-  import { Search, LayoutGrid, Settings, Sun, Moon, PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
+  import { Search, LayoutGrid, Settings, Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
+  import { onMount } from 'svelte';
   import { createRPCThemeState, applyThemeToDocument } from "../state/theme-state";
   import Wizard from "./Wizard.svelte";
   import Library from "./Library.svelte";
@@ -10,7 +11,7 @@
   import SettingsView from "./Settings.svelte";
   import ScanView from "./ScanView.svelte";
 
-  type View = "onboarding" | "scan" | "library" | "details" | "settings" | "review";
+  type View = "loading" | "onboarding" | "scan" | "library" | "details" | "settings" | "review";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -98,6 +99,40 @@
     currentPlan = null;
   }
 
+  let isLoading = $state(true);
+
+  onMount(async () => {
+    const minDisplayMs = 500;
+    const startTime = Date.now();
+
+    const result = (await rpc.request("checkOnboarding", {})) as {
+      needsOnboarding: boolean;
+    };
+
+    if (result.needsOnboarding) {
+      const elapsed = Date.now() - startTime;
+      if (elapsed < minDisplayMs) {
+        await new Promise((r) => setTimeout(r, minDisplayMs - elapsed));
+      }
+      isLoading = false;
+      currentView = "onboarding";
+      return;
+    }
+
+    const { animeCount } = (await rpc.request("getLibraryStats", {})) as {
+      animeCount: number;
+      episodeCount: number;
+    };
+    const view = animeCount > 0 ? "library" : "scan";
+
+    const elapsed = Date.now() - startTime;
+    if (elapsed < minDisplayMs) {
+      await new Promise((r) => setTimeout(r, minDisplayMs - elapsed));
+    }
+    isLoading = false;
+    currentView = view;
+  });
+
   $effect(() => {
     onMessage((message, data) => {
       switch (message) {
@@ -148,7 +183,14 @@
   });
 </script>
 
-{#if currentView === "onboarding"}
+{#if isLoading}
+  <div class="flex items-center justify-center h-full">
+    <div class="text-center space-y-3">
+      <LoaderCircle class="size-8 animate-spin text-primary-500-400 mx-auto" />
+      <p class="text-surface-600-400 text-sm">Loading...</p>
+    </div>
+  </div>
+{:else if currentView === "onboarding"}
   <Wizard {rpc} onComplete={onWizardComplete} />
 {:else}
   <div class="h-full flex flex-col">
