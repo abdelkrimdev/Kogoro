@@ -3,6 +3,7 @@ export interface LibraryItem {
   titleEn: string;
   entryType: string;
   episodeCount: number;
+  filesOnDisk: number;
   coverArt?: string;
 }
 
@@ -11,7 +12,7 @@ export interface LibraryState {
   search: string;
   typeFilter: string[];
   viewMode: "grid" | "list";
-  sortField: "titleEn" | "entryType" | "episodeCount";
+  sortField: "titleEn" | "entryType" | "episodeCount" | "filesOnDisk";
   sortAsc: boolean;
 }
 
@@ -35,6 +36,8 @@ export function filterAndSort(state: LibraryState): LibraryItem[] {
       cmp = a.entryType.localeCompare(b.entryType);
     } else if (state.sortField === "episodeCount") {
       cmp = a.episodeCount - b.episodeCount;
+    } else if (state.sortField === "filesOnDisk") {
+      cmp = a.filesOnDisk - b.filesOnDisk;
     }
     return state.sortAsc ? cmp : -cmp;
   });

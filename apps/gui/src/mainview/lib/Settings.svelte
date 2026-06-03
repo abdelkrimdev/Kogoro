@@ -39,6 +39,7 @@
   let settingsData = $state<Record<string, unknown>>({});
   let editingApiKey = $state<string | null>(null);
   let newApiKey = $state("");
+  let rebuilding = $state(false);
 
   const apiKeys = $derived((settingsData["apiKeys"] as Record<string, string>) ?? {});
   const plugins = $derived(
@@ -114,6 +115,22 @@
       }
     } catch {
       showNotification("Failed to toggle plugin");
+    }
+  }
+
+  async function rebuildLibrary() {
+    rebuilding = true;
+    try {
+      const result = (await rpc.request("rebuildLibrary", {})) as { success: boolean; error?: string };
+      if (result.success) {
+        showNotification("Library rebuilt successfully");
+      } else {
+        showNotification(`Error: ${result.error ?? "Unknown error"}`);
+      }
+    } catch {
+      showNotification("Failed to rebuild library");
+    } finally {
+      rebuilding = false;
     }
   }
 
@@ -299,6 +316,28 @@
           </div>
         {/if}
       {/each}
+    </div>
+  </section>
+
+  <section class="space-y-4">
+    <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Maintenance</h3>
+    <div class="card preset-outlined-surface-300-700 p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-surface-950-50">Rebuild Library</p>
+          <p class="text-xs text-surface-600-400 mt-1">
+            Re-scan your media directory and rebuild the library database from scratch.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="btn preset-filled-primary-500 rounded-lg font-medium"
+          onclick={rebuildLibrary}
+          disabled={rebuilding}
+        >
+          {rebuilding ? "Rebuilding..." : "Rebuild Library"}
+        </button>
+      </div>
     </div>
   </section>
 

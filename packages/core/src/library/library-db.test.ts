@@ -134,6 +134,30 @@ describe("LibraryDb", () => {
     });
   });
 
+  test("listAnime includes filesOnDisk count", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const anime = db.upsertAnime({
+          externalId: "tvdb-1",
+          sourceDb: "tvdb",
+          title: "Steins;Gate",
+          entryType: "tv",
+          episodeCount: 24,
+        });
+
+        db.addEpisode({ animeId: anime.id, episodeNumber: 1, filePath: "/media/S01E01.mkv" });
+        db.addEpisode({ animeId: anime.id, episodeNumber: 2, filePath: "/media/S01E02.mkv" });
+
+        const list = db.listAnime();
+        expect(list).toHaveLength(1);
+        expect(list[0]?.filesOnDisk).toBe(2);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
   test("deleteAnime removes anime", async () => {
     await withTempDir("library-db", async (dir) => {
       const db = new LibraryDb({ dbPath: `${dir}/library.db` });

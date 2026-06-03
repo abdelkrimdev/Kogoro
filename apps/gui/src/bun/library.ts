@@ -6,6 +6,7 @@ export interface LibraryAnimeItem {
   titleEn: string;
   entryType: string;
   episodeCount: number;
+  filesOnDisk: number;
   coverArt?: string;
 }
 
@@ -46,6 +47,7 @@ export function createLibraryHandlers(configDir: string) {
           titleEn: a.title,
           entryType: a.entryType,
           episodeCount: a.episodeCount,
+          filesOnDisk: a.filesOnDisk ?? a.episodeCount,
           coverArt: a.coverArtPath,
         }));
       } finally {

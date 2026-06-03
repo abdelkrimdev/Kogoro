@@ -176,7 +176,11 @@
     <div class="flex items-center gap-4 text-sm text-surface-700-300 mb-4">
       <span>{stats.totalFiles} files</span>
       <span>{stats.totalGroups} anime</span>
-      <span>{stats.ambiguousCount} ambiguous</span>
+      <span class="badge preset-tonal-success text-xs">{stats.matchedCount} matched</span>
+      <span class="badge preset-tonal-warning text-xs">{stats.ambiguousCount} ambiguous</span>
+      {#if stats.failedCount > 0}
+        <span class="badge preset-tonal-error text-xs">{stats.failedCount} failed</span>
+      {/if}
       {#if stats.swapsCount > 0}
         <span class="text-warning-500-400">{stats.swapsCount} swapped</span>
       {/if}

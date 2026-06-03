@@ -15,7 +15,7 @@
   let search = $state("");
   let typeFilter = $state<string[]>([]);
   let viewMode = $state<"grid" | "list">("grid");
-  let sortField = $state<"titleEn" | "entryType" | "episodeCount">("titleEn");
+  let sortField = $state<"titleEn" | "entryType" | "episodeCount" | "filesOnDisk">("titleEn");
   let sortAsc = $state(true);
 
   const ENTRY_TYPES = ["tv", "movie", "ova", "special"];
@@ -182,7 +182,13 @@
                   {/if}
                 </span>
               </th>
-              <th class="font-medium text-right">Files</th>
+              <th class="font-medium cursor-pointer hover:text-primary-400 transition-colors text-right" onclick={() => setSort('filesOnDisk')}>
+                <span class="inline-flex items-center gap-1">Files
+                  {#if sortField === 'filesOnDisk'}
+                    {#if sortAsc}<ChevronUp class="size-3" />{:else}<ChevronDown class="size-3" />{/if}
+                  {/if}
+                </span>
+              </th>
             </tr>
         </thead>
         <tbody class="[&>tr]:hover:preset-tonal-primary">
@@ -195,7 +201,7 @@
                 </span>
               </td>
               <td class="text-sm text-surface-700-300 text-right">{item.episodeCount}</td>
-              <td class="text-sm text-surface-700-300 text-right">{item.episodeCount}</td>
+              <td class="text-sm text-surface-700-300 text-right">{item.filesOnDisk}</td>
             </tr>
           {/each}
         </tbody>

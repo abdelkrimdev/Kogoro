@@ -183,6 +183,47 @@ describe("deriveReviewStats", () => {
     const stats = deriveReviewStats(plan);
     expect(stats.swapsCount).toBe(1);
   });
+
+  it("counts matched, ambiguous, and failed files across groups", () => {
+    const plan = makePlan([
+      makeGroup({
+        animeId: "a1",
+        files: [
+          makeFile({ fileId: "f1", status: "matched" }),
+          makeFile({ fileId: "f2", status: "matched" }),
+          makeFile({ fileId: "f3", status: "ambiguous" }),
+          makeFile({ fileId: "f4", status: "failed" }),
+        ],
+      }),
+      makeGroup({
+        animeId: "a2",
+        files: [
+          makeFile({ fileId: "f5", status: "matched" }),
+          makeFile({ fileId: "f6", status: "failed" }),
+        ],
+      }),
+    ]);
+    const stats = deriveReviewStats(plan);
+    expect(stats.totalFiles).toBe(6);
+    expect(stats.totalGroups).toBe(2);
+    expect(stats.matchedCount).toBe(3);
+    expect(stats.ambiguousCount).toBe(1);
+    expect(stats.failedCount).toBe(2);
+  });
+
+  it("counts cached files as matched in breakdown", () => {
+    const plan = makePlan([
+      makeGroup({
+        files: [
+          makeFile({ fileId: "f1", status: "cached" }),
+          makeFile({ fileId: "f2", status: "ambiguous" }),
+        ],
+      }),
+    ]);
+    const stats = deriveReviewStats(plan);
+    expect(stats.matchedCount).toBe(1);
+    expect(stats.ambiguousCount).toBe(1);
+  });
 });
 
 describe("findSwapPairForFile", () => {

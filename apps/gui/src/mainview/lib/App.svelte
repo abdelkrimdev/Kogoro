@@ -69,6 +69,7 @@
   let statusText = $state("Ready");
   let isScanning = $state(false);
   let scanProgressState = $state<ScanProgressState | null>(null);
+  let libraryStats = $state<{ animeCount: number; episodeCount: number } | null>(null);
 
   const NAV_ITEMS = [
     { view: "scan" as const, label: "Scan", icon: Search },
@@ -76,7 +77,22 @@
     { view: "settings" as const, label: "Settings", icon: Settings },
   ];
 
+  const footerText = $derived(statusText);
   const isMainView = $derived(currentView !== "review" && currentView !== "details");
+
+  $effect(() => {
+    if (currentView === "library" || statusText === "Ready") {
+      (async () => {
+        try {
+          const stats = (await rpc.request("getLibraryStats", {})) as {
+            animeCount: number;
+            episodeCount: number;
+          };
+          libraryStats = stats;
+        } catch {}
+      })();
+    }
+  });
 
   function navigate(view: View) {
     currentView = view;
@@ -121,11 +137,12 @@
     if (needsOnboarding) {
       view = "onboarding";
     } else {
-      const { animeCount } = (await rpc.request("getLibraryStats", {})) as {
+      const stats = (await rpc.request("getLibraryStats", {})) as {
         animeCount: number;
         episodeCount: number;
       };
-      view = animeCount > 0 ? "library" : "scan";
+      libraryStats = stats;
+      view = stats.animeCount > 0 ? "library" : "scan";
     }
 
     const elapsed = Date.now() - startTime;
@@ -172,12 +189,19 @@
         }
         case "scanExecutionProgress": {
           const execEvent = data as { completed: number; total: number; file: string; status: string };
-          statusText = `Executing: ${execEvent.completed}/${execEvent.total} - ${execEvent.status}`;
+          statusText = `Executing: ${execEvent.completed}/${execEvent.total} - ${execEvent.file.split("/").pop() ?? execEvent.file} - ${execEvent.status}`;
           break;
         }
         case "scanComplete": {
-          const completeEvent = data as { summary: { renamed: number; renameFailed: number } };
-          statusText = `Complete: ${completeEvent.summary.renamed} renamed, ${completeEvent.summary.renameFailed} failed`;
+          const completeEvent = data as {
+            summary: { renamed: number; renameFailed: number; renameFailures: Array<{ file: string; reason: string }> };
+          };
+          let text = `Complete: ${completeEvent.summary.renamed} renamed, ${completeEvent.summary.renameFailed} failed`;
+          if (completeEvent.summary.renameFailures.length > 0) {
+            const reasons = [...new Set(completeEvent.summary.renameFailures.map((f) => f.reason))].join(", ");
+            text += ` (${reasons})`;
+          }
+          statusText = text;
           currentView = "scan";
           currentSessionId = null;
           currentPlan = null;
@@ -276,8 +300,11 @@
         {/if}
       </main>
     </div>
-    <footer class="h-8 flex items-center px-4 border-t border-surface-300-700 bg-surface-100-900 shrink-0">
-      <span class="text-xs text-surface-600-400">{statusText}</span>
+    <footer class="h-8 flex items-center px-4 border-t border-surface-300-700 bg-surface-100-900 shrink-0 gap-4">
+      <span class="text-xs text-surface-600-400">{footerText}</span>
+      {#if libraryStats && (footerText === "Ready" || currentView !== "scan")}
+        <span class="text-xs text-surface-500-500">{libraryStats.animeCount} anime &bull; {libraryStats.episodeCount} episodes</span>
+      {/if}
     </footer>
   </div>
 {/if}

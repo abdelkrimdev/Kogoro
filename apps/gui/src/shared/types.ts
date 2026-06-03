@@ -63,6 +63,7 @@ export type AppRPC = {
           titleEn: string;
           entryType: string;
           episodeCount: number;
+          filesOnDisk: number;
           coverArt?: string;
         }>;
       };
@@ -236,6 +237,10 @@ export type AppRPC = {
       openDirectoryPicker: {
         params: Record<string, never>;
         response: { path: string } | null;
+      };
+      rebuildLibrary: {
+        params: Record<string, never>;
+        response: { success: boolean; error?: string };
       };
     };
     messages: {

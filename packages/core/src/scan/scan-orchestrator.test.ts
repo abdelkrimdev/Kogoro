@@ -355,6 +355,9 @@ describe("ScanOrchestrator", () => {
 
       expect(completeEvent?.summary.renameFailed).toBe(1);
       expect(completeEvent?.summary.renamed).toBe(0);
+      expect(completeEvent?.summary.renameFailures).toEqual([
+        { file: "ep1.mkv", reason: "Access denied" },
+      ]);
     });
 
     test("skips files without plans during execution", async () => {

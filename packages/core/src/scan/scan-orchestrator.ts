@@ -83,7 +83,7 @@ export interface ScanOrchestratorOptions {
 function buildSummary(
   sessionId: string,
   results: ScanResult[],
-  renameResults: Map<string, { success: boolean }>,
+  renameResults: Map<string, { success: boolean; error?: string }>,
 ): ScanSummary {
   let matched = 0;
   let cached = 0;
@@ -109,10 +109,17 @@ function buildSummary(
 
   let renamed = 0;
   let renameFailed = 0;
+  const renameFailures: Array<{ file: string; reason: string }> = [];
 
-  for (const [, result] of renameResults) {
+  for (const [file, result] of renameResults) {
     if (result.success) renamed++;
-    else renameFailed++;
+    else {
+      renameFailed++;
+      renameFailures.push({
+        file: file.split("/").pop() ?? file,
+        reason: result.error ?? "Unknown error",
+      });
+    }
   }
 
   return {
@@ -124,6 +131,7 @@ function buildSummary(
     failed,
     renamed,
     renameFailed,
+    renameFailures,
   };
 }
 
@@ -198,7 +206,9 @@ export class ScanOrchestrator {
     });
   }
 
-  private makeSummary(renameResults?: Map<string, { success: boolean }>): ScanSummary {
+  private makeSummary(
+    renameResults?: Map<string, { success: boolean; error?: string }>,
+  ): ScanSummary {
     return buildSummary(this.sessionId, this.results, renameResults ?? new Map());
   }
 
@@ -430,7 +440,7 @@ export class ScanOrchestrator {
     const filesToRename = this.results.filter(
       (r): r is ScanResult & { plan: NonNullable<ScanResult["plan"]> } => this.shouldExecuteFile(r),
     );
-    const renameResults = new Map<string, { success: boolean }>();
+    const renameResults = new Map<string, { success: boolean; error?: string }>();
 
     for (let i = 0; i < filesToRename.length; i++) {
       if (this.isDone()) break;
@@ -447,7 +457,10 @@ export class ScanOrchestrator {
         renameResult = { success: true };
       }
 
-      renameResults.set(result.file, renameResult);
+      renameResults.set(result.file, {
+        success: renameResult.success,
+        error: renameResult.error?.message,
+      });
 
       this.emit({
         type: "scanExecutionProgress",

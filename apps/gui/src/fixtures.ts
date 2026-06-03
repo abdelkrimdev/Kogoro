@@ -75,6 +75,7 @@ export function makeLibraryItem(overrides: Partial<LibraryItem> = {}): LibraryIt
     titleEn: overrides.titleEn ?? "Steins;Gate",
     entryType: overrides.entryType ?? "tv",
     episodeCount: overrides.episodeCount ?? 24,
+    filesOnDisk: overrides.filesOnDisk ?? 24,
     coverArt: overrides.coverArt,
   };
 }

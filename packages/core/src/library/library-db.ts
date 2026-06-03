@@ -12,6 +12,7 @@ export interface LibraryAnime {
   titleJapanese?: string;
   entryType: EntryType;
   episodeCount: number;
+  filesOnDisk?: number;
   coverArtPath?: string;
   lastSynced: string;
 }
@@ -150,8 +151,19 @@ export class LibraryDb {
   }
 
   listAnime(): LibraryAnime[] {
-    const rows = this.db.prepare("SELECT * FROM anime ORDER BY title").all() as LibraryAnimeRow[];
-    return rows.map(this.rowToAnime);
+    const rows = this.db
+      .prepare(
+        `SELECT a.*, COUNT(e.id) as files_on_disk
+         FROM anime a
+         LEFT JOIN episodes e ON e.anime_id = a.id
+         GROUP BY a.id
+         ORDER BY a.title`,
+      )
+      .all() as Array<LibraryAnimeRow & { files_on_disk: number }>;
+    return rows.map((row) => ({
+      ...this.rowToAnime(row),
+      filesOnDisk: row.files_on_disk,
+    }));
   }
 
   deleteAnime(id: number): void {

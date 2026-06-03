@@ -127,4 +127,5 @@ export interface ScanSummary {
   failed: number;
   renamed: number;
   renameFailed: number;
+  renameFailures: Array<{ file: string; reason: string }>;
 }
