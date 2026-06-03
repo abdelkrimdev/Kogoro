@@ -182,6 +182,13 @@
                   {/if}
                 </span>
               </th>
+              <th class="font-medium cursor-pointer hover:text-primary-400 transition-colors text-right" onclick={() => setSort('episodeCount')}>
+                <span class="inline-flex items-center gap-1">Files
+                  {#if sortField === 'episodeCount'}
+                    {#if sortAsc}<ChevronUp class="size-3" />{:else}<ChevronDown class="size-3" />{/if}
+                  {/if}
+                </span>
+              </th>
             </tr>
         </thead>
         <tbody class="[&>tr]:hover:preset-tonal-primary">
@@ -193,6 +200,7 @@
                   {entryTypeLabel(item.entryType)}
                 </span>
               </td>
+              <td class="text-sm text-surface-700-300 text-right">{item.episodeCount}</td>
               <td class="text-sm text-surface-700-300 text-right">{item.episodeCount}</td>
             </tr>
           {/each}
