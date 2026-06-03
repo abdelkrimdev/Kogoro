@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ReviewPlan, ScanFileStatus } from "@kogoro/core";
+  import type { AppRPC } from "../../shared/types";
   import { Search, LayoutGrid, Settings, Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
   import { onMount } from 'svelte';
@@ -69,7 +70,18 @@
   let statusText = $state("Ready");
   let isScanning = $state(false);
   let scanProgressState = $state<ScanProgressState | null>(null);
-  let libraryStats = $state<{ animeCount: number; episodeCount: number } | null>(null);
+  type LibraryStats = AppRPC["bun"]["requests"]["getLibraryStats"]["response"];
+
+  let libraryStats = $state<LibraryStats | null>(null);
+
+  function refreshLibraryStats() {
+    (async () => {
+      try {
+        const stats = (await rpc.request("getLibraryStats", {})) as LibraryStats;
+        libraryStats = stats;
+      } catch {}
+    })();
+  }
 
   const NAV_ITEMS = [
     { view: "scan" as const, label: "Scan", icon: Search },
@@ -82,15 +94,7 @@
 
   $effect(() => {
     if (currentView === "library" || statusText === "Ready") {
-      (async () => {
-        try {
-          const stats = (await rpc.request("getLibraryStats", {})) as {
-            animeCount: number;
-            episodeCount: number;
-          };
-          libraryStats = stats;
-        } catch {}
-      })();
+      refreshLibraryStats();
     }
   });
 
@@ -137,10 +141,7 @@
     if (needsOnboarding) {
       view = "onboarding";
     } else {
-      const stats = (await rpc.request("getLibraryStats", {})) as {
-        animeCount: number;
-        episodeCount: number;
-      };
+      const stats = (await rpc.request("getLibraryStats", {})) as LibraryStats;
       libraryStats = stats;
       view = stats.animeCount > 0 ? "library" : "scan";
     }
@@ -207,15 +208,7 @@
           currentPlan = null;
           isScanning = false;
           scanProgressState = null;
-          (async () => {
-            try {
-              const stats = (await rpc.request("getLibraryStats", {})) as {
-                animeCount: number;
-                episodeCount: number;
-              };
-              libraryStats = stats;
-            } catch {}
-          })();
+          refreshLibraryStats();
           break;
         }
         case "enrichmentProgress": {
