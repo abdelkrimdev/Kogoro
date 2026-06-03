@@ -116,6 +116,7 @@ export type {
   EntryType,
   EpisodeResult,
   FileRow,
+  MatchEntry,
   ReviewPlan,
   ScanFileStatus,
   ScanSummary,

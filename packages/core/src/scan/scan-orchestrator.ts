@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AnimeGroup, EntryType, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
+import type { AnimeGroup, MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
 import { aggregateReviewPlan } from "./rename-plan-aggregator";
 import type { ScanResult } from "./scanner";
 
@@ -150,26 +150,8 @@ export class ScanOrchestrator {
     return this.plan;
   }
 
-  getMatchResults(): Array<{
-    animeId: string;
-    animeTitle: string;
-    entryType: EntryType;
-    episodeId: string | null;
-    episode: number | null;
-    season: number | null;
-    title: string | null;
-    filePath: string;
-  }> {
-    const results: Array<{
-      animeId: string;
-      animeTitle: string;
-      entryType: EntryType;
-      episodeId: string | null;
-      episode: number | null;
-      season: number | null;
-      title: string | null;
-      filePath: string;
-    }> = [];
+  getMatchResults(): MatchEntry[] {
+    const results: MatchEntry[] = [];
 
     for (const r of this.results) {
       if (!r.match) continue;
@@ -180,7 +162,7 @@ export class ScanOrchestrator {
       if (this.approvedAnimeIds.size > 0 && !this.approvedAnimeIds.has(animeId)) continue;
 
       results.push({
-        animeId: r.match.anime.id,
+        animeId,
         animeTitle: r.match.anime.titleEn,
         entryType: r.match.anime.entryType,
         episodeId: r.match.episode?.id ?? null,

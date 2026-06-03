@@ -156,8 +156,8 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         await orchestrator.approvePlan();
 
         const matches = orchestrator.getMatchResults();
-        const sourceDb = configManager.get("primary-db") as string;
-        if (matches.length > 0 && sourceDb) {
+        const sourceDb = configManager.get("primary-db");
+        if (matches.length > 0 && typeof sourceDb === "string" && sourceDb) {
           const dbPath = join(CONFIG_DIR, "library.db");
           const db = new LibraryDb({ dbPath });
           try {
