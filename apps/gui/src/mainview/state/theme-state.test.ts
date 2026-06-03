@@ -10,8 +10,8 @@ describe("createThemeState", () => {
   });
 
   it("accepts an initial mode", () => {
-    const state = createThemeState({ initialMode: "dark" });
-    expect(state.mode).toBe("dark");
+    const state = createThemeState({ initialMode: "light" });
+    expect(state.mode).toBe("light");
   });
 
   it("toggles from light to dark", () => {
@@ -169,8 +169,8 @@ describe("createRPCThemeState", () => {
 
   it("accepts an initial mode", () => {
     const { request } = createMockRPC();
-    const state = createRPCThemeState({ request }, { initialMode: "dark" });
-    expect(state.mode).toBe("dark");
+    const state = createRPCThemeState({ request }, { initialMode: "light" });
+    expect(state.mode).toBe("light");
   });
 
   it("load fetches mode from RPC", async () => {

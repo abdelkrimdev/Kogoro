@@ -88,9 +88,7 @@ export function createRPCThemeState(
       if (result?.mode) {
         state.setMode(result.mode);
       }
-    } catch {
-      // ignore - keep default
-    }
+    } catch {}
   };
 
   const originalSetMode = state.setMode;
