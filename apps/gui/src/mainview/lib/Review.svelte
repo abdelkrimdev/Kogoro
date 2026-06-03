@@ -2,6 +2,7 @@
   import type { ReviewPlan } from "@kogoro/core";
   import { Search, Tv } from '@lucide/svelte';
   import { filterReviewGroups, deriveReviewStats, findSwapPairForFile, type StatusFilter } from "../state/review-state";
+  import { statusBadgeClass } from "../shared";
   import type { ResolveCandidate } from "../../shared/types";
   import ResolveModal from "./ResolveModal.svelte";
   import SelectField from "./SelectField.svelte";
@@ -38,21 +39,6 @@
   );
 
   const stats = $derived(deriveReviewStats(plan));
-
-  function getStatusBadgeClass(status: string): string {
-    switch (status) {
-      case "matched":
-        return "badge preset-tonal-success";
-      case "ambiguous":
-        return "badge preset-tonal-warning";
-      case "failed":
-        return "badge preset-tonal-error";
-      case "cached":
-        return "badge preset-tonal-primary";
-      default:
-        return "badge preset-tonal-surface";
-    }
-  }
 
   async function approveAll() {
     try {
@@ -239,7 +225,7 @@
                       <span class="text-sm font-medium text-surface-950-50 truncate">
                         {file.sourcePath.split("/").pop()}
                       </span>
-                      <span class="{getStatusBadgeClass(file.status)} text-xs">
+                      <span class="{statusBadgeClass(file.status)} text-xs">
                         {file.status}
                       </span>
                       {#if swapPartner}

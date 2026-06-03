@@ -4,12 +4,12 @@
   interface Props {
     value: string;
     options: Array<{ value: string; label: string }>;
-    label: string;
+    label?: string;
     placeholder?: string;
     onValueChange?: (value: string) => void;
   }
 
-  let { value, options, label, placeholder = "Search...", onValueChange }: Props = $props();
+  let { value, options, label = "", placeholder = "Search...", onValueChange }: Props = $props();
 
   let filterText = $state("");
 

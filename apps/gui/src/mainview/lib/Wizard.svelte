@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Check } from '@lucide/svelte';
   import { Steps } from '@skeletonlabs/skeleton-svelte';
+  import { TEMPLATE_PRESETS } from "../shared";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -13,14 +14,6 @@
     { id: "database", title: "Database" },
     { id: "apikey", title: "API Key" },
     { id: "template", title: "Template" },
-  ];
-
-  const TEMPLATE_PRESETS = [
-    { value: "standard", label: "Standard (Recommended)" },
-    { value: "compact", label: "Compact" },
-    { value: "absolute", label: "Absolute" },
-    { value: "plex", label: "Plex" },
-    { value: "anidb", label: "AniDB" },
   ];
 
   let step = $state(0);

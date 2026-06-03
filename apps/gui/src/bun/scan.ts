@@ -146,3 +146,8 @@ export async function createScanOrchestrator(
 export function getMatcher(sessionId: string): Matcher | undefined {
   return scanMatchers.get(sessionId);
 }
+
+export function cleanupSession(sessionId: string): void {
+  scanOrchestrators.delete(sessionId);
+  scanMatchers.delete(sessionId);
+}

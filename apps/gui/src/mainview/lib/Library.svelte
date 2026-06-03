@@ -6,10 +6,10 @@
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
     onOpenAnime?: (id: string) => void;
-    onNavigate?: (view: string) => void;
+    onStartScan?: () => void;
   }
 
-  let { rpc, onOpenAnime, onNavigate }: Props = $props();
+  let { rpc, onOpenAnime, onStartScan }: Props = $props();
 
   let items = $state<LibraryItem[]>([]);
   let search = $state("");
@@ -68,13 +68,13 @@
     <button
       type="button"
       class="btn preset-filled-primary-500 rounded-lg font-medium"
-      onclick={() => onNavigate?.("scan")}
+      onclick={() => onStartScan?.()}
     >
       Go to Scan
     </button>
   </div>
 {:else}
-  <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-300-700 bg-surface-200-800/50 flex-shrink-0">
+  <div class="flex items-center gap-3 px-4 py-3 border-b border-surface-300-700 bg-surface-200-800/50 shrink-0">
     <div class="input-group grid-cols-[auto_1fr] flex-1 max-w-xs">
       <div class="ig-cell preset-tonal">
         <Search class="size-4" />
@@ -133,7 +133,7 @@
           class="group card card-hover preset-tonal-surface cursor-pointer transition-all text-left overflow-hidden"
           onclick={() => onOpenAnime?.(item.id)}
         >
-          <div class="aspect-[2/3] bg-surface-300-700 relative overflow-hidden">
+          <div class="aspect-2/3 bg-surface-300-700 relative overflow-hidden">
             {#if item.coverArt}
               <img src={item.coverArt} alt={item.titleEn} class="w-full h-full object-cover" />
             {:else}

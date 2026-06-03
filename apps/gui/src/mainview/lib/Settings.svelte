@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Switch, TagsInput, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
   import SelectField from './SelectField.svelte';
+  import { TEMPLATE_PRESETS } from "../shared";
 
   type SettingsField =
     | { type: "select"; key: string; label: string; options: Array<{ value: string; label: string }> }
@@ -20,7 +21,7 @@
   const GENERAL_FIELDS: SettingsField[] = [
     { type: "select", key: "primaryDb", label: "Primary Database", options: [{ value: "tvdb", label: "TVDB" }, { value: "anidb", label: "AniDB" }] },
     { type: "tag-input", key: "secondaryDbs", label: "Secondary Databases", placeholder: "e.g. anidb, opensubtitles" },
-    { type: "select", key: "templatePreset", label: "Filename Template Preset", options: [{ value: "standard", label: "Standard (Recommended)" }, { value: "compact", label: "Compact" }, { value: "absolute", label: "Absolute" }, { value: "plex", label: "Plex" }, { value: "anidb", label: "AniDB" }] },
+    { type: "select", key: "templatePreset", label: "Filename Template Preset", options: TEMPLATE_PRESETS },
     { type: "text", key: "templateCustom", label: "Custom Template", placeholder: "{anime} - {season}x{episode:02} - {title}" },
     { type: "text", key: "directoryTemplate", label: "Directory Template", placeholder: "{anime}/{type}" },
     { type: "tag-input", key: "mediaExtensions", label: "Media Extensions", placeholder: ".mkv, .mp4, ..." },

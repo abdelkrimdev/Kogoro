@@ -4,7 +4,13 @@ import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
 import { shouldShowOnboarding } from "./onboarding";
-import { createScanOrchestrator, findCandidateMatches, getMatcher, getOrchestrator } from "./scan";
+import {
+  cleanupSession,
+  createScanOrchestrator,
+  findCandidateMatches,
+  getMatcher,
+  getOrchestrator,
+} from "./scan";
 import { applySettingsUpdate, buildSettingsFormData } from "./settings";
 import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "./state";
 
@@ -131,6 +137,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
               break;
             case "scanComplete":
               rpc.send.scanComplete(event);
+              cleanupSession(sessionId);
               break;
           }
         });
@@ -154,6 +161,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       cancelScan: async (params) => {
         const { sessionId } = params;
         getOrchestrator(sessionId).cancel();
+        cleanupSession(sessionId);
         return undefined;
       },
       swapFiles: async (params) => {
@@ -253,8 +261,6 @@ const win = new BrowserWindow({
 const needsOnboarding = shouldShowOnboarding(CONFIG_DIR);
 if (needsOnboarding) {
   rpc.send.showOnboarding({});
-} else {
-  rpc.send.showMainApp({});
 }
 
 win.on("resize", (event: unknown) => {

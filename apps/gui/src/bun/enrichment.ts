@@ -93,15 +93,25 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     try {
       const resolved = resolveAnimeAndDir(libDb, params.id);
       if ("error" in resolved) {
+        send.enrichmentComplete?.({
+          animeId: params.id,
+          command: "artwork",
+          success: false,
+          error: resolved.error,
+        });
         return { success: false, error: resolved.error };
       }
 
       const database = await getDatabasePlugin();
       if (!database) {
-        return {
+        const error = "No database plugin available — check API key configuration";
+        send.enrichmentComplete?.({
+          animeId: params.id,
+          command: "artwork",
           success: false,
-          error: "No database plugin available — check API key configuration",
-        };
+          error,
+        });
+        return { success: false, error };
       }
 
       const fetcher = new ArtworkFetcher({
@@ -143,11 +153,14 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
         }
       }
 
+      send.enrichmentComplete?.({ animeId: params.id, command: "artwork", success: true });
       return { success: true, summary };
     } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      send.enrichmentComplete?.({ animeId: params.id, command: "artwork", success: false, error });
       return {
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error,
       };
     } finally {
       libDb.close();
@@ -163,6 +176,12 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     try {
       const resolved = resolveAnimeAndDir(libDb, params.id);
       if ("error" in resolved) {
+        send.enrichmentComplete?.({
+          animeId: params.id,
+          command: "metadata",
+          success: false,
+          error: resolved.error,
+        });
         return { success: false, error: resolved.error };
       }
 
@@ -189,11 +208,14 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
         error: () => {},
       });
 
+      send.enrichmentComplete?.({ animeId: params.id, command: "metadata", success: true });
       return { success: true, summary };
     } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      send.enrichmentComplete?.({ animeId: params.id, command: "metadata", success: false, error });
       return {
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error,
       };
     } finally {
       libDb.close();

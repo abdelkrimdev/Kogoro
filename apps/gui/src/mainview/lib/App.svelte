@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ReviewPlan } from "@kogoro/core";
-  import { FolderSearch, Search, LayoutGrid, Settings, Sun, Moon, PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
+  import { Search, LayoutGrid, Settings, Sun, Moon, PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
   import { createRPCThemeState, applyThemeToDocument } from "../state/theme-state";
   import Wizard from "./Wizard.svelte";
@@ -8,6 +8,7 @@
   import Review from "./Review.svelte";
   import Detail from "./Detail.svelte";
   import SettingsView from "./Settings.svelte";
+  import ScanView from "./ScanView.svelte";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -55,10 +56,8 @@
     });
   });
 
-  type Mode = "onboarding" | "main";
-  type View = "scan" | "library" | "details" | "settings" | "review";
+  type View = "onboarding" | "scan" | "library" | "details" | "settings" | "review";
 
-  let currentMode = $state<Mode>("main");
   let currentView = $state<View>("scan");
   let currentSessionId = $state<string | null>(null);
   let currentPlan = $state<ReviewPlan | null>(null);
@@ -71,8 +70,10 @@
     { view: "settings" as const, label: "Settings", icon: Settings },
   ];
 
-  function navigate(view: string) {
-    currentView = view as View;
+  const isMainView = $derived(currentView !== "review" && currentView !== "details");
+
+  function navigate(view: View) {
+    currentView = view;
   }
 
   function openAnime(id: string) {
@@ -86,7 +87,7 @@
   }
 
   function onWizardComplete() {
-    currentMode = "main";
+    currentView = "scan";
   }
 
   function onReviewComplete() {
@@ -95,26 +96,11 @@
     currentPlan = null;
   }
 
-  async function startScan() {
-    try {
-      const result = (await rpc.request("openDirectoryPicker", {})) as { path: string } | null;
-      if (!result) return;
-      const scanResult = (await rpc.request("scanStart", { path: result.path })) as { sessionId: string };
-      currentSessionId = scanResult.sessionId;
-      statusText = "Scanning...";
-    } catch (err) {
-      console.error("Failed to start scan:", err);
-    }
-  }
-
   $effect(() => {
     onMessage((message, data) => {
       switch (message) {
         case "showOnboarding":
-          currentMode = "onboarding";
-          break;
-        case "showMainApp":
-          currentMode = "main";
+          currentView = "onboarding";
           break;
         case "scanProgress": {
           const scanEvent = data as { completed: number; total: number; file: string; status: string };
@@ -157,7 +143,7 @@
   });
 </script>
 
-{#if currentMode === "onboarding"}
+{#if currentView === "onboarding"}
   <Wizard {rpc} onComplete={onWizardComplete} />
 {:else}
   <div class="h-full flex flex-col">
@@ -194,46 +180,36 @@
       </div>
     </header>
     <div class="flex-1 flex overflow-hidden">
-      <Navigation layout="sidebar" class="{sidebarCollapsed ? 'w-16' : 'w-64'} border-r border-surface-200-800 transition-[width] duration-200 ease-in-out">
-        <Navigation.Content>
-          <Navigation.Menu>
-            {#each NAV_ITEMS as item}
-              <Navigation.Trigger
-                class={currentView === item.view ? 'preset-tonal-primary' : ''}
-                onclick={() => navigate(item.view)}
-              >
-                <item.icon class="size-4" />
-                {#if !sidebarCollapsed}
-                  <Navigation.TriggerText>{item.label}</Navigation.TriggerText>
-                {/if}
-              </Navigation.Trigger>
-            {/each}
-          </Navigation.Menu>
-        </Navigation.Content>
-      </Navigation>
+      {#if isMainView}
+        <Navigation layout="sidebar" class="{sidebarCollapsed ? 'w-16' : 'w-64'} border-r border-surface-200-800 transition-[width] duration-200 ease-in-out">
+          <Navigation.Content>
+            <Navigation.Menu>
+              {#each NAV_ITEMS as item}
+                <Navigation.Trigger
+                  class={currentView === item.view ? 'preset-tonal-primary' : ''}
+                  onclick={() => navigate(item.view)}
+                >
+                  <item.icon class="size-4" />
+                  {#if !sidebarCollapsed}
+                    <Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+                  {/if}
+                </Navigation.Trigger>
+              {/each}
+            </Navigation.Menu>
+          </Navigation.Content>
+        </Navigation>
+      {/if}
       <main class="flex-1 overflow-auto">
         {#if currentView === "review" && currentPlan && currentSessionId}
           <Review {rpc} sessionId={currentSessionId} plan={currentPlan} onComplete={onReviewComplete} />
         {:else if currentView === "library"}
-          <Library {rpc} onOpenAnime={openAnime} onNavigate={navigate} />
+          <Library {rpc} onOpenAnime={openAnime} onStartScan={() => navigate("scan")} />
         {:else if currentView === "settings"}
           <SettingsView {rpc} />
         {:else if currentView === "details" && currentDetailId}
           <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
         {:else}
-          <div class="flex items-center justify-center h-full">
-            <div class="text-center space-y-4">
-              <FolderSearch class="size-16 text-surface-600-400 mx-auto" />
-              <p class="text-surface-600-400 text-sm">Drop a folder to scan for anime files.</p>
-              <button
-                type="button"
-                class="btn preset-filled-primary-500 rounded-lg font-medium"
-                onclick={startScan}
-              >
-                Start Scan
-              </button>
-            </div>
-          </div>
+          <ScanView {rpc} />
         {/if}
       </main>
     </div>
