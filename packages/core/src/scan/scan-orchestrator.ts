@@ -160,6 +160,15 @@ export class ScanOrchestrator {
     }
   }
 
+  private emitReviewReady(): void {
+    if (!this.plan) return;
+    this.emit({
+      type: "scanReviewReady",
+      sessionId: this.sessionId,
+      plan: this.plan,
+    });
+  }
+
   private makeSummary(renameResults?: Map<string, { success: boolean }>): ScanSummary {
     return buildSummary(this.sessionId, this.results, renameResults ?? new Map());
   }
@@ -172,6 +181,8 @@ export class ScanOrchestrator {
     this.sessionId = randomUUID();
     this.results = [];
     this.plan = null;
+    this.approvedAnimeIds.clear();
+    this.rejectedAnimeIds.clear();
     this._state = "scan";
 
     const filePaths = await this.options.walk(path);
@@ -216,11 +227,7 @@ export class ScanOrchestrator {
       summary: this.makeSummary(),
     });
 
-    this.emit({
-      type: "scanReviewReady",
-      sessionId: this.sessionId,
-      plan: this.plan,
-    });
+    this.emitReviewReady();
   }
 
   async approvePlan(): Promise<void> {
@@ -245,31 +252,16 @@ export class ScanOrchestrator {
       throw new Error("Cannot approve group: no plan available");
     }
 
-    let found = false;
-    for (const group of this.plan.groups) {
-      if (group.animeId === animeId) {
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
+    const group = this.plan.groups.find((g) => g.animeId === animeId);
+    if (!group) {
       throw new Error(`Anime group not found: ${animeId}`);
     }
 
     this.approvedAnimeIds.add(animeId);
     this.rejectedAnimeIds.delete(animeId);
+    group.rejected = false;
 
-    for (const group of this.plan.groups) {
-      if (group.animeId === animeId) {
-        group.rejected = false;
-      }
-    }
-
-    this.emit({
-      type: "scanReviewReady",
-      sessionId: this.sessionId,
-      plan: this.plan,
-    });
+    this.emitReviewReady();
   }
 
   rejectGroup(animeId: string): void {
@@ -280,31 +272,16 @@ export class ScanOrchestrator {
       throw new Error("Cannot reject group: no plan available");
     }
 
-    let found = false;
-    for (const group of this.plan.groups) {
-      if (group.animeId === animeId) {
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
+    const group = this.plan.groups.find((g) => g.animeId === animeId);
+    if (!group) {
       throw new Error(`Anime group not found: ${animeId}`);
     }
 
     this.rejectedAnimeIds.add(animeId);
     this.approvedAnimeIds.delete(animeId);
+    group.rejected = true;
 
-    for (const group of this.plan.groups) {
-      if (group.animeId === animeId) {
-        group.rejected = true;
-      }
-    }
-
-    this.emit({
-      type: "scanReviewReady",
-      sessionId: this.sessionId,
-      plan: this.plan,
-    });
+    this.emitReviewReady();
   }
 
   swapFiles(fileAId: string, fileBId: string): void {
@@ -348,11 +325,7 @@ export class ScanOrchestrator {
     fileA.episode = fileB.episode;
     fileB.episode = tempEpisode;
 
-    this.emit({
-      type: "scanReviewReady",
-      sessionId: this.sessionId,
-      plan: this.plan,
-    });
+    this.emitReviewReady();
   }
 
   cancel(): void {
@@ -398,28 +371,26 @@ export class ScanOrchestrator {
     this.results[resultIndex] = resolved;
     this.plan = aggregateReviewPlan(this.results, this.sessionId);
 
-    this.emit({
-      type: "scanReviewReady",
-      sessionId: this.sessionId,
-      plan: this.plan,
-    });
+    this.emitReviewReady();
+  }
+
+  private shouldExecuteFile(r: ScanResult): boolean {
+    if (!r.plan) return false;
+
+    const animeId = r.match?.anime.id;
+    if (!animeId) return false;
+
+    if (this.approvedAnimeIds.has(animeId)) return true;
+    if (this.rejectedAnimeIds.has(animeId)) return false;
+    if (this.approvedAnimeIds.size > 0) return false;
+    return true;
   }
 
   private async executeApproved(): Promise<void> {
     this._state = "execute";
 
     const filesToRename = this.results.filter(
-      (r): r is ScanResult & { plan: NonNullable<ScanResult["plan"]> } => {
-        if (!r.plan) return false;
-
-        const animeId = r.match?.anime.id;
-        if (!animeId) return false;
-
-        if (this.approvedAnimeIds.has(animeId)) return true;
-        if (this.rejectedAnimeIds.has(animeId)) return false;
-        if (this.approvedAnimeIds.size > 0) return false;
-        return true;
-      },
+      (r): r is ScanResult & { plan: NonNullable<ScanResult["plan"]> } => this.shouldExecuteFile(r),
     );
     const renameResults = new Map<string, { success: boolean }>();
 
