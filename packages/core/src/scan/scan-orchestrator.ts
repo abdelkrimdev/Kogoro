@@ -131,6 +131,8 @@ export class ScanOrchestrator {
   private plan: ReviewPlan | null = null;
   private listeners: ScanEventListener[] = [];
   private options: ScanOrchestratorOptions;
+  private approvedAnimeIds: Set<string> = new Set();
+  private rejectedAnimeIds: Set<string> = new Set();
 
   constructor(options: ScanOrchestratorOptions) {
     this.options = options;
@@ -235,6 +237,76 @@ export class ScanOrchestrator {
     this.finish(this.makeSummary());
   }
 
+  approveGroup(animeId: string): void {
+    if (this._state !== "review") {
+      throw new Error("Cannot approve group: not in review state");
+    }
+    if (!this.plan) {
+      throw new Error("Cannot approve group: no plan available");
+    }
+
+    let found = false;
+    for (const group of this.plan.groups) {
+      if (group.animeId === animeId) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      throw new Error(`Anime group not found: ${animeId}`);
+    }
+
+    this.approvedAnimeIds.add(animeId);
+    this.rejectedAnimeIds.delete(animeId);
+
+    for (const group of this.plan.groups) {
+      if (group.animeId === animeId) {
+        group.rejected = false;
+      }
+    }
+
+    this.emit({
+      type: "scanReviewReady",
+      sessionId: this.sessionId,
+      plan: this.plan,
+    });
+  }
+
+  rejectGroup(animeId: string): void {
+    if (this._state !== "review") {
+      throw new Error("Cannot reject group: not in review state");
+    }
+    if (!this.plan) {
+      throw new Error("Cannot reject group: no plan available");
+    }
+
+    let found = false;
+    for (const group of this.plan.groups) {
+      if (group.animeId === animeId) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      throw new Error(`Anime group not found: ${animeId}`);
+    }
+
+    this.rejectedAnimeIds.add(animeId);
+    this.approvedAnimeIds.delete(animeId);
+
+    for (const group of this.plan.groups) {
+      if (group.animeId === animeId) {
+        group.rejected = true;
+      }
+    }
+
+    this.emit({
+      type: "scanReviewReady",
+      sessionId: this.sessionId,
+      plan: this.plan,
+    });
+  }
+
   swapFiles(fileAId: string, fileBId: string): void {
     if (this._state !== "review") {
       throw new Error("Cannot swap: not in review state");
@@ -337,7 +409,17 @@ export class ScanOrchestrator {
     this._state = "execute";
 
     const filesToRename = this.results.filter(
-      (r): r is ScanResult & { plan: NonNullable<ScanResult["plan"]> } => r.plan !== null,
+      (r): r is ScanResult & { plan: NonNullable<ScanResult["plan"]> } => {
+        if (!r.plan) return false;
+
+        const animeId = r.match?.anime.id;
+        if (!animeId) return false;
+
+        if (this.approvedAnimeIds.has(animeId)) return true;
+        if (this.rejectedAnimeIds.has(animeId)) return false;
+        if (this.approvedAnimeIds.size > 0) return false;
+        return true;
+      },
     );
     const renameResults = new Map<string, { success: boolean }>();
 
