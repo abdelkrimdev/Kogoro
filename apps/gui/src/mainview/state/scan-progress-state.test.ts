@@ -3,6 +3,7 @@ import { makeScanProgressEntry } from "../../fixtures";
 import {
   addScanProgressEvent,
   createScanProgressState,
+  deriveBreakdown,
   deriveProgressPercent,
   getStatusColor,
   isIndeterminate,
@@ -144,5 +145,93 @@ describe("getStatusColor", () => {
 
   it("returns default surface preset for pending status", () => {
     expect(getStatusColor("pending")).toBe("preset-tonal-surface");
+  });
+});
+
+describe("deriveBreakdown", () => {
+  it("returns zero counts for empty entries", () => {
+    const state = createScanProgressState();
+    expect(deriveBreakdown(state)).toEqual({ matchedCount: 0, ambiguousCount: 0, failedCount: 0 });
+  });
+
+  it("counts matched and cached entries as matched", () => {
+    const state = createScanProgressState();
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "matched", completed: 1, total: 3 }),
+    );
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "matched", completed: 2, total: 3 }),
+    );
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "cached", completed: 3, total: 3 }),
+    );
+    expect(deriveBreakdown(state)).toEqual({ matchedCount: 3, ambiguousCount: 0, failedCount: 0 });
+  });
+
+  it("counts ambiguous entries", () => {
+    const state = createScanProgressState();
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "ambiguous", completed: 1, total: 2 }),
+    );
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "ambiguous", completed: 2, total: 2 }),
+    );
+    expect(deriveBreakdown(state)).toEqual({ matchedCount: 0, ambiguousCount: 2, failedCount: 0 });
+  });
+
+  it("counts failed entries", () => {
+    const state = createScanProgressState();
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "failed", completed: 1, total: 1 }),
+    );
+    expect(deriveBreakdown(state)).toEqual({ matchedCount: 0, ambiguousCount: 0, failedCount: 1 });
+  });
+
+  it("counts mixed entries correctly", () => {
+    const state = createScanProgressState();
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "matched", completed: 1, total: 5 }),
+    );
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "ambiguous", completed: 2, total: 5 }),
+    );
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "failed", completed: 3, total: 5 }),
+    );
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "cached", completed: 4, total: 5 }),
+    );
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "ambiguous", completed: 5, total: 5 }),
+    );
+    expect(deriveBreakdown(state)).toEqual({ matchedCount: 2, ambiguousCount: 2, failedCount: 1 });
+  });
+
+  it("ignores skipped and pending entries", () => {
+    const state = createScanProgressState();
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "skipped", completed: 1, total: 3 }),
+    );
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "pending", completed: 2, total: 3 }),
+    );
+    addScanProgressEvent(
+      state,
+      makeScanProgressEntry({ status: "matched", completed: 3, total: 3 }),
+    );
+    expect(deriveBreakdown(state)).toEqual({ matchedCount: 1, ambiguousCount: 0, failedCount: 0 });
   });
 });

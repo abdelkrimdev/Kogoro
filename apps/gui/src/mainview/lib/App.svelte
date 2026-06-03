@@ -116,6 +116,12 @@
     scanProgressState = createScanProgressState();
   }
 
+  function onViewResults() {
+    currentView = "review";
+    scanProgressState = null;
+    statusText = "Review ready";
+  }
+
   function onReviewComplete() {
     currentView = "scan";
     currentSessionId = null;
@@ -182,9 +188,8 @@
           const reviewEvent = data as { sessionId: string; plan: ReviewPlan };
           currentSessionId = reviewEvent.sessionId;
           currentPlan = reviewEvent.plan;
-          currentView = "review";
           isScanning = false;
-          scanProgressState = null;
+          statusText = "Scan complete — review results";
           break;
         }
         case "scanExecutionProgress": {
@@ -296,7 +301,7 @@
         {:else if currentView === "details" && currentDetailId}
           <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
         {:else}
-          <ScanView {rpc} {scanProgressState} onScanStarted={onScanStarted} />
+          <ScanView {rpc} {scanProgressState} onScanStarted={onScanStarted} reviewReady={currentPlan !== null} {onViewResults} />
         {/if}
       </main>
     </div>

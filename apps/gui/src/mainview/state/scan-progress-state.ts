@@ -55,3 +55,25 @@ const STATUS_COLORS: Partial<Record<ScanFileStatus, string>> = {
 export function getStatusColor(status: ScanFileStatus): string {
   return STATUS_COLORS[status] ?? "preset-tonal-surface";
 }
+
+export interface ScanBreakdown {
+  matchedCount: number;
+  ambiguousCount: number;
+  failedCount: number;
+}
+
+export function deriveBreakdown(state: ScanProgressState): ScanBreakdown {
+  let matchedCount = 0;
+  let ambiguousCount = 0;
+  let failedCount = 0;
+  for (const entry of state.entries) {
+    if (entry.status === "matched" || entry.status === "cached") {
+      matchedCount++;
+    } else if (entry.status === "ambiguous") {
+      ambiguousCount++;
+    } else if (entry.status === "failed") {
+      failedCount++;
+    }
+  }
+  return { matchedCount, ambiguousCount, failedCount };
+}

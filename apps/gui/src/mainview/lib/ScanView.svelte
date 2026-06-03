@@ -2,6 +2,7 @@
   import { FolderSearch } from '@lucide/svelte';
   import type { ScanProgressState } from "../state/scan-progress-state";
   import {
+    deriveBreakdown,
     deriveProgressPercent,
     getStatusColor,
     isIndeterminate,
@@ -11,9 +12,11 @@
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
     scanProgressState: ScanProgressState | null;
     onScanStarted: () => void;
+    reviewReady: boolean;
+    onViewResults: () => void;
   }
 
-  let { rpc, scanProgressState, onScanStarted }: Props = $props();
+  let { rpc, scanProgressState, onScanStarted, reviewReady = false, onViewResults }: Props = $props();
 
   let listContainer: HTMLDivElement | undefined = $state();
   let requesting = $state(false);
@@ -41,6 +44,7 @@
   const scanning = $derived(scanProgressState !== null);
   const progressPercent = $derived(scanProgressState ? deriveProgressPercent(scanProgressState) : 0);
   const indeterminate = $derived(scanProgressState ? isIndeterminate(scanProgressState) : false);
+  const breakdown = $derived(scanProgressState ? deriveBreakdown(scanProgressState) : null);
 </script>
 
 {#if scanning && scanProgressState}
@@ -58,6 +62,20 @@
         <progress class="progress" value={progressPercent} max="100"></progress>
       {/if}
     </div>
+    {#if reviewReady && breakdown}
+      <div class="flex items-center justify-center gap-4 py-2">
+        <span class="badge preset-tonal-success text-xs">{breakdown.matchedCount} matched</span>
+        <span class="badge preset-tonal-warning text-xs">{breakdown.ambiguousCount} ambiguous</span>
+        <span class="badge preset-tonal-error text-xs">{breakdown.failedCount} failed</span>
+      </div>
+      <button
+        type="button"
+        class="btn preset-filled-primary-500 rounded-lg font-medium w-full"
+        onclick={onViewResults}
+      >
+        View Results
+      </button>
+    {/if}
     <div class="flex-1 overflow-hidden flex flex-col min-h-0">
       <div class="text-xs font-medium text-surface-600-400 mb-1 shrink-0">Files</div>
       <div
