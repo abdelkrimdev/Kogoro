@@ -1,11 +1,5 @@
-import type { ConfigManager } from "@kogoro/core";
-
-export type PluginInfo = {
-  name: string;
-  type: "database" | "subtitle";
-  source: "built-in";
-  enabled: boolean;
-};
+import type { ConfigManager, CredentialStore } from "@kogoro/core";
+import type { PluginInfo } from "@kogoro/plugins";
 
 const SETTINGS_FIELD_MAP: Record<string, string> = {
   primaryDb: "primary-db",
@@ -39,13 +33,13 @@ export type SettingsFormData = {
   plugins: PluginInfo[];
 };
 
-export function maskApiKey(key: string | undefined): string {
+function maskApiKey(key: string | undefined): string {
   if (!key) return "Not set";
   if (key.length <= 4) return "****";
   return `****${key.slice(-4)}`;
 }
 
-export function buildPluginList(
+function buildPluginList(
   pluginsConfig: Record<string, { enabled?: boolean }> | undefined,
 ): PluginInfo[] {
   return [
@@ -125,5 +119,41 @@ export function applySettingsUpdate(
     const result = config.set(configKey, stringValue);
     if (!result.success) return { success: false, error: result.error };
   }
+  return { success: true };
+}
+
+export async function updateApiKey(
+  credentialStore: CredentialStore,
+  params: { plugin: string; apiKey: string },
+): Promise<{ success: boolean; error?: string }> {
+  const { plugin, apiKey } = params;
+  if (!apiKey) {
+    try {
+      await credentialStore.deleteCredential(plugin);
+    } catch (err) {
+      return {
+        success: false,
+        error: `Failed to delete API key: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+    return { success: true };
+  }
+  try {
+    await credentialStore.setCredential(plugin, apiKey);
+  } catch (err) {
+    return {
+      success: false,
+      error: `Failed to store API key: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+  return { success: true };
+}
+
+export function togglePlugin(
+  config: ConfigManager,
+  params: { plugin: string; enabled: boolean },
+): { success: boolean; error?: string } {
+  const result = config.set(`plugins.${params.plugin}.enabled`, String(params.enabled));
+  if (!result.success) return { success: false, error: result.error };
   return { success: true };
 }

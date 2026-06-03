@@ -167,7 +167,7 @@ export type AppRPC = {
           plugins: Array<{
             name: string;
             type: "database" | "subtitle";
-            source: "built-in";
+            source: "built-in" | "external";
             enabled: boolean;
           }>;
         };

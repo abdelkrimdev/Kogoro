@@ -4,7 +4,7 @@ import { BrowserView, BrowserWindow } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
-import { shouldShowOnboarding } from "./onboarding";
+import { shouldShowOnboarding, writeOnboardingConfig } from "./onboarding";
 import {
   cleanupSession,
   createScanOrchestrator,
@@ -12,7 +12,7 @@ import {
   getMatcher,
   getOrchestrator,
 } from "./scan";
-import { applySettingsUpdate, buildSettingsFormData } from "./settings";
+import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "./state";
 
 const savedState = loadWindowState();
@@ -22,50 +22,24 @@ const credentialStore = createCredentialStore();
 
 const libraryHandlers = createLibraryHandlers(CONFIG_DIR);
 
-function createEnrichment() {
-  return createEnrichmentHandlers({
-    configManager,
-    credentialStore,
-    configDir: CONFIG_DIR,
-    send: {
-      enrichmentProgress: (data) => rpc.send.enrichmentProgress(data),
-      enrichmentComplete: (data) => rpc.send.enrichmentComplete(data),
-    },
-  });
-}
+const enrichmentHandlers = createEnrichmentHandlers({
+  configManager,
+  credentialStore,
+  configDir: CONFIG_DIR,
+  send: {
+    enrichmentProgress: (data) => rpc.send.enrichmentProgress(data),
+    enrichmentComplete: (data) => rpc.send.enrichmentComplete(data),
+  },
+});
 
 const rpc = BrowserView.defineRPC<AppRPC>({
   maxRequestTime: 5000,
   handlers: {
     requests: {
-      getWindowState: () => {
-        return savedState;
-      },
-      checkOnboarding: () => {
-        return { needsOnboarding: shouldShowOnboarding(CONFIG_DIR) };
-      },
-      writeOnboardingConfig: async (params) => {
-        const { primaryDb, apiKey, templatePreset, templateCustom } = params;
-        const result1 = configManager.set("primary-db", primaryDb);
-        if (!result1.success) return { success: false, error: result1.error };
-        const result2 = configManager.set("template.preset", templatePreset);
-        if (!result2.success) return { success: false, error: result2.error };
-        if (templateCustom) {
-          const result3 = configManager.set("template.custom", templateCustom);
-          if (!result3.success) return { success: false, error: result3.error };
-        }
-        if (apiKey) {
-          try {
-            await credentialStore.setCredential(primaryDb, apiKey);
-          } catch (err) {
-            return {
-              success: false,
-              error: `Failed to store API key: ${err instanceof Error ? err.message : String(err)}`,
-            };
-          }
-        }
-        return { success: true };
-      },
+      getWindowState: () => savedState,
+      checkOnboarding: () => ({ needsOnboarding: shouldShowOnboarding(CONFIG_DIR) }),
+      writeOnboardingConfig: (params) =>
+        writeOnboardingConfig(configManager, credentialStore, params),
       getLibrary: () => libraryHandlers.getLibrary(),
       getLibraryStats: () => libraryHandlers.getLibraryStats(),
       getAnimeDetail: (params) => libraryHandlers.getAnimeDetail(params),
@@ -82,38 +56,9 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         }
         return buildSettingsFormData(configManager, apiKeys);
       },
-      updateSettings: async (params) => {
-        return applySettingsUpdate(configManager, params);
-      },
-      updateApiKey: async (params) => {
-        const { plugin, apiKey } = params;
-        if (!apiKey) {
-          try {
-            await credentialStore.deleteCredential(plugin);
-          } catch (err) {
-            return {
-              success: false,
-              error: `Failed to delete API key: ${err instanceof Error ? err.message : String(err)}`,
-            };
-          }
-          return { success: true };
-        }
-        try {
-          await credentialStore.setCredential(plugin, apiKey);
-        } catch (err) {
-          return {
-            success: false,
-            error: `Failed to store API key: ${err instanceof Error ? err.message : String(err)}`,
-          };
-        }
-        return { success: true };
-      },
-      togglePlugin: async (params) => {
-        const { plugin, enabled } = params;
-        const result = configManager.set(`plugins.${plugin}.enabled`, String(enabled));
-        if (!result.success) return { success: false, error: result.error };
-        return { success: true };
-      },
+      updateSettings: (params) => applySettingsUpdate(configManager, params),
+      updateApiKey: (params) => updateApiKey(credentialStore, params),
+      togglePlugin: (params) => togglePlugin(configManager, params),
       scanStart: async (params) => {
         const { path } = params;
         const sessionId = crypto.randomUUID();
@@ -170,29 +115,24 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return undefined;
       },
       rejectPlan: async (params) => {
-        const { sessionId } = params;
-        getOrchestrator(sessionId).rejectPlan();
+        getOrchestrator(params.sessionId).rejectPlan();
         return undefined;
       },
       approveGroup: async (params) => {
-        const { sessionId, animeId } = params;
-        getOrchestrator(sessionId).approveGroup(animeId);
+        getOrchestrator(params.sessionId).approveGroup(params.animeId);
         return undefined;
       },
       rejectGroup: async (params) => {
-        const { sessionId, animeId } = params;
-        getOrchestrator(sessionId).rejectGroup(animeId);
+        getOrchestrator(params.sessionId).rejectGroup(params.animeId);
         return undefined;
       },
       cancelScan: async (params) => {
-        const { sessionId } = params;
-        getOrchestrator(sessionId).cancel();
-        cleanupSession(sessionId);
+        getOrchestrator(params.sessionId).cancel();
+        cleanupSession(params.sessionId);
         return undefined;
       },
       swapFiles: async (params) => {
-        const { sessionId, fileAId, fileBId } = params;
-        getOrchestrator(sessionId).swapFiles(fileAId, fileBId);
+        getOrchestrator(params.sessionId).swapFiles(params.fileAId, params.fileBId);
         return undefined;
       },
       getResolveCandidates: async (params) => {
@@ -231,16 +171,15 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         };
       },
       resolveMatch: async (params) => {
-        const { sessionId, fileId, animeId, episodeId } = params;
-        await getOrchestrator(sessionId).resolveMatch(fileId, animeId, episodeId);
+        await getOrchestrator(params.sessionId).resolveMatch(
+          params.fileId,
+          params.animeId,
+          params.episodeId,
+        );
         return undefined;
       },
-      enrichArtwork: async (params) => {
-        return createEnrichment().enrichArtwork(params);
-      },
-      enrichMetadata: async (params) => {
-        return createEnrichment().enrichMetadata(params);
-      },
+      enrichArtwork: (params) => enrichmentHandlers.enrichArtwork(params),
+      enrichMetadata: (params) => enrichmentHandlers.enrichMetadata(params),
       getThemeMode: () => {
         const mode = loadThemeMode();
         return mode ? { mode } : null;
@@ -293,8 +232,7 @@ const win = new BrowserWindow({
   rpc,
 });
 
-const needsOnboarding = shouldShowOnboarding(CONFIG_DIR);
-if (needsOnboarding) {
+if (shouldShowOnboarding(CONFIG_DIR)) {
   rpc.send.showOnboarding({});
 }
 

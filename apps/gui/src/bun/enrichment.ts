@@ -3,29 +3,13 @@ import {
   ArtworkFetcher,
   type ConfigManager,
   type CredentialStore,
+  type EnrichmentSend,
   LibraryDb,
   MatchCache,
   MetadataWriter,
 } from "@kogoro/core";
 import type { DatabasePlugin } from "@kogoro/plugins";
 import { PluginFactory } from "@kogoro/plugins";
-
-export interface EnrichmentSend {
-  enrichmentProgress?: (data: {
-    animeId: string;
-    command: "artwork" | "metadata";
-    completed: number;
-    total: number;
-    file: string;
-    status: string;
-  }) => void;
-  enrichmentComplete?: (data: {
-    animeId: string;
-    command: "artwork" | "metadata";
-    success: boolean;
-    error?: string;
-  }) => void;
-}
 
 export interface EnrichmentOptions {
   configManager: ConfigManager;

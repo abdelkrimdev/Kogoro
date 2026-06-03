@@ -4,19 +4,23 @@ import type { ThemeMode } from "../shared/types";
 
 export type WindowFrame = { x: number; y: number; width: number; height: number };
 
-const DEFAULT_BASE = join(import.meta.dir, "../..");
+let stateDir = join(import.meta.dir, "../..");
 
-function statePath(base: string) {
-  return join(base, ".window-state.json");
+export function setStateDir(dir: string) {
+  stateDir = dir;
 }
 
-function themePath(base: string) {
-  return join(base, ".theme-state.json");
+function statePath() {
+  return join(stateDir, ".window-state.json");
 }
 
-export function loadWindowState(base: string = DEFAULT_BASE): WindowFrame | null {
+function themePath() {
+  return join(stateDir, ".theme-state.json");
+}
+
+export function loadWindowState(): WindowFrame | null {
   try {
-    const file = statePath(base);
+    const file = statePath();
     if (existsSync(file)) {
       return JSON.parse(readFileSync(file, "utf-8"));
     }
@@ -26,17 +30,17 @@ export function loadWindowState(base: string = DEFAULT_BASE): WindowFrame | null
   return null;
 }
 
-export function saveWindowState(state: WindowFrame, base: string = DEFAULT_BASE) {
+export function saveWindowState(state: WindowFrame) {
   try {
-    writeFileSync(statePath(base), JSON.stringify(state, null, 2));
+    writeFileSync(statePath(), JSON.stringify(state, null, 2));
   } catch {
     // ignore write errors
   }
 }
 
-export function loadThemeMode(base: string = DEFAULT_BASE): ThemeMode | null {
+export function loadThemeMode(): ThemeMode | null {
   try {
-    const file = themePath(base);
+    const file = themePath();
     if (existsSync(file)) {
       const data = JSON.parse(readFileSync(file, "utf-8"));
       if (data.mode === "light" || data.mode === "dark") return data.mode;
@@ -47,9 +51,9 @@ export function loadThemeMode(base: string = DEFAULT_BASE): ThemeMode | null {
   return null;
 }
 
-export function saveThemeMode(mode: ThemeMode, base: string = DEFAULT_BASE) {
+export function saveThemeMode(mode: ThemeMode) {
   try {
-    writeFileSync(themePath(base), JSON.stringify({ mode }, null, 2));
+    writeFileSync(themePath(), JSON.stringify({ mode }, null, 2));
   } catch {
     // ignore write errors
   }

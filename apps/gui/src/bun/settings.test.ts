@@ -1,49 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { ConfigManager, withTempDir, writeTempFile } from "@kogoro/core";
-import { buildPluginList, buildSettingsFormData, maskApiKey } from "./settings";
-
-describe("maskApiKey", () => {
-  test("returns placeholder when key is empty", () => {
-    expect(maskApiKey(undefined)).toBe("Not set");
-  });
-
-  test("returns placeholder when key is empty string", () => {
-    expect(maskApiKey("")).toBe("Not set");
-  });
-
-  test("masks key showing last 4 characters", () => {
-    expect(maskApiKey("abc123def456")).toBe("****f456");
-  });
-
-  test("masks short key entirely", () => {
-    expect(maskApiKey("abc")).toBe("****");
-  });
-
-  test("masks key of exactly 4 characters", () => {
-    expect(maskApiKey("abcd")).toBe("****");
-  });
-});
-
-describe("buildPluginList", () => {
-  test("returns default plugins when none configured", () => {
-    const plugins = buildPluginList(undefined);
-    expect(plugins).toEqual([
-      { name: "tvdb", type: "database", source: "built-in", enabled: true },
-      { name: "anidb", type: "database", source: "built-in", enabled: true },
-      { name: "opensubtitles", type: "subtitle", source: "built-in", enabled: true },
-    ]);
-  });
-
-  test("respects enabled state from config", () => {
-    const plugins = buildPluginList({
-      tvdb: { enabled: false },
-      anidb: { enabled: true },
-      opensubtitles: { enabled: true },
-    });
-    expect(plugins[0]?.enabled).toBe(false);
-    expect(plugins[1]?.enabled).toBe(true);
-  });
-});
+import {
+  ConfigManager,
+  createSilentCredentialStore,
+  withTempDir,
+  writeTempFile,
+} from "@kogoro/core";
+import { buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 
 describe("buildSettingsFormData", () => {
   test("builds form data from config and api keys", async () => {
@@ -68,5 +30,39 @@ describe("buildSettingsFormData", () => {
       expect(formData.episodeNumbering).toBe("relative");
       expect(formData.renameAction).toBe("move");
     });
+  });
+});
+
+describe("updateApiKey", () => {
+  test("stores api key", async () => {
+    const store = createSilentCredentialStore();
+    const result = await updateApiKey(store, { plugin: "tvdb", apiKey: "secret123" });
+    expect(result).toEqual({ success: true });
+    expect(await store.getCredential("tvdb")).toBe("secret123");
+  });
+
+  test("deletes api key when empty", async () => {
+    const store = createSilentCredentialStore();
+    await store.setCredential("tvdb", "oldkey");
+    const result = await updateApiKey(store, { plugin: "tvdb", apiKey: "" });
+    expect(result).toEqual({ success: true });
+    expect(await store.getCredential("tvdb")).toBeUndefined();
+  });
+});
+
+describe("togglePlugin", () => {
+  test("enables plugin", () => {
+    const config = new ConfigManager();
+    const result = togglePlugin(config, { plugin: "tvdb", enabled: true });
+    expect(result).toEqual({ success: true });
+    expect(config.get("plugins.tvdb.enabled")).toBe(true);
+  });
+
+  test("disables plugin", () => {
+    const config = new ConfigManager();
+    togglePlugin(config, { plugin: "tvdb", enabled: true });
+    const result = togglePlugin(config, { plugin: "tvdb", enabled: false });
+    expect(result).toEqual({ success: true });
+    expect(config.get("plugins.tvdb.enabled")).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { LibraryDb } from "@kogoro/core";
 
-export interface LibraryAnimeItem {
+interface LibraryAnimeItem {
   id: string;
   titleEn: string;
   entryType: string;
@@ -10,7 +10,7 @@ export interface LibraryAnimeItem {
   coverArt?: string;
 }
 
-export interface LibraryAnimeDetail {
+interface LibraryAnimeDetail {
   anime: {
     id: string;
     titleEn: string;
