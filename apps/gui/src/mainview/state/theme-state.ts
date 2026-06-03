@@ -17,7 +17,7 @@ interface RPCClient {
 }
 
 export function createThemeState(options: CreateThemeStateOptions = {}): ThemeState {
-  const { initialMode = "light" } = options;
+  const { initialMode = "dark" } = options;
 
   let mode: ThemeMode = initialMode;
   const listeners = new Set<(mode: ThemeMode) => void>();

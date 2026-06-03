@@ -4,9 +4,9 @@ import type { ThemeMode } from "../../shared/types";
 import { applyThemeToDocument, createRPCThemeState, createThemeState } from "./theme-state";
 
 describe("createThemeState", () => {
-  it("defaults to light mode", () => {
+  it("defaults to dark mode", () => {
     const state = createThemeState();
-    expect(state.mode).toBe("light");
+    expect(state.mode).toBe("dark");
   });
 
   it("accepts an initial mode", () => {
@@ -111,7 +111,7 @@ describe("applyThemeToDocument", () => {
 
     expect(capturedAttribute).toBe("data-theme");
     expect(capturedValue).toBe("cerberus");
-    expect(darkToggled).toBe(false);
+    expect(darkToggled).toBe(true);
   });
 
   it("toggles dark class when mode changes", () => {
@@ -156,15 +156,15 @@ describe("applyThemeToDocument", () => {
     cleanup();
     state.toggle();
 
-    expect(darkValues).toEqual([false, true]);
+    expect(darkValues).toEqual([true, false]);
   });
 });
 
 describe("createRPCThemeState", () => {
-  it("defaults to light mode", () => {
+  it("defaults to dark mode", () => {
     const { request } = createMockRPC();
     const state = createRPCThemeState({ request });
-    expect(state.mode).toBe("light");
+    expect(state.mode).toBe("dark");
   });
 
   it("accepts an initial mode", () => {
@@ -188,7 +188,7 @@ describe("createRPCThemeState", () => {
 
     await state.load();
 
-    expect(state.mode).toBe("light");
+    expect(state.mode).toBe("dark");
   });
 
   it("load keeps default on RPC error", async () => {
@@ -199,7 +199,7 @@ describe("createRPCThemeState", () => {
 
     await state.load();
 
-    expect(state.mode).toBe("light");
+    expect(state.mode).toBe("dark");
   });
 
   it("setMode persists via RPC", async () => {
@@ -219,9 +219,9 @@ describe("createRPCThemeState", () => {
 
     state.toggle();
 
-    expect(state.mode).toBe("dark");
+    expect(state.mode).toBe("light");
     await new Promise((r) => setTimeout(r, 0));
-    expect(calls).toEqual([{ method: "setThemeMode", params: { mode: "dark" } }]);
+    expect(calls).toEqual([{ method: "setThemeMode", params: { mode: "light" } }]);
   });
 
   it("notifies listeners on change", () => {
@@ -232,6 +232,6 @@ describe("createRPCThemeState", () => {
 
     state.toggle();
 
-    expect(changes).toEqual(["dark"]);
+    expect(changes).toEqual(["light"]);
   });
 });
