@@ -1,22 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { captureStreams } from "./fixtures";
 import { wrapCommand } from "./wrap";
-
-function captureStreams() {
-  const stdoutMessages: string[] = [];
-  const stderrMessages: string[] = [];
-  let exitCode: number | undefined;
-
-  return {
-    stdout: (msg: string) => stdoutMessages.push(msg),
-    stderr: (msg: string) => stderrMessages.push(msg),
-    exit: (code: number) => {
-      exitCode = code;
-    },
-    stdoutMessages,
-    stderrMessages,
-    exitCode: () => exitCode,
-  };
-}
 
 describe("wrap", () => {
   describe("wrapCommand", () => {

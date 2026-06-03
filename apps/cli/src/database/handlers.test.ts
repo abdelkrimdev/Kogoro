@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createMockPlugin, makeThrowingDb } from "@kogoro/core";
+import { createMockPlugin, makeThrowingDb } from "../fixtures";
 import { createDatabaseHandlers } from "./handlers";
 
 describe("DB CLI commands", () => {

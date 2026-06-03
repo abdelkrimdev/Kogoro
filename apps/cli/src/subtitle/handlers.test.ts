@@ -1,26 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import {
-  createCache,
-  createMockSubtitlePlugin,
-  makeMockLogger,
-  seedCacheEntry,
-  withTempDir,
-  writeTempFile,
-} from "@kogoro/core";
+import { createCache, seedCacheEntry, withTempDir, writeTempFile } from "@kogoro/core";
+import { createMockSubtitlePlugin, makeMockLogger } from "../fixtures";
 import { createSubtitleHandlers } from "./handlers";
 
 describe("subtitle CLI commands", () => {
-  function makeCtx() {
-    const { logger, infoLines, progressLines } = makeMockLogger();
-    return { logger, info: infoLines, progress: progressLines };
-  }
-
-  function makeLogger() {
-    return makeCtx();
-  }
-
   test("downloads subtitles for cached entries", async () => {
     await withTempDir("subtitle", async (tmpDir) => {
       const tvDir = join(tmpDir, "Jujutsu Kaisen", "TV");
@@ -37,12 +22,12 @@ describe("subtitle CLI commands", () => {
       const subtitlePlugin = createMockSubtitlePlugin();
       const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
 
-      const { logger, info } = makeLogger();
+      const { logger, infoLines } = makeMockLogger();
       const result = await handlers.fetch(tmpDir, {}, logger);
 
       expect(result.downloaded).toBe(1);
-      expect(info.join("")).toContain("Downloaded:");
-      expect(info.join("")).toContain("Summary");
+      expect(infoLines.join("")).toContain("Downloaded:");
+      expect(infoLines.join("")).toContain("Summary");
     });
   });
 
@@ -63,11 +48,11 @@ describe("subtitle CLI commands", () => {
       const subtitlePlugin = createMockSubtitlePlugin();
       const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
 
-      const { logger, info } = makeLogger();
+      const { logger, infoLines } = makeMockLogger();
       const result = await handlers.fetch(tmpDir, {}, logger);
 
       expect(result.skipped).toBe(1);
-      expect(info.join("")).toContain("1 skipped");
+      expect(infoLines.join("")).toContain("1 skipped");
     });
   });
 
@@ -88,7 +73,7 @@ describe("subtitle CLI commands", () => {
       const subtitlePlugin = createMockSubtitlePlugin();
       const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
 
-      const { logger } = makeLogger();
+      const { logger } = makeMockLogger();
       const result = await handlers.fetch(tmpDir, { force: true }, logger);
 
       expect(result.downloaded).toBe(1);
@@ -107,7 +92,7 @@ describe("subtitle CLI commands", () => {
       const subtitlePlugin = createMockSubtitlePlugin();
       const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
 
-      const { logger } = makeLogger();
+      const { logger } = makeMockLogger();
       const result = await handlers.fetch(tmpDir, {}, logger);
 
       expect(result.downloaded).toBe(0);
@@ -130,7 +115,7 @@ describe("subtitle CLI commands", () => {
       const failingPlugin = createMockSubtitlePlugin({ downloadContent: "" });
       const handlers = createSubtitleHandlers({ subtitlePlugin: failingPlugin, cache });
 
-      const { logger } = makeLogger();
+      const { logger } = makeMockLogger();
       const result = await handlers.fetch(tmpDir, {}, logger);
 
       expect(result.failed).toBe(1);
@@ -153,10 +138,10 @@ describe("subtitle CLI commands", () => {
       const subtitlePlugin = createMockSubtitlePlugin();
       const handlers = createSubtitleHandlers({ subtitlePlugin, cache });
 
-      const { logger, progress } = makeLogger();
+      const { logger, progressLines } = makeMockLogger();
       await handlers.fetch(tmpDir, {}, logger);
 
-      expect(progress.length).toBeGreaterThanOrEqual(1);
+      expect(progressLines.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

@@ -9,14 +9,7 @@ import { LibraryDb } from "./library/library-db";
 import { type CachedMatch, MatchCache } from "./match/match-cache";
 import type { MatcherLike, MatchResult } from "./match/matcher";
 import type { ParsedResult, ParsedTags } from "./parse/parser";
-import type {
-  AnimeResult,
-  ArtworkResult,
-  DatabasePlugin,
-  EpisodeResult,
-  SubtitlePlugin,
-  SubtitleResult,
-} from "./types";
+import type { AnimeResult, ArtworkResult, DatabasePlugin, EpisodeResult } from "./types";
 
 export interface EnrichmentSend {
   enrichmentProgress?: (data: {
@@ -140,23 +133,6 @@ export function createMockDb(opts: MockDbOptions = {}): DatabasePlugin {
     },
     async getAnime() {
       return opts.getAnime?.() ?? null;
-    },
-  };
-}
-
-export function makeThrowingDb(): DatabasePlugin {
-  return {
-    async searchAnime() {
-      throw new Error("Should not be called");
-    },
-    async getEpisodes() {
-      throw new Error("Should not be called");
-    },
-    async getArtwork() {
-      return [];
-    },
-    async getAnime() {
-      return null;
     },
   };
 }
@@ -318,24 +294,6 @@ export async function withTestConfig(
   });
 }
 
-export function createStandardMockDb(overrides?: Partial<MockDbOptions>): DatabasePlugin {
-  return createMockDb({
-    searchAnime: (title: string) => [{ id: "12345", titleEn: title, entryType: "tv" as const }],
-    getEpisodes: () => [
-      {
-        id: "1001",
-        animeId: "12345",
-        season: 1,
-        episode: 1,
-        titleEn: "Ryomen Sukuna",
-        airDate: "2020-10-03",
-        entryType: "tv" as const,
-      },
-    ],
-    ...overrides,
-  });
-}
-
 export function createEpisodeNumberingMatcher(
   animeId: string,
   episodes: EpisodeResult[],
@@ -385,33 +343,6 @@ export function createMockMatcher(results?: MatchResult[]): MatcherLike {
 
 export function makeNoMatchResult(failureReason = "No anime found"): MatchResult {
   return { anime: { id: "", titleEn: "", entryType: "tv" }, score: 0, failureReason };
-}
-
-interface MockSubtitlePluginOptions {
-  searchResults?: SubtitleResult[];
-  downloadContent?: string;
-}
-
-export function createMockSubtitlePlugin(opts: MockSubtitlePluginOptions = {}): SubtitlePlugin {
-  return {
-    async search(): Promise<SubtitleResult[]> {
-      return (
-        opts.searchResults ?? [
-          {
-            id: "sub1",
-            fileId: 101,
-            language: "en",
-            format: "srt",
-            score: 5000,
-            fileName: "Jujutsu Kaisen - 1x01 - Ryomen Sukuna.srt",
-          },
-        ]
-      );
-    },
-    async download(): Promise<string> {
-      return opts.downloadContent ?? "1\n00:00:01,000 --> 00:00:05,000\nHello world\n";
-    },
-  };
 }
 
 export function createCallCounter() {
@@ -548,80 +479,6 @@ export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {
       return null;
     },
   };
-}
-
-export function makeMockLogger(): {
-  logger: {
-    info(msg: string): void;
-    error(msg: string): void;
-    debug(msg: string): void;
-    progress(msg: string): void;
-  };
-  infoLines: string[];
-  errorLines: string[];
-  debugLines: string[];
-  progressLines: string[];
-} {
-  const infoLines: string[] = [];
-  const errorLines: string[] = [];
-  const debugLines: string[] = [];
-  const progressLines: string[] = [];
-  return {
-    logger: {
-      info(msg: string) {
-        infoLines.push(msg);
-      },
-      error(msg: string) {
-        errorLines.push(msg);
-      },
-      debug(msg: string) {
-        debugLines.push(msg);
-      },
-      progress(msg: string) {
-        progressLines.push(msg);
-      },
-    },
-    infoLines,
-    errorLines,
-    debugLines,
-    progressLines,
-  };
-}
-
-export function createMockPlugin(): DatabasePlugin {
-  return createMockDb({
-    searchAnime: (title: string): AnimeResult[] => {
-      if (title === "Jujutsu Kaisen") {
-        return [
-          {
-            id: "12345",
-            titleEn: "Jujutsu Kaisen",
-            titleJa: "呪術廻戦",
-            overview: "A boy fights curses.",
-            year: 2020,
-            entryType: "tv",
-          },
-        ];
-      }
-      return [];
-    },
-    getEpisodes: (animeId: string): EpisodeResult[] => {
-      if (animeId === "12345") {
-        return [
-          {
-            id: "1001",
-            animeId: "12345",
-            season: 1,
-            episode: 1,
-            titleEn: "Ryomen Sukuna",
-            airDate: "2020-10-03",
-            entryType: "tv",
-          },
-        ];
-      }
-      return [];
-    },
-  });
 }
 
 export function createSilentCredentialStore(): CredentialStore {

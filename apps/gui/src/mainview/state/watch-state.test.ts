@@ -1,26 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import type { EpisodeRow } from "./detail-state";
+import { makeEpisode, makeWatchStatus } from "../../fixtures";
 import {
   computeWatchProgress,
   enrichEpisodesWithWatchStatus,
   type WatchStatusEntry,
 } from "./watch-state";
-
-const makeEpisode = (overrides: Partial<EpisodeRow> = {}): EpisodeRow => ({
-  id: overrides.id ?? "e1",
-  season: overrides.season ?? 1,
-  episode: overrides.episode ?? 1,
-  titleEn: overrides.titleEn ?? "Episode 1",
-  filePath: overrides.filePath ?? "/library/Steins;Gate/TV/1x01.mkv",
-  missing: overrides.missing ?? false,
-});
-
-const makeWatchStatus = (overrides: Partial<WatchStatusEntry> = {}): WatchStatusEntry => ({
-  episodeId: overrides.episodeId ?? "e1",
-  watched: overrides.watched ?? true,
-  notes: overrides.notes,
-  updatedAt: overrides.updatedAt ?? "2026-01-01T00:00:00.000Z",
-});
 
 describe("enrichEpisodesWithWatchStatus", () => {
   it("marks an episode as watched when watch status exists", () => {

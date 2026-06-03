@@ -64,7 +64,7 @@ function createFailingDbPlugin(): DatabasePlugin {
   });
 }
 
-describe("GUI scan wiring", () => {
+describe("ScanOrchestrator", () => {
   test("walk discovers media files and scanner matches them", async () => {
     await withTempDir("scan-walk-match", async (dir) => {
       const dbPlugin = createMockDb({
@@ -209,7 +209,7 @@ describe("GUI scan wiring", () => {
     });
   });
 
-  test("executeRename actually renames files on disk", async () => {
+  test("renames files to proposed paths", async () => {
     await withTempDir("scan-execute-rename", async (dir) => {
       const dbPlugin = createMockDb({
         searchAnime: (title: string) => {

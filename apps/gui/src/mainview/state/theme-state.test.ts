@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createMockRPC } from "../../fixtures";
 import type { ThemeMode } from "../../shared/types";
 import { applyThemeToDocument, createRPCThemeState, createThemeState } from "./theme-state";
 
@@ -160,17 +161,6 @@ describe("applyThemeToDocument", () => {
 });
 
 describe("createRPCThemeState", () => {
-  function createMockRPC(responses: Record<string, unknown> = {}) {
-    const calls: Array<{ method: string; params: unknown }> = [];
-    return {
-      calls,
-      request: async (method: string, params: unknown) => {
-        calls.push({ method, params });
-        return responses[method] ?? null;
-      },
-    };
-  }
-
   it("defaults to light mode", () => {
     const { request } = createMockRPC();
     const state = createRPCThemeState({ request });

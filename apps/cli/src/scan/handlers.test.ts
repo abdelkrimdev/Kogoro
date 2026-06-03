@@ -6,15 +6,13 @@ import {
   ConfigManager,
   computeFileHash,
   createCache,
-  createStandardMockDb,
   makeEpisodes,
-  makeMockLogger,
-  makeThrowingDb,
   OverrideStore,
   SCHEMA_DEFAULTS,
   withTempDir,
   writeTempFile,
 } from "@kogoro/core";
+import { createStandardMockDb, makeMockLogger, makeThrowingDb } from "../fixtures";
 import { createScanHandlers, isAlreadyOrganized } from "./handlers";
 
 describe("scan CLI commands", () => {

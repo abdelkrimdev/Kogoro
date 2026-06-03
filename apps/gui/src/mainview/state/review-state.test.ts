@@ -1,46 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { AnimeGroup, FileRow, ReviewPlan } from "@kogoro/core";
-import {
-  deriveReviewStats,
-  filterReviewGroups,
-  findSwapPairForFile,
-  type ReviewState,
-} from "./review-state";
-
-const makeFile = (overrides: Partial<FileRow> = {}): FileRow => ({
-  fileId: overrides.fileId ?? "f1",
-  sourcePath: overrides.sourcePath ?? "/media/Steins;Gate/S01E01.mkv",
-  proposedPath: overrides.proposedPath ?? "/library/Steins;Gate/TV/1x01 - Prologue.mkv",
-  status: overrides.status ?? "matched",
-  animeId: overrides.animeId ?? "a1",
-  episodeId: overrides.episodeId ?? "e1",
-  episode: overrides.episode ?? 1,
-});
-
-const makeGroup = (overrides: Partial<AnimeGroup> = {}): AnimeGroup => ({
-  animeId: overrides.animeId ?? "a1",
-  animeTitle: overrides.animeTitle ?? "Steins;Gate",
-  entryType: overrides.entryType ?? "tv",
-  image: overrides.image,
-  files: overrides.files ?? [makeFile()],
-  swapPairs: overrides.swapPairs ?? [],
-});
-
-const makePlan = (groups: AnimeGroup[] = []): ReviewPlan => ({
-  sessionId: "s1",
-  groups,
-  totalFiles: groups.reduce((sum, g) => sum + g.files.length, 0),
-  ambiguousCount: groups.reduce(
-    (sum, g) => sum + g.files.filter((f) => f.status === "ambiguous").length,
-    0,
-  ),
-});
-
-const makeState = (overrides: Partial<ReviewState> = {}): ReviewState => ({
-  plan: overrides.plan ?? makePlan(),
-  searchQuery: overrides.searchQuery ?? "",
-  statusFilter: overrides.statusFilter ?? "all",
-});
+import { makeFile, makeGroup, makePlan, makeReviewState } from "../../fixtures";
+import { deriveReviewStats, filterReviewGroups, findSwapPairForFile } from "./review-state";
 
 describe("filterReviewGroups", () => {
   describe("search filtering", () => {
@@ -49,7 +9,7 @@ describe("filterReviewGroups", () => {
         makeGroup({ animeId: "a1", animeTitle: "Steins;Gate" }),
         makeGroup({ animeId: "a2", animeTitle: "Attack on Titan" }),
       ]);
-      const state = makeState({ plan, searchQuery: "" });
+      const state = makeReviewState({ plan, searchQuery: "" });
       expect(filterReviewGroups(state)).toHaveLength(2);
     });
 
@@ -88,7 +48,7 @@ describe("filterReviewGroups", () => {
           ],
         }),
       ]);
-      const state = makeState({ plan, searchQuery: "steins" });
+      const state = makeReviewState({ plan, searchQuery: "steins" });
       const result = filterReviewGroups(state);
       expect(result).toHaveLength(2);
       expect(result.map((g) => g.animeId)).toEqual(["a1", "a3"]);
@@ -105,7 +65,7 @@ describe("filterReviewGroups", () => {
           ],
         }),
       ]);
-      const state = makeState({ plan, searchQuery: "E01" });
+      const state = makeReviewState({ plan, searchQuery: "E01" });
       const result = filterReviewGroups(state);
       expect(result).toHaveLength(1);
       expect(result[0]?.files).toHaveLength(1);
@@ -122,7 +82,7 @@ describe("filterReviewGroups", () => {
           ],
         }),
       ]);
-      const state = makeState({ plan, searchQuery: "parallax" });
+      const state = makeReviewState({ plan, searchQuery: "parallax" });
       const result = filterReviewGroups(state);
       expect(result).toHaveLength(1);
       expect(result[0]?.files[0]?.fileId).toBe("f2");
@@ -140,7 +100,7 @@ describe("filterReviewGroups", () => {
           ],
         }),
       ]);
-      const state = makeState({ plan, statusFilter: "all" });
+      const state = makeReviewState({ plan, statusFilter: "all" });
       const result = filterReviewGroups(state);
       expect(result[0]?.files).toHaveLength(3);
     });
@@ -155,7 +115,7 @@ describe("filterReviewGroups", () => {
           ],
         }),
       ]);
-      const state = makeState({ plan, statusFilter: "matched" });
+      const state = makeReviewState({ plan, statusFilter: "matched" });
       const result = filterReviewGroups(state);
       expect(result[0]?.files).toHaveLength(2);
     });
@@ -171,7 +131,7 @@ describe("filterReviewGroups", () => {
           ],
         }),
       ]);
-      const state = makeState({ plan, statusFilter: "needs-attention" });
+      const state = makeReviewState({ plan, statusFilter: "needs-attention" });
       const result = filterReviewGroups(state);
       expect(result[0]?.files).toHaveLength(2);
       expect(result[0]?.files.map((f) => f.status)).toEqual(["ambiguous", "failed"]);
@@ -182,7 +142,7 @@ describe("filterReviewGroups", () => {
         makeGroup({ animeId: "a1", files: [makeFile({ status: "matched" })] }),
         makeGroup({ animeId: "a2", files: [makeFile({ fileId: "f2", status: "ambiguous" })] }),
       ]);
-      const state = makeState({ plan, statusFilter: "matched" });
+      const state = makeReviewState({ plan, statusFilter: "matched" });
       const result = filterReviewGroups(state);
       expect(result).toHaveLength(1);
       expect(result[0]?.animeId).toBe("a1");

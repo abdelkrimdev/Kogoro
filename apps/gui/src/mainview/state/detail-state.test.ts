@@ -1,14 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { type EpisodeRow, getAnimeDirectory } from "./detail-state";
-
-const makeEpisode = (overrides: Partial<EpisodeRow> = {}): EpisodeRow => ({
-  id: overrides.id ?? "e1",
-  season: overrides.season ?? 1,
-  episode: overrides.episode ?? 1,
-  titleEn: overrides.titleEn ?? "Episode 1",
-  filePath: overrides.filePath ?? "/library/Steins;Gate/TV/1x01 - Prologue.mkv",
-  missing: overrides.missing ?? false,
-});
+import { makeEpisode } from "../../fixtures";
+import { getAnimeDirectory } from "./detail-state";
 
 describe("getAnimeDirectory", () => {
   it("returns directory from single episode filePath", () => {

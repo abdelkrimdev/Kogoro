@@ -4,12 +4,12 @@ import { join } from "node:path";
 import {
   createArtworkDb,
   createMockHttpClient,
-  makeMockLogger,
   mockFetch,
   seedCacheEntry,
   testImageBytes,
   withTempDir,
 } from "@kogoro/core";
+import { makeMockLogger } from "../fixtures";
 import { createArtworkHandlers } from "./handlers";
 
 describe("artwork CLI commands", () => {

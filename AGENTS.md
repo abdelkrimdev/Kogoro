@@ -14,11 +14,12 @@ Always use the `skeleton-svelte` skill when building, reviewing, or styling comp
 
 ## Test fixtures (`src/fixtures.ts`)
 
-Before writing or modifying any test, review `src/fixtures.ts` to avoid duplicating test utilities. This file is the single source of truth for reusable test doubles, factories, and helpers.
+Before writing or modifying any test, review the `src/fixtures.ts` file in the current package to avoid duplicating test utilities. Each package has its own isolated fixtures with zero overlap, with the exception of core fixtures which are shared. The local `src/fixtures.ts` is the single source of truth for reusable test doubles, factories, and helpers within that package.
 
 When writing tests:
-- Import existing fixtures instead of writing inline mocks, stubs, or data factories.
-- If a test needs a mock, stub, or factory that doesn't exist yet, add it to `src/fixtures.ts` rather than defining it inline in the test file.
+- First check for existing fixtures in the core package, then check the local package's `src/fixtures.ts`. Import these existing fixtures instead of writing inline mocks, stubs, or data factories.
+- If a test needs a mock, stub, or factory that doesn't exist yet, add it to the appropriate fixtures file rather than defining it inline in the test file.
+- Do not import fixtures from other packages, unless they are shared core fixtures.
 - Follow the existing naming conventions: `create*` for factory functions, `make*` for plain data builders, `mock*` for fetch/network stubs.
 
 ## Test naming and describe structure
