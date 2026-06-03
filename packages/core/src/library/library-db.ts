@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { CONFIG_DIR } from "../config/schema";
-import type { EntryType } from "../types";
+import type { EntryType, MatchEntry } from "../types";
 
 export interface LibraryAnime {
   id: number;
@@ -279,19 +279,7 @@ export class LibraryDb {
     return { anime: libraryAnime, episodes: libraryEpisodes, merged };
   }
 
-  rebuildFromMatches(
-    matches: Array<{
-      animeId: string;
-      animeTitle: string;
-      entryType: EntryType;
-      episodeId: string | null;
-      episode: number | null;
-      season: number | null;
-      title: string | null;
-      filePath: string;
-    }>,
-    sourceDb: string,
-  ): void {
+  rebuildFromMatches(matches: MatchEntry[], sourceDb: string): void {
     this.db.run("DELETE FROM watch_status");
     this.db.run("DELETE FROM episodes");
     this.db.run("DELETE FROM anime");

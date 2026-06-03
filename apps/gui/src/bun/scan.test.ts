@@ -5,6 +5,7 @@ import type { DatabasePlugin, MatcherLike, ScanEvent, ScanReviewReadyEvent } fro
 import {
   createAmbiguousMatcher,
   createCache,
+  createLibraryDb,
   createMockDb,
   Matcher,
   OverrideStore,
@@ -246,6 +247,115 @@ describe("ScanOrchestrator", () => {
       const targetPath = join(dir, "My Anime", "TV", "My Anime - 1x01 - Ep 1.mkv");
       expect(existsSync(targetPath)).toBe(true);
       expect(existsSync(sourcePath)).toBe(false);
+    });
+  });
+
+  describe("library rebuild after approval", () => {
+    test("rebuilds library from matched scan results", async () => {
+      await withTempDir("scan-rebuild", async (dir) => {
+        const dbPlugin = createMockDb({
+          searchAnime: (title: string) => {
+            if (title === "My Anime") {
+              return [{ id: "1", titleEn: "My Anime", entryType: "tv" }];
+            }
+            return [];
+          },
+          getEpisodes: (animeId: string) => {
+            if (animeId === "1") {
+              return [
+                {
+                  id: "101",
+                  animeId: "1",
+                  season: 1,
+                  episode: 1,
+                  titleEn: "Ep 1",
+                  entryType: "tv",
+                },
+              ];
+            }
+            return [];
+          },
+        });
+
+        writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
+
+        const orch = createOrchestratorWithRealScan(dir, dbPlugin);
+        await orch.startScan(dir);
+        await orch.approvePlan();
+
+        const matches = orch.getMatchResults();
+        expect(matches.length).toBeGreaterThan(0);
+
+        const db = createLibraryDb(dir);
+        db.rebuildFromMatches(matches, "tvdb");
+
+        const animeList = db.listAnime();
+        expect(animeList).toHaveLength(1);
+        expect(animeList[0]?.title).toBe("My Anime");
+        expect(animeList[0]?.entryType).toBe("tv");
+
+        const episodes = db.getEpisodesByAnimeId(animeList[0]?.id ?? 0);
+        expect(episodes).toHaveLength(1);
+        expect(episodes[0]?.episodeNumber).toBe(1);
+
+        db.close();
+      });
+    });
+
+    test("excludes ambiguous files from rebuild", async () => {
+      await withTempDir("scan-rebuild-ambiguous", async (dir) => {
+        writeTempFile(dir, "[Group] Ambiguous Show - 01.mkv", "fake video");
+
+        const orch = createOrchestratorWithRealScan(dir, createAmbiguousMatcher());
+        await orch.startScan(dir);
+        await orch.approvePlan();
+
+        const matches = orch.getMatchResults();
+        expect(matches).toHaveLength(0);
+      });
+    });
+
+    test("respects approved/rejected groups in rebuild", async () => {
+      await withTempDir("scan-rebuild-approve", async (dir) => {
+        const dbPlugin = createMockDb({
+          searchAnime: (title: string) => {
+            if (title === "Anime A") {
+              return [{ id: "a", titleEn: "Anime A", entryType: "tv" }];
+            }
+            if (title === "Anime B") {
+              return [{ id: "b", titleEn: "Anime B", entryType: "tv" }];
+            }
+            return [];
+          },
+          getEpisodes: (animeId: string) => {
+            return [
+              {
+                id: `${animeId}-ep1`,
+                animeId,
+                season: 1,
+                episode: 1,
+                titleEn: "Ep 1",
+                entryType: "tv",
+              },
+            ];
+          },
+        });
+
+        writeTempFile(dir, "[Group] Anime A - 01.mkv", "video A");
+        writeTempFile(dir, "[Group] Anime B - 01.mkv", "video B");
+
+        const orch = createOrchestratorWithRealScan(dir, dbPlugin);
+        await orch.startScan(dir);
+
+        orch.approveGroup("a");
+        orch.rejectGroup("b");
+
+        await orch.approvePlan();
+
+        const matches = orch.getMatchResults();
+        expect(matches).toHaveLength(1);
+        expect(matches[0]?.animeId).toBe("a");
+      });
     });
   });
 });

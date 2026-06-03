@@ -1,5 +1,16 @@
 export type EntryType = "tv" | "movie" | "ova" | "special";
 
+export interface MatchEntry {
+  animeId: string;
+  animeTitle: string;
+  entryType: EntryType;
+  episodeId: string | null;
+  episode: number | null;
+  season: number | null;
+  title: string | null;
+  filePath: string;
+}
+
 export type ArtworkType = "poster" | "banner" | "fanart" | "thumbnail";
 
 export interface AnimeResult {

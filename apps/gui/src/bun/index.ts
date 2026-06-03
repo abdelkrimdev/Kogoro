@@ -1,4 +1,5 @@
-import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
+import { join } from "node:path";
+import { CONFIG_DIR, ConfigManager, createCredentialStore, LibraryDb } from "@kogoro/core";
 import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
@@ -151,7 +152,21 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       },
       approvePlan: async (params) => {
         const { sessionId } = params;
-        await getOrchestrator(sessionId).approvePlan();
+        const orchestrator = getOrchestrator(sessionId);
+        await orchestrator.approvePlan();
+
+        const matches = orchestrator.getMatchResults();
+        const sourceDb = configManager.get("primary-db");
+        if (matches.length > 0 && typeof sourceDb === "string" && sourceDb) {
+          const dbPath = join(CONFIG_DIR, "library.db");
+          const db = new LibraryDb({ dbPath });
+          try {
+            db.rebuildFromMatches(matches, sourceDb);
+          } finally {
+            db.close();
+          }
+        }
+
         return undefined;
       },
       rejectPlan: async (params) => {
