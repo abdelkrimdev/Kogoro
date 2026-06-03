@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { LibraryDb } from "../library/library-db";
 import type { AnimeGroup, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
 import { aggregateReviewPlan } from "./rename-plan-aggregator";
 import type { ScanResult } from "./scanner";
@@ -75,6 +76,8 @@ export interface ScanOrchestratorOptions {
     baseDir: string,
   ) => Promise<{ success: boolean; error?: { type: string; message: string } }>;
   resolveFile?: (filePath: string, animeId: string, episodeId: string) => Promise<ScanResult>;
+  libraryDb?: LibraryDb;
+  sourceDb?: string;
 }
 
 function buildSummary(
@@ -217,7 +220,12 @@ export class ScanOrchestrator {
       summary: this.makeSummary(),
     });
 
-    this.plan = aggregateReviewPlan(this.results, this.sessionId);
+    this.plan = aggregateReviewPlan(
+      this.results,
+      this.sessionId,
+      this.options.libraryDb,
+      this.options.sourceDb,
+    );
     this._state = "review";
 
     this.emit({
@@ -369,7 +377,12 @@ export class ScanOrchestrator {
 
     const resolved = await this.options.resolveFile(sourcePath, animeId, episodeId);
     this.results[resultIndex] = resolved;
-    this.plan = aggregateReviewPlan(this.results, this.sessionId);
+    this.plan = aggregateReviewPlan(
+      this.results,
+      this.sessionId,
+      this.options.libraryDb,
+      this.options.sourceDb,
+    );
 
     this.emitReviewReady();
   }

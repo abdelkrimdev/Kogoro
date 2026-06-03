@@ -627,4 +627,107 @@ describe("aggregateReviewPlan", () => {
 
     expect(plan.groups[0]?.swapPairs).toHaveLength(0);
   });
+
+  test("sets mergeMode to true when libraryDb has matching anime", async () => {
+    await withTempDir("merge", async (dir) => {
+      const libraryDb = createLibraryDb(dir);
+      libraryDb.upsertAnime({
+        externalId: "100",
+        sourceDb: "tvdb",
+        title: "Jujutsu Kaisen",
+        entryType: "tv",
+        episodeCount: 24,
+      });
+
+      const results = [
+        makeAggScanResult("/a/ep1.mkv", {
+          match: {
+            anime: { id: "100", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+            episode: {
+              id: "1001",
+              animeId: "100",
+              season: 1,
+              episode: 1,
+              titleEn: "Ep 1",
+              entryType: "tv",
+            },
+            score: 1,
+          },
+          status: "matched",
+        }),
+      ];
+
+      const plan = aggregateReviewPlan(results, "session-1", libraryDb, "tvdb");
+
+      expect(plan.groups).toHaveLength(1);
+      expect(plan.groups[0]?.mergeMode).toBe(true);
+      libraryDb.close();
+    });
+  });
+
+  test("sets mergeMode to false when anime not in library", async () => {
+    await withTempDir("no-merge", async (dir) => {
+      const libraryDb = createLibraryDb(dir);
+
+      const results = [
+        makeAggScanResult("/a/ep1.mkv", {
+          match: {
+            anime: { id: "999", titleEn: "New Anime", entryType: "tv" },
+            episode: {
+              id: "99901",
+              animeId: "999",
+              season: 1,
+              episode: 1,
+              titleEn: "Ep 1",
+              entryType: "tv",
+            },
+            score: 1,
+          },
+          status: "matched",
+        }),
+      ];
+
+      const plan = aggregateReviewPlan(results, "session-1", libraryDb, "tvdb");
+
+      expect(plan.groups[0]?.mergeMode).toBe(false);
+      libraryDb.close();
+    });
+  });
+
+  test("sets mergeMode to false for groups without a match", () => {
+    const results = [
+      makeAggScanResult("/a/ep1.mkv", {
+        match: null,
+        status: "failed",
+      }),
+    ];
+
+    const plan = aggregateReviewPlan(results, "session-1");
+
+    expect(plan.groups[0]?.mergeMode).toBe(false);
+  });
+
+  test("does not set mergeMode when no libraryDb is provided", () => {
+    const results = [
+      makeAggScanResult("/a/ep1.mkv", {
+        match: {
+          anime: { id: "100", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+          episode: {
+            id: "1001",
+            animeId: "100",
+            season: 1,
+            episode: 1,
+            titleEn: "Ep 1",
+            entryType: "tv",
+          },
+          score: 1,
+        },
+        status: "matched",
+      }),
+    ];
+
+    const plan = aggregateReviewPlan(results, "session-1");
+
+    expect(plan.groups[0]?.mergeMode).toBe(false);
+  });
 });

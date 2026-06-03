@@ -224,6 +224,9 @@
               <div class="flex-1">
                 <h3 class="font-medium text-surface-950-50 text-sm {group.rejected ? 'line-through' : ''}">{group.animeTitle}</h3>
                 <p class="text-sm text-surface-700-300">{group.files.length} files &bull; {group.entryType}</p>
+                {#if group.mergeMode}
+                  <span class="badge preset-tonal-primary text-xs mt-1">Adding {group.files.length} episodes to existing</span>
+                {/if}
               </div>
               <div class="flex gap-1">
                 <button
