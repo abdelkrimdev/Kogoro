@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Switch, TagsInput, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
+  import { Switch, TagsInput, Toast, createToaster, Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import SelectField from './SelectField.svelte';
   import { TEMPLATE_PRESETS } from "../shared";
 
@@ -40,6 +40,7 @@
   let editingApiKey = $state<string | null>(null);
   let newApiKey = $state("");
   let rebuilding = $state(false);
+  let showRebuildConfirm = $state(false);
 
   const apiKeys = $derived((settingsData["apiKeys"] as Record<string, string>) ?? {});
   const plugins = $derived(
@@ -116,6 +117,11 @@
     } catch {
       showNotification("Failed to toggle plugin");
     }
+  }
+
+  async function handleRebuildConfirm() {
+    showRebuildConfirm = false;
+    await rebuildLibrary();
   }
 
   async function rebuildLibrary() {
@@ -332,7 +338,7 @@
         <button
           type="button"
           class="btn preset-filled-primary-500 rounded-lg font-medium"
-          onclick={rebuildLibrary}
+          onclick={() => showRebuildConfirm = true}
           disabled={rebuilding}
         >
           {rebuilding ? "Rebuilding..." : "Rebuild Library"}
@@ -340,6 +346,35 @@
       </div>
     </div>
   </section>
+
+  <Dialog open={showRebuildConfirm} onOpenChange={(details) => { showRebuildConfirm = details.open; }}>
+    <Portal>
+      <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-950/60 backdrop-blur-sm" />
+      <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-sm p-0 shadow-xl">
+          <div class="p-4">
+            <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Rebuild Library</Dialog.Title>
+            <Dialog.Description class="text-sm text-surface-600-400">
+              This will delete and recreate the library database from existing data.
+              Your anime entries and episode files will be preserved.
+            </Dialog.Description>
+          </div>
+          <div class="p-4 border-t border-surface-300-700 flex justify-end gap-3">
+            <Dialog.CloseTrigger class="btn preset-tonal-surface rounded-lg font-medium">
+              Cancel
+            </Dialog.CloseTrigger>
+            <button
+              type="button"
+              class="btn preset-filled-primary-500 rounded-lg font-medium"
+              onclick={handleRebuildConfirm}
+            >
+              Rebuild
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Portal>
+  </Dialog>
 
   <section class="space-y-4">
     <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Plugins</h3>

@@ -693,6 +693,125 @@ describe("LibraryDb", () => {
     });
   });
 
+  test("exportMatches returns empty array for empty library", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const matches = db.exportMatches();
+        expect(matches).toEqual([]);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  test("exportMatches exports all anime with episodes as MatchEntry array", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const anime = db.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          entryType: "tv",
+          episodeCount: 24,
+        });
+        db.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 1,
+          filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+          title: "Ryomen Sukuna",
+          season: 1,
+        });
+        db.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 2,
+          filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+          title: "Cursed Womb Must Die",
+          season: 1,
+        });
+
+        const anime2 = db.upsertAnime({
+          externalId: "tvdb-67890",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          entryType: "tv",
+          episodeCount: 25,
+        });
+        db.addEpisode({
+          animeId: anime2.id,
+          episodeNumber: 1,
+          filePath: "/media/Attack on Titan/S01E01.mkv",
+          title: "To You, in 2000 Years",
+          season: 1,
+        });
+
+        const matches = db.exportMatches();
+        expect(matches).toHaveLength(3);
+
+        const jjkMatches = matches.filter((m) => m.animeId === "tvdb-12345");
+        expect(jjkMatches).toHaveLength(2);
+        expect(jjkMatches[0]?.animeTitle).toBe("Jujutsu Kaisen");
+        expect(jjkMatches[0]?.entryType).toBe("tv");
+        expect(jjkMatches[0]?.episode).toBe(1);
+        expect(jjkMatches[0]?.filePath).toBe("/media/Jujutsu Kaisen/S01E01.mkv");
+        expect(jjkMatches[0]?.title).toBe("Ryomen Sukuna");
+        expect(jjkMatches[0]?.season).toBe(1);
+
+        const aotMatches = matches.filter((m) => m.animeId === "tvdb-67890");
+        expect(aotMatches).toHaveLength(1);
+        expect(aotMatches[0]?.animeTitle).toBe("Attack on Titan");
+        expect(aotMatches[0]?.episode).toBe(1);
+        expect(aotMatches[0]?.filePath).toBe("/media/Attack on Titan/S01E01.mkv");
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  test("exportMatches roundtrips through rebuildFromMatches", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const anime = db.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          entryType: "tv",
+          episodeCount: 24,
+        });
+        db.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 1,
+          filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+          title: "Ryomen Sukuna",
+          season: 1,
+        });
+        db.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 2,
+          filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+          title: "Cursed Womb Must Die",
+          season: 1,
+        });
+
+        const exported = db.exportMatches();
+        expect(exported).toHaveLength(2);
+
+        db.rebuildFromMatches(exported, "tvdb");
+
+        const animeList = db.listAnime();
+        expect(animeList).toHaveLength(1);
+        expect(animeList[0]?.title).toBe("Jujutsu Kaisen");
+
+        const episodes = db.getEpisodesByAnimeId(animeList[0]?.id as number);
+        expect(episodes).toHaveLength(2);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
   test("watch status persists across database instances", async () => {
     await withTempDir("library-db", async (dir) => {
       const dbPath = `${dir}/library.db`;
