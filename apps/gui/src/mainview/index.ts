@@ -23,38 +23,29 @@ const rpc = Electroview.defineRPC<AppRPC>({
 
 const electrobun = new Electroview({ rpc });
 
-document.addEventListener("DOMContentLoaded", () => {
-  rpc.request("checkOnboarding", {}).then((result) => {
-    if (result.needsOnboarding) {
-      const target = document.getElementById("content");
-      if (target) {
-        mount(App, {
-          target,
-          props: {
-            rpc: rpc as { request: (method: string, params: unknown) => Promise<unknown> },
-            onMessage,
-          },
-        });
-      }
-      messageHandler?.("showOnboarding", {});
-      return;
-    }
+document.addEventListener("DOMContentLoaded", async () => {
+  const appRpc = rpc as { request: (method: string, params: unknown) => Promise<unknown> };
 
-    rpc.request("getLibraryStats", {}).then((stats) => {
-      const libraryStats = stats as { animeCount: number; episodeCount: number };
-      const initialView = libraryStats.animeCount > 0 ? "library" : "scan";
-      const target = document.getElementById("content");
-      if (!target) return;
-      mount(App, {
-        target,
-        props: {
-          rpc: rpc as { request: (method: string, params: unknown) => Promise<unknown> },
-          onMessage,
-          initialView,
-        },
-      });
-    });
-  });
+  const result = await rpc.request("checkOnboarding", {});
+
+  if (result.needsOnboarding) {
+    const target = document.getElementById("content");
+    if (target) {
+      mount(App, { target, props: { rpc: appRpc, onMessage } });
+    }
+    messageHandler?.("showOnboarding", {});
+    return;
+  }
+
+  const target = document.getElementById("content");
+  if (!target) return;
+
+  const { animeCount } = (await rpc.request("getLibraryStats", {})) as {
+    animeCount: number;
+    episodeCount: number;
+  };
+  const initialView = animeCount > 0 ? "library" : "scan";
+  mount(App, { target, props: { rpc: appRpc, onMessage, initialView } });
 });
 
 window.addEventListener("beforeunload", () => {
