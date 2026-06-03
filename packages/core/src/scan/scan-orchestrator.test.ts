@@ -383,6 +383,159 @@ describe("ScanOrchestrator", () => {
       await orch.approvePlan();
       expect(orch.getState()).toBe("done");
     });
+
+    test("only executes explicitly approved groups", async () => {
+      const events: ScanEvent[] = [];
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
+        scanFile: async (_file, _options, index) => {
+          if (index === 0) {
+            return makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                anime: { id: "1", titleEn: "Anime A", entryType: "tv" },
+              }),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Anime A/Season 1/S01E01.mkv",
+                targetDir: "Anime A/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            });
+          }
+          return makeScanResult("/b/ep1.mkv", {
+            match: makeMatchResult({
+              anime: { id: "2", titleEn: "Anime B", entryType: "tv" },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: "/b/ep1.mkv",
+              targetPath: "Anime B/Season 1/S01E01.mkv",
+              targetDir: "Anime B/Season 1",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          });
+        },
+        executeRename: async () => ({ success: true }),
+      });
+      orch.on("*", (e) => events.push(e));
+      await orch.startScan("/test/path");
+
+      // Approve only group 1
+      orch.approveGroup("1");
+
+      events.length = 0;
+      await orch.approvePlan();
+
+      const execEvents = events.filter((e) => e.type === "scanExecutionProgress");
+      expect(execEvents.length).toBe(1);
+      expect(execEvents[0]?.file).toBe("/a/ep1.mkv");
+    });
+
+    test("executes all non-rejected groups when only rejections exist", async () => {
+      const events: ScanEvent[] = [];
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
+        scanFile: async (_file, _options, index) => {
+          if (index === 0) {
+            return makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                anime: { id: "1", titleEn: "Anime A", entryType: "tv" },
+              }),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Anime A/Season 1/S01E01.mkv",
+                targetDir: "Anime A/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            });
+          }
+          return makeScanResult("/b/ep1.mkv", {
+            match: makeMatchResult({
+              anime: { id: "2", titleEn: "Anime B", entryType: "tv" },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: "/b/ep1.mkv",
+              targetPath: "Anime B/Season 1/S01E01.mkv",
+              targetDir: "Anime B/Season 1",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          });
+        },
+        executeRename: async () => ({ success: true }),
+      });
+      orch.on("*", (e) => events.push(e));
+      await orch.startScan("/test/path");
+
+      // Reject group 1 only
+      orch.rejectGroup("1");
+
+      events.length = 0;
+      await orch.approvePlan();
+
+      const execEvents = events.filter((e) => e.type === "scanExecutionProgress");
+      expect(execEvents.length).toBe(1);
+      expect(execEvents[0]?.file).toBe("/b/ep1.mkv");
+    });
+
+    test("skips rejected groups when both approvals and rejections exist", async () => {
+      const events: ScanEvent[] = [];
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
+        scanFile: async (_file, _options, index) => {
+          if (index === 0) {
+            return makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                anime: { id: "1", titleEn: "Anime A", entryType: "tv" },
+              }),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Anime A/Season 1/S01E01.mkv",
+                targetDir: "Anime A/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            });
+          }
+          return makeScanResult("/b/ep1.mkv", {
+            match: makeMatchResult({
+              anime: { id: "2", titleEn: "Anime B", entryType: "tv" },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: "/b/ep1.mkv",
+              targetPath: "Anime B/Season 1/S01E01.mkv",
+              targetDir: "Anime B/Season 1",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          });
+        },
+        executeRename: async () => ({ success: true }),
+      });
+      orch.on("*", (e) => events.push(e));
+      await orch.startScan("/test/path");
+
+      orch.approveGroup("1");
+      orch.rejectGroup("2");
+
+      events.length = 0;
+      await orch.approvePlan();
+
+      const execEvents = events.filter((e) => e.type === "scanExecutionProgress");
+      expect(execEvents.length).toBe(1);
+      expect(execEvents[0]?.file).toBe("/a/ep1.mkv");
+    });
   });
 
   describe("error handling", () => {
@@ -639,6 +792,203 @@ describe("ScanOrchestrator", () => {
       if (fileAId && fileBId) {
         expect(() => orch.swapFiles(fileAId, fileBId)).toThrow("not in same group");
       }
+    });
+  });
+
+  describe("approveGroup", () => {
+    test("marks group as approved and emits scanReviewReady", async () => {
+      let emittedCount = 0;
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/b/ep2.mkv"],
+        scanFile: async (_file, _options, index) => {
+          if (index === 0) {
+            return makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                anime: { id: "anime-a", titleEn: "Anime A", entryType: "tv" },
+                episode: {
+                  id: "101",
+                  animeId: "anime-a",
+                  season: 1,
+                  episode: 1,
+                  titleEn: "Ep 1",
+                  entryType: "tv",
+                },
+              }),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Anime A/Season 1/S01E01.mkv",
+                targetDir: "Anime A/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            });
+          }
+          return makeScanResult("/b/ep2.mkv", {
+            match: makeMatchResult({
+              anime: { id: "anime-b", titleEn: "Anime B", entryType: "tv" },
+              episode: {
+                id: "202",
+                animeId: "anime-b",
+                season: 1,
+                episode: 1,
+                titleEn: "Ep 1",
+                entryType: "tv",
+              },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: "/b/ep2.mkv",
+              targetPath: "Anime B/Season 1/S01E01.mkv",
+              targetDir: "Anime B/Season 1",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          });
+        },
+      });
+
+      orch.on("scanReviewReady", () => {
+        emittedCount++;
+      });
+
+      await orch.startScan("/test/path");
+
+      const initialEmitted = emittedCount;
+      orch.approveGroup("anime-a");
+
+      // Verify scanReviewReady was emitted again
+      expect(emittedCount).toBe(initialEmitted + 1);
+
+      // Verify group state in plan
+      const plan = orch.getPlan();
+      const groupA = plan?.groups.find((g) => g.animeId === "anime-a");
+      const groupB = plan?.groups.find((g) => g.animeId === "anime-b");
+      expect(groupA?.rejected).toBe(false);
+      // groupB should remain neutral (rejected is undefined or false)
+      expect(groupB?.rejected).toBeFalsy();
+    });
+
+    test("rejects approveGroup if not in review state", () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [],
+        scanFile: async () => makeScanResult("dummy"),
+      });
+      expect(() => orch.approveGroup("anime-a")).toThrow("not in review");
+    });
+
+    test("rejects approveGroup if animeId not found in plan", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv"],
+        scanFile: async () =>
+          makeScanResult("/a/ep1.mkv", {
+            match: makeMatchResult({
+              anime: { id: "anime-a", titleEn: "Anime A", entryType: "tv" },
+            }),
+            status: "matched",
+          }),
+      });
+      await orch.startScan("/test/path");
+      expect(() => orch.approveGroup("nonexistent")).toThrow("not found");
+    });
+  });
+
+  describe("rejectGroup", () => {
+    test("marks group as rejected and emits scanReviewReady", async () => {
+      let emittedCount = 0;
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/b/ep2.mkv"],
+        scanFile: async (_file, _options, index) => {
+          if (index === 0) {
+            return makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                anime: { id: "anime-a", titleEn: "Anime A", entryType: "tv" },
+                episode: {
+                  id: "101",
+                  animeId: "anime-a",
+                  season: 1,
+                  episode: 1,
+                  titleEn: "Ep 1",
+                  entryType: "tv",
+                },
+              }),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Anime A/Season 1/S01E01.mkv",
+                targetDir: "Anime A/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            });
+          }
+          return makeScanResult("/b/ep2.mkv", {
+            match: makeMatchResult({
+              anime: { id: "anime-b", titleEn: "Anime B", entryType: "tv" },
+              episode: {
+                id: "202",
+                animeId: "anime-b",
+                season: 1,
+                episode: 1,
+                titleEn: "Ep 1",
+                entryType: "tv",
+              },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: "/b/ep2.mkv",
+              targetPath: "Anime B/Season 1/S01E01.mkv",
+              targetDir: "Anime B/Season 1",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          });
+        },
+      });
+
+      orch.on("scanReviewReady", () => {
+        emittedCount++;
+      });
+
+      await orch.startScan("/test/path");
+
+      const initialEmitted = emittedCount;
+      orch.rejectGroup("anime-a");
+
+      expect(emittedCount).toBe(initialEmitted + 1);
+
+      const plan = orch.getPlan();
+      const groupA = plan?.groups.find((g) => g.animeId === "anime-a");
+      expect(groupA?.rejected).toBe(true);
+    });
+
+    test("rejects rejectGroup if not in review state", () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [],
+        scanFile: async () => makeScanResult("dummy"),
+      });
+      expect(() => orch.rejectGroup("anime-a")).toThrow("not in review");
+    });
+
+    test("rejects rejectGroup if animeId not found in plan", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv"],
+        scanFile: async () =>
+          makeScanResult("/a/ep1.mkv", {
+            match: makeMatchResult({
+              anime: { id: "anime-a", titleEn: "Anime A", entryType: "tv" },
+            }),
+            status: "matched",
+          }),
+      });
+      await orch.startScan("/test/path");
+      expect(() => orch.rejectGroup("nonexistent")).toThrow("not found");
     });
   });
 

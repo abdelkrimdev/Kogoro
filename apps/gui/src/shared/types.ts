@@ -131,6 +131,14 @@ export type AppRPC = {
         params: { sessionId: string };
         response: undefined;
       };
+      approveGroup: {
+        params: { sessionId: string; animeId: string };
+        response: undefined;
+      };
+      rejectGroup: {
+        params: { sessionId: string; animeId: string };
+        response: undefined;
+      };
       cancelScan: {
         params: { sessionId: string };
         response: undefined;

@@ -159,6 +159,16 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         getOrchestrator(sessionId).rejectPlan();
         return undefined;
       },
+      approveGroup: async (params) => {
+        const { sessionId, animeId } = params;
+        getOrchestrator(sessionId).approveGroup(animeId);
+        return undefined;
+      },
+      rejectGroup: async (params) => {
+        const { sessionId, animeId } = params;
+        getOrchestrator(sessionId).rejectGroup(animeId);
+        return undefined;
+      },
       cancelScan: async (params) => {
         const { sessionId } = params;
         getOrchestrator(sessionId).cancel();

@@ -42,6 +42,11 @@
 
   async function approveAll() {
     try {
+      for (const group of plan.groups) {
+        if (!group.rejected) {
+          await rpc.request("approveGroup", { sessionId, animeId: group.animeId });
+        }
+      }
       await rpc.request("approvePlan", { sessionId });
       onComplete();
     } catch (err) {
@@ -55,6 +60,22 @@
       onComplete();
     } catch (err) {
       console.error("Failed to reject plan:", err);
+    }
+  }
+
+  async function handleApproveGroup(animeId: string) {
+    try {
+      await rpc.request("approveGroup", { sessionId, animeId });
+    } catch (err) {
+      console.error("Failed to approve group:", err);
+    }
+  }
+
+  async function handleRejectGroup(animeId: string) {
+    try {
+      await rpc.request("rejectGroup", { sessionId, animeId });
+    } catch (err) {
+      console.error("Failed to reject group:", err);
     }
   }
 
@@ -190,7 +211,7 @@
       </div>
     {:else}
       {#each filtered as group (group.animeId)}
-        <div class="card preset-outlined-surface-300-700 overflow-hidden">
+        <div class="card preset-outlined-surface-300-700 overflow-hidden {group.rejected ? 'opacity-50' : ''}">
           <div class="p-4 border-b border-surface-300-700 bg-surface-200-800/80">
             <div class="flex items-center gap-3">
               {#if group.image}
@@ -201,8 +222,24 @@
                 </div>
               {/if}
               <div class="flex-1">
-                <h3 class="font-medium text-surface-950-50 text-sm">{group.animeTitle}</h3>
+                <h3 class="font-medium text-surface-950-50 text-sm {group.rejected ? 'line-through' : ''}">{group.animeTitle}</h3>
                 <p class="text-sm text-surface-700-300">{group.files.length} files &bull; {group.entryType}</p>
+              </div>
+              <div class="flex gap-1">
+                <button
+                  type="button"
+                  class="btn btn-sm rounded-lg font-medium {group.rejected === false ? 'preset-filled-success-500' : 'preset-tonal-surface'}"
+                  onclick={() => handleApproveGroup(group.animeId)}
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm rounded-lg font-medium {group.rejected ? 'preset-filled-error-500' : 'preset-tonal-surface'}"
+                  onclick={() => handleRejectGroup(group.animeId)}
+                >
+                  Reject
+                </button>
               </div>
             </div>
           </div>
