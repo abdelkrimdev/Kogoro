@@ -107,3 +107,26 @@ describe("getAnimeDetail handler", () => {
     });
   });
 });
+
+describe("getLibraryStats handler", () => {
+  test("returns anime and episode counts from seeded library", async () => {
+    await withTempDir("library-handler-stats", async (dir) => {
+      seedLibrary(dir);
+      const handlers = createLibraryHandlers(dir);
+      const result = await handlers.getLibraryStats();
+
+      expect(result.animeCount).toBe(2);
+      expect(result.episodeCount).toBe(3);
+    });
+  });
+
+  test("returns zero counts when library is empty", async () => {
+    await withTempDir("library-handler-stats-empty", async (dir) => {
+      const handlers = createLibraryHandlers(dir);
+      const result = await handlers.getLibraryStats();
+
+      expect(result.animeCount).toBe(0);
+      expect(result.episodeCount).toBe(0);
+    });
+  });
+});

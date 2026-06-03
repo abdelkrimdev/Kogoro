@@ -10,12 +10,15 @@
   import SettingsView from "./Settings.svelte";
   import ScanView from "./ScanView.svelte";
 
+  type View = "onboarding" | "scan" | "library" | "details" | "settings" | "review";
+
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
     onMessage: (handler: (message: string, data: unknown) => void) => void;
+    initialView?: View;
   }
 
-  let { rpc, onMessage }: Props = $props();
+  let { rpc, onMessage, initialView = "scan" }: Props = $props();
 
   let themeState: ReturnType<typeof createRPCThemeState> | null = null;
   let themeMode = $state<"light" | "dark">("light");
@@ -56,9 +59,7 @@
     });
   });
 
-  type View = "onboarding" | "scan" | "library" | "details" | "settings" | "review";
-
-  let currentView = $state<View>("scan");
+  let currentView = $state<View>(initialView);
   let currentSessionId = $state<string | null>(null);
   let currentPlan = $state<ReviewPlan | null>(null);
   let currentDetailId = $state<string | null>(null);
