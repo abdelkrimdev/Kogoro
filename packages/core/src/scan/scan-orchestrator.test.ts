@@ -322,6 +322,39 @@ describe("ScanOrchestrator", () => {
       const completeEvents = events.filter((e) => e.type === "scanComplete");
       expect(completeEvents.length).toBe(1);
     });
+
+    test("cancels during execute phase and stops remaining renames", async () => {
+      const executedFiles: string[] = [];
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv", "/a/ep3.mkv"],
+        scanFile: async (_file, _options, index) =>
+          makeScanResult(`/a/ep${(index ?? 0) + 1}.mkv`, {
+            match: makeMatchResult(),
+            status: "matched",
+            plan: {
+              sourcePath: `/a/ep${(index ?? 0) + 1}.mkv`,
+              targetPath: `Jujutsu Kaisen/Season 1/S01E0${(index ?? 0) + 1}.mkv`,
+              targetDir: "Jujutsu Kaisen/Season 1",
+              targetFilename: `S01E0${(index ?? 0) + 1}.mkv`,
+              action: "move",
+            },
+          }),
+        executeRename: async (plan) => {
+          executedFiles.push(plan.sourcePath);
+          if (executedFiles.length === 1) {
+            orch.cancel();
+          }
+          return { success: true };
+        },
+      });
+      orch.on("*", () => {});
+      await orch.startScan("/test/path");
+      await orch.approvePlan();
+
+      expect(orch.getState()).toBe("done");
+      expect(executedFiles.length).toBeLessThanOrEqual(2);
+    });
   });
 
   describe("execution", () => {

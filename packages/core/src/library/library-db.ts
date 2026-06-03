@@ -292,7 +292,28 @@ export class LibraryDb {
   }
 
   rebuildFromMatches(matches: MatchEntry[], sourceDb: string): void {
-    this.db.run("DELETE FROM watch_status");
+    const oldEpisodes = this.db
+      .prepare("SELECT id, anime_id, episode_number, season FROM episodes")
+      .all() as Array<{
+      id: number;
+      anime_id: number;
+      episode_number: number;
+      season: number | null;
+    }>;
+
+    const oldAnime = this.db
+      .prepare("SELECT id, external_id, source_db FROM anime")
+      .all() as Array<{ id: number; external_id: string; source_db: string }>;
+
+    const oldEpisodeKey = new Map<string, number>();
+    for (const ep of oldEpisodes) {
+      const animeEntry = oldAnime.find((a) => a.id === ep.anime_id);
+      if (animeEntry) {
+        const key = `${animeEntry.external_id}:${animeEntry.source_db}:${ep.season ?? 1}:${ep.episode_number}`;
+        oldEpisodeKey.set(key, ep.id);
+      }
+    }
+
     this.db.run("DELETE FROM episodes");
     this.db.run("DELETE FROM anime");
 
@@ -306,14 +327,82 @@ export class LibraryDb {
       });
 
       if (match.episode !== null && match.filePath) {
-        this.addEpisode({
+        const newEp = this.addEpisode({
           animeId: anime.id,
           episodeNumber: match.episode,
           filePath: match.filePath,
           title: match.title ?? undefined,
           season: match.season ?? undefined,
         });
+
+        const oldKey = `${match.animeId}:${sourceDb}:${match.season ?? 1}:${match.episode}`;
+        const oldEpId = oldEpisodeKey.get(oldKey);
+        if (oldEpId !== undefined) {
+          const oldStatus = this.db
+            .prepare("SELECT watched, notes FROM watch_status WHERE episode_id = $id")
+            .get({ $id: oldEpId }) as { watched: number; notes: string | null } | null;
+          if (oldStatus) {
+            this.db
+              .prepare(
+                `INSERT OR REPLACE INTO watch_status (episode_id, watched, notes, updated_at)
+                VALUES ($episodeId, $watched, $notes, $updatedAt)`,
+              )
+              .run({
+                $episodeId: newEp.id,
+                $watched: oldStatus.watched,
+                $notes: oldStatus.notes,
+                $updatedAt: new Date().toISOString(),
+              });
+          }
+        }
       }
+    }
+
+    this.db.run("DELETE FROM watch_status WHERE episode_id NOT IN (SELECT id FROM episodes)");
+  }
+
+  mergeFromMatches(matches: MatchEntry[], sourceDb: string): void {
+    const grouped = new Map<string, MatchEntry[]>();
+    for (const match of matches) {
+      const existing = grouped.get(match.animeId);
+      if (existing) {
+        existing.push(match);
+      } else {
+        grouped.set(match.animeId, [match]);
+      }
+    }
+
+    for (const [, group] of grouped) {
+      const first = group[0];
+      if (!first) continue;
+
+      const episodes: Array<{
+        episodeNumber: number;
+        filePath: string;
+        title?: string;
+        season?: number;
+      }> = [];
+      for (const match of group) {
+        if (match.episode !== null && match.filePath) {
+          episodes.push({
+            episodeNumber: match.episode,
+            filePath: match.filePath,
+            title: match.title ?? undefined,
+            season: match.season ?? undefined,
+          });
+        }
+      }
+
+      this.mergeAnime(
+        {
+          externalId: first.animeId,
+          sourceDb,
+          title: first.animeTitle,
+          entryType: first.entryType,
+          episodeCount: episodes.length,
+        },
+        episodes,
+      );
     }
   }
 

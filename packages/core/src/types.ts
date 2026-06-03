@@ -116,6 +116,7 @@ export interface ReviewPlan {
   groups: AnimeGroup[];
   totalFiles: number;
   ambiguousCount: number;
+  initialAmbiguousCount?: number;
 }
 
 export interface ScanSummary {

@@ -161,7 +161,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
           const dbPath = join(CONFIG_DIR, "library.db");
           const db = new LibraryDb({ dbPath });
           try {
-            db.rebuildFromMatches(matches, sourceDb);
+            db.mergeFromMatches(matches, sourceDb);
           } finally {
             db.close();
           }

@@ -842,4 +842,158 @@ describe("LibraryDb", () => {
       db2.close();
     });
   });
+
+  test("rebuildFromMatches preserves watch status for matching episodes", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const anime = db.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          entryType: "tv",
+          episodeCount: 24,
+        });
+        const ep1 = db.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 1,
+          filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+          title: "Ryomen Sukuna",
+          season: 1,
+        });
+        const ep2 = db.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 2,
+          filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+          title: "Cursed Womb Must Die",
+          season: 1,
+        });
+        db.setWatchStatus(ep1.id, true, "Great pilot");
+        db.setWatchStatus(ep2.id, false);
+
+        const matches = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv" as const,
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+          },
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv" as const,
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Cursed Womb Must Die",
+            filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+          },
+        ];
+
+        db.rebuildFromMatches(matches, "tvdb");
+
+        const animeList = db.listAnime();
+        expect(animeList).toHaveLength(1);
+
+        const episodes = db.getEpisodesByAnimeId(animeList[0]?.id as number);
+        expect(episodes).toHaveLength(2);
+
+        const statuses = db.getWatchStatusByAnimeId(animeList[0]?.id as number);
+        expect(statuses).toHaveLength(2);
+        const ep1Status = statuses.find((s) => {
+          const ep = episodes.find((e) => e.id === s.episodeId);
+          return ep?.episodeNumber === 1;
+        });
+        const ep2Status = statuses.find((s) => {
+          const ep = episodes.find((e) => e.id === s.episodeId);
+          return ep?.episodeNumber === 2;
+        });
+        expect(ep1Status?.watched).toBe(true);
+        expect(ep1Status?.notes).toBe("Great pilot");
+        expect(ep2Status?.watched).toBe(false);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  test("mergeFromMatches merges without deleting existing data", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const anime = db.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          entryType: "tv",
+          episodeCount: 12,
+        });
+        const ep1 = db.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 1,
+          filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+          season: 1,
+        });
+        db.setWatchStatus(ep1.id, true, "Watched this");
+
+        const matches = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv" as const,
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+          },
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv" as const,
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Cursed Womb Must Die",
+            filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+          },
+          {
+            animeId: "tvdb-67890",
+            animeTitle: "Attack on Titan",
+            entryType: "tv" as const,
+            episodeId: "201",
+            episode: 1,
+            season: 1,
+            title: "To You, in 2000 Years",
+            filePath: "/media/Attack on Titan/S01E01.mkv",
+          },
+        ];
+
+        db.mergeFromMatches(matches, "tvdb");
+
+        const animeList = db.listAnime();
+        expect(animeList).toHaveLength(2);
+
+        const jjk = db.findAnime("tvdb-12345", "tvdb");
+        expect(jjk?.title).toBe("Jujutsu Kaisen");
+
+        const jjkEpisodes = db.getEpisodesByAnimeId(jjk?.id as number);
+        expect(jjkEpisodes).toHaveLength(2);
+
+        const statuses = db.getWatchStatusByAnimeId(jjk?.id as number);
+        expect(statuses).toHaveLength(1);
+        expect(statuses[0]?.watched).toBe(true);
+        expect(statuses[0]?.notes).toBe("Watched this");
+
+        const aot = db.findAnime("tvdb-67890", "tvdb");
+        expect(aot?.title).toBe("Attack on Titan");
+      } finally {
+        db.close();
+      }
+    });
+  });
 });

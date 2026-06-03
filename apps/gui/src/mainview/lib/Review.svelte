@@ -178,6 +178,9 @@
       <span>{stats.totalGroups} anime</span>
       <span class="badge preset-tonal-success text-xs">{stats.matchedCount} matched</span>
       <span class="badge preset-tonal-warning text-xs">{stats.ambiguousCount} ambiguous</span>
+      {#if stats.resolvedCount > 0}
+        <span class="badge preset-tonal-primary text-xs">{stats.resolvedCount} resolved</span>
+      {/if}
       {#if stats.failedCount > 0}
         <span class="badge preset-tonal-error text-xs">{stats.failedCount} failed</span>
       {/if}

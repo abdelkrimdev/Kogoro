@@ -69,6 +69,7 @@
   let currentDetailId = $state<string | null>(null);
   let statusText = $state("Ready");
   let isScanning = $state(false);
+  let isExecuting = $state(false);
   let scanProgressState = $state<ScanProgressState | null>(null);
   type LibraryStats = AppRPC["bun"]["requests"]["getLibraryStats"]["response"];
 
@@ -100,6 +101,15 @@
 
   function navigate(view: View) {
     currentView = view;
+  }
+
+  async function cancelExecution() {
+    if (!currentSessionId) return;
+    try {
+      await rpc.request("cancelScan", { sessionId: currentSessionId });
+    } catch (err) {
+      console.error("Failed to cancel execution:", err);
+    }
   }
 
   function openAnime(id: string) {
@@ -196,6 +206,7 @@
         case "scanExecutionProgress": {
           const execEvent = data as { completed: number; total: number; file: string; status: string };
           statusText = `Executing: ${execEvent.completed}/${execEvent.total} - ${execEvent.file.split("/").pop() ?? execEvent.file} - ${execEvent.status}`;
+          isExecuting = true;
           break;
         }
         case "scanComplete": {
@@ -212,6 +223,7 @@
           currentSessionId = null;
           currentPlan = null;
           isScanning = false;
+          isExecuting = false;
           scanProgressState = null;
           refreshLibraryStats();
           break;
@@ -309,6 +321,15 @@
     </div>
     <footer class="h-8 flex items-center px-4 border-t border-surface-300-700 bg-surface-100-900 shrink-0 gap-4">
       <span class="text-xs text-surface-600-400">{footerText}</span>
+      {#if isExecuting}
+        <button
+          type="button"
+          class="btn btn-sm preset-filled-error-500 rounded-lg text-xs ml-auto"
+          onclick={cancelExecution}
+        >
+          Cancel
+        </button>
+      {/if}
       {#if libraryStats && (footerText === "Ready" || currentView !== "scan")}
         <span class="text-xs text-surface-500-500">{libraryStats.animeCount} anime &bull; {libraryStats.episodeCount} episodes</span>
       {/if}

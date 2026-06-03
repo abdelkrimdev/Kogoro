@@ -224,6 +224,34 @@ describe("deriveReviewStats", () => {
     expect(stats.matchedCount).toBe(1);
     expect(stats.ambiguousCount).toBe(1);
   });
+
+  it("derives resolvedCount from initialAmbiguousCount minus current ambiguousCount", () => {
+    const plan = makePlan([
+      makeGroup({
+        files: [
+          makeFile({ fileId: "f1", status: "matched" }),
+          makeFile({ fileId: "f2", status: "matched" }),
+          makeFile({ fileId: "f3", status: "ambiguous" }),
+        ],
+      }),
+    ]);
+    plan.initialAmbiguousCount = 4;
+    const stats = deriveReviewStats(plan);
+    expect(stats.resolvedCount).toBe(3);
+  });
+
+  it("returns zero resolvedCount when initialAmbiguousCount is not set", () => {
+    const plan = makePlan([
+      makeGroup({
+        files: [
+          makeFile({ fileId: "f1", status: "matched" }),
+          makeFile({ fileId: "f2", status: "ambiguous" }),
+        ],
+      }),
+    ]);
+    const stats = deriveReviewStats(plan);
+    expect(stats.resolvedCount).toBe(0);
+  });
 });
 
 describe("findSwapPairForFile", () => {

@@ -144,6 +144,7 @@ export class ScanOrchestrator {
   private options: ScanOrchestratorOptions;
   private approvedAnimeIds: Set<string> = new Set();
   private rejectedAnimeIds: Set<string> = new Set();
+  private initialAmbiguousCount: number | null = null;
 
   constructor(options: ScanOrchestratorOptions) {
     this.options = options;
@@ -219,6 +220,10 @@ export class ScanOrchestrator {
       this.options.libraryDb,
       this.options.sourceDb,
     );
+    if (this.initialAmbiguousCount === null) {
+      this.initialAmbiguousCount = this.plan.ambiguousCount;
+    }
+    this.plan.initialAmbiguousCount = this.initialAmbiguousCount;
   }
 
   async startScan(path: string): Promise<void> {
@@ -231,6 +236,7 @@ export class ScanOrchestrator {
     this.plan = null;
     this.approvedAnimeIds.clear();
     this.rejectedAnimeIds.clear();
+    this.initialAmbiguousCount = null;
     this._state = "scan";
 
     const filePaths = await this.options.walk(path);
