@@ -261,7 +261,12 @@ function toFileRow(result: ScanResult): FileRow {
   };
 }
 
-export function aggregateReviewPlan(results: ScanResult[], sessionId: string): ScanReviewPlan {
+export function aggregateReviewPlan(
+  results: ScanResult[],
+  sessionId: string,
+  libraryDb?: LibraryDb,
+  sourceDb?: string,
+): ScanReviewPlan {
   const groups = new Map<string, ScanAnimeGroup>();
   let ambiguousCount = 0;
 
@@ -271,19 +276,26 @@ export function aggregateReviewPlan(results: ScanResult[], sessionId: string): S
     }
 
     const row = toFileRow(result);
-    const animeId = result.match?.anime.id ?? `failed-${row.fileId}`;
-    const animeTitle = result.match?.anime.titleEn ?? "Unresolved";
-    const entryType = result.match?.anime.entryType ?? "tv";
+    const matchedAnime = result.match?.anime;
+    const animeId = matchedAnime?.id ?? `failed-${row.fileId}`;
+    const animeTitle = matchedAnime?.titleEn ?? "Unresolved";
+    const entryType = matchedAnime?.entryType ?? "tv";
 
     let group = groups.get(animeId);
     if (!group) {
+      const mergeMode =
+        libraryDb != null &&
+        matchedAnime != null &&
+        libraryDb.findAnime(animeId, sourceDb ?? "tvdb") != null;
+
       group = {
         animeId,
         animeTitle,
         entryType,
-        image: result.match?.anime.image,
+        image: matchedAnime?.image,
         files: [],
         swapPairs: [],
+        mergeMode,
       };
       groups.set(animeId, group);
     }

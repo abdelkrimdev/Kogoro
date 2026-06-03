@@ -5,6 +5,7 @@ import {
   CONFIG_DIR,
   type ConfigManager,
   type CredentialStore,
+  LibraryDb,
   MatchCache,
   Matcher,
   OverrideStore,
@@ -101,7 +102,6 @@ export async function createScanOrchestrator(
           const { parsed, best } = await findCandidateMatches(matcher, filePath);
 
           const chosen = best.find((m) => m.anime.id === animeId && m.episode?.id === episodeId);
-
           if (!chosen) {
             return {
               file: filePath,
@@ -137,6 +137,8 @@ export async function createScanOrchestrator(
           return { success: result.success, error: result.error };
         }
       : undefined,
+    libraryDb: new LibraryDb({ dbPath: `${CONFIG_DIR}/library.db` }),
+    sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
   });
 
   scanOrchestrators.set(sessionId, orchestrator);

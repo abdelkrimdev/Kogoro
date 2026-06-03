@@ -92,6 +92,7 @@ export interface AnimeGroup {
   files: FileRow[];
   swapPairs: SwapPair[];
   rejected?: boolean;
+  mergeMode?: boolean;
 }
 
 export interface SwapPair {
