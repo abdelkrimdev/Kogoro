@@ -1,6 +1,7 @@
 import type { AnimeGroup, ReviewPlan } from "@kogoro/core";
 
 export type FolderStatus = "new" | "indexed" | "missing";
+export type BatchScanFolderStatus = "pending" | "scanning" | "completed";
 
 export interface EnrichedFolder {
   path: string;
@@ -11,14 +12,7 @@ export interface EnrichedFolder {
   status: FolderStatus;
   relativeTimestamp?: string;
   selected: boolean;
-}
-
-export interface BatchScanProgress {
-  currentIndex: number;
-  total: number;
-  currentPath: string;
-  currentBasename: string;
-  isComplete: boolean;
+  batchStatus?: BatchScanFolderStatus;
 }
 
 export function deriveFolderStatus(
@@ -81,6 +75,26 @@ export interface ScanToolbarState {
   someSelected: boolean;
   noneSelected: boolean;
   selectableCount: number;
+}
+
+export interface BatchScanProgress {
+  current: number;
+  total: number;
+  folderBasename: string;
+}
+
+export function deriveBatchProgress(
+  folders: EnrichedFolder[],
+  currentPath: string,
+): BatchScanProgress {
+  const selected = folders.filter((f) => f.selected && f.exists);
+  const currentIndex = selected.findIndex((f) => f.path === currentPath);
+  const current = currentIndex === -1 ? 0 : currentIndex + 1;
+  return {
+    current,
+    total: selected.length,
+    folderBasename: selected[currentIndex]?.basename ?? "",
+  };
 }
 
 export function deriveScanToolbar(folders: EnrichedFolder[]): ScanToolbarState {

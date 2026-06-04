@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { makeEnrichedFolder, makeFile, makeGroup, makePlan } from "../../fixtures";
 import {
+  deriveBatchProgress,
   deriveFolderStatus,
   deriveScanFolders,
   deriveScanSummaries,
@@ -462,5 +463,55 @@ describe("deriveScanSummaries", () => {
     );
     const summaries = deriveScanSummaries(plans, folders);
     expect(summaries[0]?.matchCount).toBe(2);
+  });
+});
+
+describe("deriveBatchProgress", () => {
+  it("returns current=1 for first folder in batch", () => {
+    const folders = [
+      makeEnrichedFolder({ path: "/a/S1", basename: "S1", selected: true }),
+      makeEnrichedFolder({ path: "/a/S2", basename: "S2", selected: true }),
+    ];
+    const p = deriveBatchProgress(folders, "/a/S1");
+    expect(p.current).toBe(1);
+    expect(p.total).toBe(2);
+    expect(p.folderBasename).toBe("S1");
+  });
+
+  it("returns current=2 for second folder in batch", () => {
+    const folders = [
+      makeEnrichedFolder({ path: "/a/S1", basename: "S1", selected: true }),
+      makeEnrichedFolder({ path: "/a/S2", basename: "S2", selected: true }),
+    ];
+    const p = deriveBatchProgress(folders, "/a/S2");
+    expect(p.current).toBe(2);
+    expect(p.total).toBe(2);
+    expect(p.folderBasename).toBe("S2");
+  });
+
+  it("excludes unselected folders from total", () => {
+    const folders = [
+      makeEnrichedFolder({ path: "/a/S1", basename: "S1", selected: true }),
+      makeEnrichedFolder({ path: "/a/S2", basename: "S2", selected: false }),
+      makeEnrichedFolder({ path: "/a/S3", basename: "S3", selected: false }),
+    ];
+    const p = deriveBatchProgress(folders, "/a/S1");
+    expect(p.current).toBe(1);
+    expect(p.total).toBe(1);
+  });
+
+  it("excludes missing folders from total", () => {
+    const folders = [
+      makeEnrichedFolder({ path: "/a/S1", basename: "S1", selected: true }),
+      makeEnrichedFolder({
+        path: "/a/S2",
+        basename: "S2",
+        selected: true,
+        exists: false,
+        status: "missing",
+      }),
+    ];
+    const p = deriveBatchProgress(folders, "/a/S1");
+    expect(p.total).toBe(1);
   });
 });

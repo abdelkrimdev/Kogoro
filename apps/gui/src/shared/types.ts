@@ -266,6 +266,10 @@ export type AppRPC = {
         params: { path: string };
         response: { success: boolean };
       };
+      markWatchedFolderScanned: {
+        params: { path: string };
+        response: { success: boolean; lastScannedAt?: string };
+      };
     };
     messages: {
       windowWillClose: {

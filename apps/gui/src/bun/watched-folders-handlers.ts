@@ -1,5 +1,10 @@
 import { existsSync } from "node:fs";
-import { addWatchedFolder, loadWatchedFolders, removeWatchedFolder } from "./watched-folders";
+import {
+  addWatchedFolder,
+  loadWatchedFolders,
+  markWatchedFolderScanned,
+  removeWatchedFolder,
+} from "./watched-folders";
 
 export interface WatchedFolderResponse {
   path: string;
@@ -24,4 +29,13 @@ export function addWatchedFolderHandler(path: string): { success: boolean } {
 export function removeWatchedFolderHandler(path: string): { success: boolean } {
   removeWatchedFolder(path);
   return { success: true };
+}
+
+export function markWatchedFolderScannedHandler(path: string): {
+  success: boolean;
+  lastScannedAt?: string;
+} {
+  const entry = markWatchedFolderScanned(path);
+  if (!entry) return { success: false };
+  return { success: true, lastScannedAt: entry.lastScannedAt };
 }

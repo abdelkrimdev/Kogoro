@@ -16,6 +16,7 @@ import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "
 import {
   addWatchedFolderHandler,
   getWatchedFoldersHandler,
+  markWatchedFolderScannedHandler,
   removeWatchedFolderHandler,
 } from "./watched-folders-handlers";
 
@@ -189,6 +190,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       getWatchedFolders: async () => getWatchedFoldersHandler(),
       addWatchedFolder: async (params) => addWatchedFolderHandler(params.path),
       removeWatchedFolder: async (params) => removeWatchedFolderHandler(params.path),
+      markWatchedFolderScanned: async (params) => markWatchedFolderScannedHandler(params.path),
     },
     messages: {
       windowWillClose: (data) => {

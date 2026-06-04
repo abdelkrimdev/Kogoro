@@ -3,7 +3,6 @@
   import { Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
   import { onMount } from 'svelte';
-  import type { ReviewPlan } from "@kogoro/core";
   import { createRPCThemeState, applyThemeToDocument } from "../state/theme-state";
   import {
     createInitialSnapshot,
@@ -112,12 +111,6 @@
     snap = reduceOnViewResults(snap);
   }
 
-  function onBatchReviewResults(plan: ReviewPlan) {
-    snap = { ...snap, plan };
-    currentView = "review";
-    snap = reduceOnViewResults(snap);
-  }
-
   function onReviewComplete() {
     currentView = "scan";
     snap = reduceClearAfterReview(snap);
@@ -151,7 +144,7 @@
   });
 
   $effect(() => {
-    return onMessage((message, data) => {
+    const unsub = onMessage((message, data) => {
       if (message === "scanComplete") {
         snap = reduceMessage(snap, message, data);
         currentView = "scan";
@@ -161,6 +154,7 @@
       }
       snap = reduceMessage(snap, message, data);
     });
+    return unsub;
   });
 </script>
 
@@ -240,7 +234,7 @@
         {:else if currentView === "details" && currentDetailId}
           <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
         {:else}
-          <ScanView {rpc} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} {onMessage} {onBatchReviewResults} />
+          <ScanView {rpc} {onMessage} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} />
         {/if}
       </main>
     </div>

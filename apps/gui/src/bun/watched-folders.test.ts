@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { addWatchedFolder, loadWatchedFolders, removeWatchedFolder } from "./watched-folders";
+import {
+  addWatchedFolder,
+  loadWatchedFolders,
+  markWatchedFolderScanned,
+  removeWatchedFolder,
+} from "./watched-folders";
 
 const testDir = join(import.meta.dir, "__test_watched_folders__");
 
@@ -90,5 +95,33 @@ describe("removeWatchedFolder", () => {
     const folders = loadWatchedFolders();
     expect(folders).toHaveLength(1);
     expect(folders[0]?.path).toBe("/anime/One Piece");
+  });
+});
+
+describe("markWatchedFolderScanned", () => {
+  test("sets lastScannedAt for an existing folder", () => {
+    mkdirSync(testDir, { recursive: true });
+    process.env["KOGORO_STATE_DIR"] = testDir;
+    addWatchedFolder("/anime/One Piece");
+    const result = markWatchedFolderScanned("/anime/One Piece");
+    expect(result).not.toBeNull();
+    expect(result?.lastScannedAt).toBeDefined();
+    const folders = loadWatchedFolders();
+    expect(folders[0]?.lastScannedAt).toBe(result?.lastScannedAt);
+  });
+
+  test("returns null for a folder that does not exist", () => {
+    mkdirSync(testDir, { recursive: true });
+    process.env["KOGORO_STATE_DIR"] = testDir;
+    expect(markWatchedFolderScanned("/nonexistent")).toBeNull();
+  });
+
+  test("persists lastScannedAt to disk", () => {
+    mkdirSync(testDir, { recursive: true });
+    process.env["KOGORO_STATE_DIR"] = testDir;
+    addWatchedFolder("/anime/Naruto");
+    markWatchedFolderScanned("/anime/Naruto");
+    const folders = loadWatchedFolders();
+    expect(folders[0]?.lastScannedAt).toBeDefined();
   });
 });
