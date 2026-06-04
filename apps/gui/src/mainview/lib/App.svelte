@@ -25,7 +25,7 @@
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
-    onMessage: (handler: (message: string, data: unknown) => void) => void;
+    onMessage: (handler: (message: string, data: unknown) => void) => () => void;
   }
 
   let { rpc, onMessage }: Props = $props();
@@ -144,7 +144,7 @@
   });
 
   $effect(() => {
-    onMessage((message, data) => {
+    const unsub = onMessage((message, data) => {
       if (message === "scanComplete") {
         snap = reduceMessage(snap, message, data);
         currentView = "scan";
@@ -154,6 +154,7 @@
       }
       snap = reduceMessage(snap, message, data);
     });
+    return unsub;
   });
 </script>
 
@@ -233,7 +234,7 @@
         {:else if currentView === "details" && currentDetailId}
           <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
         {:else}
-          <ScanView {rpc} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} />
+          <ScanView {rpc} {onMessage} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} />
         {/if}
       </main>
     </div>

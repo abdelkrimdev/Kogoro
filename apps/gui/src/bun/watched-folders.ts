@@ -48,3 +48,12 @@ export function removeWatchedFolder(path: string) {
   const filtered = folders.filter((f) => f.path !== path);
   saveWatchedFolders(filtered);
 }
+
+export function markWatchedFolderScanned(path: string): WatchedFolder | null {
+  const folders = loadWatchedFolders();
+  const entry = folders.find((f) => f.path === path);
+  if (!entry) return null;
+  entry.lastScannedAt = new Date().toISOString();
+  saveWatchedFolders(folders);
+  return entry;
+}

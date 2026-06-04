@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FolderSearch, ScanSearch, X } from '@lucide/svelte';
+  import { FolderSearch, LoaderCircle, ScanSearch, X } from '@lucide/svelte';
   import type { ScanProgressState } from "../state/scan-progress-state";
   import {
     deriveBreakdown,
@@ -8,10 +8,12 @@
     isIndeterminate,
   } from "../state/scan-progress-state";
   import {
+    deriveBatchProgress,
     deriveScanFolders,
     deriveScanToolbar,
     toggleAll,
     toggleFolder,
+    type BatchScanProgress,
     type EnrichedFolder,
   } from "../state/scan-state";
 
@@ -24,19 +26,23 @@
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
+    onMessage: (handler: (message: string, data: unknown) => void) => () => void;
     scanProgressState: ScanProgressState | null;
     onScanStarted: () => void;
     reviewReady: boolean;
     onViewResults: () => void;
   }
 
-  let { rpc, scanProgressState, onScanStarted, reviewReady = false, onViewResults }: Props = $props();
+  let { rpc, onMessage, scanProgressState, onScanStarted, reviewReady = false, onViewResults }: Props = $props();
 
   let listContainer: HTMLDivElement | undefined = $state();
   let requesting = $state(false);
   let enrichedFolders: EnrichedFolder[] = $state([]);
   let removing: string | null = $state(null);
   let dragOver = $state(false);
+  let batchScanning = $state(false);
+  let batchProgress: BatchScanProgress | null = $state(null);
+  let showSummary = $state(false);
 
   $effect(() => {
     if (scanProgressState && listContainer) {
@@ -118,10 +124,12 @@
 
   function handleToggleFolder(path: string) {
     enrichedFolders = toggleFolder(enrichedFolders, path);
+    showSummary = false;
   }
 
   function handleToggleAll() {
     enrichedFolders = toggleAll(enrichedFolders);
+    showSummary = false;
   }
 
   async function scanSelected() {
@@ -129,12 +137,62 @@
     if (selected.length === 0) return;
     try {
       requesting = true;
-      onScanStarted();
-      for (const folder of selected) {
-        await rpc.request("scanStart", { path: folder.path });
+      batchScanning = true;
+      showSummary = false;
+
+      enrichedFolders = enrichedFolders.map((f) =>
+        f.selected && f.exists ? { ...f, batchStatus: "pending" as const } : f,
+      );
+
+      for (let i = 0; i < selected.length; i++) {
+        const folder = selected[i]!;
+        batchProgress = deriveBatchProgress(enrichedFolders, folder.path);
+
+        enrichedFolders = enrichedFolders.map((f) =>
+          f.path === folder.path ? { ...f, batchStatus: "scanning" as const } : f,
+        );
+
+        onScanStarted();
+
+        const result = (await rpc.request("scanStart", { path: folder.path })) as {
+          sessionId: string;
+        } | null;
+        if (!result) { continue; }
+
+        await new Promise<void>((resolve) => {
+          const unsub = onMessage((message, data) => {
+            if (message === "scanReviewReady") {
+              const event = data as { sessionId: string };
+              if (event.sessionId === result.sessionId) {
+                unsub();
+                resolve();
+              }
+            }
+          });
+        });
+
+        const now = new Date().toISOString();
+        enrichedFolders = enrichedFolders.map((f) =>
+          f.path === folder.path
+            ? {
+                ...f,
+                batchStatus: "completed" as const,
+                lastScannedAt: now,
+                status: "indexed" as const,
+              }
+            : f,
+        );
+
+        await rpc.request("markWatchedFolderScanned", { path: folder.path }).catch(() => {});
       }
+
+      batchScanning = false;
+      batchProgress = null;
+      showSummary = true;
     } catch (err) {
-      console.error("Failed to start selected scans:", err);
+      console.error("Batch scan failed:", err);
+      batchScanning = false;
+      batchProgress = null;
     } finally {
       requesting = false;
     }
@@ -150,10 +208,69 @@
   const dropZoneTextStyle = $derived(hasTrackedFolders ? 'text-xs mt-1' : 'text-sm mt-3');
   const dropZoneHighlight = $derived(dragOver ? 'border-primary-500 bg-primary-500/10' : '');
   const toolbar = $derived(deriveScanToolbar(enrichedFolders));
-  const scanSelectedDisabled = $derived(requesting || scanning || toolbar.noneSelected);
+  const scanSelectedDisabled = $derived(requesting || scanning || batchScanning || toolbar.noneSelected);
 </script>
 
-{#if scanning && scanProgressState}
+{#if batchScanning}
+  <div class="flex flex-col h-full p-4 gap-3">
+    {#if batchProgress}
+      <div class="space-y-1">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-surface-700-300">
+            Scanning {batchProgress.current}/{batchProgress.total} — {batchProgress.folderBasename}
+          </span>
+          <span class="text-xs text-surface-600-400">
+            {batchProgress.current}/{batchProgress.total}
+          </span>
+        </div>
+        <progress class="progress" value={((batchProgress.current - 1) / batchProgress.total) * 100} max="100"></progress>
+      </div>
+    {/if}
+    <div class="space-y-1 flex-1 overflow-y-auto">
+      {#each enrichedFolders as folder (folder.path)}
+        <div class="card preset-outlined-surface-300-700 flex items-center gap-2 p-3">
+          <input
+            type="checkbox"
+            class="checkbox shrink-0"
+            checked={folder.selected}
+            disabled={true}
+            aria-label="Select {folder.basename}"
+          />
+          <div class="flex-1 min-w-0">
+            <span class="text-sm text-surface-950-50 truncate block">{folder.path}</span>
+            {#if folder.batchStatus === "scanning"}
+              <div class="flex items-center gap-1 mt-1">
+                <LoaderCircle class="size-3 animate-spin text-primary-500-400" />
+                <span class="text-xs text-surface-600-400">Scanning...</span>
+              </div>
+            {:else if folder.batchStatus === "completed"}
+              <span class="badge preset-tonal-success text-xs mt-1">Indexed</span>
+            {:else if folder.batchStatus === "pending"}
+              <span class="badge preset-tonal-surface text-xs mt-1">Pending</span>
+            {:else}
+              {#if folder.status === "missing"}
+                <span class="badge preset-tonal-warning text-xs mt-1">Missing</span>
+              {:else if folder.status === "indexed"}
+                <span class="badge preset-tonal-success text-xs mt-1">Indexed</span>
+              {:else}
+                <span class="badge preset-tonal-surface text-xs mt-1">New</span>
+              {/if}
+            {/if}
+          </div>
+          <button
+            type="button"
+            class="btn-icon preset-tonal-surface rounded-lg shrink-0"
+            onclick={() => handleRemove(folder.path)}
+            disabled={true}
+            aria-label="Remove tracked folder"
+          >
+            <X class="size-4" />
+          </button>
+        </div>
+      {/each}
+    </div>
+  </div>
+{:else if scanning && scanProgressState && !showSummary}
   <div class="flex flex-col h-full p-4 gap-3">
     <div class="space-y-1">
       <div class="flex items-center justify-between">
@@ -199,6 +316,21 @@
   </div>
 {:else}
   <div class="flex flex-col h-full p-4 gap-4">
+    {#if showSummary}
+      <div class="card preset-filled-success-100-900 p-4 space-y-3">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium text-surface-950-50">Batch scan complete</span>
+        </div>
+        <div class="space-y-1">
+          {#each enrichedFolders.filter((f) => f.batchStatus === "completed") as folder}
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-surface-700-300 truncate">{folder.basename}</span>
+              <span class="badge preset-tonal-success text-xs shrink-0">Indexed</span>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
     {#if hasTrackedFolders}
       <div class="space-y-2">
         <div class="flex items-center justify-between">
