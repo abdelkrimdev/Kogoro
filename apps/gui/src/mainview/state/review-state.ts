@@ -15,12 +15,15 @@ function matchesSearch(file: FileRow, animeTitle: string, query: string): boolea
   return (
     file.sourcePath.toLowerCase().includes(q) ||
     (file.proposedPath?.toLowerCase().includes(q) ?? false) ||
-    animeTitle.toLowerCase().includes(q)
+    animeTitle.toLowerCase().includes(q) ||
+    (file.episodeName?.toLowerCase().includes(q) ?? false) ||
+    (file.episode !== null && String(file.episode).includes(q))
   );
 }
 
 function matchesStatus(file: FileRow, filter: StatusFilter): boolean {
   if (filter === "all") return true;
+  if (filter === "matched") return file.status === "matched" || file.status === "cached";
   if (filter === "needs-attention") return file.status === "ambiguous" || file.status === "failed";
   return file.status === filter;
 }
@@ -55,6 +58,13 @@ export function findSwapPairForFile(group: AnimeGroup, fileId: string): string |
     if (pair.fileAId === fileId) return pair.fileBId;
     if (pair.fileBId === fileId) return pair.fileAId;
   }
+  return null;
+}
+
+export function getEmptyCardMessage(file: FileRow): string | null {
+  if (file.status === "ambiguous") return "Ambiguous — Resolve to choose";
+  if (file.status === "failed") return `Failed: ${file.failureReason ?? "Match failed"}`;
+  if (file.proposedPath === null) return "No match found";
   return null;
 }
 

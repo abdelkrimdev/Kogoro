@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { loadSidebarCollapsed, NAV_ITEMS, saveSidebarCollapsed } from "./nav";
+import { describe, expect, it } from "bun:test";
+import { NAV_ITEMS } from "./nav";
 
 describe("NAV_ITEMS", () => {
   it("contains three navigation entries", () => {
@@ -25,85 +25,5 @@ describe("NAV_ITEMS", () => {
     for (const item of NAV_ITEMS) {
       expect(item.icon).toBeDefined();
     }
-  });
-});
-
-const KEY = "kogoro-sidebar-collapsed";
-
-class InMemoryStorage {
-  private data = new Map<string, string>();
-
-  getItem(key: string): string | null {
-    return this.data.get(key) ?? null;
-  }
-
-  setItem(key: string, value: string): void {
-    this.data.set(key, String(value));
-  }
-
-  removeItem(key: string): void {
-    this.data.delete(key);
-  }
-
-  clear(): void {
-    this.data.clear();
-  }
-}
-
-let mockStorage: InMemoryStorage;
-const originalLocalStorage = globalThis.localStorage;
-
-beforeEach(() => {
-  mockStorage = new InMemoryStorage();
-  globalThis.localStorage = mockStorage as unknown as Storage;
-});
-
-afterEach(() => {
-  globalThis.localStorage = originalLocalStorage;
-});
-
-describe("loadSidebarCollapsed", () => {
-  it("returns false when localStorage is empty", () => {
-    expect(loadSidebarCollapsed()).toBe(false);
-  });
-
-  it("returns true when localStorage has 'true'", () => {
-    mockStorage.setItem(KEY, "true");
-    expect(loadSidebarCollapsed()).toBe(true);
-  });
-
-  it("returns false when localStorage has 'false'", () => {
-    mockStorage.setItem(KEY, "false");
-    expect(loadSidebarCollapsed()).toBe(false);
-  });
-
-  it("returns false when localStorage throws", () => {
-    globalThis.localStorage = {
-      getItem: () => {
-        throw new Error("quota exceeded");
-      },
-    } as unknown as Storage;
-    expect(loadSidebarCollapsed()).toBe(false);
-  });
-});
-
-describe("saveSidebarCollapsed", () => {
-  it("persists true to localStorage", () => {
-    saveSidebarCollapsed(true);
-    expect(mockStorage.getItem(KEY)).toBe("true");
-  });
-
-  it("persists false to localStorage", () => {
-    saveSidebarCollapsed(false);
-    expect(mockStorage.getItem(KEY)).toBe("false");
-  });
-
-  it("does not throw when localStorage throws", () => {
-    globalThis.localStorage = {
-      setItem: () => {
-        throw new Error("quota exceeded");
-      },
-    } as unknown as Storage;
-    expect(() => saveSidebarCollapsed(true)).not.toThrow();
   });
 });

@@ -228,6 +228,14 @@ export type AppRPC = {
         params: { mode: "light" | "dark" };
         response: { success: boolean };
       };
+      getSidebarCollapsed: {
+        params: Record<string, never>;
+        response: { collapsed: boolean };
+      };
+      setSidebarCollapsed: {
+        params: { collapsed: boolean };
+        response: { success: boolean };
+      };
       getWatchStatusByAnime: {
         params: { animeId: string };
         response: Array<{

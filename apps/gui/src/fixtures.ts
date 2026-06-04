@@ -28,13 +28,15 @@ export function makeWatchStatus(overrides: Partial<WatchStatusEntry> = {}): Watc
 
 export function makeFile(overrides: Partial<FileRow> = {}): FileRow {
   return {
-    fileId: overrides.fileId ?? "f1",
-    sourcePath: overrides.sourcePath ?? "/media/Steins;Gate/S01E01.mkv",
-    proposedPath: overrides.proposedPath ?? "/library/Steins;Gate/TV/1x01 - Prologue.mkv",
-    status: overrides.status ?? "matched",
-    animeId: overrides.animeId ?? "a1",
-    episodeId: overrides.episodeId ?? "e1",
-    episode: overrides.episode ?? 1,
+    fileId: "f1",
+    sourcePath: "/media/Steins;Gate/S01E01.mkv",
+    proposedPath: "/library/Steins;Gate/TV/1x01 - Prologue.mkv",
+    status: "matched",
+    animeId: "a1",
+    episodeId: "e1",
+    episode: 1,
+    episodeName: "Prologue",
+    ...overrides,
   };
 }
 

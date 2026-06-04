@@ -68,76 +68,88 @@ export async function createScanOrchestrator(
 
   const scanner = matcher ? new Scanner({ matcher, cache, renamer, overrideStore }) : undefined;
 
-  const orchestrator = new ScanOrchestrator({
-    scanner: { match: async () => [], matchBatch: async () => [] },
-    walk: async (path: string) =>
-      walk(path, SCHEMA_DEFAULTS["media-extensions"], {
-        excludePatterns: configManager.getList("exclude-patterns"),
-      }),
-    scanFile: async (filePath: string, options?: { dryRun?: boolean }) => {
-      if (!scanner) {
-        return {
-          file: filePath,
-          hash: "",
-          parsed: {
-            title: null,
-            season: null,
-            episode: null,
-            tags: { group: null, resolution: null, source: null, codec: null, audio: null },
-          },
-          match: null,
-          plan: null,
-          cached: false,
-          skipped: false,
-          status: "failed" as const,
-          failureReason: "No database configured",
-        };
-      }
-      return scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true });
-    },
-    resolveFile: matcher
-      ? async (filePath: string, animeId: string, episodeId: string) => {
-          const { parsed, best } = await findCandidateMatches(matcher, filePath);
+  const orchestrator = new ScanOrchestrator(
+    {
+      scanner: { match: async () => [], matchBatch: async () => [] },
+      walk: async (path: string) =>
+        walk(path, SCHEMA_DEFAULTS["media-extensions"], {
+          excludePatterns: configManager.getList("exclude-patterns"),
+        }),
+      scanFile: async (filePath: string, options?: { dryRun?: boolean }) => {
+        if (!scanner) {
+          return {
+            file: filePath,
+            hash: "",
+            parsed: {
+              title: null,
+              season: null,
+              episode: null,
+              tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+            },
+            match: null,
+            plan: null,
+            cached: false,
+            skipped: false,
+            status: "failed" as const,
+            failureReason: "No database configured",
+          };
+        }
+        return scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true });
+      },
+      resolveFile: matcher
+        ? async (filePath: string, animeId: string, episodeId: string) => {
+            const { parsed, best } = await findCandidateMatches(matcher, filePath);
 
-          const chosen = best.find((m) => m.anime.id === animeId && m.episode?.id === episodeId);
-          if (!chosen) {
+            const chosen = best.find((m) => m.anime.id === animeId && m.episode?.id === episodeId);
+            if (!chosen) {
+              return {
+                file: filePath,
+                hash: "",
+                parsed,
+                match: null,
+                plan: null,
+                cached: false,
+                skipped: false,
+                status: "failed" as const,
+                failureReason: "Selected candidate not found",
+              };
+            }
+
+            const extension = extname(filePath).replace(".", "") || "mkv";
+            const plan = renamer.plan(filePath, chosen, extension);
+
             return {
               file: filePath,
               hash: "",
               parsed,
-              match: null,
-              plan: null,
+              match: chosen,
+              plan,
               cached: false,
               skipped: false,
-              status: "failed" as const,
-              failureReason: "Selected candidate not found",
+              status: "matched" as const,
             };
           }
-
-          const extension = extname(filePath).replace(".", "") || "mkv";
-          const plan = renamer.plan(filePath, chosen, extension);
-
-          return {
-            file: filePath,
-            hash: "",
-            parsed,
-            match: chosen,
-            plan,
-            cached: false,
-            skipped: false,
-            status: "matched" as const,
-          };
-        }
-      : undefined,
-    executeRename: scanner
-      ? async (plan, baseDir) => {
-          const result = renamer.execute(plan, baseDir);
-          return { success: result.success, error: result.error };
-        }
-      : undefined,
-    libraryDb: new LibraryDb({ dbPath: `${CONFIG_DIR}/library.db` }),
-    sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
-  });
+        : undefined,
+      executeRename: scanner
+        ? async (plan, baseDir) => {
+            const result = renamer.execute(plan, baseDir);
+            return { success: result.success, error: result.error };
+          }
+        : undefined,
+      libraryDb: new LibraryDb({ dbPath: `${CONFIG_DIR}/library.db` }),
+      sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
+      computeTopCandidates: matcher
+        ? async (sourcePath: string) => {
+            const { best } = await findCandidateMatches(matcher, sourcePath);
+            return best.slice(0, 3).map((m) => ({
+              episodeNumber: m.episode?.episode ?? 0,
+              title: m.episode?.titleEn ?? "",
+            }));
+          }
+        : undefined,
+    },
+    sessionId,
+  );
 
   scanSessions.set(sessionId, { orchestrator, matcher });
   return orchestrator;

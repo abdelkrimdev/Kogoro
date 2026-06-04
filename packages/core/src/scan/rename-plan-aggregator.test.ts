@@ -391,15 +391,15 @@ describe("buildReviewPlan", () => {
 });
 
 describe("aggregateReviewPlan", () => {
-  test("returns empty groups for empty input", () => {
-    const plan = aggregateReviewPlan([], "session-1");
+  test("returns empty groups for empty input", async () => {
+    const plan = await aggregateReviewPlan([], "session-1");
     expect(plan.groups).toHaveLength(0);
     expect(plan.totalFiles).toBe(0);
     expect(plan.ambiguousCount).toBe(0);
     expect(plan.sessionId).toBe("session-1");
   });
 
-  test("groups files by anime", () => {
+  test("groups files by anime", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", {
         match: {
@@ -448,7 +448,7 @@ describe("aggregateReviewPlan", () => {
       }),
     ];
 
-    const plan = aggregateReviewPlan(results, "session-1");
+    const plan = await aggregateReviewPlan(results, "session-1");
 
     expect(plan.groups).toHaveLength(2);
     expect(plan.groups[0]?.animeId).toBe("100");
@@ -458,7 +458,7 @@ describe("aggregateReviewPlan", () => {
     expect(plan.totalFiles).toBe(3);
   });
 
-  test("detects episode swap pairs", () => {
+  test("detects episode swap pairs", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", {
         match: {
@@ -506,7 +506,7 @@ describe("aggregateReviewPlan", () => {
       }),
     ];
 
-    const plan = aggregateReviewPlan(results, "session-1");
+    const plan = await aggregateReviewPlan(results, "session-1");
 
     expect(plan.groups).toHaveLength(1);
     expect(plan.groups[0]?.swapPairs).toHaveLength(1);
@@ -516,18 +516,18 @@ describe("aggregateReviewPlan", () => {
     });
   });
 
-  test("counts ambiguous files", () => {
+  test("counts ambiguous files", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", { status: "ambiguous" }),
       makeAggScanResult("/a/ep2.mkv", { status: "matched" }),
     ];
 
-    const plan = aggregateReviewPlan(results, "session-1");
+    const plan = await aggregateReviewPlan(results, "session-1");
 
     expect(plan.ambiguousCount).toBe(1);
   });
 
-  test("includes failed files in a separate group", () => {
+  test("includes failed files in a separate group", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", {
         match: {
@@ -550,7 +550,7 @@ describe("aggregateReviewPlan", () => {
       }),
     ];
 
-    const plan = aggregateReviewPlan(results, "session-1");
+    const plan = await aggregateReviewPlan(results, "session-1");
 
     expect(plan.groups).toHaveLength(2);
     const failedFile = plan.groups.flatMap((g) => g.files).find((f) => f.status === "failed");
@@ -558,7 +558,7 @@ describe("aggregateReviewPlan", () => {
     expect(failedFile?.failureReason).toBe("No title parsed");
   });
 
-  test("sets proposed path from plan targetPath", () => {
+  test("sets proposed path from plan targetPath", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", {
         match: {
@@ -584,12 +584,12 @@ describe("aggregateReviewPlan", () => {
       }),
     ];
 
-    const plan = aggregateReviewPlan(results, "session-1");
+    const plan = await aggregateReviewPlan(results, "session-1");
 
     expect(plan.groups[0]?.files[0]?.proposedPath).toBe("Jujutsu Kaisen/Season 1/S01E01.mkv");
   });
 
-  test("does not detect swaps for non-swap transpositions", () => {
+  test("does not detect swaps for non-swap transpositions", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", {
         match: {
@@ -623,7 +623,7 @@ describe("aggregateReviewPlan", () => {
       }),
     ];
 
-    const plan = aggregateReviewPlan(results, "session-1");
+    const plan = await aggregateReviewPlan(results, "session-1");
 
     expect(plan.groups[0]?.swapPairs).toHaveLength(0);
   });
@@ -657,7 +657,7 @@ describe("aggregateReviewPlan", () => {
         }),
       ];
 
-      const plan = aggregateReviewPlan(results, "session-1", libraryDb, "tvdb");
+      const plan = await aggregateReviewPlan(results, "session-1", libraryDb, "tvdb");
 
       expect(plan.groups).toHaveLength(1);
       expect(plan.groups[0]?.mergeMode).toBe(true);
@@ -687,14 +687,14 @@ describe("aggregateReviewPlan", () => {
         }),
       ];
 
-      const plan = aggregateReviewPlan(results, "session-1", libraryDb, "tvdb");
+      const plan = await aggregateReviewPlan(results, "session-1", libraryDb, "tvdb");
 
       expect(plan.groups[0]?.mergeMode).toBe(false);
       libraryDb.close();
     });
   });
 
-  test("sets mergeMode to false for groups without a match", () => {
+  test("sets mergeMode to false for groups without a match", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", {
         match: null,
@@ -702,12 +702,12 @@ describe("aggregateReviewPlan", () => {
       }),
     ];
 
-    const plan = aggregateReviewPlan(results, "session-1");
+    const plan = await aggregateReviewPlan(results, "session-1");
 
     expect(plan.groups[0]?.mergeMode).toBe(false);
   });
 
-  test("does not set mergeMode when no libraryDb is provided", () => {
+  test("does not set mergeMode when no libraryDb is provided", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", {
         match: {
@@ -726,8 +726,34 @@ describe("aggregateReviewPlan", () => {
       }),
     ];
 
-    const plan = aggregateReviewPlan(results, "session-1");
+    const plan = await aggregateReviewPlan(results, "session-1");
 
     expect(plan.groups[0]?.mergeMode).toBe(false);
+  });
+
+  test("fills topCandidates for ambiguous files when callback is provided", async () => {
+    const results = [
+      makeAggScanResult("/a/ep1.mkv", {
+        match: {
+          anime: { id: "100", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+          episode: {
+            id: "1001",
+            animeId: "100",
+            season: 1,
+            episode: 1,
+            titleEn: "Ep 1",
+            entryType: "tv",
+          },
+          score: 1,
+        },
+        status: "ambiguous",
+      }),
+    ];
+
+    const plan = await aggregateReviewPlan(results, "session-1", undefined, undefined, async () => [
+      { episodeNumber: 4, title: "Blind" },
+    ]);
+
+    expect(plan.groups[0]?.files[0]?.topCandidates).toEqual([{ episodeNumber: 4, title: "Blind" }]);
   });
 });

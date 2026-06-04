@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { readJsonFile, stateDir, writeJsonFile } from "./state";
 
 export interface WatchedFolder {
   path: string;
@@ -7,29 +7,18 @@ export interface WatchedFolder {
   lastScannedAt?: string;
 }
 
-function stateDir(): string {
-  return process.env["KOGORO_STATE_DIR"] ?? join(import.meta.dir, "../..");
-}
-
 function watchedFoldersPath() {
   return join(stateDir(), ".watched-folders.json");
 }
 
 export function loadWatchedFolders(): WatchedFolder[] {
-  try {
-    const file = watchedFoldersPath();
-    if (existsSync(file)) {
-      const data = JSON.parse(readFileSync(file, "utf-8"));
-      if (Array.isArray(data)) return data;
-    }
-  } catch {}
-  return [];
+  const data = readJsonFile<unknown>(watchedFoldersPath(), []);
+  if (!Array.isArray(data)) return [];
+  return data;
 }
 
 function saveWatchedFolders(folders: WatchedFolder[]) {
-  try {
-    writeFileSync(watchedFoldersPath(), JSON.stringify(folders, null, 2));
-  } catch {}
+  writeJsonFile(watchedFoldersPath(), folders);
 }
 
 export function addWatchedFolder(path: string): WatchedFolder {

@@ -12,7 +12,14 @@ import {
   getOrchestrator,
 } from "./scan";
 import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
-import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "./state";
+import {
+  loadSidebarCollapsed,
+  loadThemeMode,
+  loadWindowState,
+  saveSidebarCollapsed,
+  saveThemeMode,
+  saveWindowState,
+} from "./state";
 import {
   addWatchedFolderHandler,
   getWatchedFoldersHandler,
@@ -38,7 +45,6 @@ const enrichmentHandlers = createEnrichmentHandlers({
 });
 
 const rpc = BrowserView.defineRPC<AppRPC>({
-  maxRequestTime: 5000,
   handlers: {
     requests: {
       getWindowState: () => savedState,
@@ -66,36 +72,41 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       scanStart: async (params) => {
         const { path } = params;
         const sessionId = crypto.randomUUID();
-        const orchestrator = await createScanOrchestrator(
-          sessionId,
-          configManager,
-          credentialStore,
-        );
 
-        orchestrator.on("*", (event) => {
-          switch (event.type) {
-            case "scanProgress":
-              rpc.send.scanProgress(event);
-              break;
-            case "scanPhaseComplete":
-              rpc.send.scanPhaseComplete(event);
-              break;
-            case "scanReviewReady":
-              rpc.send.scanReviewReady(event);
-              break;
-            case "scanExecutionProgress":
-              rpc.send.scanExecutionProgress(event);
-              break;
-            case "scanComplete":
-              rpc.send.scanComplete(event);
-              cleanupSession(sessionId);
-              break;
+        (async () => {
+          try {
+            const orchestrator = await createScanOrchestrator(
+              sessionId,
+              configManager,
+              credentialStore,
+            );
+
+            orchestrator.on("*", (event) => {
+              switch (event.type) {
+                case "scanProgress":
+                  rpc.send.scanProgress(event);
+                  break;
+                case "scanPhaseComplete":
+                  rpc.send.scanPhaseComplete(event);
+                  break;
+                case "scanReviewReady":
+                  rpc.send.scanReviewReady(event);
+                  break;
+                case "scanExecutionProgress":
+                  rpc.send.scanExecutionProgress(event);
+                  break;
+                case "scanComplete":
+                  rpc.send.scanComplete(event);
+                  cleanupSession(sessionId);
+                  break;
+              }
+            });
+
+            await orchestrator.startScan(path);
+          } catch (err) {
+            console.error("Scan failed:", err);
           }
-        });
-
-        orchestrator.startScan(path).catch((err) => {
-          console.error("Scan failed:", err);
-        });
+        })();
 
         return { sessionId };
       },
@@ -184,6 +195,11 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       },
       setThemeMode: (params) => {
         saveThemeMode(params.mode);
+        return { success: true };
+      },
+      getSidebarCollapsed: () => ({ collapsed: loadSidebarCollapsed() }),
+      setSidebarCollapsed: (params) => {
+        saveSidebarCollapsed(params.collapsed);
         return { success: true };
       },
       rebuildLibrary: async () => libraryHandlers.rebuild(),

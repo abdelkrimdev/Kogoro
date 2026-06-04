@@ -7,8 +7,11 @@ import type {
   ScanFileStatus,
   ReviewPlan as ScanReviewPlan,
   SwapPair as ScanSwapPair,
+  TopCandidate,
 } from "../types";
 import type { ScanResult } from "./scanner";
+
+export type { TopCandidate };
 
 export interface SwapPair {
   files: [string, string];
@@ -257,16 +260,18 @@ function toFileRow(result: ScanResult): FileRow {
     animeId: result.match?.anime.id ?? null,
     episodeId: result.match?.episode?.id ?? null,
     episode: result.match?.episode?.episode ?? null,
+    episodeName: result.match?.episode?.titleEn ?? null,
     failureReason: result.failureReason,
   };
 }
 
-export function aggregateReviewPlan(
+export async function aggregateReviewPlan(
   results: ScanResult[],
   sessionId: string,
   libraryDb?: LibraryDb,
   sourceDb?: string,
-): ScanReviewPlan {
+  computeTopCandidates?: (sourcePath: string) => Promise<TopCandidate[]>,
+): Promise<ScanReviewPlan> {
   const groups = new Map<string, ScanAnimeGroup>();
   let ambiguousCount = 0;
 
@@ -305,6 +310,16 @@ export function aggregateReviewPlan(
   const groupList = Array.from(groups.values());
   for (const group of groupList) {
     group.swapPairs = detectSwapsFromFileRows(group.files);
+  }
+
+  if (computeTopCandidates) {
+    for (const group of groupList) {
+      for (const file of group.files) {
+        if (file.status === "ambiguous") {
+          file.topCandidates = await computeTopCandidates(file.sourcePath);
+        }
+      }
+    }
   }
 
   return {

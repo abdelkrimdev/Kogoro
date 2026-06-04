@@ -275,6 +275,57 @@ describe("ScanOrchestrator", () => {
       await orch.startScan("/test/path");
       expect(reviewEvent?.plan.ambiguousCount).toBe(1);
     });
+
+    test("populates topCandidates on ambiguous files when callback provided", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv"],
+        scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+        computeTopCandidates: async () => [
+          { episodeNumber: 1, title: "Episode 1" },
+          { episodeNumber: 2, title: "Episode 2" },
+        ],
+      });
+      await orch.startScan("/test/path");
+
+      const plan = orch.getPlan();
+      const file = plan?.groups[0]?.files[0];
+      expect(file?.topCandidates).toEqual([
+        { episodeNumber: 1, title: "Episode 1" },
+        { episodeNumber: 2, title: "Episode 2" },
+      ]);
+    });
+
+    test("does not set topCandidates when callback is not provided", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv"],
+        scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+      });
+      await orch.startScan("/test/path");
+
+      const plan = orch.getPlan();
+      const file = plan?.groups[0]?.files[0];
+      expect(file?.topCandidates).toBeUndefined();
+    });
+
+    test("does not set topCandidates on matched files", async () => {
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv"],
+        scanFile: async () =>
+          makeScanResult("/a/ep1.mkv", {
+            match: makeMatchResult(),
+            status: "matched",
+          }),
+        computeTopCandidates: async () => [{ episodeNumber: 1, title: "Episode 1" }],
+      });
+      await orch.startScan("/test/path");
+
+      const plan = orch.getPlan();
+      const file = plan?.groups[0]?.files[0];
+      expect(file?.topCandidates).toBeUndefined();
+    });
   });
 
   describe("cancellation", () => {

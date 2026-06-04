@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { LibraryDb } from "../library/library-db";
 import type { AnimeGroup, MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
-import { aggregateReviewPlan } from "./rename-plan-aggregator";
+import { aggregateReviewPlan, type TopCandidate } from "./rename-plan-aggregator";
 import type { ScanResult } from "./scanner";
 
 export type ScanState = "idle" | "scan" | "plan" | "review" | "execute" | "done";
@@ -78,6 +78,7 @@ export interface ScanOrchestratorOptions {
   resolveFile?: (filePath: string, animeId: string, episodeId: string) => Promise<ScanResult>;
   libraryDb?: LibraryDb;
   sourceDb?: string;
+  computeTopCandidates?: (sourcePath: string) => Promise<TopCandidate[]>;
 }
 
 function buildSummary(
@@ -146,8 +147,9 @@ export class ScanOrchestrator {
   private rejectedAnimeIds: Set<string> = new Set();
   private initialAmbiguousCount: number | null = null;
 
-  constructor(options: ScanOrchestratorOptions) {
+  constructor(options: ScanOrchestratorOptions, sessionId?: string) {
     this.options = options;
+    this.sessionId = sessionId ?? "";
   }
 
   private isDone(): boolean {
@@ -213,12 +215,13 @@ export class ScanOrchestrator {
     return buildSummary(this.sessionId, this.results, renameResults ?? new Map());
   }
 
-  private refreshPlan(): void {
-    this.plan = aggregateReviewPlan(
+  private async refreshPlan(): Promise<void> {
+    this.plan = await aggregateReviewPlan(
       this.results,
       this.sessionId,
       this.options.libraryDb,
       this.options.sourceDb,
+      this.options.computeTopCandidates,
     );
     if (this.initialAmbiguousCount === null) {
       this.initialAmbiguousCount = this.plan.ambiguousCount;
@@ -231,7 +234,9 @@ export class ScanOrchestrator {
       throw new Error("Scan already running");
     }
 
-    this.sessionId = randomUUID();
+    if (!this.sessionId) {
+      this.sessionId = randomUUID();
+    }
     this.results = [];
     this.plan = null;
     this.approvedAnimeIds.clear();
@@ -271,7 +276,7 @@ export class ScanOrchestrator {
       summary: this.makeSummary(),
     });
 
-    this.refreshPlan();
+    await this.refreshPlan();
     this._state = "review";
 
     this.emit({
@@ -423,7 +428,7 @@ export class ScanOrchestrator {
 
     const resolved = await this.options.resolveFile(sourcePath, animeId, episodeId);
     this.results[resultIndex] = resolved;
-    this.refreshPlan();
+    await this.refreshPlan();
 
     this.emitReviewReady();
   }

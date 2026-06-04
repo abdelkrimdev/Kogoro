@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { makeFile, makeGroup, makePlan, makeReviewState } from "../../fixtures";
-import { deriveReviewStats, filterReviewGroups, findSwapPairForFile } from "./review-state";
+import {
+  deriveReviewStats,
+  filterReviewGroups,
+  findSwapPairForFile,
+  getEmptyCardMessage,
+} from "./review-state";
 
 describe("filterReviewGroups", () => {
   describe("search filtering", () => {
@@ -85,6 +90,35 @@ describe("filterReviewGroups", () => {
       const state = makeReviewState({ plan, searchQuery: "parallax" });
       const result = filterReviewGroups(state);
       expect(result).toHaveLength(1);
+      expect(result[0]?.files[0]?.fileId).toBe("f2");
+    });
+
+    it("filters files by episode name", () => {
+      const plan = makePlan([
+        makeGroup({
+          files: [
+            makeFile({ fileId: "f1", episodeName: "Prologue" }),
+            makeFile({ fileId: "f2", episode: 2, episodeName: "Parallax" }),
+          ],
+        }),
+      ]);
+      const state = makeReviewState({ plan, searchQuery: "parallax" });
+      const result = filterReviewGroups(state);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.files).toHaveLength(1);
+      expect(result[0]?.files[0]?.fileId).toBe("f2");
+    });
+
+    it("filters files by episode number", () => {
+      const plan = makePlan([
+        makeGroup({
+          files: [makeFile({ fileId: "f1", episode: 1 }), makeFile({ fileId: "f2", episode: 5 })],
+        }),
+      ]);
+      const state = makeReviewState({ plan, searchQuery: "5" });
+      const result = filterReviewGroups(state);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.files).toHaveLength(1);
       expect(result[0]?.files[0]?.fileId).toBe("f2");
     });
   });
@@ -284,5 +318,27 @@ describe("findSwapPairForFile", () => {
       ],
     });
     expect(findSwapPairForFile(group, "f3")).toBe("f4");
+  });
+});
+
+describe("getEmptyCardMessage", () => {
+  it("returns the ambiguous message for ambiguous files", () => {
+    const file = makeFile({ status: "ambiguous" });
+    expect(getEmptyCardMessage(file)).toBe("Ambiguous — Resolve to choose");
+  });
+
+  it("returns the failed message with reason for failed files", () => {
+    const file = makeFile({ status: "failed", failureReason: "No match in database" });
+    expect(getEmptyCardMessage(file)).toBe("Failed: No match in database");
+  });
+
+  it("returns the no-match message when proposedPath is null", () => {
+    const file = makeFile({ proposedPath: null });
+    expect(getEmptyCardMessage(file)).toBe("No match found");
+  });
+
+  it("returns null for matched files", () => {
+    const file = makeFile({ status: "matched" });
+    expect(getEmptyCardMessage(file)).toBeNull();
   });
 });

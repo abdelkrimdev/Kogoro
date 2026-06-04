@@ -2,11 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  loadSidebarCollapsed,
   loadThemeMode,
-  loadWatchedFolders,
   loadWindowState,
+  saveSidebarCollapsed,
   saveThemeMode,
-  saveWatchedFolders,
   saveWindowState,
 } from "./state";
 
@@ -106,82 +106,42 @@ describe("saveThemeMode", () => {
   });
 });
 
-describe("loadWatchedFolders", () => {
-  test("returns empty array when file does not exist", () => {
+describe("loadSidebarCollapsed", () => {
+  test("returns false when file does not exist", () => {
     mkdirSync(testDir, { recursive: true });
     process.env["KOGORO_STATE_DIR"] = testDir;
-    expect(loadWatchedFolders()).toEqual([]);
+    expect(loadSidebarCollapsed()).toBe(false);
   });
 
-  test("returns empty array for corrupt JSON", () => {
+  test("returns saved value after saveSidebarCollapsed", () => {
     mkdirSync(testDir, { recursive: true });
     process.env["KOGORO_STATE_DIR"] = testDir;
-    writeFileSync(join(testDir, ".watched-folders.json"), "not json");
-    expect(loadWatchedFolders()).toEqual([]);
+    saveSidebarCollapsed(true);
+    expect(loadSidebarCollapsed()).toBe(true);
   });
 
-  test("returns empty array for non-array JSON", () => {
+  test("returns false for corrupt JSON", () => {
     mkdirSync(testDir, { recursive: true });
     process.env["KOGORO_STATE_DIR"] = testDir;
-    writeFileSync(join(testDir, ".watched-folders.json"), JSON.stringify({ foo: "bar" }));
-    expect(loadWatchedFolders()).toEqual([]);
-  });
-
-  test("returns saved folders with exists flags", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
-    const folders = [{ path: "/fake/path", addedAt: "2026-01-01T00:00:00.000Z", exists: false }];
-    saveWatchedFolders(folders);
-    const result = loadWatchedFolders();
-    expect(result).toEqual([
-      { path: "/fake/path", addedAt: "2026-01-01T00:00:00.000Z", exists: false },
-    ]);
-  });
-
-  test("returns exists true for paths that exist on disk", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
-    mkdirSync(join(testDir, "real-folder"), { recursive: true });
-    const folders = [
-      { path: join(testDir, "real-folder"), addedAt: "2026-01-01T00:00:00.000Z", exists: false },
-    ];
-    saveWatchedFolders(folders);
-    const result = loadWatchedFolders();
-    expect(result).toEqual([
-      { path: join(testDir, "real-folder"), addedAt: "2026-01-01T00:00:00.000Z", exists: true },
-    ]);
+    writeFileSync(join(testDir, ".sidebar-state.json"), "{bad");
+    expect(loadSidebarCollapsed()).toBe(false);
   });
 });
 
-describe("saveWatchedFolders", () => {
-  test("writes folders to disk", () => {
+describe("saveSidebarCollapsed", () => {
+  test("writes collapsed state to disk", () => {
     mkdirSync(testDir, { recursive: true });
     process.env["KOGORO_STATE_DIR"] = testDir;
-    const folders = [
-      {
-        path: "/media/anime",
-        addedAt: "2026-01-01T00:00:00.000Z",
-        lastScannedAt: "2026-06-01T00:00:00.000Z",
-        exists: false,
-      },
-    ];
-    saveWatchedFolders(folders);
-    const raw = readFileSync(join(testDir, ".watched-folders.json"), "utf-8");
-    expect(JSON.parse(raw)).toEqual([
-      {
-        path: "/media/anime",
-        addedAt: "2026-01-01T00:00:00.000Z",
-        lastScannedAt: "2026-06-01T00:00:00.000Z",
-      },
-    ]);
+    saveSidebarCollapsed(true);
+    const raw = readFileSync(join(testDir, ".sidebar-state.json"), "utf-8");
+    expect(JSON.parse(raw)).toEqual({ collapsed: true });
   });
 
-  test("overwrites previous folders", () => {
+  test("overwrites previous state", () => {
     mkdirSync(testDir, { recursive: true });
     process.env["KOGORO_STATE_DIR"] = testDir;
-    saveWatchedFolders([{ path: "/old", addedAt: "2026-01-01T00:00:00.000Z", exists: false }]);
-    saveWatchedFolders([{ path: "/new", addedAt: "2026-02-01T00:00:00.000Z", exists: false }]);
-    const result = loadWatchedFolders();
-    expect(result).toEqual([{ path: "/new", addedAt: "2026-02-01T00:00:00.000Z", exists: false }]);
+    saveSidebarCollapsed(true);
+    saveSidebarCollapsed(false);
+    expect(loadSidebarCollapsed()).toBe(false);
   });
 });

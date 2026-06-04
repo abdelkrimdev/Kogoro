@@ -84,6 +84,11 @@ export type ScanFileStatus =
   | "renamed"
   | "rename-failed";
 
+export interface TopCandidate {
+  episodeNumber: number;
+  title: string;
+}
+
 export interface FileRow {
   fileId: string;
   sourcePath: string;
@@ -92,7 +97,9 @@ export interface FileRow {
   animeId: string | null;
   episodeId: string | null;
   episode: number | null;
+  episodeName: string | null;
   failureReason?: string;
+  topCandidates?: TopCandidate[];
 }
 
 export interface AnimeGroup {

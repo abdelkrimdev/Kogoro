@@ -2,6 +2,7 @@
   import { X, LoaderCircle } from '@lucide/svelte';
   import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import type { ResolveCandidate } from "../../shared/types";
+  import { entryTypeLabel } from "../shared";
 
   interface Props {
     open: boolean;
@@ -59,7 +60,7 @@
                       {candidate.animeTitle}
                     </span>
                   <span class="badge preset-tonal-surface text-xs">
-                    {candidate.entryType}
+                    {entryTypeLabel(candidate.entryType)}
                   </span>
                 </div>
                 <div class="text-sm text-surface-700-300">

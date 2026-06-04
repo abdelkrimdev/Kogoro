@@ -16,6 +16,7 @@ function onMessage(handler: MessageHandler) {
 }
 
 const rpc = Electroview.defineRPC<AppRPC>({
+  maxRequestTime: Infinity,
   handlers: {
     requests: {},
     messages: {

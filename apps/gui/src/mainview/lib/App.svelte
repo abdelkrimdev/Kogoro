@@ -14,13 +14,13 @@
     reduceClearAfterComplete,
     type ScanSessionSnapshot,
   } from "../state/scan-session-reducer";
-  import { NAV_ITEMS, loadSidebarCollapsed, saveSidebarCollapsed, type View } from "../state/nav";
+  import { NAV_ITEMS, type View } from "../state/nav";
   import Wizard from "./Wizard.svelte";
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
   import Detail from "./Detail.svelte";
   import SettingsView from "./Settings.svelte";
-  import ScanView from "./ScanView.svelte";
+  import Scan from "./Scan.svelte";
 
   type LibraryStats = AppRPC["bun"]["requests"]["getLibraryStats"]["response"];
 
@@ -58,10 +58,10 @@
     themeState.load();
   });
 
-  let sidebarCollapsed = $state(loadSidebarCollapsed());
+  let sidebarCollapsed = $state(false);
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
-    saveSidebarCollapsed(sidebarCollapsed);
+    rpc.request("setSidebarCollapsed", { collapsed: sidebarCollapsed }).catch(() => {});
   }
 
   $effect(() => {
@@ -128,9 +128,12 @@
   onMount(async () => {
     const startTime = Date.now();
 
-    const { needsOnboarding } = (await rpc.request("checkOnboarding", {})) as {
-      needsOnboarding: boolean;
-    };
+    const [{ needsOnboarding }, sidebarResult] = await Promise.all([
+      rpc.request("checkOnboarding", {}) as Promise<{ needsOnboarding: boolean }>,
+      rpc.request("getSidebarCollapsed", {}) as Promise<{ collapsed: boolean }>,
+    ]);
+
+    sidebarCollapsed = sidebarResult.collapsed;
 
     let view: View;
     if (needsOnboarding) {
@@ -231,7 +234,7 @@
           </Navigation.Content>
         </Navigation>
       {/if}
-      <main class="flex-1 overflow-auto">
+      <main class="flex-1 overflow-auto relative">
         {#if currentView === "review" && snap.plan && snap.sessionId}
           <Review {rpc} sessionId={snap.sessionId} plan={snap.plan} onComplete={onReviewComplete} />
         {:else if currentView === "library"}
@@ -241,7 +244,7 @@
         {:else if currentView === "details" && currentDetailId}
           <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
         {:else}
-          <ScanView {rpc} {onMessage} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} {onBatchReviewResults} />
+          <Scan {rpc} {onMessage} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} {onBatchReviewResults} />
         {/if}
       </main>
     </div>
