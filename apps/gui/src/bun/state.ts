@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ThemeMode } from "../shared/types";
+import type { ThemeMode, WatchedFolder } from "../shared/types";
 
 export type WindowFrame = { x: number; y: number; width: number; height: number };
 
@@ -52,6 +52,44 @@ export function loadThemeMode(): ThemeMode | null {
 export function saveThemeMode(mode: ThemeMode) {
   try {
     writeFileSync(themePath(), JSON.stringify({ mode }, null, 2));
+  } catch {
+    // ignore write errors
+  }
+}
+
+type WatchedFolderStored = {
+  path: string;
+  addedAt: string;
+  lastScannedAt?: string;
+};
+
+function watchedFoldersPath() {
+  return join(stateDir(), ".watched-folders.json");
+}
+
+export function loadWatchedFolders(): WatchedFolder[] {
+  try {
+    const file = watchedFoldersPath();
+    if (existsSync(file)) {
+      const data = JSON.parse(readFileSync(file, "utf-8"));
+      if (!Array.isArray(data)) return [];
+      return data
+        .filter(
+          (f: unknown): f is WatchedFolderStored =>
+            typeof f === "object" && f !== null && "path" in f && "addedAt" in f,
+        )
+        .map((f) => ({ ...f, exists: existsSync(f.path) }));
+    }
+  } catch {
+    // ignore corrupt state
+  }
+  return [];
+}
+
+export function saveWatchedFolders(folders: WatchedFolder[]) {
+  try {
+    const stored = folders.map(({ exists: _, ...rest }) => rest);
+    writeFileSync(watchedFoldersPath(), JSON.stringify(stored, null, 2));
   } catch {
     // ignore write errors
   }

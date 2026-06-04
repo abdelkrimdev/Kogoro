@@ -15,6 +15,13 @@ export interface ResolveCandidate {
   score: number;
 }
 
+export type WatchedFolder = {
+  path: string;
+  addedAt: string;
+  lastScannedAt?: string;
+  exists: boolean;
+};
+
 export interface AnimeDetail {
   anime: {
     id: string;
@@ -241,6 +248,18 @@ export type AppRPC = {
       rebuildLibrary: {
         params: Record<string, never>;
         response: { success: boolean; error?: string };
+      };
+      getWatchedFolders: {
+        params: Record<string, never>;
+        response: WatchedFolder[];
+      };
+      addWatchedFolder: {
+        params: { path: string };
+        response: WatchedFolder;
+      };
+      removeWatchedFolder: {
+        params: { path: string };
+        response: { success: boolean };
       };
     };
     messages: {

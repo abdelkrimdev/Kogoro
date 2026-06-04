@@ -12,7 +12,14 @@ import {
   getOrchestrator,
 } from "./scan";
 import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
-import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "./state";
+import {
+  loadThemeMode,
+  loadWatchedFolders,
+  loadWindowState,
+  saveThemeMode,
+  saveWatchedFolders,
+  saveWindowState,
+} from "./state";
 
 const savedState = loadWindowState();
 
@@ -181,6 +188,20 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return { success: true };
       },
       rebuildLibrary: async () => libraryHandlers.rebuild(),
+      getWatchedFolders: () => loadWatchedFolders(),
+      addWatchedFolder: (params) => {
+        const folders = loadWatchedFolders();
+        const existing = folders.find((f) => f.path === params.path);
+        if (existing) return existing;
+        const folder = { path: params.path, addedAt: new Date().toISOString(), exists: true };
+        saveWatchedFolders([...folders, folder]);
+        return folder;
+      },
+      removeWatchedFolder: (params) => {
+        const folders = loadWatchedFolders();
+        saveWatchedFolders(folders.filter((f) => f.path !== params.path));
+        return { success: true };
+      },
     },
     messages: {
       windowWillClose: (data) => {
