@@ -114,9 +114,7 @@
   const breakdown = $derived(scanProgressState ? deriveBreakdown(scanProgressState) : null);
   const hasTrackedFolders = $derived(enrichedFolders.length > 0);
   const toolbar = $derived(deriveScanToolbar(enrichedFolders));
-  const scanSelectedDisabled = $derived(
-    requesting || scanning || (toolbar.selectableCount > 0 && !toolbar.allSelected && !toolbar.someSelected),
-  );
+  const scanSelectedDisabled = $derived(requesting || scanning || toolbar.noneSelected);
 </script>
 
 {#if scanning && scanProgressState}

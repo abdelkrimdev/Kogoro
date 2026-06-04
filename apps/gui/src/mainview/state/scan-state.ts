@@ -69,6 +69,7 @@ export function toggleAll(folders: EnrichedFolder[]): EnrichedFolder[] {
 export interface ScanToolbarState {
   allSelected: boolean;
   someSelected: boolean;
+  noneSelected: boolean;
   selectableCount: number;
 }
 
@@ -79,6 +80,7 @@ export function deriveScanToolbar(folders: EnrichedFolder[]): ScanToolbarState {
   return {
     allSelected: selectableCount > 0 && selectedCount === selectableCount,
     someSelected: selectedCount > 0 && selectedCount < selectableCount,
+    noneSelected: selectableCount > 0 && selectedCount === 0,
     selectableCount,
   };
 }
