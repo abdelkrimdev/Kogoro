@@ -1,5 +1,13 @@
 import { describe, expect, it } from "bun:test";
-import { deriveFolderStatus, deriveScanFolders, relativeTimestamp } from "./scan-state";
+import {
+  deriveFolderStatus,
+  deriveScanFolders,
+  deriveScanToolbar,
+  type EnrichedFolder,
+  relativeTimestamp,
+  toggleAll,
+  toggleFolder,
+} from "./scan-state";
 
 describe("deriveFolderStatus", () => {
   it("returns 'new' when folder has never been scanned", () => {
@@ -75,6 +83,15 @@ describe("deriveScanFolders", () => {
     expect(result[0]?.addedAt).toBe(base);
     expect(result[0]?.lastScannedAt).toBe(scanned);
   });
+
+  it("defaults selected to false for all folders", () => {
+    const result = deriveScanFolders([
+      { path: "/media/anime/Naruto", addedAt: base, exists: true },
+      { path: "/media/anime/Bleach", addedAt: base, exists: false },
+    ]);
+    expect(result[0]?.selected).toBe(false);
+    expect(result[1]?.selected).toBe(false);
+  });
 });
 
 describe("relativeTimestamp", () => {
@@ -101,5 +118,212 @@ describe("relativeTimestamp", () => {
   it("returns days ago format", () => {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     expect(relativeTimestamp(threeDaysAgo)).toBe("3d ago");
+  });
+});
+
+describe("toggleFolder", () => {
+  function makeFolder(overrides: Partial<EnrichedFolder> = {}): EnrichedFolder {
+    return {
+      path: overrides.path ?? "/anime/Show",
+      basename: overrides.basename ?? "Show",
+      addedAt: overrides.addedAt ?? "2026-01-01T00:00:00.000Z",
+      lastScannedAt: overrides.lastScannedAt,
+      exists: overrides.exists ?? true,
+      status: overrides.status ?? "new",
+      selected: overrides.selected ?? false,
+    };
+  }
+
+  it("toggles selected from false to true for an existing folder", () => {
+    const folders = [makeFolder({ path: "/anime/Naruto" })];
+    const result = toggleFolder(folders, "/anime/Naruto");
+    expect(result[0]?.selected).toBe(true);
+  });
+
+  it("toggles selected from true to false for an existing folder", () => {
+    const folders = [makeFolder({ path: "/anime/Naruto", selected: true })];
+    const result = toggleFolder(folders, "/anime/Naruto");
+    expect(result[0]?.selected).toBe(false);
+  });
+
+  it("does not toggle selected for a missing folder", () => {
+    const folders = [makeFolder({ path: "/anime/Deleted", exists: false })];
+    const result = toggleFolder(folders, "/anime/Deleted");
+    expect(result[0]?.selected).toBe(false);
+  });
+
+  it("returns unchanged array when path does not match any folder", () => {
+    const folders = [makeFolder({ path: "/anime/Naruto" })];
+    const result = toggleFolder(folders, "/anime/Bleach");
+    expect(result).toEqual(folders);
+  });
+
+  it("returns a new array and does not mutate the original", () => {
+    const folders = [makeFolder({ path: "/anime/Naruto", selected: true })];
+    const result = toggleFolder(folders, "/anime/Naruto");
+    expect(result).not.toBe(folders);
+    expect(result[0]).not.toBe(folders[0]);
+    expect(folders[0]?.selected).toBe(true);
+  });
+
+  it("toggles only the matching folder when multiple folders exist", () => {
+    const folders = [
+      makeFolder({ path: "/anime/Naruto", selected: true }),
+      makeFolder({ path: "/anime/Bleach", selected: false }),
+      makeFolder({ path: "/anime/OnePiece", selected: false, exists: false }),
+    ];
+    const result = toggleFolder(folders, "/anime/Bleach");
+    expect(result[0]?.selected).toBe(true);
+    expect(result[1]?.selected).toBe(true);
+    expect(result[2]?.selected).toBe(false);
+  });
+});
+
+describe("toggleAll", () => {
+  function makeFolder(overrides: Partial<EnrichedFolder> = {}): EnrichedFolder {
+    return {
+      path: overrides.path ?? "/anime/Show",
+      basename: overrides.basename ?? "Show",
+      addedAt: overrides.addedAt ?? "2026-01-01T00:00:00.000Z",
+      lastScannedAt: overrides.lastScannedAt,
+      exists: overrides.exists ?? true,
+      status: overrides.status ?? "new",
+      selected: overrides.selected ?? false,
+    };
+  }
+
+  it("selects all non-missing folders when none are selected", () => {
+    const folders = [
+      makeFolder({ path: "/a/Show1", selected: false }),
+      makeFolder({ path: "/a/Show2", selected: false }),
+    ];
+    const result = toggleAll(folders);
+    expect(result[0]?.selected).toBe(true);
+    expect(result[1]?.selected).toBe(true);
+  });
+
+  it("selects all non-missing folders when some are selected", () => {
+    const folders = [
+      makeFolder({ path: "/a/Show1", selected: true }),
+      makeFolder({ path: "/a/Show2", selected: false }),
+    ];
+    const result = toggleAll(folders);
+    expect(result[0]?.selected).toBe(true);
+    expect(result[1]?.selected).toBe(true);
+  });
+
+  it("deselects all non-missing folders when all are already selected", () => {
+    const folders = [
+      makeFolder({ path: "/a/Show1", selected: true }),
+      makeFolder({ path: "/a/Show2", selected: true }),
+    ];
+    const result = toggleAll(folders);
+    expect(result[0]?.selected).toBe(false);
+    expect(result[1]?.selected).toBe(false);
+  });
+
+  it("never toggles missing folders", () => {
+    const folders = [
+      makeFolder({ path: "/a/Show1", selected: false }),
+      makeFolder({ path: "/a/Show2", exists: false, status: "missing" }),
+    ];
+    const result = toggleAll(folders);
+    expect(result[0]?.selected).toBe(true);
+    expect(result[1]?.selected).toBe(false);
+  });
+
+  it("returns a new array and does not mutate the original", () => {
+    const folders = [makeFolder({ path: "/a/Show1", selected: false })];
+    const result = toggleAll(folders);
+    expect(result).not.toBe(folders);
+    expect(folders[0]?.selected).toBe(false);
+  });
+
+  it("handles empty array", () => {
+    expect(toggleAll([])).toEqual([]);
+  });
+
+  it("handles all-missing folders", () => {
+    const folders = [
+      makeFolder({ path: "/a/Show1", exists: false, status: "missing", selected: false }),
+      makeFolder({ path: "/a/Show2", exists: false, status: "missing", selected: false }),
+    ];
+    const result = toggleAll(folders);
+    expect(result[0]?.selected).toBe(false);
+    expect(result[1]?.selected).toBe(false);
+  });
+});
+
+describe("deriveScanToolbar", () => {
+  function makeFolder(overrides: Partial<EnrichedFolder> = {}): EnrichedFolder {
+    return {
+      path: overrides.path ?? "/anime/Show",
+      basename: overrides.basename ?? "Show",
+      addedAt: overrides.addedAt ?? "2026-01-01T00:00:00.000Z",
+      lastScannedAt: overrides.lastScannedAt,
+      exists: overrides.exists ?? true,
+      status: overrides.status ?? "new",
+      selected: overrides.selected ?? false,
+    };
+  }
+
+  it("returns allSelected:true when all non-missing folders are selected", () => {
+    const folders = [
+      makeFolder({ path: "/a/S1", selected: true }),
+      makeFolder({ path: "/a/S2", selected: true }),
+    ];
+    const result = deriveScanToolbar(folders);
+    expect(result.allSelected).toBe(true);
+    expect(result.someSelected).toBe(false);
+    expect(result.selectableCount).toBe(2);
+  });
+
+  it("returns someSelected:true when some but not all non-missing are selected", () => {
+    const folders = [
+      makeFolder({ path: "/a/S1", selected: true }),
+      makeFolder({ path: "/a/S2", selected: false }),
+    ];
+    const result = deriveScanToolbar(folders);
+    expect(result.allSelected).toBe(false);
+    expect(result.someSelected).toBe(true);
+    expect(result.selectableCount).toBe(2);
+  });
+
+  it("returns both false when no folders are selected", () => {
+    const folders = [
+      makeFolder({ path: "/a/S1", selected: false }),
+      makeFolder({ path: "/a/S2", selected: false }),
+    ];
+    const result = deriveScanToolbar(folders);
+    expect(result.allSelected).toBe(false);
+    expect(result.someSelected).toBe(false);
+    expect(result.selectableCount).toBe(2);
+  });
+
+  it("excludes missing folders from selectableCount", () => {
+    const folders = [
+      makeFolder({ path: "/a/S1", selected: false }),
+      makeFolder({ path: "/a/S2", exists: false, status: "missing" }),
+    ];
+    const result = deriveScanToolbar(folders);
+    expect(result.selectableCount).toBe(1);
+  });
+
+  it("returns allSelected:false and selectableCount:0 when all folders are missing", () => {
+    const folders = [
+      makeFolder({ path: "/a/S1", exists: false, status: "missing" }),
+      makeFolder({ path: "/a/S2", exists: false, status: "missing" }),
+    ];
+    const result = deriveScanToolbar(folders);
+    expect(result.allSelected).toBe(false);
+    expect(result.someSelected).toBe(false);
+    expect(result.selectableCount).toBe(0);
+  });
+
+  it("handles empty array", () => {
+    const result = deriveScanToolbar([]);
+    expect(result.allSelected).toBe(false);
+    expect(result.someSelected).toBe(false);
+    expect(result.selectableCount).toBe(0);
   });
 });
