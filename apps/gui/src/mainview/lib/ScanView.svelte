@@ -48,7 +48,6 @@
   }: Props = $props();
 
   let listContainer: HTMLDivElement | undefined = $state();
-  let requesting = $state(false);
   let enrichedFolders: EnrichedFolder[] = $state([]);
   let removing: string | null = $state(null);
   let dragOver = $state(false);
@@ -155,7 +154,6 @@
     showBatchSummary = false;
     scanSummaries = [];
     const total = selected.length;
-    const first = selected[0]!;
 
     const unregister = onMessage((msg, data) => {
       if (msg === "scanReviewReady" && pendingScanResolve) {
@@ -164,14 +162,6 @@
         pendingScanResolve = null;
       }
     });
-
-    batchScanProgress = {
-      currentIndex: 0,
-      total,
-      currentPath: first.path,
-      currentBasename: first.basename,
-      isComplete: false,
-    };
 
     for (let i = 0; i < selected.length; i++) {
       const folder = selected[i]!;
@@ -211,7 +201,7 @@
 
     unregister();
     scanningFolderPath = null;
-    batchScanProgress = { ...batchScanProgress, isComplete: true };
+    batchScanProgress = { ...batchScanProgress!, isComplete: true };
     scanSummaries = deriveScanSummaries(perFolderPlans, enrichedFolders);
     showBatchSummary = true;
   }
@@ -233,7 +223,7 @@
   const dropZoneHighlight = $derived(dragOver ? 'border-primary-500 bg-primary-500/10' : '');
   const toolbar = $derived(deriveScanToolbar(enrichedFolders));
   const isBatchScanning = $derived(batchScanProgress !== null && !(batchScanProgress as BatchScanProgress).isComplete);
-  const scanSelectedDisabled = $derived(requesting || scanning || isBatchScanning || toolbar.noneSelected);
+  const scanSelectedDisabled = $derived(scanning || isBatchScanning || toolbar.noneSelected);
 </script>
 
 <div class="flex flex-col h-full p-4 gap-4">
@@ -291,7 +281,7 @@
             />
             <div class="flex-1 min-w-0">
               <span class="text-sm text-surface-950-50 truncate block">{folder.path}</span>
-              {#if scanningFolderPath === folder.path || (isBatchScanning && scanningFolderPath === null)}
+              {#if scanningFolderPath === folder.path}
                 <span class="badge preset-tonal-primary text-xs mt-1">
                   <LoaderCircle class="size-3 animate-spin inline mr-1" />
                   Scanning...
