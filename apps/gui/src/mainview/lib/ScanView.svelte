@@ -82,6 +82,12 @@
     dragOver = false;
   }
 
+  function extractFolderPath(filePath: string): string {
+    const separator = filePath.includes("\\") ? "\\" : "/";
+    const lastSep = filePath.lastIndexOf(separator);
+    return lastSep > 0 ? filePath.substring(0, lastSep) : filePath;
+  }
+
   async function handleDrop(e: DragEvent) {
     e.preventDefault();
     dragOver = false;
@@ -93,12 +99,8 @@
     const filePath: string | undefined = files[0].path;
     if (!filePath) return;
 
-    const separator = filePath.includes("\\") ? "\\" : "/";
-    const lastSep = filePath.lastIndexOf(separator);
-    const folderPath = lastSep > 0 ? filePath.substring(0, lastSep) : filePath;
-
     try {
-      await rpc.request("addWatchedFolder", { path: folderPath });
+      await rpc.request("addWatchedFolder", { path: extractFolderPath(filePath) });
       await loadTrackedFolders();
     } catch (err) {
       console.error("Failed to add watched folder via drop:", err);
@@ -110,6 +112,10 @@
   const indeterminate = $derived(scanProgressState ? isIndeterminate(scanProgressState) : false);
   const breakdown = $derived(scanProgressState ? deriveBreakdown(scanProgressState) : null);
   const hasTrackedFolders = $derived(trackedFolders.length > 0);
+  const dropZoneLayout = $derived(hasTrackedFolders ? 'p-3' : 'flex-1 flex flex-col items-center justify-center p-8');
+  const dropZoneIconSize = $derived(hasTrackedFolders ? 'size-8' : 'size-16');
+  const dropZoneTextStyle = $derived(hasTrackedFolders ? 'text-xs mt-1' : 'text-sm mt-3');
+  const dropZoneHighlight = $derived(dragOver ? 'border-primary-500 bg-primary-500/10' : '');
 </script>
 
 {#if scanning && scanProgressState}
@@ -193,9 +199,7 @@
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="border-2 border-dashed border-surface-400-500 rounded-lg text-center cursor-pointer transition-colors
-        {hasTrackedFolders ? 'p-3' : 'flex-1 flex flex-col items-center justify-center p-8'}
-        {dragOver ? 'border-primary-500 bg-primary-500/10' : ''}"
+      class="border-2 border-dashed border-surface-400-500 rounded-lg text-center cursor-pointer transition-colors {dropZoneLayout} {dropZoneHighlight}"
       role="button"
       tabindex="0"
       ondragover={handleDragOver}
@@ -204,8 +208,8 @@
       onclick={startScan}
       onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? startScan() : null}
     >
-      <FolderSearch class="{hasTrackedFolders ? 'size-8' : 'size-16'} text-surface-600-400 mx-auto" />
-      <p class="text-surface-600-400 {hasTrackedFolders ? 'text-xs mt-1' : 'text-sm mt-3'}">
+      <FolderSearch class="text-surface-600-400 mx-auto {dropZoneIconSize}" />
+      <p class="text-surface-600-400 {dropZoneTextStyle}">
         Drop a folder here or click to browse
       </p>
     </div>
