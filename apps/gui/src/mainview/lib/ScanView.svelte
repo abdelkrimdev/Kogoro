@@ -18,6 +18,7 @@
     toggleFolder,
     type BatchScanProgress,
     type EnrichedFolder,
+    type ScanSummaryEntry,
   } from "../state/scan-state";
 
   interface TrackedFolder {
@@ -47,7 +48,7 @@
   let batchProgress: BatchScanProgress | null = $state(null);
   let showSummary = $state(false);
   let perFolderPlans = $state<Map<string, ReviewPlan>>(new Map());
-  let scanSummaries = $state<ReturnType<typeof deriveScanSummaries>>([]);
+  let scanSummaries = $state<ScanSummaryEntry[]>([]);
 
   $effect(() => {
     if (scanProgressState && listContainer) {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { AppRPC } from "../../shared/types";
+  import type { ReviewPlan } from "@kogoro/core";
   import { Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
   import { onMount } from 'svelte';
@@ -116,7 +117,7 @@
     snap = reduceClearAfterReview(snap);
   }
 
-  function onBatchReviewResults(plan: import("@kogoro/core").ReviewPlan) {
+  function onBatchReviewResults(plan: ReviewPlan) {
     snap = { ...snap, plan, sessionId: plan.sessionId };
     currentView = "review";
     snap = reduceOnViewResults(snap);
