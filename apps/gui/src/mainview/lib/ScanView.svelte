@@ -7,10 +7,13 @@
     getStatusColor,
     isIndeterminate,
   } from "../state/scan-progress-state";
+  import type { ReviewPlan } from "@kogoro/core";
   import {
     deriveBatchProgress,
     deriveScanFolders,
+    deriveScanSummaries,
     deriveScanToolbar,
+    mergeReviewPlans,
     toggleAll,
     toggleFolder,
     type BatchScanProgress,
@@ -31,9 +34,10 @@
     onScanStarted: () => void;
     reviewReady: boolean;
     onViewResults: () => void;
+    onBatchReviewResults: (plan: ReviewPlan) => void;
   }
 
-  let { rpc, onMessage, scanProgressState, onScanStarted, reviewReady = false, onViewResults }: Props = $props();
+  let { rpc, onMessage, scanProgressState, onScanStarted, reviewReady = false, onViewResults, onBatchReviewResults }: Props = $props();
 
   let listContainer: HTMLDivElement | undefined = $state();
   let enrichedFolders: EnrichedFolder[] = $state([]);
@@ -42,6 +46,8 @@
   let batchScanning = $state(false);
   let batchProgress: BatchScanProgress | null = $state(null);
   let showSummary = $state(false);
+  let perFolderPlans = $state<Map<string, ReviewPlan>>(new Map());
+  let scanSummaries = $state<ReturnType<typeof deriveScanSummaries>>([]);
 
   $effect(() => {
     if (scanProgressState && listContainer) {
@@ -137,6 +143,7 @@
     try {
       batchScanning = true;
       showSummary = false;
+      perFolderPlans = new Map();
 
       enrichedFolders = enrichedFolders.map((f) =>
         f.selected && f.exists ? { ...f, batchStatus: "pending" as const } : f,
@@ -159,8 +166,9 @@
         await new Promise<void>((resolve) => {
           const unsub = onMessage((message, data) => {
             if (message === "scanReviewReady") {
-              const event = data as { sessionId: string };
+              const event = data as { sessionId: string; plan: ReviewPlan };
               if (event.sessionId === result.sessionId) {
+                perFolderPlans.set(folder.path, event.plan);
                 unsub();
                 resolve();
               }
@@ -183,6 +191,7 @@
         await rpc.request("markWatchedFolderScanned", { path: folder.path }).catch(() => {});
       }
 
+      scanSummaries = deriveScanSummaries(perFolderPlans, enrichedFolders);
       batchScanning = false;
       batchProgress = null;
       showSummary = true;
@@ -321,13 +330,20 @@
           <span class="text-sm font-medium text-surface-950-50">Batch scan complete</span>
         </div>
         <div class="space-y-1">
-          {#each enrichedFolders.filter((f) => f.batchStatus === "completed") as folder}
+          {#each scanSummaries as summary}
             <div class="flex items-center justify-between text-xs">
-              <span class="text-surface-700-300 truncate">{folder.basename}</span>
-              <span class="badge preset-tonal-success text-xs shrink-0">Indexed</span>
+              <span class="text-surface-700-300 truncate">{summary.basename}</span>
+              <span class="text-surface-600-400 shrink-0">{summary.matchCount}/{summary.fileCount} matched</span>
             </div>
           {/each}
         </div>
+        <button
+          type="button"
+          class="btn preset-filled-primary-500 rounded-lg font-medium w-full"
+          onclick={() => onBatchReviewResults(mergeReviewPlans([...perFolderPlans.values()]))}
+        >
+          Review Results
+        </button>
       </div>
     {/if}
     {#if hasTrackedFolders}

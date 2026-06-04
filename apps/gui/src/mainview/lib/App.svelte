@@ -116,6 +116,12 @@
     snap = reduceClearAfterReview(snap);
   }
 
+  function onBatchReviewResults(plan: import("@kogoro/core").ReviewPlan) {
+    snap = { ...snap, plan, sessionId: plan.sessionId };
+    currentView = "review";
+    snap = reduceOnViewResults(snap);
+  }
+
   const MIN_SPINNER_MS = 500;
 
   onMount(async () => {
@@ -234,7 +240,7 @@
         {:else if currentView === "details" && currentDetailId}
           <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
         {:else}
-          <ScanView {rpc} {onMessage} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} />
+          <ScanView {rpc} {onMessage} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} {onBatchReviewResults} />
         {/if}
       </main>
     </div>
