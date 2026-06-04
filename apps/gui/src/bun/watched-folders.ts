@@ -22,27 +22,20 @@ export function loadWatchedFolders(): WatchedFolder[] {
       const data = JSON.parse(readFileSync(file, "utf-8"));
       if (Array.isArray(data)) return data;
     }
-  } catch {
-    // ignore corrupt data
-  }
+  } catch {}
   return [];
 }
 
 function saveWatchedFolders(folders: WatchedFolder[]) {
   try {
     writeFileSync(watchedFoldersPath(), JSON.stringify(folders, null, 2));
-  } catch {
-    // ignore write errors
-  }
+  } catch {}
 }
 
 export function addWatchedFolder(path: string): WatchedFolder {
   const folders = loadWatchedFolders();
-  const exists = folders.some((f) => f.path === path);
-  if (exists) {
-    const found = folders.find((f) => f.path === path);
-    if (found) return found;
-  }
+  const found = folders.find((f) => f.path === path);
+  if (found) return found;
 
   const entry: WatchedFolder = { path, addedAt: new Date().toISOString() };
   folders.push(entry);

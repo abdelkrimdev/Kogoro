@@ -1,10 +1,5 @@
 import { existsSync } from "node:fs";
-import {
-  addWatchedFolder,
-  loadWatchedFolders,
-  removeWatchedFolder,
-  type WatchedFolder,
-} from "./watched-folders";
+import { addWatchedFolder, loadWatchedFolders, removeWatchedFolder } from "./watched-folders";
 
 export interface WatchedFolderResponse {
   path: string;
@@ -15,7 +10,7 @@ export interface WatchedFolderResponse {
 
 export function getWatchedFoldersHandler(): WatchedFolderResponse[] {
   const folders = loadWatchedFolders();
-  return folders.map((f: WatchedFolder) => ({
+  return folders.map((f) => ({
     ...f,
     exists: existsSync(f.path),
   }));
