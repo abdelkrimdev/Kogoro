@@ -143,7 +143,7 @@ describe("loadWatchedFolders", () => {
     process.env["KOGORO_STATE_DIR"] = testDir;
     mkdirSync(join(testDir, "real-folder"), { recursive: true });
     const folders = [
-      { path: join(testDir, "real-folder"), addedAt: "2026-01-01T00:00:00.000Z", exists: true },
+      { path: join(testDir, "real-folder"), addedAt: "2026-01-01T00:00:00.000Z", exists: false },
     ];
     saveWatchedFolders(folders);
     const result = loadWatchedFolders();

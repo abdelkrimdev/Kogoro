@@ -57,11 +57,7 @@ export function saveThemeMode(mode: ThemeMode) {
   }
 }
 
-type WatchedFolderStored = {
-  path: string;
-  addedAt: string;
-  lastScannedAt?: string;
-};
+type WatchedFolderStored = Omit<WatchedFolder, "exists">;
 
 function watchedFoldersPath() {
   return join(stateDir(), ".watched-folders.json");
