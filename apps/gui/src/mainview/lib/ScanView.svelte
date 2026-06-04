@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FolderSearch } from '@lucide/svelte';
+  import { FolderSearch, X, FolderOpen } from '@lucide/svelte';
   import type { ScanProgressState } from "../state/scan-progress-state";
   import {
     deriveBreakdown,
@@ -7,6 +7,8 @@
     getStatusColor,
     isIndeterminate,
   } from "../state/scan-progress-state";
+  import { deriveScanFolders, type EnrichedFolder, type FolderStatus } from "../state/scan-state";
+  import type { WatchedFolder } from "../../shared/types";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -20,6 +22,32 @@
 
   let listContainer: HTMLDivElement | undefined = $state();
   let requesting = $state(false);
+  let folders: EnrichedFolder[] = $state([]);
+  let foldersLoaded = $state(false);
+
+  async function loadFolders() {
+    try {
+      const raw = (await rpc.request("getWatchedFolders", {})) as WatchedFolder[];
+      folders = deriveScanFolders(raw);
+    } catch {
+      folders = [];
+    } finally {
+      foldersLoaded = true;
+    }
+  }
+
+  $effect(() => {
+    loadFolders();
+  });
+
+  async function removeFolder(path: string) {
+    try {
+      await rpc.request("removeWatchedFolder", { path });
+      folders = folders.filter((f) => f.path !== path);
+    } catch (err) {
+      console.error("Failed to remove folder:", err);
+    }
+  }
 
   $effect(() => {
     if (scanProgressState && listContainer) {
@@ -45,6 +73,18 @@
   const progressPercent = $derived(scanProgressState ? deriveProgressPercent(scanProgressState) : 0);
   const indeterminate = $derived(scanProgressState ? isIndeterminate(scanProgressState) : false);
   const breakdown = $derived(scanProgressState ? deriveBreakdown(scanProgressState) : null);
+  const hasFolders = $derived(foldersLoaded && folders.length > 0);
+
+  function folderStatusBadge(status: FolderStatus): string {
+    switch (status) {
+      case "new":
+        return "badge preset-tonal-primary";
+      case "indexed":
+        return "badge preset-tonal-success";
+      case "missing":
+        return "badge preset-tonal-error";
+    }
+  }
 </script>
 
 {#if scanning && scanProgressState}
@@ -92,18 +132,51 @@
     </div>
   </div>
 {:else}
-  <div class="flex items-center justify-center h-full">
-    <div class="text-center space-y-4">
-      <FolderSearch class="size-16 text-surface-600-400 mx-auto" />
-      <p class="text-surface-600-400 text-sm">Select a folder to scan for anime files.</p>
-      <button
-        type="button"
-        class="btn preset-filled-primary-500 rounded-lg font-medium"
-        onclick={startScan}
-        disabled={requesting}
-      >
-        Start Scan
-      </button>
+  <div class="flex flex-col h-full p-4 gap-4">
+    {#if hasFolders}
+      <div class="text-sm font-medium text-surface-700-300">
+        Tracked Folders ({folders.length})
+      </div>
+      <div class="flex flex-col gap-1">
+        {#each folders as folder}
+          <div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-surface-200-800">
+            <div class="flex items-center gap-2 min-w-0">
+              <FolderOpen class="size-4 text-surface-500-500 shrink-0" />
+              <span class="text-sm text-surface-700-300 truncate">{folder.basename}</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class={folderStatusBadge(folder.status)}>{folder.status}</span>
+              {#if folder.relativeTimestamp}
+                <span class="text-xs text-surface-600-400">{folder.relativeTimestamp}</span>
+              {/if}
+              <button
+                type="button"
+                class="btn-icon preset-tonal-surface size-6"
+                onclick={() => removeFolder(folder.path)}
+                aria-label="Remove folder"
+              >
+                <X class="size-3" />
+              </button>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+    <div class="flex-1 flex items-center justify-center">
+      <div class="text-center space-y-4">
+        {#if !hasFolders}
+          <FolderSearch class="size-16 text-surface-600-400 mx-auto" />
+          <p class="text-surface-600-400 text-sm">Select a folder to scan for anime files.</p>
+        {/if}
+        <button
+          type="button"
+          class="btn preset-filled-primary-500 rounded-lg font-medium"
+          onclick={startScan}
+          disabled={requesting}
+        >
+          Start Scan
+        </button>
+      </div>
     </div>
   </div>
 {/if}

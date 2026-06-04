@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
 import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
@@ -12,14 +13,8 @@ import {
   getOrchestrator,
 } from "./scan";
 import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
-import {
-  loadThemeMode,
-  loadWatchedFolders,
-  loadWindowState,
-  saveThemeMode,
-  saveWatchedFolders,
-  saveWindowState,
-} from "./state";
+import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "./state";
+import { loadWatchedFolders, saveWatchedFolders } from "./watched-folders";
 
 const savedState = loadWindowState();
 
@@ -188,11 +183,19 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return { success: true };
       },
       rebuildLibrary: async () => libraryHandlers.rebuild(),
-      getWatchedFolders: () => loadWatchedFolders(),
+      getWatchedFolders: () => {
+        const raw = loadWatchedFolders();
+        return raw.map((f) => ({
+          path: f.path,
+          addedAt: f.addedAt,
+          lastScannedAt: f.lastScannedAt,
+          exists: existsSync(f.path),
+        }));
+      },
       addWatchedFolder: (params) => {
         const folders = loadWatchedFolders();
         const existing = folders.find((f) => f.path === params.path);
-        if (existing) return existing;
+        if (existing) return { ...existing, exists: existsSync(existing.path) };
         const folder = { path: params.path, addedAt: new Date().toISOString(), exists: true };
         saveWatchedFolders([...folders, folder]);
         return folder;

@@ -5,6 +5,13 @@ export type { ReviewPlan, ScanFileStatus, ScanState, ScanSummary } from "@kogoro
 
 export type ThemeMode = "light" | "dark";
 
+export interface WatchedFolder {
+  path: string;
+  addedAt: string;
+  lastScannedAt?: string;
+  exists: boolean;
+}
+
 export interface ResolveCandidate {
   animeId: string;
   animeTitle: string;
@@ -14,13 +21,6 @@ export interface ResolveCandidate {
   season: number;
   score: number;
 }
-
-export type WatchedFolder = {
-  path: string;
-  addedAt: string;
-  lastScannedAt?: string;
-  exists: boolean;
-};
 
 export interface AnimeDetail {
   anime: {
