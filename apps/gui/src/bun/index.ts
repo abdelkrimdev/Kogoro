@@ -13,6 +13,11 @@ import {
 } from "./scan";
 import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "./state";
+import {
+  addWatchedFolderHandler,
+  getWatchedFoldersHandler,
+  removeWatchedFolderHandler,
+} from "./watched-folders-handlers";
 
 const savedState = loadWindowState();
 
@@ -181,6 +186,9 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return { success: true };
       },
       rebuildLibrary: async () => libraryHandlers.rebuild(),
+      getWatchedFolders: async () => getWatchedFoldersHandler(),
+      addWatchedFolder: async (params) => addWatchedFolderHandler(params.path),
+      removeWatchedFolder: async (params) => removeWatchedFolderHandler(params.path),
     },
     messages: {
       windowWillClose: (data) => {

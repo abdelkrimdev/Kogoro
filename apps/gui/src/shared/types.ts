@@ -242,6 +242,23 @@ export type AppRPC = {
         params: Record<string, never>;
         response: { success: boolean; error?: string };
       };
+      getWatchedFolders: {
+        params: Record<string, never>;
+        response: Array<{
+          path: string;
+          addedAt: string;
+          lastScannedAt?: string;
+          exists: boolean;
+        }>;
+      };
+      addWatchedFolder: {
+        params: { path: string };
+        response: { success: boolean };
+      };
+      removeWatchedFolder: {
+        params: { path: string };
+        response: { success: boolean };
+      };
     };
     messages: {
       windowWillClose: {
