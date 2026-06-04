@@ -36,7 +36,6 @@
   let { rpc, onMessage, scanProgressState, onScanStarted, reviewReady = false, onViewResults }: Props = $props();
 
   let listContainer: HTMLDivElement | undefined = $state();
-  let requesting = $state(false);
   let enrichedFolders: EnrichedFolder[] = $state([]);
   let removing: string | null = $state(null);
   let dragOver = $state(false);
@@ -136,7 +135,6 @@
     const selected = enrichedFolders.filter((f) => f.selected && f.exists);
     if (selected.length === 0) return;
     try {
-      requesting = true;
       batchScanning = true;
       showSummary = false;
 
@@ -144,8 +142,7 @@
         f.selected && f.exists ? { ...f, batchStatus: "pending" as const } : f,
       );
 
-      for (let i = 0; i < selected.length; i++) {
-        const folder = selected[i]!;
+      for (const folder of selected) {
         batchProgress = deriveBatchProgress(enrichedFolders, folder.path);
 
         enrichedFolders = enrichedFolders.map((f) =>
@@ -193,8 +190,6 @@
       console.error("Batch scan failed:", err);
       batchScanning = false;
       batchProgress = null;
-    } finally {
-      requesting = false;
     }
   }
 
@@ -208,8 +203,18 @@
   const dropZoneTextStyle = $derived(hasTrackedFolders ? 'text-xs mt-1' : 'text-sm mt-3');
   const dropZoneHighlight = $derived(dragOver ? 'border-primary-500 bg-primary-500/10' : '');
   const toolbar = $derived(deriveScanToolbar(enrichedFolders));
-  const scanSelectedDisabled = $derived(requesting || scanning || batchScanning || toolbar.noneSelected);
+  const scanSelectedDisabled = $derived(scanning || batchScanning || toolbar.noneSelected);
 </script>
+
+{#snippet statusBadge(folder: EnrichedFolder)}
+  {#if folder.status === "missing"}
+    <span class="badge preset-tonal-warning text-xs mt-1">Missing</span>
+  {:else if folder.status === "indexed"}
+    <span class="badge preset-tonal-success text-xs mt-1">Indexed</span>
+  {:else}
+    <span class="badge preset-tonal-surface text-xs mt-1">New</span>
+  {/if}
+{/snippet}
 
 {#if batchScanning}
   <div class="flex flex-col h-full p-4 gap-3">
@@ -223,7 +228,7 @@
             {batchProgress.current}/{batchProgress.total}
           </span>
         </div>
-        <progress class="progress" value={((batchProgress.current - 1) / batchProgress.total) * 100} max="100"></progress>
+        <progress class="progress" value={batchProgress.total > 0 ? ((batchProgress.current - 1) / batchProgress.total) * 100 : 0} max="100"></progress>
       </div>
     {/if}
     <div class="space-y-1 flex-1 overflow-y-auto">
@@ -248,13 +253,7 @@
             {:else if folder.batchStatus === "pending"}
               <span class="badge preset-tonal-surface text-xs mt-1">Pending</span>
             {:else}
-              {#if folder.status === "missing"}
-                <span class="badge preset-tonal-warning text-xs mt-1">Missing</span>
-              {:else if folder.status === "indexed"}
-                <span class="badge preset-tonal-success text-xs mt-1">Indexed</span>
-              {:else}
-                <span class="badge preset-tonal-surface text-xs mt-1">New</span>
-              {/if}
+              {@render statusBadge(folder)}
             {/if}
           </div>
           <button
@@ -373,13 +372,7 @@
               />
               <div class="flex-1 min-w-0">
                 <span class="text-sm text-surface-950-50 truncate block">{folder.path}</span>
-                {#if folder.status === "missing"}
-                  <span class="badge preset-tonal-warning text-xs mt-1">Missing</span>
-                {:else if folder.status === "indexed"}
-                  <span class="badge preset-tonal-success text-xs mt-1">Indexed</span>
-                {:else}
-                  <span class="badge preset-tonal-surface text-xs mt-1">New</span>
-                {/if}
+                {@render statusBadge(folder)}
               </div>
               <button
                 type="button"

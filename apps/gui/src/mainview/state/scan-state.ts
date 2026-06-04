@@ -87,8 +87,9 @@ export function deriveBatchProgress(
 ): BatchScanProgress {
   const selected = folders.filter((f) => f.selected && f.exists);
   const currentIndex = selected.findIndex((f) => f.path === currentPath);
+  const current = currentIndex === -1 ? 0 : currentIndex + 1;
   return {
-    current: currentIndex + 1,
+    current,
     total: selected.length,
     folderBasename: selected[currentIndex]?.basename ?? "",
   };
