@@ -26,9 +26,9 @@
   let { rpc, scanProgressState, onScanStarted, reviewReady = false, onViewResults }: Props = $props();
 
   let listContainer: HTMLDivElement | undefined = $state();
-  let requesting = $state(false);
   let trackedFolders: TrackedFolder[] = $state([]);
   let removing: string | null = $state(null);
+  let dragOver = $state(false);
 
   $effect(() => {
     if (scanProgressState && listContainer) {
@@ -48,7 +48,6 @@
 
   async function startScan() {
     try {
-      requesting = true;
       const result = (await rpc.request("openDirectoryPicker", {})) as { path: string } | null;
       if (!result) return;
 
@@ -59,8 +58,6 @@
       await rpc.request("scanStart", { path: result.path });
     } catch (err) {
       console.error("Failed to start scan:", err);
-    } finally {
-      requesting = false;
     }
   }
 
@@ -73,6 +70,38 @@
       console.error("Failed to remove watched folder:", err);
     } finally {
       removing = null;
+    }
+  }
+
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    dragOver = true;
+  }
+
+  function handleDragLeave() {
+    dragOver = false;
+  }
+
+  async function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    // @ts-expect-error - Electrobun runtime adds `path` to File objects
+    const filePath: string | undefined = files[0].path;
+    if (!filePath) return;
+
+    const separator = filePath.includes("\\") ? "\\" : "/";
+    const lastSep = filePath.lastIndexOf(separator);
+    const folderPath = lastSep > 0 ? filePath.substring(0, lastSep) : filePath;
+
+    try {
+      await rpc.request("addWatchedFolder", { path: folderPath });
+      await loadTrackedFolders();
+    } catch (err) {
+      console.error("Failed to add watched folder via drop:", err);
     }
   }
 
@@ -161,19 +190,24 @@
         </div>
       </div>
     {/if}
-    <div class="flex items-center justify-center">
-      <div class="text-center space-y-4">
-        <FolderSearch class="size-16 text-surface-600-400 mx-auto" />
-        <p class="text-surface-600-400 text-sm">Select a folder to scan for anime files.</p>
-        <button
-          type="button"
-          class="btn preset-filled-primary-500 rounded-lg font-medium"
-          onclick={startScan}
-          disabled={requesting}
-        >
-          Start Scan
-        </button>
-      </div>
+
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="border-2 border-dashed border-surface-400-500 rounded-lg text-center cursor-pointer transition-colors
+        {hasTrackedFolders ? 'p-3' : 'flex-1 flex flex-col items-center justify-center p-8'}
+        {dragOver ? 'border-primary-500 bg-primary-500/10' : ''}"
+      role="button"
+      tabindex="0"
+      ondragover={handleDragOver}
+      ondragleave={handleDragLeave}
+      ondrop={handleDrop}
+      onclick={startScan}
+      onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? startScan() : null}
+    >
+      <FolderSearch class="{hasTrackedFolders ? 'size-8' : 'size-16'} text-surface-600-400 mx-auto" />
+      <p class="text-surface-600-400 {hasTrackedFolders ? 'text-xs mt-1' : 'text-sm mt-3'}">
+        Drop a folder here or click to browse
+      </p>
     </div>
   </div>
 {/if}
