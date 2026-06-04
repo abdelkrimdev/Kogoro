@@ -1,3 +1,5 @@
+import type { AnimeGroup, ReviewPlan } from "@kogoro/core";
+
 export type FolderStatus = "new" | "indexed" | "missing";
 
 export interface EnrichedFolder {
@@ -9,6 +11,14 @@ export interface EnrichedFolder {
   status: FolderStatus;
   relativeTimestamp?: string;
   selected: boolean;
+}
+
+export interface BatchScanProgress {
+  currentIndex: number;
+  total: number;
+  currentPath: string;
+  currentBasename: string;
+  isComplete: boolean;
 }
 
 export function deriveFolderStatus(
@@ -82,5 +92,56 @@ export function deriveScanToolbar(folders: EnrichedFolder[]): ScanToolbarState {
     someSelected: selectedCount > 0 && selectedCount < selectableCount,
     noneSelected: selectableCount > 0 && selectedCount === 0,
     selectableCount,
+  };
+}
+
+export interface ScanSummaryEntry {
+  basename: string;
+  fileCount: number;
+  matchCount: number;
+}
+
+export function deriveScanSummaries(
+  plans: Map<string, ReviewPlan>,
+  folders: EnrichedFolder[],
+): ScanSummaryEntry[] {
+  const entries: ScanSummaryEntry[] = [];
+  for (const f of folders) {
+    const plan = plans.get(f.path);
+    if (!plan) continue;
+    const matchCount = plan.groups.reduce(
+      (sum, g) =>
+        sum +
+        g.files.filter((file) => file.status === "matched" || file.status === "cached").length,
+      0,
+    );
+    entries.push({ basename: f.basename, fileCount: plan.totalFiles, matchCount });
+  }
+  return entries;
+}
+
+export function mergeReviewPlans(plans: ReviewPlan[]): ReviewPlan {
+  const groupMap = new Map<string, AnimeGroup>();
+
+  for (const plan of plans) {
+    for (const group of plan.groups) {
+      const existing = groupMap.get(group.animeId);
+      if (existing) {
+        existing.files.push(...group.files);
+      } else {
+        groupMap.set(group.animeId, { ...group, files: [...group.files] });
+      }
+    }
+  }
+
+  const groups = Array.from(groupMap.values());
+  return {
+    sessionId: plans[plans.length - 1]?.sessionId ?? "merged",
+    groups,
+    totalFiles: groups.reduce((sum, g) => sum + g.files.length, 0),
+    ambiguousCount: groups.reduce(
+      (sum, g) => sum + g.files.filter((f) => f.status === "ambiguous").length,
+      0,
+    ),
   };
 }

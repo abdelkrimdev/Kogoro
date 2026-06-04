@@ -4,10 +4,15 @@ import { mount } from "svelte";
 import type { AppRPC } from "../shared/types";
 import App from "./lib/App.svelte";
 
-let messageHandler: ((message: string, data: unknown) => void) | null = null;
+type MessageHandler = (message: string, data: unknown) => void;
 
-function onMessage(handler: (message: string, data: unknown) => void) {
-  messageHandler = handler;
+const messageHandlers = new Set<MessageHandler>();
+
+function onMessage(handler: MessageHandler) {
+  messageHandlers.add(handler);
+  return () => {
+    messageHandlers.delete(handler);
+  };
 }
 
 const rpc = Electroview.defineRPC<AppRPC>({
@@ -15,7 +20,9 @@ const rpc = Electroview.defineRPC<AppRPC>({
     requests: {},
     messages: {
       "*": (message: string, data: unknown) => {
-        messageHandler?.(message, data);
+        for (const handler of messageHandlers) {
+          handler(message, data);
+        }
       },
     },
   },

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { makeEnrichedFolder } from "../../fixtures";
+import { makeEnrichedFolder, makeFile, makeGroup, makePlan } from "../../fixtures";
 import {
   deriveFolderStatus,
   deriveScanFolders,
+  deriveScanSummaries,
   deriveScanToolbar,
+  mergeReviewPlans,
   relativeTimestamp,
   toggleAll,
   toggleFolder,
@@ -294,5 +296,171 @@ describe("deriveScanToolbar", () => {
     expect(result.someSelected).toBe(false);
     expect(result.noneSelected).toBe(false);
     expect(result.selectableCount).toBe(0);
+  });
+});
+
+describe("mergeReviewPlans", () => {
+  it("merges groups by animeId and concatenates files", () => {
+    const plan1 = makePlan([
+      makeGroup({
+        animeId: "a1",
+        animeTitle: "Show A",
+        files: [makeFile({ fileId: "f1", animeId: "a1" })],
+      }),
+    ]);
+    const plan2 = makePlan([
+      makeGroup({
+        animeId: "a1",
+        animeTitle: "Show A",
+        files: [makeFile({ fileId: "f2", animeId: "a1" })],
+      }),
+    ]);
+    const merged = mergeReviewPlans([plan1, plan2]);
+    expect(merged.groups).toHaveLength(1);
+    expect(merged.groups[0]?.files).toHaveLength(2);
+    expect(merged.groups[0]?.animeId).toBe("a1");
+  });
+
+  it("keeps distinct animeIds in separate groups", () => {
+    const plan1 = makePlan([
+      makeGroup({
+        animeId: "a1",
+        animeTitle: "Show A",
+        files: [makeFile({ fileId: "f1", animeId: "a1" })],
+      }),
+    ]);
+    const plan2 = makePlan([
+      makeGroup({
+        animeId: "a2",
+        animeTitle: "Show B",
+        files: [makeFile({ fileId: "f2", animeId: "a2" })],
+      }),
+    ]);
+    const merged = mergeReviewPlans([plan1, plan2]);
+    expect(merged.groups).toHaveLength(2);
+  });
+
+  it("computes totalFiles across all merged groups", () => {
+    const plan1 = makePlan([
+      makeGroup({
+        animeId: "a1",
+        files: [
+          makeFile({ fileId: "f1", animeId: "a1" }),
+          makeFile({ fileId: "f2", animeId: "a1" }),
+        ],
+      }),
+    ]);
+    const plan2 = makePlan([
+      makeGroup({ animeId: "a2", files: [makeFile({ fileId: "f3", animeId: "a2" })] }),
+    ]);
+    const merged = mergeReviewPlans([plan1, plan2]);
+    expect(merged.totalFiles).toBe(3);
+  });
+
+  it("computes ambiguousCount from merged files", () => {
+    const plan1 = makePlan([
+      makeGroup({
+        animeId: "a1",
+        files: [makeFile({ fileId: "f1", animeId: "a1", status: "ambiguous" })],
+      }),
+    ]);
+    const plan2 = makePlan([
+      makeGroup({
+        animeId: "a1",
+        files: [makeFile({ fileId: "f2", animeId: "a1", status: "matched" })],
+      }),
+    ]);
+    const merged = mergeReviewPlans([plan1, plan2]);
+    expect(merged.ambiguousCount).toBe(1);
+  });
+
+  it("returns empty plan when given no plans", () => {
+    const merged = mergeReviewPlans([]);
+    expect(merged.groups).toEqual([]);
+    expect(merged.totalFiles).toBe(0);
+    expect(merged.ambiguousCount).toBe(0);
+    expect(merged.sessionId).toBe("merged");
+  });
+
+  it("uses sessionId from the last plan", () => {
+    const plan1 = makePlan([
+      makeGroup({ animeId: "a1", files: [makeFile({ fileId: "f1", animeId: "a1" })] }),
+    ]);
+    plan1.sessionId = "first";
+    const plan2 = makePlan([
+      makeGroup({ animeId: "a2", files: [makeFile({ fileId: "f2", animeId: "a2" })] }),
+    ]);
+    plan2.sessionId = "last";
+    const merged = mergeReviewPlans([plan1, plan2]);
+    expect(merged.sessionId).toBe("last");
+  });
+
+  it("does not mutate original plans or groups", () => {
+    const group = makeGroup({
+      animeId: "a1",
+      files: [makeFile({ fileId: "f1", animeId: "a1" })],
+    });
+    const plan = makePlan([group]);
+    mergeReviewPlans([plan]);
+    expect(group.files).toHaveLength(1);
+  });
+});
+
+describe("deriveScanSummaries", () => {
+  it("returns summary entry for each folder that has a plan", () => {
+    const folders = [
+      makeEnrichedFolder({ path: "/media/A", basename: "A" }),
+      makeEnrichedFolder({ path: "/media/B", basename: "B" }),
+    ];
+    const plans = new Map<string, ReturnType<typeof makePlan>>();
+    plans.set(
+      "/media/A",
+      makePlan([makeGroup({ animeId: "a1", files: [makeFile({ fileId: "f1", animeId: "a1" })] })]),
+    );
+    plans.set(
+      "/media/B",
+      makePlan([makeGroup({ animeId: "a2", files: [makeFile({ fileId: "f2", animeId: "a2" })] })]),
+    );
+    const summaries = deriveScanSummaries(plans, folders);
+    expect(summaries).toHaveLength(2);
+    expect(summaries[0]?.basename).toBe("A");
+    expect(summaries[0]?.fileCount).toBe(1);
+    expect(summaries[1]?.basename).toBe("B");
+    expect(summaries[1]?.fileCount).toBe(1);
+  });
+
+  it("excludes folders without plans", () => {
+    const folders = [
+      makeEnrichedFolder({ path: "/media/A", basename: "A" }),
+      makeEnrichedFolder({ path: "/media/B", basename: "B" }),
+    ];
+    const plans = new Map<string, ReturnType<typeof makePlan>>();
+    plans.set(
+      "/media/A",
+      makePlan([makeGroup({ animeId: "a1", files: [makeFile({ fileId: "f1", animeId: "a1" })] })]),
+    );
+    const summaries = deriveScanSummaries(plans, folders);
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]?.basename).toBe("A");
+  });
+
+  it("counts matched and cached files as matchCount", () => {
+    const folders = [makeEnrichedFolder({ path: "/media/A", basename: "A" })];
+    const plans = new Map<string, ReturnType<typeof makePlan>>();
+    plans.set(
+      "/media/A",
+      makePlan([
+        makeGroup({
+          animeId: "a1",
+          files: [
+            makeFile({ fileId: "f1", animeId: "a1", status: "matched" }),
+            makeFile({ fileId: "f2", animeId: "a1", status: "cached" }),
+            makeFile({ fileId: "f3", animeId: "a1", status: "ambiguous" }),
+          ],
+        }),
+      ]),
+    );
+    const summaries = deriveScanSummaries(plans, folders);
+    expect(summaries[0]?.matchCount).toBe(2);
   });
 });

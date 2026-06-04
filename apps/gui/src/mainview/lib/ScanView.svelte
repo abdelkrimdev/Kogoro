@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { FolderSearch, ScanSearch, X } from '@lucide/svelte';
+  import { FolderSearch, LoaderCircle, ScanSearch, X } from '@lucide/svelte';
+  import type { ReviewPlan } from "@kogoro/core";
   import type { ScanProgressState } from "../state/scan-progress-state";
   import {
     deriveBreakdown,
@@ -9,10 +10,14 @@
   } from "../state/scan-progress-state";
   import {
     deriveScanFolders,
+    deriveScanSummaries,
     deriveScanToolbar,
+    mergeReviewPlans,
     toggleAll,
     toggleFolder,
+    type BatchScanProgress,
     type EnrichedFolder,
+    type ScanSummaryEntry,
   } from "../state/scan-state";
 
   interface TrackedFolder {
@@ -28,15 +33,31 @@
     onScanStarted: () => void;
     reviewReady: boolean;
     onViewResults: () => void;
+    onMessage: (handler: (message: string, data: unknown) => void) => () => void;
+    onBatchReviewResults: (plan: ReviewPlan) => void;
   }
 
-  let { rpc, scanProgressState, onScanStarted, reviewReady = false, onViewResults }: Props = $props();
+  let {
+    rpc,
+    scanProgressState,
+    onScanStarted,
+    reviewReady = false,
+    onViewResults,
+    onMessage,
+    onBatchReviewResults,
+  }: Props = $props();
 
   let listContainer: HTMLDivElement | undefined = $state();
   let requesting = $state(false);
   let enrichedFolders: EnrichedFolder[] = $state([]);
   let removing: string | null = $state(null);
   let dragOver = $state(false);
+  let batchScanProgress: BatchScanProgress | null = $state(null);
+  let scanningFolderPath: string | null = $state(null);
+  let perFolderPlans: Map<string, ReviewPlan> = new Map();
+  let scanSummaries: ScanSummaryEntry[] = $state([]);
+  let showBatchSummary = $state(false);
+  let pendingScanResolve: ((plan: ReviewPlan | null) => void) | null = null;
 
   $effect(() => {
     if (scanProgressState && listContainer) {
@@ -75,6 +96,8 @@
       removing = path;
       await rpc.request("removeWatchedFolder", { path });
       enrichedFolders = enrichedFolders.filter((f) => f.path !== path);
+      perFolderPlans.delete(path);
+      scanSummaries = deriveScanSummaries(perFolderPlans, enrichedFolders);
     } catch (err) {
       console.error("Failed to remove watched folder:", err);
     } finally {
@@ -127,17 +150,76 @@
   async function scanSelected() {
     const selected = enrichedFolders.filter((f) => f.selected && f.exists);
     if (selected.length === 0) return;
-    try {
-      requesting = true;
-      onScanStarted();
-      for (const folder of selected) {
-        await rpc.request("scanStart", { path: folder.path });
+
+    perFolderPlans = new Map();
+    showBatchSummary = false;
+    scanSummaries = [];
+    const total = selected.length;
+    const first = selected[0]!;
+
+    const unregister = onMessage((msg, data) => {
+      if (msg === "scanReviewReady" && pendingScanResolve) {
+        const event = data as { sessionId: string; plan: ReviewPlan };
+        pendingScanResolve(event.plan);
+        pendingScanResolve = null;
       }
-    } catch (err) {
-      console.error("Failed to start selected scans:", err);
-    } finally {
-      requesting = false;
+    });
+
+    batchScanProgress = {
+      currentIndex: 0,
+      total,
+      currentPath: first.path,
+      currentBasename: first.basename,
+      isComplete: false,
+    };
+
+    for (let i = 0; i < selected.length; i++) {
+      const folder = selected[i]!;
+      scanningFolderPath = folder.path;
+      batchScanProgress = {
+        currentIndex: i,
+        total,
+        currentPath: folder.path,
+        currentBasename: folder.basename,
+        isComplete: false,
+      };
+
+      onScanStarted();
+
+      const plan = await new Promise<ReviewPlan | null>((resolve) => {
+        pendingScanResolve = resolve;
+        rpc.request("scanStart", { path: folder.path }).catch(() => {
+          pendingScanResolve = null;
+          resolve(null);
+        });
+      });
+
+      if (plan) {
+        perFolderPlans.set(folder.path, plan);
+        enrichedFolders = enrichedFolders.map((f) =>
+          f.path === folder.path
+            ? {
+                ...f,
+                status: "indexed" as const,
+                lastScannedAt: new Date().toISOString(),
+                relativeTimestamp: "just now",
+              }
+            : f,
+        );
+      }
     }
+
+    unregister();
+    scanningFolderPath = null;
+    batchScanProgress = { ...batchScanProgress, isComplete: true };
+    scanSummaries = deriveScanSummaries(perFolderPlans, enrichedFolders);
+    showBatchSummary = true;
+  }
+
+  async function handleReviewBatchResults() {
+    const plans = Array.from(perFolderPlans.values());
+    const merged = mergeReviewPlans(plans);
+    onBatchReviewResults(merged);
   }
 
   const scanning = $derived(scanProgressState !== null);
@@ -150,11 +232,94 @@
   const dropZoneTextStyle = $derived(hasTrackedFolders ? 'text-xs mt-1' : 'text-sm mt-3');
   const dropZoneHighlight = $derived(dragOver ? 'border-primary-500 bg-primary-500/10' : '');
   const toolbar = $derived(deriveScanToolbar(enrichedFolders));
-  const scanSelectedDisabled = $derived(requesting || scanning || toolbar.noneSelected);
+  const isBatchScanning = $derived(batchScanProgress !== null && !(batchScanProgress as BatchScanProgress).isComplete);
+  const scanSelectedDisabled = $derived(requesting || scanning || isBatchScanning || toolbar.noneSelected);
 </script>
 
-{#if scanning && scanProgressState}
-  <div class="flex flex-col h-full p-4 gap-3">
+<div class="flex flex-col h-full p-4 gap-4">
+  {#if isBatchScanning && batchScanProgress}
+    <div class="space-y-1">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-surface-700-300">
+          Scanning {batchScanProgress.currentIndex + 1}/{batchScanProgress.total} — {batchScanProgress.currentBasename}
+        </span>
+      </div>
+      <progress class="progress"></progress>
+    </div>
+  {/if}
+
+  {#if hasTrackedFolders}
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-surface-600-400">Tracked Folders</span>
+      </div>
+      <div class="card preset-outlined-surface-300-700 flex items-center gap-3 px-3 py-2">
+        <label class="flex items-center gap-2 text-xs text-surface-700-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            class="checkbox"
+            checked={toolbar.allSelected}
+            bind:indeterminate={toolbar.someSelected}
+            onchange={handleToggleAll}
+            disabled={isBatchScanning}
+          />
+          Select All
+        </label>
+        <span class="text-xs text-surface-600-400 flex-1">
+          {toolbar.selectableCount} folder{toolbar.selectableCount !== 1 ? "s" : ""}
+        </span>
+        <button
+          type="button"
+          class="btn preset-filled-primary-500 rounded-lg font-medium text-xs"
+          onclick={scanSelected}
+          disabled={scanSelectedDisabled}
+        >
+          <ScanSearch class="size-3.5" />
+          Scan Selected
+        </button>
+      </div>
+      <div class="space-y-1">
+        {#each enrichedFolders as folder (folder.path)}
+          <div class="card preset-outlined-surface-300-700 flex items-center gap-2 p-3">
+            <input
+              type="checkbox"
+              class="checkbox shrink-0"
+              checked={folder.selected}
+              disabled={!folder.exists || isBatchScanning}
+              aria-label="Select {folder.basename}"
+              onchange={() => handleToggleFolder(folder.path)}
+            />
+            <div class="flex-1 min-w-0">
+              <span class="text-sm text-surface-950-50 truncate block">{folder.path}</span>
+              {#if scanningFolderPath === folder.path || (isBatchScanning && scanningFolderPath === null)}
+                <span class="badge preset-tonal-primary text-xs mt-1">
+                  <LoaderCircle class="size-3 animate-spin inline mr-1" />
+                  Scanning...
+                </span>
+              {:else if folder.status === "missing"}
+                <span class="badge preset-tonal-warning text-xs mt-1">Missing</span>
+              {:else if folder.status === "indexed"}
+                <span class="badge preset-tonal-success text-xs mt-1">Indexed</span>
+              {:else}
+                <span class="badge preset-tonal-surface text-xs mt-1">New</span>
+              {/if}
+            </div>
+            <button
+              type="button"
+              class="btn-icon preset-tonal-surface rounded-lg shrink-0"
+              onclick={() => handleRemove(folder.path)}
+              disabled={removing === folder.path || isBatchScanning}
+              aria-label="Remove tracked folder"
+            >
+              <X class="size-4" />
+            </button>
+          </div>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  {#if !isBatchScanning && scanning && scanProgressState}
     <div class="space-y-1">
       <div class="flex items-center justify-between">
         <span class="text-sm font-medium text-surface-700-300">Scanning</span>
@@ -196,89 +361,43 @@
         {/each}
       </div>
     </div>
-  </div>
-{:else}
-  <div class="flex flex-col h-full p-4 gap-4">
-    {#if hasTrackedFolders}
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-surface-600-400">Tracked Folders</span>
-        </div>
-        <div class="card preset-outlined-surface-300-700 flex items-center gap-3 px-3 py-2">
-          <label class="flex items-center gap-2 text-xs text-surface-700-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              class="checkbox"
-              checked={toolbar.allSelected}
-              bind:indeterminate={toolbar.someSelected}
-              onchange={handleToggleAll}
-            />
-            Select All
-          </label>
-          <span class="text-xs text-surface-600-400 flex-1">
-            {toolbar.selectableCount} folder{toolbar.selectableCount !== 1 ? "s" : ""}
-          </span>
-          <button
-            type="button"
-            class="btn preset-filled-primary-500 rounded-lg font-medium text-xs"
-            onclick={scanSelected}
-            disabled={scanSelectedDisabled}
-          >
-            <ScanSearch class="size-3.5" />
-            Scan Selected
-          </button>
-        </div>
+  {:else if showBatchSummary && scanSummaries.length > 0}
+    <div class="space-y-3">
+      <div class="space-y-1">
+        <span class="text-sm font-medium text-surface-700-300">Scan Complete</span>
         <div class="space-y-1">
-          {#each enrichedFolders as folder (folder.path)}
-            <div class="card preset-outlined-surface-300-700 flex items-center gap-2 p-3">
-              <input
-                type="checkbox"
-                class="checkbox shrink-0"
-                checked={folder.selected}
-                disabled={!folder.exists}
-                aria-label="Select {folder.basename}"
-                onchange={() => handleToggleFolder(folder.path)}
-              />
-              <div class="flex-1 min-w-0">
-                <span class="text-sm text-surface-950-50 truncate block">{folder.path}</span>
-                {#if folder.status === "missing"}
-                  <span class="badge preset-tonal-warning text-xs mt-1">Missing</span>
-                {:else if folder.status === "indexed"}
-                  <span class="badge preset-tonal-success text-xs mt-1">Indexed</span>
-                {:else}
-                  <span class="badge preset-tonal-surface text-xs mt-1">New</span>
-                {/if}
-              </div>
-              <button
-                type="button"
-                class="btn-icon preset-tonal-surface rounded-lg shrink-0"
-                onclick={() => handleRemove(folder.path)}
-                disabled={removing === folder.path}
-                aria-label="Remove tracked folder"
-              >
-                <X class="size-4" />
-              </button>
+          {#each scanSummaries as summary}
+            <div class="card preset-outlined-surface-300-700 p-3">
+              <span class="text-sm text-surface-950-50 block truncate">{summary.basename}</span>
+              <span class="text-xs text-surface-600-400">{summary.fileCount} files, {summary.matchCount} matched</span>
             </div>
           {/each}
         </div>
       </div>
-    {/if}
-
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="border-2 border-dashed border-surface-400-500 rounded-lg text-center cursor-pointer transition-colors {dropZoneLayout} {dropZoneHighlight}"
-      role="button"
-      tabindex="0"
-      ondragover={handleDragOver}
-      ondragleave={handleDragLeave}
-      ondrop={handleDrop}
-      onclick={startScan}
-      onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? startScan() : null}
-    >
-      <FolderSearch class="text-surface-600-400 mx-auto {dropZoneIconSize}" />
-      <p class="text-surface-600-400 {dropZoneTextStyle}">
-        Drop a folder here or click to browse
-      </p>
+      <button
+        type="button"
+        class="btn preset-filled-primary-500 rounded-lg font-medium w-full"
+        onclick={handleReviewBatchResults}
+      >
+        Review Results
+      </button>
     </div>
+  {/if}
+
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="border-2 border-dashed border-surface-400-500 rounded-lg text-center cursor-pointer transition-colors {dropZoneLayout} {dropZoneHighlight}"
+    role="button"
+    tabindex="0"
+    ondragover={handleDragOver}
+    ondragleave={handleDragLeave}
+    ondrop={handleDrop}
+    onclick={startScan}
+    onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? startScan() : null}
+  >
+    <FolderSearch class="text-surface-600-400 mx-auto {dropZoneIconSize}" />
+    <p class="text-surface-600-400 {dropZoneTextStyle}">
+      Drop a folder here or click to browse
+    </p>
   </div>
-{/if}
+</div>
