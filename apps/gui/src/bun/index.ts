@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
 import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
@@ -13,6 +14,7 @@ import {
 } from "./scan";
 import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "./state";
+import { loadWatchedFolders, saveWatchedFolders } from "./watched-folders";
 
 const savedState = loadWindowState();
 
@@ -56,6 +58,31 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         });
         const dir = paths[0];
         return dir ? { path: dir } : null;
+      },
+      getWatchedFolders: () => {
+        const raw = loadWatchedFolders();
+        return raw.map((f) => ({
+          path: f.path,
+          addedAt: f.addedAt,
+          lastScannedAt: f.lastScannedAt,
+          exists: existsSync(f.path),
+        }));
+      },
+      addWatchedFolder: (params) => {
+        const folders = loadWatchedFolders();
+        const normalized = params.path.replace(/\/+$/, "");
+        if (folders.some((f) => f.path === normalized)) {
+          return { success: false, error: "Folder already tracked" };
+        }
+        folders.push({ path: normalized, addedAt: new Date().toISOString() });
+        saveWatchedFolders(folders);
+        return { success: true };
+      },
+      removeWatchedFolder: (params) => {
+        const folders = loadWatchedFolders();
+        const filtered = folders.filter((f) => f.path !== params.path);
+        saveWatchedFolders(filtered);
+        return { success: true };
       },
       scanStart: async (params) => {
         const { path } = params;

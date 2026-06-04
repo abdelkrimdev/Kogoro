@@ -5,6 +5,13 @@ export type { ReviewPlan, ScanFileStatus, ScanState, ScanSummary } from "@kogoro
 
 export type ThemeMode = "light" | "dark";
 
+export interface WatchedFolder {
+  path: string;
+  addedAt: string;
+  lastScannedAt?: string;
+  exists: boolean;
+}
+
 export interface ResolveCandidate {
   animeId: string;
   animeTitle: string;
@@ -240,6 +247,23 @@ export type AppRPC = {
       };
       rebuildLibrary: {
         params: Record<string, never>;
+        response: { success: boolean; error?: string };
+      };
+      getWatchedFolders: {
+        params: Record<string, never>;
+        response: Array<{
+          path: string;
+          addedAt: string;
+          lastScannedAt?: string;
+          exists: boolean;
+        }>;
+      };
+      addWatchedFolder: {
+        params: { path: string };
+        response: { success: boolean; error?: string };
+      };
+      removeWatchedFolder: {
+        params: { path: string };
         response: { success: boolean; error?: string };
       };
     };
