@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FolderSearch, X } from '@lucide/svelte';
+  import { FolderSearch, ScanSearch, X } from '@lucide/svelte';
   import type { ScanProgressState } from "../state/scan-progress-state";
   import {
     deriveBreakdown,
@@ -7,6 +7,13 @@
     getStatusColor,
     isIndeterminate,
   } from "../state/scan-progress-state";
+  import {
+    deriveScanFolders,
+    deriveScanToolbar,
+    toggleAll,
+    toggleFolder,
+    type EnrichedFolder,
+  } from "../state/scan-state";
 
   interface TrackedFolder {
     path: string;
@@ -26,7 +33,8 @@
   let { rpc, scanProgressState, onScanStarted, reviewReady = false, onViewResults }: Props = $props();
 
   let listContainer: HTMLDivElement | undefined = $state();
-  let trackedFolders: TrackedFolder[] = $state([]);
+  let requesting = $state(false);
+  let enrichedFolders: EnrichedFolder[] = $state([]);
   let removing: string | null = $state(null);
   let dragOver = $state(false);
 
@@ -42,7 +50,8 @@
 
   async function loadTrackedFolders() {
     try {
-      trackedFolders = (await rpc.request("getWatchedFolders", {})) as TrackedFolder[];
+      const raw = (await rpc.request("getWatchedFolders", {})) as TrackedFolder[];
+      enrichedFolders = deriveScanFolders(raw);
     } catch {}
   }
 
@@ -65,7 +74,7 @@
     try {
       removing = path;
       await rpc.request("removeWatchedFolder", { path });
-      trackedFolders = trackedFolders.filter((f) => f.path !== path);
+      enrichedFolders = enrichedFolders.filter((f) => f.path !== path);
     } catch (err) {
       console.error("Failed to remove watched folder:", err);
     } finally {
@@ -107,15 +116,41 @@
     }
   }
 
+  function handleToggleFolder(path: string) {
+    enrichedFolders = toggleFolder(enrichedFolders, path);
+  }
+
+  function handleToggleAll() {
+    enrichedFolders = toggleAll(enrichedFolders);
+  }
+
+  async function scanSelected() {
+    const selected = enrichedFolders.filter((f) => f.selected && f.exists);
+    if (selected.length === 0) return;
+    try {
+      requesting = true;
+      onScanStarted();
+      for (const folder of selected) {
+        await rpc.request("scanStart", { path: folder.path });
+      }
+    } catch (err) {
+      console.error("Failed to start selected scans:", err);
+    } finally {
+      requesting = false;
+    }
+  }
+
   const scanning = $derived(scanProgressState !== null);
   const progressPercent = $derived(scanProgressState ? deriveProgressPercent(scanProgressState) : 0);
   const indeterminate = $derived(scanProgressState ? isIndeterminate(scanProgressState) : false);
   const breakdown = $derived(scanProgressState ? deriveBreakdown(scanProgressState) : null);
-  const hasTrackedFolders = $derived(trackedFolders.length > 0);
+  const hasTrackedFolders = $derived(enrichedFolders.length > 0);
   const dropZoneLayout = $derived(hasTrackedFolders ? 'p-3' : 'flex-1 flex flex-col items-center justify-center p-8');
   const dropZoneIconSize = $derived(hasTrackedFolders ? 'size-8' : 'size-16');
   const dropZoneTextStyle = $derived(hasTrackedFolders ? 'text-xs mt-1' : 'text-sm mt-3');
   const dropZoneHighlight = $derived(dragOver ? 'border-primary-500 bg-primary-500/10' : '');
+  const toolbar = $derived(deriveScanToolbar(enrichedFolders));
+  const scanSelectedDisabled = $derived(requesting || scanning || toolbar.noneSelected);
 </script>
 
 {#if scanning && scanProgressState}
@@ -169,14 +204,46 @@
         <div class="flex items-center justify-between">
           <span class="text-xs font-medium text-surface-600-400">Tracked Folders</span>
         </div>
+        <div class="card preset-outlined-surface-300-700 flex items-center gap-3 px-3 py-2">
+          <label class="flex items-center gap-2 text-xs text-surface-700-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              class="checkbox"
+              checked={toolbar.allSelected}
+              bind:indeterminate={toolbar.someSelected}
+              onchange={handleToggleAll}
+            />
+            Select All
+          </label>
+          <span class="text-xs text-surface-600-400 flex-1">
+            {toolbar.selectableCount} folder{toolbar.selectableCount !== 1 ? "s" : ""}
+          </span>
+          <button
+            type="button"
+            class="btn preset-filled-primary-500 rounded-lg font-medium text-xs"
+            onclick={scanSelected}
+            disabled={scanSelectedDisabled}
+          >
+            <ScanSearch class="size-3.5" />
+            Scan Selected
+          </button>
+        </div>
         <div class="space-y-1">
-          {#each trackedFolders as folder (folder.path)}
-            <div class="card preset-outlined-surface-300-700 flex items-center justify-between p-3">
+          {#each enrichedFolders as folder (folder.path)}
+            <div class="card preset-outlined-surface-300-700 flex items-center gap-2 p-3">
+              <input
+                type="checkbox"
+                class="checkbox shrink-0"
+                checked={folder.selected}
+                disabled={!folder.exists}
+                aria-label="Select {folder.basename}"
+                onchange={() => handleToggleFolder(folder.path)}
+              />
               <div class="flex-1 min-w-0">
                 <span class="text-sm text-surface-950-50 truncate block">{folder.path}</span>
-                {#if !folder.exists}
+                {#if folder.status === "missing"}
                   <span class="badge preset-tonal-warning text-xs mt-1">Missing</span>
-                {:else if folder.lastScannedAt}
+                {:else if folder.status === "indexed"}
                   <span class="badge preset-tonal-success text-xs mt-1">Indexed</span>
                 {:else}
                   <span class="badge preset-tonal-surface text-xs mt-1">New</span>
@@ -184,7 +251,7 @@
               </div>
               <button
                 type="button"
-                class="btn-icon preset-tonal-surface rounded-lg ml-2 shrink-0"
+                class="btn-icon preset-tonal-surface rounded-lg shrink-0"
                 onclick={() => handleRemove(folder.path)}
                 disabled={removing === folder.path}
                 aria-label="Remove tracked folder"

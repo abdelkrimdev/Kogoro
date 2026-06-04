@@ -3,6 +3,7 @@ import type { EpisodeRow } from "./mainview/state/detail-state";
 import type { LibraryItem, LibraryState } from "./mainview/state/library-state";
 import type { ReviewState, StatusFilter } from "./mainview/state/review-state";
 import type { ScanProgressEntry } from "./mainview/state/scan-progress-state";
+import type { EnrichedFolder } from "./mainview/state/scan-state";
 import type { WatchStatusEntry } from "./mainview/state/watch-state";
 
 export function makeEpisode(overrides: Partial<EpisodeRow> = {}): EpisodeRow {
@@ -99,6 +100,18 @@ export function makeScanProgressEntry(
     status: overrides.status ?? "matched",
     completed: overrides.completed ?? 0,
     total: overrides.total ?? 0,
+  };
+}
+
+export function makeEnrichedFolder(overrides: Partial<EnrichedFolder> = {}): EnrichedFolder {
+  return {
+    path: overrides.path ?? "/anime/Show",
+    basename: overrides.basename ?? "Show",
+    addedAt: overrides.addedAt ?? "2026-01-01T00:00:00.000Z",
+    lastScannedAt: overrides.lastScannedAt,
+    exists: overrides.exists ?? true,
+    status: overrides.status ?? "new",
+    selected: overrides.selected ?? false,
   };
 }
 

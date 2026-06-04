@@ -8,6 +8,7 @@ export interface EnrichedFolder {
   exists: boolean;
   status: FolderStatus;
   relativeTimestamp?: string;
+  selected: boolean;
 }
 
 export function deriveFolderStatus(
@@ -34,6 +35,7 @@ export function deriveScanFolders(
       lastScannedAt: f.lastScannedAt,
       exists,
       status,
+      selected: false,
       ...(f.lastScannedAt ? { relativeTimestamp: relativeTimestamp(f.lastScannedAt) } : {}),
     };
   });
@@ -51,4 +53,34 @@ export function relativeTimestamp(isoString: string): string {
   if (diffMin < 60) return `${diffMin}m ago`;
   if (diffHr < 24) return `${diffHr}h ago`;
   return `${diffDay}d ago`;
+}
+
+export function toggleFolder(folders: EnrichedFolder[], path: string): EnrichedFolder[] {
+  return folders.map((f) => (f.path === path && f.exists ? { ...f, selected: !f.selected } : f));
+}
+
+export function toggleAll(folders: EnrichedFolder[]): EnrichedFolder[] {
+  const selectable = folders.filter((f) => f.exists);
+  const allSelected = selectable.length > 0 && selectable.every((f) => f.selected);
+  const newSelected = !allSelected;
+  return folders.map((f) => (f.exists ? { ...f, selected: newSelected } : f));
+}
+
+export interface ScanToolbarState {
+  allSelected: boolean;
+  someSelected: boolean;
+  noneSelected: boolean;
+  selectableCount: number;
+}
+
+export function deriveScanToolbar(folders: EnrichedFolder[]): ScanToolbarState {
+  const selectable = folders.filter((f) => f.exists);
+  const selectedCount = selectable.filter((f) => f.selected).length;
+  const selectableCount = selectable.length;
+  return {
+    allSelected: selectableCount > 0 && selectedCount === selectableCount,
+    someSelected: selectedCount > 0 && selectedCount < selectableCount,
+    noneSelected: selectableCount > 0 && selectedCount === 0,
+    selectableCount,
+  };
 }
