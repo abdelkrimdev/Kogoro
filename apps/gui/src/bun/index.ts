@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
 import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
@@ -14,7 +13,11 @@ import {
 } from "./scan";
 import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 import { loadThemeMode, loadWindowState, saveThemeMode, saveWindowState } from "./state";
-import { loadWatchedFolders, saveWatchedFolders } from "./watched-folders";
+import {
+  addWatchedFolderHandler,
+  getWatchedFoldersHandler,
+  removeWatchedFolderHandler,
+} from "./watched-folders-handlers";
 
 const savedState = loadWindowState();
 
@@ -183,28 +186,9 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return { success: true };
       },
       rebuildLibrary: async () => libraryHandlers.rebuild(),
-      getWatchedFolders: () => {
-        const raw = loadWatchedFolders();
-        return raw.map((f) => ({
-          path: f.path,
-          addedAt: f.addedAt,
-          lastScannedAt: f.lastScannedAt,
-          exists: existsSync(f.path),
-        }));
-      },
-      addWatchedFolder: (params) => {
-        const folders = loadWatchedFolders();
-        const existing = folders.find((f) => f.path === params.path);
-        if (existing) return { ...existing, exists: existsSync(existing.path) };
-        const folder = { path: params.path, addedAt: new Date().toISOString(), exists: true };
-        saveWatchedFolders([...folders, folder]);
-        return folder;
-      },
-      removeWatchedFolder: (params) => {
-        const folders = loadWatchedFolders();
-        saveWatchedFolders(folders.filter((f) => f.path !== params.path));
-        return { success: true };
-      },
+      getWatchedFolders: async () => getWatchedFoldersHandler(),
+      addWatchedFolder: async (params) => addWatchedFolderHandler(params.path),
+      removeWatchedFolder: async (params) => removeWatchedFolderHandler(params.path),
     },
     messages: {
       windowWillClose: (data) => {

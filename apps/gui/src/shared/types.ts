@@ -251,11 +251,16 @@ export type AppRPC = {
       };
       getWatchedFolders: {
         params: Record<string, never>;
-        response: WatchedFolder[];
+        response: Array<{
+          path: string;
+          addedAt: string;
+          lastScannedAt?: string;
+          exists: boolean;
+        }>;
       };
       addWatchedFolder: {
         params: { path: string };
-        response: WatchedFolder;
+        response: { success: boolean };
       };
       removeWatchedFolder: {
         params: { path: string };
