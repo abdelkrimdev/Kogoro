@@ -3,26 +3,20 @@ import { deriveFolderStatus, deriveScanFolders, relativeTimestamp } from "./scan
 
 describe("deriveFolderStatus", () => {
   it("returns 'new' when folder has never been scanned", () => {
-    expect(deriveFolderStatus("2026-01-01T00:00:00.000Z", undefined, true)).toBe("new");
+    expect(deriveFolderStatus(undefined, true)).toBe("new");
   });
 
   it("returns 'indexed' when folder has been scanned", () => {
-    expect(deriveFolderStatus("2026-01-01T00:00:00.000Z", "2026-06-01T00:00:00.000Z", true)).toBe(
-      "indexed",
-    );
+    expect(deriveFolderStatus("2026-06-01T00:00:00.000Z", true)).toBe("indexed");
   });
 
   it("returns 'missing' when folder no longer exists on disk", () => {
-    expect(deriveFolderStatus("2026-01-01T00:00:00.000Z", "2026-06-01T00:00:00.000Z", false)).toBe(
-      "missing",
-    );
+    expect(deriveFolderStatus("2026-06-01T00:00:00.000Z", false)).toBe("missing");
   });
 
   it("returns 'missing' regardless of lastScannedAt when exists is false", () => {
-    expect(deriveFolderStatus("2026-01-01T00:00:00.000Z", undefined, false)).toBe("missing");
-    expect(deriveFolderStatus("2026-01-01T00:00:00.000Z", "2026-06-01T00:00:00.000Z", false)).toBe(
-      "missing",
-    );
+    expect(deriveFolderStatus(undefined, false)).toBe("missing");
+    expect(deriveFolderStatus("2026-06-01T00:00:00.000Z", false)).toBe("missing");
   });
 });
 
@@ -31,26 +25,19 @@ describe("deriveScanFolders", () => {
   const scanned = "2026-06-01T00:00:00.000Z";
 
   it("enriches folders with display name (basename)", () => {
-    const result = deriveScanFolders([{ path: "/media/anime/Naruto", addedAt: base }], {
-      "/media/anime/Naruto": true,
-    });
+    const result = deriveScanFolders([
+      { path: "/media/anime/Naruto", addedAt: base, exists: true },
+    ]);
     expect(result).toHaveLength(1);
     expect(result[0]?.basename).toBe("Naruto");
   });
 
   it("enriches folders with correct status based on existence and lastScannedAt", () => {
-    const result = deriveScanFolders(
-      [
-        { path: "/media/anime/NewShow", addedAt: base },
-        { path: "/media/anime/IndexedShow", addedAt: base, lastScannedAt: scanned },
-        { path: "/media/anime/MissingShow", addedAt: base, lastScannedAt: scanned },
-      ],
-      {
-        "/media/anime/NewShow": true,
-        "/media/anime/IndexedShow": true,
-        "/media/anime/MissingShow": false,
-      },
-    );
+    const result = deriveScanFolders([
+      { path: "/media/anime/NewShow", addedAt: base, exists: true },
+      { path: "/media/anime/IndexedShow", addedAt: base, lastScannedAt: scanned, exists: true },
+      { path: "/media/anime/MissingShow", addedAt: base, lastScannedAt: scanned, exists: false },
+    ]);
     expect(result).toHaveLength(3);
     const byPath = Object.fromEntries(result.map((r) => [r.path, r]));
     expect(byPath["/media/anime/NewShow"]?.status).toBe("new");
@@ -59,35 +46,31 @@ describe("deriveScanFolders", () => {
   });
 
   it("includes relative timestamp for indexed folders", () => {
-    const result = deriveScanFolders(
-      [{ path: "/media/anime/Show", addedAt: base, lastScannedAt: scanned }],
-      { "/media/anime/Show": true },
-    );
+    const result = deriveScanFolders([
+      { path: "/media/anime/Show", addedAt: base, lastScannedAt: scanned, exists: true },
+    ]);
     expect(result[0]?.relativeTimestamp).toBeString();
     expect(result[0]?.relativeTimestamp?.length).toBeGreaterThan(0);
   });
 
   it("does not include relative timestamp for new folders", () => {
-    const result = deriveScanFolders([{ path: "/media/anime/New", addedAt: base }], {
-      "/media/anime/New": true,
-    });
+    const result = deriveScanFolders([{ path: "/media/anime/New", addedAt: base, exists: true }]);
     expect(result[0]?.relativeTimestamp).toBeUndefined();
   });
 
   it("returns empty array for empty input", () => {
-    expect(deriveScanFolders([], {})).toEqual([]);
+    expect(deriveScanFolders([])).toEqual([]);
   });
 
   it("handles path without a basename (root-like)", () => {
-    const result = deriveScanFolders([{ path: "/", addedAt: base }], { "/": true });
+    const result = deriveScanFolders([{ path: "/", addedAt: base, exists: true }]);
     expect(result[0]?.basename).toBe("/");
   });
 
   it("preserves original path and timestamps", () => {
-    const result = deriveScanFolders(
-      [{ path: "/media/anime/Show", addedAt: base, lastScannedAt: scanned }],
-      { "/media/anime/Show": true },
-    );
+    const result = deriveScanFolders([
+      { path: "/media/anime/Show", addedAt: base, lastScannedAt: scanned, exists: true },
+    ]);
     expect(result[0]?.path).toBe("/media/anime/Show");
     expect(result[0]?.addedAt).toBe(base);
     expect(result[0]?.lastScannedAt).toBe(scanned);

@@ -28,11 +28,7 @@
   async function loadFolders() {
     try {
       const raw = (await rpc.request("getWatchedFolders", {})) as WatchedFolder[];
-      const existenceMap: Record<string, boolean> = {};
-      for (const f of raw) {
-        existenceMap[f.path] = f.exists;
-      }
-      folders = deriveScanFolders(raw, existenceMap);
+      folders = deriveScanFolders(raw);
     } catch {
       folders = [];
     } finally {

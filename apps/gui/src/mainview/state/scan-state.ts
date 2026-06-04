@@ -11,35 +11,31 @@ export interface EnrichedFolder {
 }
 
 export function deriveFolderStatus(
-  _addedAt: string,
   lastScannedAt: string | undefined,
   exists: boolean,
 ): FolderStatus {
   if (!exists) return "missing";
-  if (lastScannedAt === undefined || lastScannedAt === "") return "new";
+  if (!lastScannedAt) return "new";
   return "indexed";
 }
 
 export function deriveScanFolders(
-  folders: { path: string; addedAt: string; lastScannedAt?: string }[],
-  existenceMap: Record<string, boolean>,
+  folders: { path: string; addedAt: string; lastScannedAt?: string; exists?: boolean }[],
 ): EnrichedFolder[] {
   return folders.map((f) => {
-    const exists = existenceMap[f.path] ?? false;
-    const status = deriveFolderStatus(f.addedAt, f.lastScannedAt, exists);
+    const exists = f.exists ?? false;
+    const status = deriveFolderStatus(f.lastScannedAt, exists);
     const basename = f.path === "/" ? "/" : (f.path.split("/").filter(Boolean).pop() ?? f.path);
-    const enriched: EnrichedFolder = {
+
+    return {
       path: f.path,
       basename,
       addedAt: f.addedAt,
       lastScannedAt: f.lastScannedAt,
       exists,
       status,
+      ...(f.lastScannedAt ? { relativeTimestamp: relativeTimestamp(f.lastScannedAt) } : {}),
     };
-    if (f.lastScannedAt) {
-      enriched.relativeTimestamp = relativeTimestamp(f.lastScannedAt);
-    }
-    return enriched;
   });
 }
 
