@@ -1,5 +1,5 @@
 import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
-import { BrowserView, BrowserWindow } from "electrobun/bun";
+import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
@@ -48,6 +48,15 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       updateSettings: (params) => applySettingsUpdate(configManager, params),
       updateApiKey: (params) => updateApiKey(credentialStore, params),
       togglePlugin: (params) => togglePlugin(configManager, params),
+      openDirectoryPicker: async () => {
+        const paths = await Utils.openFileDialog({
+          canChooseFiles: false,
+          canChooseDirectory: true,
+          allowsMultipleSelection: false,
+        });
+        const dir = paths[0];
+        return dir ? { path: dir } : null;
+      },
       scanStart: async (params) => {
         const { path } = params;
         const sessionId = crypto.randomUUID();
