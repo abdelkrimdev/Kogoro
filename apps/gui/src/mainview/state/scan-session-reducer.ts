@@ -4,6 +4,7 @@ import {
   createScanProgressState,
   type ScanProgressState,
 } from "./scan-progress-state";
+import { deriveScanSummaries, mergeReviewPlans, type ScanSummaryEntry } from "./scan-state";
 
 export interface ScanSessionSnapshot {
   sessionId: string | null;
@@ -12,6 +13,12 @@ export interface ScanSessionSnapshot {
   isScanning: boolean;
   isExecuting: boolean;
   scanProgressState: ScanProgressState | null;
+  isBatchScanning: boolean;
+  currentScanFolder: string | null;
+  batchFolderProgress: { current: number; total: number } | null;
+  perFolderPlans: Map<string, ReviewPlan>;
+  scanSummaries: ScanSummaryEntry[];
+  showSummary: boolean;
 }
 
 export function createInitialSnapshot(): ScanSessionSnapshot {
@@ -22,6 +29,12 @@ export function createInitialSnapshot(): ScanSessionSnapshot {
     isScanning: false,
     isExecuting: false,
     scanProgressState: null,
+    isBatchScanning: false,
+    currentScanFolder: null,
+    batchFolderProgress: null,
+    perFolderPlans: new Map(),
+    scanSummaries: [],
+    showSummary: false,
   };
 }
 
@@ -131,6 +144,10 @@ export function reduceOnViewResults(state: ScanSessionSnapshot): ScanSessionSnap
     ...state,
     scanProgressState: null,
     statusText: "Review ready",
+    showSummary: false,
+    scanSummaries: [],
+    currentScanFolder: null,
+    batchFolderProgress: null,
   };
 }
 
@@ -150,5 +167,75 @@ export function reduceClearAfterComplete(state: ScanSessionSnapshot): ScanSessio
     isScanning: false,
     isExecuting: false,
     scanProgressState: null,
+    isBatchScanning: false,
+    currentScanFolder: null,
+    batchFolderProgress: null,
+    perFolderPlans: new Map(),
+    scanSummaries: [],
+    showSummary: false,
+  };
+}
+
+export function reduceOnBatchScanStarted(
+  state: ScanSessionSnapshot,
+  folderCount: number,
+): ScanSessionSnapshot {
+  return {
+    ...state,
+    isBatchScanning: true,
+    batchFolderProgress: { current: 0, total: folderCount },
+    perFolderPlans: new Map(),
+    scanSummaries: [],
+    showSummary: false,
+    plan: null,
+    sessionId: null,
+  };
+}
+
+export function reduceOnBatchFolderStarted(
+  state: ScanSessionSnapshot,
+  _folderPath: string,
+  folderBasename: string,
+): ScanSessionSnapshot {
+  const prev = state.batchFolderProgress ?? { current: 0, total: 0 };
+  return {
+    ...state,
+    currentScanFolder: folderBasename,
+    batchFolderProgress: { ...prev, current: prev.current + 1 },
+    scanProgressState: createScanProgressState(),
+  };
+}
+
+export function reduceOnBatchFolderComplete(
+  state: ScanSessionSnapshot,
+  folderPath: string,
+  plan: ReviewPlan,
+): ScanSessionSnapshot {
+  const plans = new Map(state.perFolderPlans);
+  plans.set(folderPath, plan);
+  return {
+    ...state,
+    perFolderPlans: plans,
+    scanProgressState: null,
+  };
+}
+
+export function reduceOnBatchScanComplete(
+  state: ScanSessionSnapshot,
+  folders: { path: string; basename: string }[],
+): ScanSessionSnapshot {
+  const summaries = deriveScanSummaries(state.perFolderPlans, folders);
+  const plans = [...state.perFolderPlans.values()];
+  const merged = plans.length > 0 ? mergeReviewPlans(plans) : null;
+  return {
+    ...state,
+    isBatchScanning: false,
+    isScanning: false,
+    currentScanFolder: null,
+    batchFolderProgress: null,
+    scanSummaries: summaries,
+    showSummary: true,
+    plan: merged,
+    sessionId: merged?.sessionId ?? null,
   };
 }

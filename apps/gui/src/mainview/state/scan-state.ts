@@ -1,7 +1,6 @@
 import type { AnimeGroup, ReviewPlan } from "@kogoro/core";
 
 export type FolderStatus = "new" | "indexed" | "missing";
-export type BatchScanFolderStatus = "pending" | "scanning" | "completed";
 
 export interface EnrichedFolder {
   path: string;
@@ -12,7 +11,6 @@ export interface EnrichedFolder {
   status: FolderStatus;
   relativeTimestamp?: string;
   selected: boolean;
-  batchStatus?: BatchScanFolderStatus;
 }
 
 export function deriveFolderStatus(
@@ -77,26 +75,6 @@ export interface ScanToolbarState {
   selectableCount: number;
 }
 
-export interface BatchScanProgress {
-  current: number;
-  total: number;
-  folderBasename: string;
-}
-
-export function deriveBatchProgress(
-  folders: EnrichedFolder[],
-  currentPath: string,
-): BatchScanProgress {
-  const selected = folders.filter((f) => f.selected && f.exists);
-  const currentIndex = selected.findIndex((f) => f.path === currentPath);
-  const current = currentIndex === -1 ? 0 : currentIndex + 1;
-  return {
-    current,
-    total: selected.length,
-    folderBasename: selected[currentIndex]?.basename ?? "",
-  };
-}
-
 export function deriveScanToolbar(folders: EnrichedFolder[]): ScanToolbarState {
   const selectable = folders.filter((f) => f.exists);
   const selectedCount = selectable.filter((f) => f.selected).length;
@@ -113,23 +91,35 @@ export interface ScanSummaryEntry {
   basename: string;
   fileCount: number;
   matchCount: number;
+  ambiguousCount: number;
+  failedCount: number;
 }
 
 export function deriveScanSummaries(
   plans: Map<string, ReviewPlan>,
-  folders: EnrichedFolder[],
+  folders: { path: string; basename: string }[],
 ): ScanSummaryEntry[] {
   const entries: ScanSummaryEntry[] = [];
   for (const f of folders) {
     const plan = plans.get(f.path);
     if (!plan) continue;
-    const matchCount = plan.groups.reduce(
-      (sum, g) =>
-        sum +
-        g.files.filter((file) => file.status === "matched" || file.status === "cached").length,
-      0,
-    );
-    entries.push({ basename: f.basename, fileCount: plan.totalFiles, matchCount });
+    let matchCount = 0;
+    let ambiguousCount = 0;
+    let failedCount = 0;
+    for (const group of plan.groups) {
+      for (const file of group.files) {
+        if (file.status === "matched" || file.status === "cached") matchCount++;
+        else if (file.status === "ambiguous") ambiguousCount++;
+        else if (file.status === "failed") failedCount++;
+      }
+    }
+    entries.push({
+      basename: f.basename,
+      fileCount: plan.totalFiles,
+      matchCount,
+      ambiguousCount,
+      failedCount,
+    });
   }
   return entries;
 }

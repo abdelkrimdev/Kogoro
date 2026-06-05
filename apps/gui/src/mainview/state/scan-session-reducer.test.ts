@@ -1,10 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { makePlan } from "../../fixtures";
+import { makeFile, makeGroup, makePlan } from "../../fixtures";
 import {
   createInitialSnapshot,
   reduceClearAfterComplete,
   reduceClearAfterReview,
   reduceMessage,
+  reduceOnBatchFolderComplete,
+  reduceOnBatchFolderStarted,
+  reduceOnBatchScanComplete,
+  reduceOnBatchScanStarted,
   reduceOnScanStarted,
   reduceOnViewResults,
   type ScanSessionSnapshot,
@@ -271,6 +275,22 @@ describe("reduceOnViewResults", () => {
     const s = reduceOnViewResults(snapshot());
     expect(s.statusText).toBe("Review ready");
   });
+
+  it("clears batch summary state when entering review", () => {
+    const prev = snapshot({
+      showSummary: true,
+      scanSummaries: [
+        { basename: "Show", fileCount: 5, matchCount: 4, ambiguousCount: 0, failedCount: 1 },
+      ],
+      currentScanFolder: "Show",
+      batchFolderProgress: { current: 3, total: 3 },
+    });
+    const s = reduceOnViewResults(prev);
+    expect(s.showSummary).toBe(false);
+    expect(s.scanSummaries).toHaveLength(0);
+    expect(s.currentScanFolder).toBeNull();
+    expect(s.batchFolderProgress).toBeNull();
+  });
 });
 
 describe("reduceClearAfterReview", () => {
@@ -306,5 +326,164 @@ describe("reduceClearAfterComplete", () => {
       snapshot({ scanProgressState: reduceOnScanStarted(snapshot()).scanProgressState }),
     );
     expect(s.scanProgressState).toBeNull();
+  });
+
+  it("clears batch state", () => {
+    const s = reduceClearAfterComplete(
+      snapshot({
+        isBatchScanning: true,
+        currentScanFolder: "Show",
+        batchFolderProgress: { current: 2, total: 3 },
+        showSummary: true,
+        scanSummaries: [
+          { basename: "Show", fileCount: 5, matchCount: 4, ambiguousCount: 0, failedCount: 1 },
+        ],
+      }),
+    );
+    expect(s.isBatchScanning).toBe(false);
+    expect(s.currentScanFolder).toBeNull();
+    expect(s.batchFolderProgress).toBeNull();
+    expect(s.showSummary).toBe(false);
+    expect(s.scanSummaries).toHaveLength(0);
+  });
+});
+
+describe("reduceOnBatchScanStarted", () => {
+  it("sets isBatchScanning to true", () => {
+    const s = reduceOnBatchScanStarted(snapshot(), 3);
+    expect(s.isBatchScanning).toBe(true);
+  });
+
+  it("stores folder count in batchFolderProgress", () => {
+    const s = reduceOnBatchScanStarted(snapshot(), 5);
+    expect(s.batchFolderProgress).toEqual({ current: 0, total: 5 });
+  });
+
+  it("clears previous summaries", () => {
+    const prev = snapshot({
+      showSummary: true,
+      scanSummaries: [
+        { basename: "old", fileCount: 1, matchCount: 1, ambiguousCount: 0, failedCount: 0 },
+      ],
+    });
+    const s = reduceOnBatchScanStarted(prev, 2);
+    expect(s.showSummary).toBe(false);
+    expect(s.scanSummaries).toHaveLength(0);
+  });
+
+  it("resets perFolderPlans", () => {
+    const prev = snapshot({ perFolderPlans: new Map([["/old", makePlan()]]) });
+    const s = reduceOnBatchScanStarted(prev, 1);
+    expect(s.perFolderPlans.size).toBe(0);
+  });
+
+  it("clears previous plan and sessionId", () => {
+    const prev = snapshot({ plan: makePlan(), sessionId: "old-session" });
+    const s = reduceOnBatchScanStarted(prev, 1);
+    expect(s.plan).toBeNull();
+    expect(s.sessionId).toBeNull();
+  });
+});
+
+describe("reduceOnBatchFolderStarted", () => {
+  it("sets currentScanFolder to folder basename", () => {
+    const s = reduceOnBatchFolderStarted(snapshot(), "/anime/Jujutsu Kaisen", "Jujutsu Kaisen");
+    expect(s.currentScanFolder).toBe("Jujutsu Kaisen");
+  });
+
+  it("increments batchFolderProgress current", () => {
+    const prev = snapshot({ batchFolderProgress: { current: 0, total: 3 } });
+    const s = reduceOnBatchFolderStarted(prev, "/anime/One Piece", "One Piece");
+    expect(s.batchFolderProgress).toEqual({ current: 1, total: 3 });
+  });
+
+  it("creates fresh scanProgressState", () => {
+    const s = reduceOnBatchFolderStarted(snapshot(), "/anime/Show", "Show");
+    expect(s.scanProgressState).not.toBeNull();
+    expect(s.scanProgressState?.entries).toHaveLength(0);
+  });
+});
+
+describe("reduceOnBatchFolderComplete", () => {
+  it("stores plan in perFolderPlans", () => {
+    const plan = makePlan();
+    const s = reduceOnBatchFolderComplete(snapshot(), "/anime/Show", plan);
+    expect(s.perFolderPlans.get("/anime/Show")).toBe(plan);
+  });
+
+  it("clears scanProgressState for next folder", () => {
+    const prev = snapshot({ scanProgressState: reduceOnScanStarted(snapshot()).scanProgressState });
+    const s = reduceOnBatchFolderComplete(prev, "/anime/Show", makePlan());
+    expect(s.scanProgressState).toBeNull();
+  });
+
+  it("preserves other folder plans", () => {
+    const plan1 = makePlan();
+    const plan2 = makePlan();
+    let s = reduceOnBatchFolderComplete(snapshot(), "/anime/A", plan1);
+    s = reduceOnBatchFolderComplete(s, "/anime/B", plan2);
+    expect(s.perFolderPlans.size).toBe(2);
+    expect(s.perFolderPlans.get("/anime/A")).toBe(plan1);
+    expect(s.perFolderPlans.get("/anime/B")).toBe(plan2);
+  });
+});
+
+describe("reduceOnBatchScanComplete", () => {
+  it("computes scanSummaries from perFolderPlans", () => {
+    const folders = [
+      { path: "/anime/A", basename: "A" },
+      { path: "/anime/B", basename: "B" },
+    ];
+    const planA = makePlan([
+      makeGroup({ files: [makeFile({ status: "matched" }), makeFile({ status: "ambiguous" })] }),
+    ]);
+    const planB = makePlan([makeGroup({ files: [makeFile({ status: "matched" })] })]);
+    let s = reduceOnBatchScanStarted(snapshot(), 2);
+    s = reduceOnBatchFolderComplete(s, "/anime/A", planA);
+    s = reduceOnBatchFolderComplete(s, "/anime/B", planB);
+    s = reduceOnBatchScanComplete(s, folders);
+    expect(s.scanSummaries).toHaveLength(2);
+    expect(s.scanSummaries[0]).toEqual({
+      basename: "A",
+      fileCount: 2,
+      matchCount: 1,
+      ambiguousCount: 1,
+      failedCount: 0,
+    });
+    expect(s.scanSummaries[1]).toEqual({
+      basename: "B",
+      fileCount: 1,
+      matchCount: 1,
+      ambiguousCount: 0,
+      failedCount: 0,
+    });
+  });
+
+  it("sets showSummary to true", () => {
+    const s = reduceOnBatchScanComplete(
+      reduceOnBatchFolderComplete(reduceOnBatchScanStarted(snapshot(), 1), "/anime/A", makePlan()),
+      [{ path: "/anime/A", basename: "A" }],
+    );
+    expect(s.showSummary).toBe(true);
+  });
+
+  it("sets isBatchScanning to false", () => {
+    const s = reduceOnBatchScanComplete(
+      reduceOnBatchFolderComplete(reduceOnBatchScanStarted(snapshot(), 1), "/anime/A", makePlan()),
+      [{ path: "/anime/A", basename: "A" }],
+    );
+    expect(s.isBatchScanning).toBe(false);
+  });
+
+  it("sets isScanning to false", () => {
+    const s = reduceOnBatchScanComplete(
+      reduceOnBatchFolderComplete(
+        reduceOnBatchScanStarted(snapshot({ isScanning: true }), 1),
+        "/anime/A",
+        makePlan(),
+      ),
+      [{ path: "/anime/A", basename: "A" }],
+    );
+    expect(s.isScanning).toBe(false);
   });
 });

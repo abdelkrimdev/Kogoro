@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, LoaderCircle } from '@lucide/svelte';
+  import Checkbox from "./Checkbox.svelte";
   import { ENTRY_LABELS, typeBadgeClass } from "../shared";
   import type { AnimeDetail } from "../../shared/types";
   import { getAnimeDirectory } from "../state/detail-state";
@@ -290,9 +291,7 @@
                           </td>
                           <td class="text-center">
                             {#if !ep.missing}
-                              <input
-                                type="checkbox"
-                                class="checkbox"
+                              <Checkbox
                                 checked={ep.watched}
                                 onchange={() => toggleWatched(ep.id)}
                               />

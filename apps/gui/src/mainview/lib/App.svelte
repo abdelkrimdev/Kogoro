@@ -8,10 +8,13 @@
   import {
     createInitialSnapshot,
     reduceMessage,
-    reduceOnScanStarted,
     reduceOnViewResults,
     reduceClearAfterReview,
     reduceClearAfterComplete,
+    reduceOnBatchScanStarted,
+    reduceOnBatchFolderStarted,
+    reduceOnBatchFolderComplete,
+    reduceOnBatchScanComplete,
     type ScanSessionSnapshot,
   } from "../state/scan-session-reducer";
   import { NAV_ITEMS, type View } from "../state/nav";
@@ -117,10 +120,20 @@
     snap = reduceClearAfterReview(snap);
   }
 
-  function onBatchReviewResults(plan: ReviewPlan) {
-    snap = { ...snap, plan, sessionId: plan.sessionId };
-    currentView = "review";
-    snap = reduceOnViewResults(snap);
+  function onBatchScanStarted(folderCount: number) {
+    snap = reduceOnBatchScanStarted(snap, folderCount);
+  }
+
+  function onBatchFolderStarted(folderPath: string, folderBasename: string) {
+    snap = reduceOnBatchFolderStarted(snap, folderPath, folderBasename);
+  }
+
+  function onBatchFolderComplete(folderPath: string, plan: ReviewPlan) {
+    snap = reduceOnBatchFolderComplete(snap, folderPath, plan);
+  }
+
+  function onBatchScanComplete(folders: { path: string; basename: string }[]) {
+    snap = reduceOnBatchScanComplete(snap, folders);
   }
 
   const MIN_SPINNER_MS = 500;
@@ -244,7 +257,22 @@
         {:else if currentView === "details" && currentDetailId}
           <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
         {:else}
-          <Scan {rpc} {onMessage} scanProgressState={snap.scanProgressState} onScanStarted={() => { snap = reduceOnScanStarted(snap); }} reviewReady={snap.plan !== null} {onViewResults} {onBatchReviewResults} />
+          <Scan
+            {rpc}
+            {onMessage}
+            scanProgressState={snap.scanProgressState}
+            reviewReady={snap.plan !== null}
+            {onViewResults}
+            isBatchScanning={snap.isBatchScanning}
+            currentScanFolder={snap.currentScanFolder}
+            batchFolderProgress={snap.batchFolderProgress}
+            showSummary={snap.showSummary}
+            scanSummaries={snap.scanSummaries}
+            {onBatchScanStarted}
+            {onBatchFolderStarted}
+            {onBatchFolderComplete}
+            {onBatchScanComplete}
+          />
         {/if}
       </main>
     </div>
