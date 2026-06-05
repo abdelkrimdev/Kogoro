@@ -9,6 +9,7 @@
   } from "../state/scan-progress-state";
   import type { ReviewPlan, ScanFileStatus } from "@kogoro/core";
   import type { ScanProgressEntry } from "../state/scan-progress-state";
+  import type { WatchedFolder } from "../../shared/types";
   import {
     deriveScanFolders,
     deriveScanToolbar,
@@ -17,13 +18,6 @@
     type EnrichedFolder,
     type ScanSummaryEntry,
   } from "../state/scan-state";
-
-  interface TrackedFolder {
-    path: string;
-    addedAt: string;
-    lastScannedAt?: string;
-    exists: boolean;
-  }
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -71,12 +65,12 @@
   });
 
   $effect(() => {
-    loadTrackedFolders();
+    loadWatchedFolders();
   });
 
-  async function loadTrackedFolders() {
+  async function loadWatchedFolders() {
     try {
-      const raw = (await rpc.request("getWatchedFolders", {})) as TrackedFolder[];
+      const raw = (await rpc.request("getWatchedFolders", {})) as WatchedFolder[];
       enrichedFolders = deriveScanFolders(raw);
     } catch {}
   }
@@ -87,7 +81,7 @@
       if (!result) return;
 
       await rpc.request("addWatchedFolder", { path: result.path });
-      await loadTrackedFolders();
+      await loadWatchedFolders();
     } catch (err) {
       console.error("Failed to add folder:", err);
     }
@@ -133,7 +127,7 @@
 
     try {
       await rpc.request("addWatchedFolder", { path: extractFolderPath(filePath) });
-      await loadTrackedFolders();
+      await loadWatchedFolders();
     } catch (err) {
       console.error("Failed to add watched folder via drop:", err);
     }
@@ -187,7 +181,7 @@
   const scanning = $derived(scanProgressState !== null || isBatchScanning);
   const progressPercent = $derived(scanProgressState ? deriveProgressPercent(scanProgressState) : 0);
   const indeterminate = $derived(scanProgressState ? isIndeterminate(scanProgressState) : false);
-  const hasTrackedFolders = $derived(enrichedFolders.length > 0);
+  const hasWatchedFolders = $derived(enrichedFolders.length > 0);
   const dropZoneHighlight = $derived(dragOver ? 'border-primary-500 bg-primary-500/10' : '');
   const toolbar = $derived(deriveScanToolbar(enrichedFolders));
   const scanSelectedDisabled = $derived(scanning || toolbar.noneSelected);
@@ -232,7 +226,7 @@
 {/snippet}
 
 {#snippet folderList()}
-  {#if hasTrackedFolders}
+  {#if hasWatchedFolders}
     <div class="flex items-center gap-3 px-4 pt-4 pb-2">
       <button
         type="button"

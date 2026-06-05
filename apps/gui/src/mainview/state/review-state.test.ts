@@ -209,15 +209,6 @@ describe("deriveReviewStats", () => {
     expect(stats.ambiguousCount).toBe(2);
   });
 
-  it("counts groups with swap pairs", () => {
-    const plan = makePlan([
-      makeGroup({ swapPairs: [{ fileAId: "f1", fileBId: "f2" }] }),
-      makeGroup({ animeId: "a2", files: [makeFile({ fileId: "f3" })], swapPairs: [] }),
-    ]);
-    const stats = deriveReviewStats(plan);
-    expect(stats.swapsCount).toBe(1);
-  });
-
   it("counts matched, ambiguous, and failed files across groups", () => {
     const plan = makePlan([
       makeGroup({
@@ -285,6 +276,16 @@ describe("deriveReviewStats", () => {
     ]);
     const stats = deriveReviewStats(plan);
     expect(stats.resolvedCount).toBe(0);
+  });
+
+  it("counts rejected groups", () => {
+    const plan = makePlan([
+      makeGroup({ rejected: true }),
+      makeGroup({ animeId: "a2", files: [makeFile({ fileId: "f3" })], rejected: false }),
+      makeGroup({ animeId: "a3", files: [makeFile({ fileId: "f4" })], rejected: true }),
+    ]);
+    const stats = deriveReviewStats(plan);
+    expect(stats.rejectedCount).toBe(2);
   });
 });
 

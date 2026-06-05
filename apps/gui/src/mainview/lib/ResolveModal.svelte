@@ -49,19 +49,26 @@
               No candidates found.
             </div>
           {:else}
+            {@const topScore = Math.max(...candidates.map((c) => c.score))}
             {#each candidates as candidate (candidate.animeId + candidate.episodeId)}
+              {@const isTop = candidate.score === topScore}
               <button
                 type="button"
-                class="w-full text-left card card-hover preset-tonal-surface p-3 transition-all group"
+                class="w-full text-left card card-hover {isTop ? 'preset-tonal-success' : 'preset-tonal-surface'} p-3 transition-all group"
                 onclick={() => handleResolve(candidate)}
               >
                 <div class="flex items-center justify-between mb-1">
                     <span class="font-medium text-surface-950-50 text-sm group-hover:text-primary-400 transition-colors">
                       {candidate.animeTitle}
                     </span>
-                  <span class="badge preset-tonal-surface text-xs">
-                    {entryTypeLabel(candidate.entryType)}
-                  </span>
+                  <div class="flex items-center gap-1.5">
+                    {#if isTop}
+                      <span class="badge preset-tonal-success text-xs">Best match</span>
+                    {/if}
+                    <span class="badge preset-tonal-surface text-xs">
+                      {entryTypeLabel(candidate.entryType)}
+                    </span>
+                  </div>
                 </div>
                 <div class="text-sm text-surface-700-300">
                   S{candidate.season}E{String(candidate.episodeNumber).padStart(2, "0")}

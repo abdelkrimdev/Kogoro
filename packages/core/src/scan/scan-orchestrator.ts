@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { lstatSync, readdirSync, rmdirSync, unlinkSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { LibraryDb } from "../library/library-db";
 import type { AnimeGroup, MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
 import { aggregateReviewPlan, type TopCandidate } from "./rename-plan-aggregator";
@@ -146,6 +148,7 @@ export class ScanOrchestrator {
   private approvedAnimeIds: Set<string> = new Set();
   private rejectedAnimeIds: Set<string> = new Set();
   private initialAmbiguousCount: number | null = null;
+  private baseDir: string = "";
 
   constructor(options: ScanOrchestratorOptions, sessionId?: string) {
     this.options = options;
@@ -242,6 +245,11 @@ export class ScanOrchestrator {
     this.approvedAnimeIds.clear();
     this.rejectedAnimeIds.clear();
     this.initialAmbiguousCount = null;
+    try {
+      this.baseDir = lstatSync(path).isDirectory() ? path : dirname(path);
+    } catch {
+      this.baseDir = dirname(path);
+    }
     this._state = "scan";
 
     const filePaths = await this.options.walk(path);
@@ -294,13 +302,6 @@ export class ScanOrchestrator {
       throw new Error("Cannot approve: not in review state");
     }
     await this.executeApproved();
-  }
-
-  rejectPlan(): void {
-    if (this._state !== "review") {
-      throw new Error("Cannot reject: not in review state");
-    }
-    this.finish(this.makeSummary());
   }
 
   approveGroup(animeId: string): void {
@@ -384,6 +385,17 @@ export class ScanOrchestrator {
     fileA.episode = fileB.episode;
     fileB.episode = tempEpisode;
 
+    const existingIndex = targetGroup.swapPairs.findIndex(
+      (p) =>
+        (p.fileAId === fileAId && p.fileBId === fileBId) ||
+        (p.fileAId === fileBId && p.fileBId === fileAId),
+    );
+    if (existingIndex >= 0) {
+      targetGroup.swapPairs.splice(existingIndex, 1);
+    } else {
+      targetGroup.swapPairs.push({ fileAId, fileBId });
+    }
+
     this.emitReviewReady();
   }
 
@@ -462,8 +474,7 @@ export class ScanOrchestrator {
 
       let renameResult: { success: boolean; error?: { type: string; message: string } };
       if (this.options.executeRename) {
-        const baseDir = plan.sourcePath.substring(0, plan.sourcePath.lastIndexOf("/"));
-        renameResult = await this.options.executeRename(plan, baseDir);
+        renameResult = await this.options.executeRename(plan, this.baseDir);
       } else {
         renameResult = { success: true };
       }
@@ -483,6 +494,7 @@ export class ScanOrchestrator {
       });
     }
 
+    this.cleanupEmptyDirs();
     this.finish(this.makeSummary(renameResults));
   }
 
@@ -493,5 +505,47 @@ export class ScanOrchestrator {
       sessionId: this.sessionId,
       summary,
     });
+  }
+
+  private cleanupEmptyDirs(): void {
+    const sourceDirs = new Set<string>();
+    for (const result of this.results) {
+      if (!result.plan) continue;
+      if (result.status !== "matched" && result.status !== "cached") continue;
+      const animeId = result.match?.anime.id;
+      if (!animeId) continue;
+      if (this.rejectedAnimeIds.has(animeId)) continue;
+      if (this.approvedAnimeIds.size > 0 && !this.approvedAnimeIds.has(animeId)) continue;
+      sourceDirs.add(dirname(result.plan.sourcePath));
+    }
+
+    for (const dir of sourceDirs) {
+      let current = dir;
+      while (current !== this.baseDir && current.startsWith(this.baseDir)) {
+        if (this.hasOnlyHiddenFiles(current)) {
+          this.removeDirContents(current);
+          rmdirSync(current);
+          current = dirname(current);
+        } else {
+          break;
+        }
+      }
+    }
+  }
+
+  private hasOnlyHiddenFiles(dir: string): boolean {
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      return entries.every((entry) => entry.name.startsWith(".") && !entry.isDirectory());
+    } catch {
+      return false;
+    }
+  }
+
+  private removeDirContents(dir: string): void {
+    const entries = readdirSync(dir);
+    for (const entry of entries) {
+      unlinkSync(join(dir, entry));
+    }
   }
 }

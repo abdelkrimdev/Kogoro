@@ -1,11 +1,6 @@
 import { join } from "node:path";
+import type { WatchedFolder } from "../shared/types";
 import { readJsonFile, stateDir, writeJsonFile } from "./state";
-
-export interface WatchedFolder {
-  path: string;
-  addedAt: string;
-  lastScannedAt?: string;
-}
 
 function watchedFoldersPath() {
   return join(stateDir(), ".watched-folders.json");

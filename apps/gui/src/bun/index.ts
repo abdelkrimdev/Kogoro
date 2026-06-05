@@ -123,10 +123,6 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 
         return undefined;
       },
-      rejectPlan: async (params) => {
-        getOrchestrator(params.sessionId).rejectPlan();
-        return undefined;
-      },
       approveGroup: async (params) => {
         getOrchestrator(params.sessionId).approveGroup(params.animeId);
         return undefined;
@@ -141,8 +137,11 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return undefined;
       },
       swapFiles: async (params) => {
-        getOrchestrator(params.sessionId).swapFiles(params.fileAId, params.fileBId);
-        return undefined;
+        const orch = getOrchestrator(params.sessionId);
+        orch.swapFiles(params.fileAId, params.fileBId);
+        const plan = orch.getPlan();
+        if (!plan) throw new Error("No plan available after swap");
+        return { plan };
       },
       getResolveCandidates: async (params) => {
         const { sessionId, fileId } = params;

@@ -9,7 +9,7 @@ export interface WatchedFolder {
   path: string;
   addedAt: string;
   lastScannedAt?: string;
-  exists: boolean;
+  exists?: boolean;
 }
 
 export interface ResolveCandidate {
@@ -135,10 +135,6 @@ export type AppRPC = {
         params: { sessionId: string };
         response: undefined;
       };
-      rejectPlan: {
-        params: { sessionId: string };
-        response: undefined;
-      };
       approveGroup: {
         params: { sessionId: string; animeId: string };
         response: undefined;
@@ -153,7 +149,7 @@ export type AppRPC = {
       };
       swapFiles: {
         params: { sessionId: string; fileAId: string; fileBId: string };
-        response: undefined;
+        response: { plan: ReviewPlan };
       };
       getSettingsData: {
         params: Record<string, never>;
@@ -259,12 +255,7 @@ export type AppRPC = {
       };
       getWatchedFolders: {
         params: Record<string, never>;
-        response: Array<{
-          path: string;
-          addedAt: string;
-          lastScannedAt?: string;
-          exists: boolean;
-        }>;
+        response: WatchedFolder[];
       };
       addWatchedFolder: {
         params: { path: string };

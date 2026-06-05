@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import type { WatchedFolder } from "../shared/types";
 import {
   addWatchedFolder,
   loadWatchedFolders,
@@ -6,14 +7,7 @@ import {
   removeWatchedFolder,
 } from "./watched-folders";
 
-export interface WatchedFolderResponse {
-  path: string;
-  addedAt: string;
-  lastScannedAt?: string;
-  exists: boolean;
-}
-
-export function getWatchedFoldersHandler(): WatchedFolderResponse[] {
+export function getWatchedFoldersHandler(): WatchedFolder[] {
   const folders = loadWatchedFolders();
   return folders.map((f) => ({
     ...f,

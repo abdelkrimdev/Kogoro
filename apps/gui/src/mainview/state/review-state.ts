@@ -49,8 +49,8 @@ export interface ReviewStats {
   matchedCount: number;
   ambiguousCount: number;
   failedCount: number;
-  swapsCount: number;
   resolvedCount: number;
+  rejectedCount: number;
 }
 
 export function findSwapPairForFile(group: AnimeGroup, fileId: string): string | null {
@@ -72,7 +72,7 @@ export function deriveReviewStats(plan: ReviewPlan): ReviewStats {
   let matchedCount = 0;
   let ambiguousCount = 0;
   let failedCount = 0;
-  let swapsCount = 0;
+  let rejectedCount = 0;
 
   for (const group of plan.groups) {
     for (const file of group.files) {
@@ -80,7 +80,7 @@ export function deriveReviewStats(plan: ReviewPlan): ReviewStats {
       else if (file.status === "ambiguous") ambiguousCount++;
       else if (file.status === "failed") failedCount++;
     }
-    if (group.swapPairs.length > 0) swapsCount++;
+    if (group.rejected) rejectedCount++;
   }
 
   const initialAmbiguous = plan.initialAmbiguousCount ?? ambiguousCount;
@@ -92,7 +92,7 @@ export function deriveReviewStats(plan: ReviewPlan): ReviewStats {
     matchedCount,
     ambiguousCount,
     failedCount,
-    swapsCount,
     resolvedCount,
+    rejectedCount,
   };
 }

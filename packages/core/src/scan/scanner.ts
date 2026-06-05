@@ -157,12 +157,13 @@ export class Scanner {
     const prepared = await this.prepareFile(filePath, options?.force, options?.extensions);
 
     if (prepared.cachedMatch) {
+      const { match, plan } = this.planFromCache(filePath, prepared.cachedMatch);
       return {
         file: filePath,
         hash: prepared.hash,
         parsed: createEmptyResult(),
-        match: matchResultFromCache(prepared.cachedMatch),
-        plan: null,
+        match,
+        plan,
         cached: true,
         skipped: true,
         status: "cached",
@@ -321,6 +322,19 @@ export class Scanner {
     });
   }
 
+  private planFromCache(
+    filePath: string,
+    cachedMatch: CachedMatch,
+  ): { match: MatchResult; plan: RenamePlan | null } {
+    const match = matchResultFromCache(cachedMatch);
+    let plan: RenamePlan | null = null;
+    if (this.renamer) {
+      const extension = extname(filePath).replace(".", "") || "mkv";
+      plan = this.renamer.plan(filePath, match, extension);
+    }
+    return { match, plan };
+  }
+
   private async renameFile(
     filePath: string,
     hash: string,
@@ -399,12 +413,13 @@ export class Scanner {
 
   private async finalizeEntry(entry: BatchEntry, options?: ScanFileOptions): Promise<ScanResult> {
     if (entry.cachedMatch) {
+      const { match, plan } = this.planFromCache(entry.filePath, entry.cachedMatch);
       return {
         file: entry.filePath,
         hash: entry.hash,
         parsed: entry.parsed,
-        match: matchResultFromCache(entry.cachedMatch),
-        plan: null,
+        match,
+        plan,
         cached: true,
         skipped: true,
         status: "cached",

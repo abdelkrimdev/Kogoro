@@ -49,6 +49,7 @@ export function makeGroup(overrides: Partial<AnimeGroup> = {}): AnimeGroup {
     files: overrides.files ?? [makeFile()],
     swapPairs: overrides.swapPairs ?? [],
     mergeMode: overrides.mergeMode,
+    rejected: overrides.rejected,
   };
 }
 

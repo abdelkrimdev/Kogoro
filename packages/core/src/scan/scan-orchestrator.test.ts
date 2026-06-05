@@ -91,21 +91,6 @@ describe("ScanOrchestrator", () => {
       await orch.approvePlan();
       expect(orch.getState()).toBe("done");
     });
-
-    test("transitions to done on rejectPlan", async () => {
-      const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
-        walk: async () => ["/a/ep1.mkv"],
-        scanFile: async () =>
-          makeScanResult("/a/ep1.mkv", {
-            match: makeMatchResult(),
-            status: "matched",
-          }),
-      });
-      await orch.startScan("/test/path");
-      orch.rejectPlan();
-      expect(orch.getState()).toBe("done");
-    });
   });
 
   describe("progress events", () => {
@@ -471,6 +456,42 @@ describe("ScanOrchestrator", () => {
       expect(orch.getState()).toBe("done");
     });
 
+    test("uses scan root as baseDir for all files, not per-file dirname", async () => {
+      const baseDirs: string[] = [];
+      const ep1 = "/downloads/Oshi no Ko/TV/ep1.mkv";
+      const ep2 = "/downloads/Oshi no Ko/TV/ep2.mkv";
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [ep1, ep2],
+        scanFile: async (_file, _options, index) => {
+          const file = (index ?? 0) === 0 ? ep1 : ep2;
+          return makeScanResult(file, {
+            match: makeMatchResult({
+              anime: { id: "1", titleEn: "Oshi no Ko", entryType: "tv" },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: file,
+              targetPath: `Oshi no Ko/TV/S01E0${(index ?? 0) + 1}.mkv`,
+              targetDir: "Oshi no Ko/TV",
+              targetFilename: `S01E0${(index ?? 0) + 1}.mkv`,
+              action: "move",
+            },
+          });
+        },
+        executeRename: async (_plan, baseDir) => {
+          baseDirs.push(baseDir);
+          return { success: true };
+        },
+      });
+      await orch.startScan("/downloads/Oshi no Ko/TV");
+      await orch.approvePlan();
+
+      expect(baseDirs).toHaveLength(2);
+      expect(baseDirs[0]).toBe(baseDirs[1]);
+      expect(baseDirs[0]).not.toBe("/downloads/Oshi no Ko/TV");
+    });
+
     test("only executes explicitly approved groups", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
@@ -623,6 +644,215 @@ describe("ScanOrchestrator", () => {
       expect(execEvents.length).toBe(1);
       expect(execEvents[0]?.file).toBe("/a/ep1.mkv");
     });
+
+    test("cleans up empty source directories after rename", async () => {
+      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
+      const testDir = "/tmp/kogoro-test-cleanup";
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(`${testDir}/Anime/TV`, { recursive: true });
+      writeFileSync(`${testDir}/Anime/TV/ep1.mkv`, "");
+
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
+        scanFile: async () =>
+          makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
+            match: makeMatchResult({
+              anime: { id: "1", titleEn: "Anime", entryType: "tv" },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: `${testDir}/Anime/TV/ep1.mkv`,
+              targetPath: "Anime/S01E01.mkv",
+              targetDir: "Anime",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          }),
+        executeRename: async (plan, baseDir) => {
+          const { dirname, join } = await import("node:path");
+          const target = join(baseDir, plan.targetPath);
+          mkdirSync(dirname(target), { recursive: true });
+          renameSync(plan.sourcePath, target);
+          return { success: true };
+        },
+      });
+
+      await orch.startScan(testDir);
+      await orch.approvePlan();
+
+      // TV dir should be empty and removed; Anime dir now has the renamed file
+      expect(existsSync(`${testDir}/Anime/TV`)).toBe(false);
+      expect(existsSync(`${testDir}/Anime/S01E01.mkv`)).toBe(true);
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    test("preserves source directories with non-hidden files", async () => {
+      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
+      const testDir = "/tmp/kogoro-test-cleanup2";
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(`${testDir}/Anime/TV`, { recursive: true });
+      writeFileSync(`${testDir}/Anime/TV/ep1.mkv`, "");
+      writeFileSync(`${testDir}/Anime/TV/other-file.txt`, "");
+
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
+        scanFile: async () =>
+          makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
+            match: makeMatchResult({
+              anime: { id: "1", titleEn: "Anime", entryType: "tv" },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: `${testDir}/Anime/TV/ep1.mkv`,
+              targetPath: "Anime/S01E01.mkv",
+              targetDir: "Anime",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          }),
+        executeRename: async (plan, baseDir) => {
+          const { dirname, join } = await import("node:path");
+          const target = join(baseDir, plan.targetPath);
+          mkdirSync(dirname(target), { recursive: true });
+          renameSync(plan.sourcePath, target);
+          return { success: true };
+        },
+      });
+
+      await orch.startScan(testDir);
+      await orch.approvePlan();
+
+      // Directory should be preserved because it had other-file.txt
+      expect(existsSync(`${testDir}/Anime/TV/other-file.txt`)).toBe(true);
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    test("removes directories with only hidden files", async () => {
+      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
+      const testDir = "/tmp/kogoro-test-cleanup3";
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(`${testDir}/Anime/TV`, { recursive: true });
+      writeFileSync(`${testDir}/Anime/TV/ep1.mkv`, "");
+      writeFileSync(`${testDir}/Anime/TV/.DS_Store`, "");
+
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
+        scanFile: async () =>
+          makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
+            match: makeMatchResult({
+              anime: { id: "1", titleEn: "Anime", entryType: "tv" },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: `${testDir}/Anime/TV/ep1.mkv`,
+              targetPath: "Anime/S01E01.mkv",
+              targetDir: "Anime",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          }),
+        executeRename: async (plan, baseDir) => {
+          const { dirname, join } = await import("node:path");
+          const target = join(baseDir, plan.targetPath);
+          mkdirSync(dirname(target), { recursive: true });
+          renameSync(plan.sourcePath, target);
+          return { success: true };
+        },
+      });
+
+      await orch.startScan(testDir);
+      await orch.approvePlan();
+
+      // .DS_Store is hidden, so the directory should be cleaned up
+      expect(existsSync(`${testDir}/Anime/TV`)).toBe(false);
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    test("preserves directories with hidden subdirectories", async () => {
+      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
+      const testDir = "/tmp/kogoro-test-cleanup5";
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(`${testDir}/Anime/TV/.git/objects`, { recursive: true });
+      writeFileSync(`${testDir}/Anime/TV/ep1.mkv`, "");
+      writeFileSync(`${testDir}/Anime/TV/.git/config`, "");
+
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
+        scanFile: async () =>
+          makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
+            match: makeMatchResult({
+              anime: { id: "1", titleEn: "Anime", entryType: "tv" },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: `${testDir}/Anime/TV/ep1.mkv`,
+              targetPath: "Anime/S01E01.mkv",
+              targetDir: "Anime",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          }),
+        executeRename: async (plan, baseDir) => {
+          const { dirname, join } = await import("node:path");
+          const target = join(baseDir, plan.targetPath);
+          mkdirSync(dirname(target), { recursive: true });
+          renameSync(plan.sourcePath, target);
+          return { success: true };
+        },
+      });
+
+      await orch.startScan(testDir);
+      await orch.approvePlan();
+
+      // .git is a hidden dir, not a hidden file — directory should be preserved
+      expect(existsSync(`${testDir}/Anime/TV/.git/config`)).toBe(true);
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    test("stops cleanup at scan root", async () => {
+      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
+      const testDir = "/tmp/kogoro-test-cleanup4";
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(testDir, { recursive: true });
+      writeFileSync(`${testDir}/ep1.mkv`, "");
+
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => [`${testDir}/ep1.mkv`],
+        scanFile: async () =>
+          makeScanResult(`${testDir}/ep1.mkv`, {
+            match: makeMatchResult({
+              anime: { id: "1", titleEn: "Anime", entryType: "tv" },
+            }),
+            status: "matched",
+            plan: {
+              sourcePath: `${testDir}/ep1.mkv`,
+              targetPath: "Anime/TV/S01E01.mkv",
+              targetDir: "Anime/TV",
+              targetFilename: "S01E01.mkv",
+              action: "move",
+            },
+          }),
+        executeRename: async (plan, baseDir) => {
+          const { dirname, join } = await import("node:path");
+          const target = join(baseDir, plan.targetPath);
+          mkdirSync(dirname(target), { recursive: true });
+          renameSync(plan.sourcePath, target);
+          return { success: true };
+        },
+      });
+
+      await orch.startScan(testDir);
+      await orch.approvePlan();
+
+      // Scan root itself should never be removed
+      expect(existsSync(testDir)).toBe(true);
+      rmSync(testDir, { recursive: true, force: true });
+    });
   });
 
   describe("error handling", () => {
@@ -643,15 +873,6 @@ describe("ScanOrchestrator", () => {
         scanFile: async () => makeScanResult("dummy"),
       });
       expect(() => orch.approvePlan()).toThrow("not in review");
-    });
-
-    test("rejects rejectPlan if not in review state", () => {
-      const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
-        walk: async () => [],
-        scanFile: async () => makeScanResult("dummy"),
-      });
-      expect(() => orch.rejectPlan()).toThrow("not in review");
     });
 
     test("rejects cancel if idle", () => {
