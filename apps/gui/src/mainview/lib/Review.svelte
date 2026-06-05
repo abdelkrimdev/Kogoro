@@ -197,7 +197,7 @@
   <!-- Row 1: Title + actions -->
   <div class="px-4 pt-4 pb-3 border-b border-surface-300-700 bg-surface-200-800/50">
     <div class="flex items-center justify-between">
-      <h2 class="text-xl font-bold text-surface-950-50">Review</h2>
+      <h2 class="text-xl font-bold text-surface-950-50">Review Plan</h2>
       <div class="flex gap-2">
         <button type="button" class="btn preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
           Approve All
@@ -304,7 +304,7 @@
             {#each group.files as file (file.fileId)}
               {@const swapPartner = findSwapPairForFile(group, file.fileId)}
               {@const emptyMessage = getEmptyCardMessage(file)}
-              <div class="flex items-stretch gap-0 py-3 px-4 min-w-[40rem] {dragOverFileId === file.fileId ? 'bg-surface-300-700/30' : ''}">
+              <div class="flex items-stretch gap-0 py-3 px-4 min-w-160 {dragOverFileId === file.fileId ? 'bg-surface-300-700/30' : ''}">
                 <!-- Source card -->
                 <div class="flex-1 min-w-0 rounded-l-lg border border-r-0 border-surface-300-700 bg-surface-100-900 p-3">
                   <div class="font-mono text-sm text-surface-950-50 truncate" title={file.sourcePath}>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FolderSearch, LoaderCircle, ScanSearch, X } from '@lucide/svelte';
+  import { Check, FolderSearch, LoaderCircle, Minus, ScanSearch, X } from '@lucide/svelte';
   import type { ScanProgressState } from "../state/scan-progress-state";
   import {
     deriveBreakdown,
@@ -208,21 +208,29 @@
   const indeterminate = $derived(scanProgressState ? isIndeterminate(scanProgressState) : false);
   const breakdown = $derived(scanProgressState ? deriveBreakdown(scanProgressState) : null);
   const hasTrackedFolders = $derived(enrichedFolders.length > 0);
-  const dropZoneLayout = $derived(hasTrackedFolders ? 'p-3' : 'flex-1 flex flex-col items-center justify-center p-8');
-  const dropZoneIconSize = $derived(hasTrackedFolders ? 'size-8' : 'size-16');
-  const dropZoneTextStyle = $derived(hasTrackedFolders ? 'text-xs mt-1' : 'text-sm mt-3');
   const dropZoneHighlight = $derived(dragOver ? 'border-primary-500 bg-primary-500/10' : '');
   const toolbar = $derived(deriveScanToolbar(enrichedFolders));
   const scanSelectedDisabled = $derived(scanning || batchScanning || toolbar.noneSelected);
+  const folderStats = $derived(
+    new Map<string, { fileCount: number; matchCount: number }>(
+      Array.from(perFolderPlans.entries()).map(([path, plan]) => {
+        const matchCount = plan.groups.reduce(
+          (sum, g) => sum + g.files.filter((f) => f.status === "matched" || f.status === "cached").length,
+          0,
+        );
+        return [path, { fileCount: plan.totalFiles, matchCount }];
+      }),
+    ),
+  );
 </script>
 
 {#snippet statusBadge(folder: EnrichedFolder)}
   {#if folder.status === "missing"}
-    <span class="badge preset-tonal-warning text-xs mt-1">Missing</span>
+    <span class="badge preset-tonal-warning text-xs">Missing</span>
   {:else if folder.status === "indexed"}
-    <span class="badge preset-tonal-success text-xs mt-1">Indexed</span>
+    <span class="badge preset-tonal-success text-xs">Indexed</span>
   {:else}
-    <span class="badge preset-tonal-surface text-xs mt-1">New</span>
+    <span class="badge preset-tonal-surface text-xs">New</span>
   {/if}
 {/snippet}
 
@@ -324,9 +332,9 @@
     </div>
   </div>
 {:else}
-  <div class="flex flex-col h-full p-4 gap-4">
+  <div class="flex flex-col h-full">
     {#if showSummary}
-      <div class="card preset-filled-success-100-900 p-4 space-y-3">
+      <div class="card preset-filled-success-100-900 p-4 space-y-3 mx-4 mt-4">
         <div class="flex items-center gap-2">
           <span class="text-sm font-medium text-surface-950-50">Batch scan complete</span>
         </div>
@@ -347,80 +355,121 @@
         </button>
       </div>
     {/if}
+
     {#if hasTrackedFolders}
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-surface-600-400">Tracked Folders</span>
-        </div>
-        <div class="card preset-outlined-surface-300-700 flex items-center gap-3 px-3 py-2">
-          <label class="flex items-center gap-2 text-xs text-surface-700-300 cursor-pointer select-none">
+      <div class="flex items-center gap-3 px-4 pt-4 pb-2">
+        <button
+          type="button"
+          class="flex items-center gap-2 text-xs text-surface-700-300 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+          aria-pressed={toolbar.allSelected}
+          aria-label="Select All"
+          onclick={handleToggleAll}
+        >
+          <div class="size-4 rounded border flex items-center justify-center transition-colors {toolbar.allSelected ? 'bg-primary-500 border-primary-500' : toolbar.someSelected ? 'bg-primary-500/20 border-primary-500' : 'border-surface-400-500'}">
+            {#if toolbar.allSelected}
+              <Check class="size-3 text-white" />
+            {:else if toolbar.someSelected}
+              <Minus class="size-3 text-primary-500" />
+            {/if}
+          </div>
+          Select All
+        </button>
+        <span class="text-xs text-surface-600-400 flex-1">
+          {toolbar.selectableCount} folder{toolbar.selectableCount !== 1 ? "s" : ""}
+        </span>
+        <button
+          type="button"
+          class="btn preset-filled-primary-500 rounded-lg font-medium text-xs"
+          onclick={scanSelected}
+          disabled={scanSelectedDisabled}
+        >
+          <ScanSearch class="size-3.5" />
+          Scan Selected
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto min-h-0 px-4 space-y-1">
+        {#each enrichedFolders as folder (folder.path)}
+          <label
+            class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-100-900 transition-colors group w-full cursor-pointer"
+          >
             <input
               type="checkbox"
-              class="checkbox"
-              checked={toolbar.allSelected}
-              bind:indeterminate={toolbar.someSelected}
-              onchange={handleToggleAll}
+              class="sr-only"
+              checked={folder.selected}
+              disabled={!folder.exists}
+              onchange={() => folder.exists && handleToggleFolder(folder.path)}
+              aria-label="Select {folder.basename}"
             />
-            Select All
-          </label>
-          <span class="text-xs text-surface-600-400 flex-1">
-            {toolbar.selectableCount} folder{toolbar.selectableCount !== 1 ? "s" : ""}
-          </span>
-          <button
-            type="button"
-            class="btn preset-filled-primary-500 rounded-lg font-medium text-xs"
-            onclick={scanSelected}
-            disabled={scanSelectedDisabled}
-          >
-            <ScanSearch class="size-3.5" />
-            Scan Selected
-          </button>
-        </div>
-        <div class="space-y-1">
-          {#each enrichedFolders as folder (folder.path)}
-            <div class="card preset-outlined-surface-300-700 flex items-center gap-2 p-3">
-              <input
-                type="checkbox"
-                class="checkbox shrink-0"
-                checked={folder.selected}
-                disabled={!folder.exists}
-                aria-label="Select {folder.basename}"
-                onchange={() => handleToggleFolder(folder.path)}
-              />
-              <div class="flex-1 min-w-0">
-                <span class="text-sm text-surface-950-50 truncate block">{folder.path}</span>
+            <div
+              class="shrink-0 size-4 rounded border flex items-center justify-center transition-colors {folder.selected ? 'bg-primary-500 border-primary-500' : 'border-surface-400-500'} {!folder.exists ? 'opacity-40 cursor-not-allowed' : ''}"
+              aria-hidden="true"
+            >
+              {#if folder.selected}
+                <Check class="size-3 text-white" />
+              {/if}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-surface-950-50 truncate">{folder.basename}</span>
                 {@render statusBadge(folder)}
               </div>
-              <button
-                type="button"
-                class="btn-icon preset-tonal-surface rounded-lg shrink-0"
-                onclick={() => handleRemove(folder.path)}
-                disabled={removing === folder.path}
-                aria-label="Remove tracked folder"
-              >
-                <X class="size-4" />
-              </button>
+              <div class="flex items-center gap-1.5 text-xs text-surface-600-400 mt-0.5">
+                <span class="truncate">{folder.path}</span>
+                {#if folder.status === "indexed" && folder.relativeTimestamp}
+                  <span class="shrink-0">·</span>
+                  <span class="shrink-0">{folder.relativeTimestamp}</span>
+                  {@const stats = folderStats.get(folder.path)}
+                  {#if stats}
+                    <span class="shrink-0">·</span>
+                    <span class="shrink-0">{stats.matchCount}/{stats.fileCount} matched</span>
+                  {/if}
+                {/if}
+              </div>
             </div>
-          {/each}
-        </div>
+            <button
+              type="button"
+              class="btn-icon preset-tonal-surface rounded-lg shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onclick={() => handleRemove(folder.path)}
+              disabled={removing === folder.path}
+              aria-label="Remove tracked folder"
+            >
+              <X class="size-4" />
+            </button>
+          </label>
+        {/each}
       </div>
-    {/if}
 
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="border-2 border-dashed border-surface-400-500 rounded-lg text-center cursor-pointer transition-colors {dropZoneLayout} {dropZoneHighlight}"
-      role="button"
-      tabindex="0"
-      ondragover={handleDragOver}
-      ondragleave={handleDragLeave}
-      ondrop={handleDrop}
-      onclick={startScan}
-      onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? startScan() : null}
-    >
-      <FolderSearch class="text-surface-600-400 mx-auto {dropZoneIconSize}" />
-      <p class="text-surface-600-400 {dropZoneTextStyle}">
-        Drop a folder here or click to browse
-      </p>
-    </div>
+      <button
+        type="button"
+        class="border-t border-surface-300-700 text-center cursor-pointer transition-colors shrink-0 py-4 w-full {dropZoneHighlight} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t-none"
+        ondragover={handleDragOver}
+        ondragleave={handleDragLeave}
+        ondrop={handleDrop}
+        onclick={startScan}
+      >
+        <FolderSearch class="text-surface-600-400 mx-auto size-6" />
+        <p class="text-surface-600-400 text-xs mt-1">
+          Drop a folder here or click to browse
+        </p>
+      </button>
+    {:else}
+      <button
+        type="button"
+        class="flex-1 flex flex-col items-center justify-center p-8 border-2 border-dashed border-surface-400-500 rounded-lg m-4 text-center cursor-pointer transition-colors {dropZoneHighlight} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        ondragover={handleDragOver}
+        ondragleave={handleDragLeave}
+        ondrop={handleDrop}
+        onclick={startScan}
+      >
+        <FolderSearch class="text-surface-600-400 mx-auto size-16" />
+        <p class="text-surface-600-400 text-sm mt-3">
+          Drop a folder here or click to browse
+        </p>
+        <p class="text-surface-500-500 text-xs mt-1">
+          Kogoro will scan and match your anime episodes
+        </p>
+      </button>
+    {/if}
   </div>
 {/if}
