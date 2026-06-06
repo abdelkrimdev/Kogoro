@@ -15,9 +15,6 @@ jobs:
           - os: macos-latest
             arch: arm64
             platform: darwin
-          - os: macos-13
-            arch: x64
-            platform: darwin
           - os: ubuntu-latest
             arch: x64
             platform: linux
@@ -60,9 +57,6 @@ jobs:
           - target: bun-darwin-arm64
             os: macos-latest
             name: kogoro-darwin-arm64
-          - target: bun-darwin-x64
-            os: macos-13
-            name: kogoro-darwin-x64
           - target: bun-linux-x64
             os: ubuntu-latest
             name: kogoro-linux-x64
