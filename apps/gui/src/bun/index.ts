@@ -1,4 +1,9 @@
-import { CONFIG_DIR, ConfigManager, createCredentialStore } from "@kogoro/core";
+import {
+  CONFIG_DIR,
+  ConfigManager,
+  createCredentialStore,
+  findCandidateMatches,
+} from "@kogoro/core";
 import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
@@ -7,7 +12,6 @@ import { shouldShowOnboarding, writeOnboardingConfig } from "./onboarding";
 import {
   cleanupSession,
   createScanOrchestrator,
-  findCandidateMatches,
   getDatabase,
   getMatcher,
   getOrchestrator,

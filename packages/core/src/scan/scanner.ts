@@ -87,6 +87,28 @@ export function getDirectoryTitle(filePath: string): string | null {
   return parent;
 }
 
+function parseFile(filePath: string, extensions?: readonly string[]): ParsedResult {
+  const parsed = parse(basename(filePath), extensions);
+  if (!parsed.title) {
+    const dirTitle = getDirectoryTitle(filePath);
+    if (dirTitle) parsed.title = dirTitle;
+  }
+  return parsed;
+}
+
+export async function findCandidateMatches(
+  matcher: MatcherLike,
+  filePath: string,
+): Promise<{ parsed: ParsedResult; best: MatchResult[] }> {
+  const parsed = parseFile(filePath);
+  const matches = await matcher.match(parsed);
+  const scoredMatches = matches.filter((m) => !m.failureReason);
+  const hasEpisode = parsed.episode !== null;
+  const goodMatches = scoredMatches.filter((m) => (hasEpisode ? m.episode !== undefined : true));
+  const best = bestPerAnimeId(goodMatches);
+  return { parsed, best };
+}
+
 interface PreparedFile {
   filePath: string;
   hash: string;
@@ -122,15 +144,6 @@ export class Scanner {
     return this.renamer.rollback();
   }
 
-  private parseFile(filePath: string, extensions?: readonly string[]): ParsedResult {
-    const parsed = parse(basename(filePath), extensions);
-    if (!parsed.title) {
-      const dirTitle = getDirectoryTitle(filePath);
-      if (dirTitle) parsed.title = dirTitle;
-    }
-    return parsed;
-  }
-
   private async prepareFile(
     filePath: string,
     force?: boolean,
@@ -147,7 +160,7 @@ export class Scanner {
       }
     }
 
-    const parsed = this.parseFile(filePath, extensions);
+    const parsed = parseFile(filePath, extensions);
     const override = this.overrideStore?.get(overrideKey) ?? null;
 
     return { filePath, hash, parsed, overrideKey, override, cachedMatch };

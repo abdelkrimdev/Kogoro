@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X, LoaderCircle, Tv } from '@lucide/svelte';
+  import { X, LoaderCircle, SearchX } from '@lucide/svelte';
   import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import type { ResolveCandidate } from "../../shared/types";
   import { entryTypeLabel } from "../shared";
@@ -78,7 +78,7 @@
             </div>
           {:else if candidates.length === 0}
             <div class="text-center py-8 space-y-3">
-              <Tv class="size-10 text-surface-600-400 mx-auto" />
+              <SearchX class="size-10 text-surface-600-400 mx-auto" />
               <p class="text-surface-700-300 text-sm">No candidates found.</p>
               <p class="text-surface-500-500 text-xs">No matches could be found for this file.</p>
             </div>

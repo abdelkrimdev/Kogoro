@@ -1,15 +1,14 @@
-import { basename, extname } from "node:path";
-import type { DatabasePlugin, MatchResult, ParsedResult } from "@kogoro/core";
+import { extname } from "node:path";
+import type { DatabasePlugin } from "@kogoro/core";
 import {
-  bestPerAnimeId,
   CONFIG_DIR,
   type ConfigManager,
   type CredentialStore,
+  findCandidateMatches,
   LibraryDb,
   MatchCache,
   Matcher,
   OverrideStore,
-  parse,
   Renamer,
   SCHEMA_DEFAULTS,
   Scanner,
@@ -33,19 +32,6 @@ export function getOrchestrator(sessionId: string): ScanOrchestrator {
     throw new Error("Scan session not found");
   }
   return session.orchestrator;
-}
-
-export async function findCandidateMatches(
-  matcher: Matcher,
-  filePath: string,
-): Promise<{ parsed: ParsedResult; best: MatchResult[] }> {
-  const parsed = parse(basename(filePath));
-  const matches = await matcher.match(parsed);
-  const scoredMatches = matches.filter((m) => !m.failureReason);
-  const hasEpisode = parsed.episode !== null;
-  const goodMatches = scoredMatches.filter((m) => (hasEpisode ? m.episode !== undefined : true));
-  const best = bestPerAnimeId(goodMatches);
-  return { parsed, best };
 }
 
 export async function createScanOrchestrator(

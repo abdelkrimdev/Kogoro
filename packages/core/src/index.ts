@@ -106,7 +106,12 @@ export type {
 } from "./scan/scan-orchestrator";
 export { ScanOrchestrator } from "./scan/scan-orchestrator";
 export type { ScanResult } from "./scan/scanner";
-export { computeFileHash, getDirectoryTitle, Scanner } from "./scan/scanner";
+export {
+  computeFileHash,
+  findCandidateMatches,
+  getDirectoryTitle,
+  Scanner,
+} from "./scan/scanner";
 export type {
   AnimeGroup,
   AnimeResult,
