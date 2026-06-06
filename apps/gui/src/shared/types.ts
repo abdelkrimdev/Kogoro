@@ -102,7 +102,7 @@ export type AppRPC = {
         } | null;
       };
       scanStart: {
-        params: { path: string };
+        params: { path: string; force?: boolean };
         response: { sessionId: string };
       };
       resolveMatch: {

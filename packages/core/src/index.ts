@@ -64,7 +64,7 @@ export type {
 } from "./io/progress";
 export type { LibraryAnime, LibraryEpisode, WatchStatus } from "./library/library-db";
 export { LibraryDb } from "./library/library-db";
-export type { CachedMatch } from "./match/match-cache";
+export type { CachedMatch, ScanStateEntry } from "./match/match-cache";
 export { MatchCache } from "./match/match-cache";
 export type { MatcherLike, MatchResult } from "./match/matcher";
 export {

@@ -75,7 +75,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         return dir ? { path: dir } : null;
       },
       scanStart: async (params) => {
-        const { path } = params;
+        const { path, force } = params;
         const sessionId = crypto.randomUUID();
 
         (async () => {
@@ -84,6 +84,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
               sessionId,
               configManager,
               credentialStore,
+              force,
             );
 
             orchestrator.on("*", (event) => {

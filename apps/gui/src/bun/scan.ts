@@ -8,6 +8,7 @@ import {
   LibraryDb,
   MatchCache,
   Matcher,
+  type MatchResult,
   OverrideStore,
   Renamer,
   SCHEMA_DEFAULTS,
@@ -38,6 +39,7 @@ export async function createScanOrchestrator(
   sessionId: string,
   configManager: ConfigManager,
   credentialStore: CredentialStore,
+  force?: boolean,
 ): Promise<ScanOrchestrator> {
   const factory = new PluginFactory(configManager, credentialStore);
   const database = await factory.primaryDatabase();
@@ -137,6 +139,12 @@ export async function createScanOrchestrator(
             }));
           }
         : undefined,
+      planFile: (filePath: string, match: MatchResult) => {
+        const extension = extname(filePath).replace(".", "") || "mkv";
+        return renamer.plan(filePath, match, extension);
+      },
+      cache,
+      force,
     },
     sessionId,
   );

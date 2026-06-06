@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { createMockMatcher, makeMatchResult, makeParsedResult } from "../fixtures";
+import {
+  createCache,
+  createMockMatcher,
+  makeCachedMatch,
+  makeMatchResult,
+  makeParsedResult,
+  withTempDir,
+} from "../fixtures";
 import type { ReviewPlan } from "../types";
 import {
   type ScanCompleteEvent,
@@ -1650,6 +1657,367 @@ describe("ScanOrchestrator", () => {
       const fileId = plan?.groups[0]?.files[0]?.fileId;
       if (!fileId) throw new Error("Test invariant: fileId is undefined");
       expect(() => orch.resolveMatch(fileId, "1", "101")).toThrow("resolve not available");
+    });
+  });
+
+  describe("incremental scan", () => {
+    test("skips unchanged files and returns status cached with match and plan", async () => {
+      await withTempDir("orch-incremental", async (dir) => {
+        const { writeFileSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const { MatchCache } = await import("../match/match-cache");
+        const cache = createCache(dir);
+        const scanFileCalls: string[] = [];
+
+        const file1 = join(dir, "ep1.mkv");
+        const file2 = join(dir, "ep2.mkv");
+        writeFileSync(file1, "content1");
+        writeFileSync(file2, "content2");
+
+        // Get real stat and hash for file1
+        const { statSync } = await import("node:fs");
+        const stat1 = statSync(file1);
+        const hash1 = await MatchCache.hashFile(file1);
+
+        // Pre-populate scan state and matches cache for file1
+        cache.setScanState(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
+        cache.set(hash1, makeCachedMatch({ animeId: "1", episodeId: "101", episode: 1 }));
+
+        const orch = new ScanOrchestrator({
+          scanner: createMockMatcher(),
+          walk: async () => [file1, file2],
+          scanFile: async (filePath) => {
+            scanFileCalls.push(filePath);
+            return makeScanResult(filePath, {
+              match: makeMatchResult(),
+              status: "matched",
+            });
+          },
+          planFile: (filePath, _match) => ({
+            sourcePath: filePath,
+            targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+            targetDir: "Jujutsu Kaisen/Season 1",
+            targetFilename: "S01E01.mkv",
+            action: "move",
+          }),
+          cache,
+        });
+
+        await orch.startScan(dir);
+
+        // file1 should be skipped (cache hit), file2 should be scanned
+        expect(scanFileCalls).toEqual([file2]);
+        expect(orch.getState()).toBe("review");
+
+        const results = (orch as unknown as { results: ScanResult[] }).results;
+        const r1 = results.find((r) => r.file === file1);
+        const r2 = results.find((r) => r.file === file2);
+        expect(r1?.status).toBe("cached");
+        expect(r1?.skipped).toBe(true);
+        expect(r1?.match).not.toBeNull();
+        expect(r1?.match?.anime.id).toBe("1");
+        expect(r1?.plan).not.toBeNull();
+        expect(r1?.plan?.targetFilename).toBe("S01E01.mkv");
+        expect(r2?.status).toBe("matched");
+      });
+    });
+
+    test("falls through to full scan when hash lookup misses", async () => {
+      await withTempDir("orch-cache-miss", async (dir) => {
+        const { writeFileSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const cache = createCache(dir);
+        const scanFileCalls: string[] = [];
+
+        const file1 = join(dir, "ep1.mkv");
+        writeFileSync(file1, "content1");
+
+        const { statSync } = await import("node:fs");
+        const stat1 = statSync(file1);
+
+        // Pre-populate scan state but NOT matches table
+        cache.setScanState(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), "stale-hash");
+
+        const orch = new ScanOrchestrator({
+          scanner: createMockMatcher(),
+          walk: async () => [file1],
+          scanFile: async (filePath) => {
+            scanFileCalls.push(filePath);
+            return makeScanResult(filePath, {
+              match: makeMatchResult(),
+              status: "matched",
+            });
+          },
+          cache,
+        });
+
+        await orch.startScan(dir);
+
+        // file1 should be scanned (hash lookup missed)
+        expect(scanFileCalls).toEqual([file1]);
+        expect(orch.getState()).toBe("review");
+
+        const results = (orch as unknown as { results: ScanResult[] }).results;
+        const r1 = results.find((r) => r.file === file1);
+        expect(r1?.status).toBe("matched");
+        expect(r1?.skipped).toBe(false);
+      });
+    });
+
+    test("force option scans all files even if unchanged", async () => {
+      await withTempDir("orch-force", async (dir) => {
+        const { writeFileSync, statSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const { MatchCache } = await import("../match/match-cache");
+        const cache = createCache(dir);
+        const scanFileCalls: string[] = [];
+
+        const file1 = join(dir, "ep1.mkv");
+        writeFileSync(file1, "content1");
+
+        const stat1 = statSync(file1);
+        const hash1 = await MatchCache.hashFile(file1);
+        cache.setScanState(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
+
+        const orch = new ScanOrchestrator({
+          scanner: createMockMatcher(),
+          walk: async () => [file1],
+          scanFile: async (filePath) => {
+            scanFileCalls.push(filePath);
+            return makeScanResult(filePath, {
+              match: makeMatchResult(),
+              status: "matched",
+            });
+          },
+          cache,
+          force: true,
+        });
+
+        await orch.startScan(dir);
+
+        // file1 should be scanned despite being in cache (force bypasses)
+        expect(scanFileCalls).toEqual([file1]);
+      });
+    });
+
+    test("emits scanProgress for skipped files", async () => {
+      await withTempDir("orch-incr-progress", async (dir) => {
+        const { writeFileSync, statSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const { MatchCache } = await import("../match/match-cache");
+        const cache = createCache(dir);
+        const events: ScanEvent[] = [];
+
+        const file1 = join(dir, "ep1.mkv");
+        writeFileSync(file1, "content1");
+
+        const stat1 = statSync(file1);
+        const hash1 = await MatchCache.hashFile(file1);
+        cache.setScanState(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
+        cache.set(hash1, makeCachedMatch({ animeId: "1", episodeId: "101", episode: 1 }));
+
+        const orch = new ScanOrchestrator({
+          scanner: createMockMatcher(),
+          walk: async () => [file1],
+          scanFile: async () => makeScanResult(file1),
+          planFile: () => ({
+            sourcePath: file1,
+            targetPath: "test/S01E01.mkv",
+            targetDir: "test",
+            targetFilename: "S01E01.mkv",
+            action: "move",
+          }),
+          cache,
+        });
+
+        orch.on("*", (e) => events.push(e));
+        await orch.startScan(dir);
+
+        const progressEvents = events.filter((e) => e.type === "scanProgress");
+        expect(progressEvents).toHaveLength(1);
+        expect(progressEvents[0]).toMatchObject({
+          file: file1,
+          status: "cached",
+          matched: true,
+        });
+      });
+    });
+
+    test("works without cache option (no incremental behavior)", async () => {
+      const scanFileCalls: string[] = [];
+      const orch = new ScanOrchestrator({
+        scanner: createMockMatcher(),
+        walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
+        scanFile: async (filePath) => {
+          scanFileCalls.push(filePath);
+          return makeScanResult(filePath, {
+            match: makeMatchResult(),
+            status: "matched",
+          });
+        },
+      });
+
+      await orch.startScan("/test/path");
+
+      // All files scanned without cache
+      expect(scanFileCalls).toEqual(["/a/ep1.mkv", "/a/ep2.mkv"]);
+    });
+
+    test("stores scan state after scanning a new file", async () => {
+      await withTempDir("orch-store-state", async (dir) => {
+        const { writeFileSync, statSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const cache = createCache(dir);
+
+        const file1 = join(dir, "ep1.mkv");
+        writeFileSync(file1, "content1");
+
+        const orch = new ScanOrchestrator({
+          scanner: createMockMatcher(),
+          walk: async () => [file1],
+          scanFile: async (filePath) =>
+            makeScanResult(filePath, {
+              match: makeMatchResult(),
+              status: "matched",
+            }),
+          cache,
+        });
+
+        await orch.startScan(dir);
+
+        // Verify scan state was stored with hash from scanFile result
+        const stored = cache.getScanState(file1);
+        expect(stored).not.toBeNull();
+        const stat1 = statSync(file1);
+        expect(stored?.size).toBe(stat1.size);
+        expect(stored?.mtime).toBe(Math.floor(stat1.mtimeMs / 1000));
+        expect(stored?.hash).toBe(`hash-${file1}`);
+      });
+    });
+
+    test("updates scan state after successful rename", async () => {
+      await withTempDir("orch-execute-state", async (dir) => {
+        const { writeFileSync, statSync, existsSync } = await import("node:fs");
+        const { join, dirname } = await import("node:path");
+        const cache = createCache(dir);
+
+        const srcFile = join(dir, "downloads", "ep1.mkv");
+        const destDir = join(dir, "Anime", "TV");
+        const destFile = join(destDir, "S01E01.mkv");
+
+        // Create source file
+        const { mkdirSync } = await import("node:fs");
+        mkdirSync(dirname(srcFile), { recursive: true });
+        writeFileSync(srcFile, "content1");
+
+        const orch = new ScanOrchestrator({
+          scanner: createMockMatcher(),
+          walk: async () => [srcFile],
+          scanFile: async (filePath) =>
+            makeScanResult(filePath, {
+              match: makeMatchResult({
+                anime: { id: "1", titleEn: "Anime", entryType: "tv" },
+              }),
+              status: "matched",
+              plan: {
+                sourcePath: srcFile,
+                targetPath: "Anime/TV/S01E01.mkv",
+                targetDir: "Anime/TV",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            }),
+          executeRename: async (plan, baseDir) => {
+            const target = join(baseDir, plan.targetPath);
+            mkdirSync(dirname(target), { recursive: true });
+            const { renameSync } = await import("node:fs");
+            renameSync(plan.sourcePath, target);
+            return { success: true };
+          },
+          cache,
+        });
+
+        await orch.startScan(dir);
+
+        // scan_state should exist for source path
+        expect(cache.getScanState(srcFile)).not.toBeNull();
+
+        await orch.approvePlan();
+
+        // After rename: old path scan_state should be deleted
+        expect(cache.getScanState(srcFile)).toBeNull();
+        // New path scan_state should exist (if the file exists)
+        if (existsSync(destFile)) {
+          const destStat = statSync(destFile);
+          const newScanState = cache.getScanState(destFile);
+          expect(newScanState).not.toBeNull();
+          expect(newScanState?.size).toBe(destStat.size);
+        }
+      });
+    });
+
+    test("excludes already-organized files from the review plan", async () => {
+      await withTempDir("orch-already-organized", async (dir) => {
+        const { writeFileSync, mkdirSync } = await import("node:fs");
+        const { join } = await import("node:path");
+
+        // Create an organized file at its target location
+        const organizedDir = join(dir, "Attack on Titan", "Season 1");
+        mkdirSync(organizedDir, { recursive: true });
+        const organizedFile = join(organizedDir, "S01E01.mkv");
+        writeFileSync(organizedFile, "content1");
+
+        // Create an unorganized file in downloads
+        const unorganizedFile = join(dir, "downloads", "[SubGroup] Attack on Titan - 01.mkv");
+        mkdirSync(join(dir, "downloads"), { recursive: true });
+        writeFileSync(unorganizedFile, "content2");
+
+        const orch = new ScanOrchestrator({
+          scanner: createMockMatcher(),
+          walk: async () => [organizedFile, unorganizedFile],
+          scanFile: async (filePath) => {
+            if (filePath === organizedFile) {
+              return makeScanResult(filePath, {
+                match: makeMatchResult(),
+                status: "matched",
+                plan: {
+                  sourcePath: organizedFile,
+                  targetPath: "Attack on Titan/Season 1/S01E01.mkv",
+                  targetDir: "Attack on Titan/Season 1",
+                  targetFilename: "S01E01.mkv",
+                  action: "move",
+                },
+              });
+            }
+            return makeScanResult(filePath, {
+              match: makeMatchResult(),
+              status: "matched",
+              plan: {
+                sourcePath: unorganizedFile,
+                targetPath: "Attack on Titan/Season 1/S01E02.mkv",
+                targetDir: "Attack on Titan/Season 1",
+                targetFilename: "S01E02.mkv",
+                action: "move",
+              },
+            });
+          },
+          planFile: (filePath, _match) => ({
+            sourcePath: filePath,
+            targetPath: "Attack on Titan/Season 1/S01E01.mkv",
+            targetDir: "Attack on Titan/Season 1",
+            targetFilename: "S01E01.mkv",
+            action: "move",
+          }),
+        });
+
+        await orch.startScan(dir);
+
+        // The organized file should be excluded from the plan
+        const plan = orch.getPlan();
+        const allFiles = plan?.groups.flatMap((g) => g.files) ?? [];
+        expect(allFiles).toHaveLength(1);
+        expect(allFiles[0]?.sourcePath).toBe(unorganizedFile);
+      });
     });
   });
 });

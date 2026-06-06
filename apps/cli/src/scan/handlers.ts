@@ -1,14 +1,12 @@
 import { lstatSync } from "node:fs";
-import { basename, dirname, sep } from "node:path";
+import { basename, dirname } from "node:path";
 import { confirm, isCancel, log, select, spinner, text } from "@clack/prompts";
 import {
   type ConfigManager,
-  createEmptyResult,
   type EpisodeNumbering,
   type MatchCache,
   Matcher,
   type MatchResult,
-  ORGANIZED_DIRS,
   type OverrideStore,
   type ParsedResult,
   type RenameAction,
@@ -60,13 +58,6 @@ function resolveExcludePatterns(config?: ConfigManager): string[] {
   const fromConfig = config?.getList("exclude-patterns");
   if (fromConfig && fromConfig.length > 0) return fromConfig;
   return [...SCHEMA_DEFAULTS["exclude-patterns"]];
-}
-
-export function isAlreadyOrganized(filePath: string): boolean {
-  for (const part of filePath.split(sep).slice(0, -1)) {
-    if (ORGANIZED_DIRS.has(part)) return true;
-  }
-  return false;
 }
 
 function discoverFiles(
@@ -228,27 +219,8 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         return [];
       }
 
-      const organizedFiles: string[] = [];
-      const unorganizedFiles: string[] = [];
-      for (const fp of filePaths) {
-        if (isAlreadyOrganized(fp)) {
-          organizedFiles.push(fp);
-        } else {
-          unorganizedFiles.push(fp);
-        }
-      }
-
-      if (organizedFiles.length > 0) {
-        l.info(
-          `Scanning ${filePaths.length} file(s)... (${organizedFiles.length} already organized, skipped)`,
-        );
-      } else {
-        l.info(`Scanning ${filePaths.length} file(s)...`);
-      }
-
-      if (unorganizedFiles.length > 0) {
-        l.info(`Processing files (0/${unorganizedFiles.length})...`);
-      }
+      l.info(`Scanning ${filePaths.length} file(s)...`);
+      l.info(`Processing files (0/${filePaths.length})...`);
 
       const abortController = new AbortController();
       let interrupted = false;
@@ -261,7 +233,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       process.on("SIGINT", onSigint);
 
       async function runBatch(dbScanner: Scanner): Promise<ScanResult[]> {
-        return dbScanner.scanBatch(unorganizedFiles, {
+        return dbScanner.scanBatch(filePaths, {
           force,
           dryRun,
           action,
@@ -327,31 +299,18 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       try {
         const scanResults = await tryScan(scanner);
 
-        l.info(`Processed ${unorganizedFiles.length} files`);
-
-        const skippedResults: ScanResult[] = organizedFiles.map((file) => ({
-          file,
-          hash: "",
-          parsed: createEmptyResult(),
-          match: null,
-          plan: null,
-          cached: false,
-          skipped: true,
-          status: "skipped",
-        }));
-
-        const allResults = [...skippedResults, ...scanResults];
+        l.info(`Processed ${filePaths.length} files`);
 
         if (interrupted) {
-          const matchedCount = allResults.filter((r) => r.status === "matched").length;
-          const failedCount = allResults.filter((r) => r.status === "failed").length;
-          const remaining = filePaths.length - allResults.length;
+          const matchedCount = scanResults.filter((r) => r.status === "matched").length;
+          const failedCount = scanResults.filter((r) => r.status === "failed").length;
+          const remaining = filePaths.length - scanResults.length;
           l.error(
             `Interrupted: ${matchedCount} completed, ${remaining} pending, ${failedCount} failed.`,
           );
         }
 
-        const pendingIndices = allResults.reduce<number[]>((acc, r, i) => {
+        const pendingIndices = scanResults.reduce<number[]>((acc, r, i) => {
           if (r.status === "ambiguous" || r.status === "failed") acc.push(i);
           return acc;
         }, []);
@@ -359,7 +318,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         if (!interrupted && pendingIndices.length > 0) {
           l.info(`Resolving ${pendingIndices.length} pending file(s)...`);
           for (const idx of pendingIndices) {
-            const result = allResults[idx];
+            const result = scanResults[idx];
             if (!result) continue;
             const updated = await scanner.scanFile(result.file, {
               force,
@@ -371,17 +330,16 @@ export function createScanHandlers(options: ScanHandlerOptions) {
               onAmbiguous: yes ? async (candidates) => candidates[0] ?? null : resolveAmbiguous,
               onFailed: yes ? async () => null : resolveFailed,
             });
-            allResults[idx] = updated;
+            scanResults[idx] = updated;
           }
         }
 
-        const matched = allResults.filter((r) => r.status === "matched").length;
-        const cached = allResults.filter((r) => r.status === "cached").length;
-        const skipped = allResults.filter((r) => r.status === "skipped").length;
-        const ambiguous = allResults.filter((r) => r.status === "ambiguous").length;
-        const failedResults = allResults.filter((r) => r.status === "failed" && r.failureReason);
+        const matched = scanResults.filter((r) => r.status === "matched").length;
+        const cached = scanResults.filter((r) => r.status === "cached").length;
+        const ambiguous = scanResults.filter((r) => r.status === "ambiguous").length;
+        const failedResults = scanResults.filter((r) => r.status === "failed" && r.failureReason);
         l.info(
-          `Summary: ${matched} matched, ${ambiguous} unresolved, ${failedResults.length} failed, ${cached + skipped} skipped (already organized)`,
+          `Summary: ${matched} matched, ${ambiguous} unresolved, ${failedResults.length} failed, ${cached} cached`,
         );
 
         if (failedResults.length > 0) {
@@ -393,7 +351,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         if (
           !dryRun &&
           !yes &&
-          (scanner.hasRollback() || allResults.some((r) => r.status === "failed"))
+          (scanner.hasRollback() || scanResults.some((r) => r.status === "failed"))
         ) {
           const rollbackResponse = await confirm({
             message: "Rollback all changes?",
@@ -406,7 +364,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
           }
         }
 
-        return allResults;
+        return scanResults;
       } finally {
         process.off("SIGINT", onSigint);
       }

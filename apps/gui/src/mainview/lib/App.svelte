@@ -9,6 +9,7 @@
     createInitialSnapshot,
     reduceMessage,
     reduceOnViewResults,
+    reduceOnDismissSummary,
     reduceClearAfterReview,
     reduceClearAfterComplete,
     reduceOnBatchScanStarted,
@@ -113,6 +114,10 @@
   function onViewResults() {
     currentView = "review";
     snap = reduceOnViewResults(snap);
+  }
+
+  function onDismissSummary() {
+    snap = reduceOnDismissSummary(snap);
   }
 
   function onReviewComplete() {
@@ -263,6 +268,7 @@
             scanProgressState={snap.scanProgressState}
             reviewReady={snap.plan !== null}
             {onViewResults}
+            onDismiss={onDismissSummary}
             isBatchScanning={snap.isBatchScanning}
             currentScanFolder={snap.currentScanFolder}
             batchFolderProgress={snap.batchFolderProgress}

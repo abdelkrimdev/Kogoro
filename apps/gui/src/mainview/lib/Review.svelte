@@ -214,13 +214,12 @@
 </script>
 
 <div class="h-full flex flex-col">
-  <!-- Row 1: Title + actions -->
   <div class="px-4 pt-4 pb-3 border-b border-surface-300-700 bg-surface-200-800/50">
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-bold text-surface-950-50">Rename Plan</h2>
       <div class="flex gap-2">
         <button type="button" class="btn preset-filled-success-500 rounded-lg font-medium" onclick={approveAll}>
-          Approve All
+          Execute
         </button>
         <button type="button" class="btn preset-tonal-surface rounded-lg font-medium" onclick={cancel}>
           Cancel
@@ -229,7 +228,6 @@
     </div>
   </div>
 
-  <!-- Row 2: Stats strip -->
   <div class="px-4 py-2 border-b border-surface-300-700 bg-surface-200-800/30">
     <div class="flex items-center gap-4 text-sm text-surface-700-300">
       <span>{stats.totalFiles} files</span>
@@ -250,7 +248,6 @@
     </div>
   </div>
 
-  <!-- Row 3: Search + filter -->
   <div class="px-4 py-3 border-b border-surface-300-700 bg-surface-200-800/50">
     <div class="flex gap-4">
       <div class="input-group grid-cols-[auto_1fr] flex-1">
@@ -274,7 +271,6 @@
     </div>
   </div>
 
-  <!-- File list -->
   <div class="flex-1 overflow-auto p-4 space-y-4">
     {#if filtered.length === 0}
       <div class="text-center text-surface-600-400 py-8">
@@ -288,7 +284,6 @@
       {#each filtered as group (group.animeId)}
         {@const isExpanded = expandedGroups.has(group.animeId)}
         <div class="card preset-outlined-surface-300-700 overflow-hidden {group.rejected ? 'opacity-50' : ''}">
-          <!-- Group header -->
           <div class="px-4 py-2.5 border-b border-surface-300-700 bg-surface-200-800/80 flex items-center gap-3">
             <button
               type="button"
@@ -335,26 +330,22 @@
             {/if}
           </div>
 
-          <!-- File rows (only when expanded) -->
           {#if isExpanded}
             <div class="divide-y divide-surface-300-700">
               {#each group.files as file (file.fileId)}
                 {@const emptyMessage = getEmptyCardMessage(file)}
                 {@const isSwapped = !!findSwapPairForFile(group, file.fileId)}
                 <div class="flex items-stretch gap-0 py-3 px-4 min-w-160 {dragOverFileId === file.fileId ? 'bg-surface-300-700/30' : ''}">
-                  <!-- Source card -->
                   <div class="flex-1 min-w-0 rounded-l-lg border border-r-0 border-surface-300-700 bg-surface-100-900 p-3">
                     <div class="font-mono text-sm text-surface-950-50 truncate" title={file.sourcePath}>
                       {basename(file.sourcePath)}
                     </div>
                   </div>
 
-                  <!-- Arrow gap -->
                   <div class="flex items-center px-2 text-surface-500-500">
                     <ArrowRight class="size-4" />
                   </div>
 
-                  <!-- Destination card -->
                   <div
                     class="flex-[1.2] min-w-0 rounded-r-lg border border-l-2 border-surface-300-700 {destBorderColor(file.status)} p-3 relative
                       {isSwapped ? 'border-l-warning-500-400 border-l-4 bg-warning-500-500/5' : ''}

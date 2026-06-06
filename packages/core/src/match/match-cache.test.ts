@@ -80,4 +80,90 @@ describe("MatchCache", () => {
       expect(entries[2]?.hash).toBe("b");
     });
   });
+
+  describe("scan_state", () => {
+    test("setScanState stores entry and getScanState retrieves it", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+        cache.setScanState("/path/to/file.mkv", 1024, 1700000000, "abc123");
+        const result = cache.getScanState("/path/to/file.mkv");
+        expect(result).toEqual({ size: 1024, mtime: 1700000000, hash: "abc123" });
+      });
+    });
+
+    test("getScanState returns null for missing path", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+        expect(cache.getScanState("/nonexistent")).toBeNull();
+      });
+    });
+
+    test("setScanState overwrites existing entry", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+        cache.setScanState("/path/file.mkv", 100, 1000, "hash1");
+        cache.setScanState("/path/file.mkv", 200, 2000, "hash2");
+        expect(cache.getScanState("/path/file.mkv")).toEqual({
+          size: 200,
+          mtime: 2000,
+          hash: "hash2",
+        });
+      });
+    });
+
+    test("deleteScanState removes an entry", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+        cache.setScanState("/path/file.mkv", 100, 1000, "hash");
+        cache.deleteScanState("/path/file.mkv");
+        expect(cache.getScanState("/path/file.mkv")).toBeNull();
+      });
+    });
+
+    test("deleteScanState is a no-op for missing path", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+        cache.deleteScanState("/nonexistent");
+        expect(cache.getScanState("/nonexistent")).toBeNull();
+      });
+    });
+
+    test("clearScanState removes all entries", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+        cache.setScanState("/a.mkv", 100, 1000, "hashA");
+        cache.setScanState("/b.mkv", 200, 2000, "hashB");
+        cache.clearScanState();
+        expect(cache.getScanState("/a.mkv")).toBeNull();
+        expect(cache.getScanState("/b.mkv")).toBeNull();
+      });
+    });
+
+    test("getScanStateBatch returns entries for multiple paths", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+        cache.setScanState("/a.mkv", 100, 1000, "hashA");
+        cache.setScanState("/b.mkv", 200, 2000, "hashB");
+        cache.setScanState("/c.mkv", 300, 3000, "hashC");
+        const result = cache.getScanStateBatch(["/a.mkv", "/b.mkv", "/missing.mkv"]);
+        expect(result.size).toBe(2);
+        expect(result.get("/a.mkv")).toEqual({ size: 100, mtime: 1000, hash: "hashA" });
+        expect(result.get("/b.mkv")).toEqual({ size: 200, mtime: 2000, hash: "hashB" });
+        expect(result.has("/missing.mkv")).toBe(false);
+      });
+    });
+
+    test("deleteScanStateBatch removes multiple entries", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+        cache.setScanState("/a.mkv", 100, 1000, "hashA");
+        cache.setScanState("/b.mkv", 200, 2000, "hashB");
+        cache.setScanState("/c.mkv", 300, 3000, "hashC");
+        cache.deleteScanStateBatch(["/a.mkv", "/c.mkv"]);
+        expect(cache.getScanState("/a.mkv")).toBeNull();
+        expect(cache.getScanState("/b.mkv")).toEqual({ size: 200, mtime: 2000, hash: "hashB" });
+        expect(cache.getScanState("/c.mkv")).toBeNull();
+      });
+    });
+  });
 });

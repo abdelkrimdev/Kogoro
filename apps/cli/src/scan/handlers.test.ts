@@ -13,7 +13,7 @@ import {
   writeTempFile,
 } from "@kogoro/core";
 import { createStandardMockDb, makeMockLogger, makeThrowingDb } from "../fixtures";
-import { createScanHandlers, isAlreadyOrganized } from "./handlers";
+import { createScanHandlers } from "./handlers";
 
 describe("scan CLI commands", () => {
   test("directory scan with -y returns JSON with matched files", async () => {
@@ -161,33 +161,6 @@ describe("scan CLI commands", () => {
       const failed = results.filter((r) => r.status === "failed");
       expect(matched).toHaveLength(3);
       expect(failed).toHaveLength(1);
-    });
-  });
-
-  test("detects files in an organized location", () => {
-    expect(isAlreadyOrganized("/media/Jujutsu Kaisen/TV/Jujutsu Kaisen - 1x01.mkv")).toBe(true);
-    expect(isAlreadyOrganized("/media/One Piece/Movies/One Piece - Movie 01.mkv")).toBe(true);
-    expect(isAlreadyOrganized("/media/Naruto/OVA/Naruto - OVA 01.mkv")).toBe(true);
-    expect(isAlreadyOrganized("/media/Attack on Titan/Specials/AOT - 01.mkv")).toBe(true);
-    expect(isAlreadyOrganized("/media/unorganized/[Group] Anime - 01.mkv")).toBe(false);
-    expect(isAlreadyOrganized("/media/Anime/TV")).toBe(false);
-  });
-
-  test("skips already-organized files without hashing or database query", async () => {
-    await withTempDir("scan-organized", async (dir) => {
-      const tvDir = join(dir, "Jujutsu Kaisen", "TV");
-      mkdirSync(tvDir, { recursive: true });
-      writeTempFile(tvDir, "Jujutsu Kaisen - 1x01.mkv", "content");
-      writeTempFile(dir, "[Group] Unorganized - 01.mkv", "content");
-
-      const handlers = createScanHandlers({ database: createStandardMockDb() });
-      const results = await handlers.scan(dir, { yes: true, dryRun: true });
-
-      const organized = results.find((r) => r.file.includes("TV/"));
-      const unorganized = results.find((r) => r.file.includes("Unorganized"));
-
-      expect(organized?.status).toBe("skipped");
-      expect(unorganized?.status).toBe("matched");
     });
   });
 

@@ -151,6 +151,14 @@ export function reduceOnViewResults(state: ScanSessionSnapshot): ScanSessionSnap
   };
 }
 
+export function reduceOnDismissSummary(state: ScanSessionSnapshot): ScanSessionSnapshot {
+  return {
+    ...state,
+    showSummary: false,
+    scanSummaries: [],
+  };
+}
+
 export function reduceClearAfterReview(state: ScanSessionSnapshot): ScanSessionSnapshot {
   return {
     ...state,

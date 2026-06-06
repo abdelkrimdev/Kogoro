@@ -14,6 +14,12 @@ export interface CachedMatch {
   timestamp: string;
 }
 
+export interface ScanStateEntry {
+  size: number;
+  mtime: number;
+  hash: string;
+}
+
 interface MatchCacheOptions {
   dbPath?: string;
 }
@@ -57,6 +63,14 @@ export class MatchCache {
     } catch {
       // Column already exists in newer tables
     }
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS scan_state (
+        path TEXT PRIMARY KEY,
+        size INTEGER NOT NULL,
+        mtime INTEGER NOT NULL,
+        hash TEXT NOT NULL DEFAULT ''
+      )
+    `);
   }
 
   set(hash: string, match: CachedMatch): void {
@@ -127,6 +141,70 @@ export class MatchCache {
     const hash = new Bun.CryptoHasher("sha256");
     hash.update(new Uint8Array(buffer));
     return hash.digest("hex");
+  }
+
+  getScanState(path: string): ScanStateEntry | null {
+    const stmt = this.db.prepare("SELECT size, mtime, hash FROM scan_state WHERE path = $path");
+    const row = stmt.get({ $path: path }) as ScanStateEntry | null;
+    return row ? { size: row.size, mtime: row.mtime, hash: row.hash } : null;
+  }
+
+  getScanStateBatch(paths: string[]): Map<string, ScanStateEntry> {
+    const result = new Map<string, ScanStateEntry>();
+    if (paths.length === 0) return result;
+    const placeholders = paths.map((_, i) => `$p${i}`).join(", ");
+    const params: Record<string, string> = {};
+    for (let i = 0; i < paths.length; i++) {
+      const p = paths[i];
+      if (p !== undefined) params[`$p${i}`] = p;
+    }
+    const stmt = this.db.prepare(
+      `SELECT path, size, mtime, hash FROM scan_state WHERE path IN (${placeholders})`,
+    );
+    const rows = stmt.all(params) as Array<{
+      path: string;
+      size: number;
+      mtime: number;
+      hash: string;
+    }>;
+    for (const row of rows) {
+      result.set(row.path, { size: row.size, mtime: row.mtime, hash: row.hash });
+    }
+    return result;
+  }
+
+  setScanState(path: string, size: number, mtime: number, hash: string): void {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO scan_state (path, size, mtime, hash)
+      VALUES ($path, $size, $mtime, $hash)
+    `);
+    stmt.run({
+      $path: path,
+      $size: size,
+      $mtime: mtime,
+      $hash: hash,
+    });
+  }
+
+  deleteScanState(path: string): void {
+    const stmt = this.db.prepare("DELETE FROM scan_state WHERE path = $path");
+    stmt.run({ $path: path });
+  }
+
+  deleteScanStateBatch(paths: string[]): void {
+    if (paths.length === 0) return;
+    const placeholders = paths.map((_, i) => `$p${i}`).join(", ");
+    const params: Record<string, string> = {};
+    for (let i = 0; i < paths.length; i++) {
+      const p = paths[i];
+      if (p !== undefined) params[`$p${i}`] = p;
+    }
+    const stmt = this.db.prepare(`DELETE FROM scan_state WHERE path IN (${placeholders})`);
+    stmt.run(params);
+  }
+
+  clearScanState(): void {
+    this.db.run("DELETE FROM scan_state");
   }
 
   close(): void {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { FolderSearch, ScanSearch, X } from '@lucide/svelte';
+  import { Switch } from '@skeletonlabs/skeleton-svelte';
   import Checkbox from "./Checkbox.svelte";
   import type { ScanProgressState } from "../state/scan-progress-state";
   import {
@@ -25,6 +26,7 @@
     scanProgressState: ScanProgressState | null;
     reviewReady: boolean;
     onViewResults: () => void;
+    onDismiss: () => void;
     isBatchScanning: boolean;
     currentScanFolder: string | null;
     batchFolderProgress: { current: number; total: number } | null;
@@ -42,6 +44,7 @@
     scanProgressState,
     reviewReady = false,
     onViewResults,
+    onDismiss,
     isBatchScanning,
     currentScanFolder,
     batchFolderProgress,
@@ -57,6 +60,7 @@
   let enrichedFolders: EnrichedFolder[] = $state([]);
   let removing: string | null = $state(null);
   let dragOver = $state(false);
+  let forceRescan = $state(false);
 
   $effect(() => {
     if (scanProgressState && listContainer) {
@@ -151,7 +155,7 @@
       for (const folder of selected) {
         onBatchFolderStarted(folder.path, folder.basename);
 
-        const result = (await rpc.request("scanStart", { path: folder.path })) as {
+        const result = (await rpc.request("scanStart", { path: folder.path, force: forceRescan })) as {
           sessionId: string;
         } | null;
         if (!result) { continue; }
@@ -191,6 +195,9 @@
     ambiguous: scanSummaries.reduce((sum, s) => sum + s.ambiguousCount, 0),
     failed: scanSummaries.reduce((sum, s) => sum + s.failedCount, 0),
   });
+  const allOrganized = $derived(
+    showSummary && totalBreakdown.matched + totalBreakdown.ambiguous + totalBreakdown.failed === 0
+  );
 
   function fileName(filePath: string): string {
     const sep = filePath.includes("\\") ? "\\" : "/";
@@ -244,6 +251,13 @@
       <span class="text-xs text-surface-600-400 flex-1">
         {toolbar.selectableCount} folder{toolbar.selectableCount !== 1 ? "s" : ""}
       </span>
+      <Switch checked={forceRescan} onCheckedChange={(d) => forceRescan = d.checked}>
+        <Switch.Control>
+          <Switch.Thumb />
+        </Switch.Control>
+        <Switch.Label class="text-xs text-surface-600-400 cursor-pointer select-none">Force</Switch.Label>
+        <Switch.HiddenInput />
+      </Switch>
       <button
         type="button"
         class="btn preset-filled-primary-500 rounded-lg font-medium text-xs"
@@ -374,29 +388,39 @@
 {:else if showSummary}
   <div class="flex flex-col h-full">
     <div class="card preset-tonal-primary p-4 space-y-3 mx-4 mt-4">
-      <div class="flex items-center gap-2">
-        <span class="text-sm font-medium text-surface-950-50">Scan complete</span>
-      </div>
-      <div class="space-y-1">
-        {#each scanSummaries as summary}
-          <div class="flex items-center justify-between text-xs">
-            <span class="text-surface-700-300 truncate">{summary.basename}</span>
-            <span class="text-surface-600-400 shrink-0">{summary.matchCount}/{summary.fileCount} matched</span>
-          </div>
-        {/each}
-      </div>
-      <div class="flex items-center justify-center gap-4 py-1">
-        <span class="badge preset-tonal-success text-xs">{totalBreakdown.matched} matched</span>
-        <span class="badge preset-tonal-warning text-xs">{totalBreakdown.ambiguous} ambiguous</span>
-        <span class="badge preset-tonal-error text-xs">{totalBreakdown.failed} failed</span>
-      </div>
-      <button
-        type="button"
-        class="btn preset-filled-primary-500 rounded-lg font-medium w-full"
-        onclick={onViewResults}
-      >
-        Review Results
-      </button>
+      {#if allOrganized}
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-surface-950-50">Already organized</span>
+          <button type="button" class="btn-icon preset-tonal btn-icon-sm" onclick={onDismiss}>
+            <X class="size-4" />
+          </button>
+        </div>
+        <p class="text-xs text-surface-600-400">All files are already at their target locations.</p>
+      {:else}
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium text-surface-950-50">Scan complete</span>
+        </div>
+        <div class="space-y-1">
+          {#each scanSummaries as summary}
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-surface-700-300 truncate">{summary.basename}</span>
+              <span class="text-surface-600-400 shrink-0">{summary.matchCount}/{summary.fileCount} matched</span>
+            </div>
+          {/each}
+        </div>
+        <div class="flex items-center justify-center gap-4 py-1">
+          <span class="badge preset-tonal-success text-xs">{totalBreakdown.matched} matched</span>
+          <span class="badge preset-tonal-warning text-xs">{totalBreakdown.ambiguous} ambiguous</span>
+          <span class="badge preset-tonal-error text-xs">{totalBreakdown.failed} failed</span>
+        </div>
+        <button
+          type="button"
+          class="btn preset-filled-primary-500 rounded-lg font-medium w-full"
+          onclick={onViewResults}
+        >
+          Review Results
+        </button>
+      {/if}
     </div>
 
     {@render folderList()}
