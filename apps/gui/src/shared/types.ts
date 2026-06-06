@@ -131,6 +131,19 @@ export type AppRPC = {
           }>;
         };
       };
+      searchAnimeByTitle: {
+        params: {
+          sessionId: string;
+          title: string;
+        };
+        response: {
+          candidates: Array<{
+            animeId: string;
+            animeTitle: string;
+            entryType: string;
+          }>;
+        };
+      };
       approvePlan: {
         params: { sessionId: string };
         response: undefined;

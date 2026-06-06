@@ -1,5 +1,5 @@
 import { basename, extname } from "node:path";
-import type { MatchResult, ParsedResult } from "@kogoro/core";
+import type { DatabasePlugin, MatchResult, ParsedResult } from "@kogoro/core";
 import {
   bestPerAnimeId,
   CONFIG_DIR,
@@ -20,7 +20,11 @@ import { PluginFactory } from "@kogoro/plugins";
 
 const scanSessions = new Map<
   string,
-  { orchestrator: ScanOrchestrator; matcher: Matcher | undefined }
+  {
+    orchestrator: ScanOrchestrator;
+    matcher: Matcher | undefined;
+    database: DatabasePlugin | undefined;
+  }
 >();
 
 export function getOrchestrator(sessionId: string): ScanOrchestrator {
@@ -151,12 +155,16 @@ export async function createScanOrchestrator(
     sessionId,
   );
 
-  scanSessions.set(sessionId, { orchestrator, matcher });
+  scanSessions.set(sessionId, { orchestrator, matcher, database });
   return orchestrator;
 }
 
 export function getMatcher(sessionId: string): Matcher | undefined {
   return scanSessions.get(sessionId)?.matcher;
+}
+
+export function getDatabase(sessionId: string): DatabasePlugin | undefined {
+  return scanSessions.get(sessionId)?.database;
 }
 
 export function cleanupSession(sessionId: string): void {

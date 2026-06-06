@@ -8,6 +8,7 @@ import {
   cleanupSession,
   createScanOrchestrator,
   findCandidateMatches,
+  getDatabase,
   getMatcher,
   getOrchestrator,
 } from "./scan";
@@ -175,6 +176,19 @@ const rpc = BrowserView.defineRPC<AppRPC>({
             episodeNumber: m.episode?.episode ?? 0,
             season: m.episode?.season ?? 1,
             score: m.score,
+          })),
+        };
+      },
+      searchAnimeByTitle: async (params) => {
+        const db = getDatabase(params.sessionId);
+        if (!db) return { candidates: [] };
+
+        const results = await db.searchAnime(params.title);
+        return {
+          candidates: results.map((r) => ({
+            animeId: r.id,
+            animeTitle: r.titleEn,
+            entryType: r.entryType,
           })),
         };
       },
