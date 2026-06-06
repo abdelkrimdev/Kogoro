@@ -266,6 +266,11 @@ export class ScanOrchestrator {
 
     const filePaths = await this.options.walk(path);
 
+    // Clean up stale cache entries for files that no longer exist
+    if (this.options.cache) {
+      this.options.cache.purgeStale(filePaths);
+    }
+
     // Load existing scan state for all walked files
     const existingState = this.options.cache
       ? this.options.cache.getScanStateBatch(filePaths)

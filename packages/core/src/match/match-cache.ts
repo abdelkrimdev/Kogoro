@@ -203,8 +203,23 @@ export class MatchCache {
     stmt.run(params);
   }
 
-  clearScanState(): void {
-    this.db.run("DELETE FROM scan_state");
+  purgeStale(currentPaths: string[]): void {
+    if (currentPaths.length === 0) {
+      this.db.run("DELETE FROM scan_state");
+      this.db.run("DELETE FROM matches");
+      return;
+    }
+    const placeholders = currentPaths.map((_, i) => `$p${i}`).join(", ");
+    const params: Record<string, string> = {};
+    for (let i = 0; i < currentPaths.length; i++) {
+      const p = currentPaths[i];
+      if (p !== undefined) params[`$p${i}`] = p;
+    }
+    const stmt = this.db.prepare(`DELETE FROM scan_state WHERE path NOT IN (${placeholders})`);
+    stmt.run(params);
+    this.db.run(
+      "DELETE FROM matches WHERE hash NOT IN (SELECT DISTINCT hash FROM scan_state WHERE hash != '')",
+    );
   }
 
   close(): void {

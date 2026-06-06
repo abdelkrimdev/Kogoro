@@ -1843,6 +1843,42 @@ describe("ScanOrchestrator", () => {
       });
     });
 
+    test("purges stale scan_state entries during scan", async () => {
+      await withTempDir("orch-stale-cleanup", async (dir) => {
+        const { writeFileSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const cache = createCache(dir);
+
+        // Create a real file
+        const file1 = join(dir, "ep1.mkv");
+        writeFileSync(file1, "content1");
+
+        // Add scan_state for a file that won't be in currentPaths (stale)
+        cache.setScanState("/deleted/ep2.mkv", 200, 2000, "staleHash");
+
+        // Add a match for the stale hash
+        cache.set("staleHash", makeCachedMatch({ animeId: "99" }));
+
+        const orch = new ScanOrchestrator({
+          scanner: createMockMatcher(),
+          walk: async () => [file1],
+          scanFile: async (filePath) =>
+            makeScanResult(filePath, {
+              match: makeMatchResult(),
+              status: "matched",
+            }),
+          cache,
+        });
+
+        await orch.startScan(dir);
+
+        // Stale scan_state should be cleaned up
+        expect(cache.getScanState("/deleted/ep2.mkv")).toBeNull();
+        // Orphaned match should also be cleaned up
+        expect(cache.has("staleHash")).toBe(false);
+      });
+    });
+
     test("works without cache option (no incremental behavior)", async () => {
       const scanFileCalls: string[] = [];
       const orch = new ScanOrchestrator({

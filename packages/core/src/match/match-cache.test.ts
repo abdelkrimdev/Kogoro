@@ -128,17 +128,6 @@ describe("MatchCache", () => {
       });
     });
 
-    test("clearScanState removes all entries", async () => {
-      await withTempDir("cache", async (dir) => {
-        const cache = createCache(dir);
-        cache.setScanState("/a.mkv", 100, 1000, "hashA");
-        cache.setScanState("/b.mkv", 200, 2000, "hashB");
-        cache.clearScanState();
-        expect(cache.getScanState("/a.mkv")).toBeNull();
-        expect(cache.getScanState("/b.mkv")).toBeNull();
-      });
-    });
-
     test("getScanStateBatch returns entries for multiple paths", async () => {
       await withTempDir("cache", async (dir) => {
         const cache = createCache(dir);
@@ -163,6 +152,44 @@ describe("MatchCache", () => {
         expect(cache.getScanState("/a.mkv")).toBeNull();
         expect(cache.getScanState("/b.mkv")).toEqual({ size: 200, mtime: 2000, hash: "hashB" });
         expect(cache.getScanState("/c.mkv")).toBeNull();
+      });
+    });
+
+    test("purgeStale removes scan_state entries not in currentPaths", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+        cache.setScanState("/a.mkv", 100, 1000, "hashA");
+        cache.setScanState("/b.mkv", 200, 2000, "hashB");
+        cache.setScanState("/c.mkv", 300, 3000, "hashC");
+
+        cache.purgeStale(["/a.mkv", "/c.mkv"]);
+
+        expect(cache.getScanState("/a.mkv")).toEqual({ size: 100, mtime: 1000, hash: "hashA" });
+        expect(cache.getScanState("/b.mkv")).toBeNull();
+        expect(cache.getScanState("/c.mkv")).toEqual({ size: 300, mtime: 3000, hash: "hashC" });
+      });
+    });
+
+    test("purgeStale removes orphaned matches entries", async () => {
+      await withTempDir("cache", async (dir) => {
+        const cache = createCache(dir);
+
+        cache.set("hashA", makeCachedMatch({ animeId: "1" }));
+        cache.set("hashB", makeCachedMatch({ animeId: "2" }));
+        cache.set("hashC", makeCachedMatch({ animeId: "3" }));
+
+        cache.setScanState("/a.mkv", 100, 1000, "hashA");
+        cache.setScanState("/b.mkv", 200, 2000, "hashB");
+        cache.setScanState("/c.mkv", 300, 3000, "hashC");
+
+        cache.purgeStale(["/a.mkv", "/c.mkv"]);
+
+        expect(cache.getScanState("/a.mkv")).not.toBeNull();
+        expect(cache.getScanState("/b.mkv")).toBeNull();
+        expect(cache.getScanState("/c.mkv")).not.toBeNull();
+        expect(cache.has("hashA")).toBe(true);
+        expect(cache.has("hashB")).toBe(false);
+        expect(cache.has("hashC")).toBe(true);
       });
     });
   });
