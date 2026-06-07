@@ -28,6 +28,14 @@ const EpisodeNumberingSchema = v.picklist(["relative", "absolute"]);
 
 const RenameActionSchema = v.picklist(["move", "copy", "symlink", "hardlink"]);
 
+const SanitizeActionSchema = v.picklist(["strip", "replace"]);
+
+const SanitizeConfigSchema = v.strictObject({
+  action: v.optional(SanitizeActionSchema, "replace"),
+  replacement: v.optional(v.string(), "_"),
+  chars: v.optional(v.string(), '\\/:*?"<>|'),
+});
+
 const TemplateConfigSchema = v.strictObject({
   preset: v.optional(TemplatePresetSchema, "standard"),
   custom: v.optional(v.string(), ""),
@@ -73,6 +81,11 @@ export const ConfigSchema = v.strictObject({
     tvdb: { enabled: true },
     anidb: { enabled: true },
     opensubtitles: { enabled: true },
+  }),
+  sanitize: v.optional(SanitizeConfigSchema, {
+    action: "replace",
+    replacement: "_",
+    chars: '\\/:*?"<>|',
   }),
 });
 

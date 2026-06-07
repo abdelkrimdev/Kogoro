@@ -34,6 +34,9 @@
     { type: "radio", key: "episodeNumbering", label: "Episode Numbering", options: [{ value: "relative", label: "Relative (1x01)" }, { value: "absolute", label: "Absolute (001)" }] },
     { type: "select", key: "renameAction", label: "Rename Action", options: [{ value: "move", label: "Move" }, { value: "copy", label: "Copy" }, { value: "symlink", label: "Symlink" }, { value: "hardlink", label: "Hardlink" }] },
     { type: "text", key: "subtitleLanguage", label: "Subtitle Language", placeholder: "en" },
+    { type: "select", key: "sanitizeAction", label: "Filename Sanitization", options: [{ value: "replace", label: "Replace illegal chars" }, { value: "strip", label: "Strip illegal chars" }] },
+    { type: "text", key: "sanitizeReplacement", label: "Replacement Character", placeholder: "_" },
+    { type: "text", key: "sanitizeChars", label: "Illegal Characters", placeholder: '\\/:*?"<>|' },
   ];
 
   let settingsData = $state<Record<string, unknown>>({});

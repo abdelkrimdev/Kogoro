@@ -242,7 +242,7 @@
                   onclick={() => navigate(item.view)}
                 >
                   <span class="relative">
-                    <item.icon class="{sidebarCollapsed ? 'size-5' : 'size-4'}" />
+                    <item.icon class={sidebarCollapsed ? 'size-5' : 'size-4'} />
                     {#if item.view === "scan" && snap.isScanning}
                       <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary-500 animate-pulse"></span>
                     {/if}

@@ -14,6 +14,9 @@ const SETTINGS_FIELD_MAP: Record<string, string> = {
   episodeNumbering: "episode-numbering",
   renameAction: "rename-action",
   subtitleLanguage: "subtitle-language",
+  sanitizeAction: "sanitize.action",
+  sanitizeReplacement: "sanitize.replacement",
+  sanitizeChars: "sanitize.chars",
 };
 
 export type SettingsFormData = {
@@ -29,6 +32,9 @@ export type SettingsFormData = {
   episodeNumbering: string;
   renameAction: string;
   subtitleLanguage: string;
+  sanitizeAction: string;
+  sanitizeReplacement: string;
+  sanitizeChars: string;
   apiKeys: Record<string, string>;
   plugins: PluginInfo[];
 };
@@ -81,6 +87,13 @@ export async function buildSettingsFormData(
   const renameAction = String(config.get("rename-action") ?? "move");
   const subtitleLanguage = String(config.get("subtitle-language") ?? "en");
 
+  const sanitizeRaw = config.get("sanitize") as
+    | { action?: string; replacement?: string; chars?: string }
+    | undefined;
+  const sanitizeAction = sanitizeRaw?.action ?? "replace";
+  const sanitizeReplacement = sanitizeRaw?.replacement ?? "_";
+  const sanitizeChars = sanitizeRaw?.chars ?? '\\/:*?"<>|';
+
   const pluginsRaw = config.get("plugins") as Record<string, { enabled?: boolean }> | undefined;
   const plugins = buildPluginList(pluginsRaw);
 
@@ -107,6 +120,9 @@ export async function buildSettingsFormData(
     episodeNumbering,
     renameAction,
     subtitleLanguage,
+    sanitizeAction,
+    sanitizeReplacement,
+    sanitizeChars,
     apiKeys: maskedKeys,
     plugins,
   };

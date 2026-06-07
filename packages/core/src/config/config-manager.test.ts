@@ -195,4 +195,29 @@ describe("ConfigManager", () => {
       });
     });
   });
+
+  describe("sanitize config", () => {
+    test("sanitize config is serialized to TOML and persists", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        config.set("sanitize.action", "strip");
+        config.set("sanitize.replacement", "-");
+        config.set("sanitize.chars", "()/");
+
+        const mgr2 = new ConfigManager({ configDir: _dir });
+        expect(mgr2.get("sanitize.action")).toBe("strip");
+        expect(mgr2.get("sanitize.replacement")).toBe("-");
+        expect(mgr2.get("sanitize.chars")).toBe("()/");
+      });
+    });
+
+    test("sanitize defaults are returned when not configured", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        config.init();
+        const sanitize = config.get("sanitize") as Record<string, unknown>;
+        expect(sanitize["action"]).toBe("replace");
+        expect(sanitize["replacement"]).toBe("_");
+        expect(sanitize["chars"]).toBe('\\/:*?"<>|');
+      });
+    });
+  });
 });

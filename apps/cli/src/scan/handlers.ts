@@ -11,6 +11,7 @@ import {
   type ParsedResult,
   type RenameAction,
   Renamer,
+  type SanitizeConfig,
   SCHEMA_DEFAULTS,
   Scanner,
   type ScanResult,
@@ -80,11 +81,13 @@ function getDirectoryTemplate(config?: ConfigManager): string {
 export function createScanHandlers(options: ScanHandlerOptions) {
   const filenameTemplate = getFilenameTemplate(options.config);
   const directoryTemplate = getDirectoryTemplate(options.config);
+  const sanitize = options.config?.get("sanitize") as SanitizeConfig | undefined;
   const renamer =
     options.renamer ??
     new Renamer({
       filenameTemplate,
       directoryTemplate,
+      sanitize,
     });
 
   function buildScanner(database: DatabasePlugin): Scanner {

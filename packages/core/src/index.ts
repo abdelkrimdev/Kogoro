@@ -86,6 +86,8 @@ export type { ParsedResult, ParsedTags } from "./parse/parser";
 export { createEmptyResult, parse, stripExtension } from "./parse/parser";
 export type { RenameAction, RenamePlan, RenameResult } from "./rename/renamer";
 export { Renamer } from "./rename/renamer";
+export type { SanitizeConfig } from "./rename/sanitize";
+export { sanitizeFilename } from "./rename/sanitize";
 export { render } from "./rename/template-engine";
 export type { AnimeGroupEntry } from "./scan/rename-plan-aggregator";
 export {

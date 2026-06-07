@@ -34,6 +34,7 @@ describe("ConfigSchema", () => {
           anidb: { enabled: false },
           opensubtitles: { enabled: true },
         },
+        sanitize: { action: "replace" as const, replacement: "_", chars: '\\/:*?"<>|' },
       } satisfies Config;
 
       const result = v.safeParse(ConfigSchema, config);
@@ -167,6 +168,9 @@ describe("ConfigSchema", () => {
       expect(result.output.plugins.tvdb.enabled).toBe(true);
       expect(result.output.plugins.anidb.enabled).toBe(true);
       expect(result.output.plugins.opensubtitles.enabled).toBe(true);
+      expect(result.output.sanitize.action).toBe("replace");
+      expect(result.output.sanitize.replacement).toBe("_");
+      expect(result.output.sanitize.chars).toBe('\\/:*?"<>|');
     });
 
     test("partial input fills missing keys from defaults", () => {
@@ -278,5 +282,6 @@ function validConfig(): Config {
       anidb: { enabled: true },
       opensubtitles: { enabled: true },
     },
+    sanitize: { action: "replace", replacement: "_", chars: '\\/:*?"<>|' },
   };
 }

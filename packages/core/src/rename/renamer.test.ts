@@ -375,4 +375,84 @@ describe("Renamer", () => {
       });
     });
   });
+
+  describe("sanitize", () => {
+    test("sanitizes illegal chars in anime title from context", () => {
+      const renamer = new Renamer({
+        filenameTemplate: "{anime} - {season}x{episode:02} - {title}.{ext}",
+        directoryTemplate: "{anime}/{type}",
+        sanitize: { action: "replace", replacement: "_", chars: '\\/:*?"<>|' },
+      });
+
+      const match = makeMatchResult({
+        anime: { id: "1", titleEn: "Zom 100: Bucket List of the Dead", entryType: "tv" },
+      });
+
+      const plan = renamer.plan("/source/Zom 100 - 01.mkv", match, "mkv");
+
+      expect(plan.targetDir).toBe("Zom 100_ Bucket List of the Dead/TV");
+      expect(plan.targetFilename).toBe("Zom 100_ Bucket List of the Dead - 1x13 - Tomorrow.mkv");
+    });
+
+    test("sanitizes illegal chars in episode title from context", () => {
+      const renamer = new Renamer({
+        filenameTemplate: "{anime} - {title}.{ext}",
+        directoryTemplate: "{anime}/{type}",
+        sanitize: { action: "strip", replacement: "_", chars: '\\/:*?"<>|' },
+      });
+
+      const match = makeMatchResult({
+        anime: { id: "1", titleEn: "Zom 100", entryType: "tv" },
+        episode: {
+          id: "101",
+          animeId: "1",
+          season: 1,
+          episode: 1,
+          titleEn: 'Episode: "The Beginning"',
+          entryType: "tv",
+        },
+      });
+
+      const plan = renamer.plan("/source/Zom 100 - 01.mkv", match, "mkv");
+
+      expect(plan.targetFilename).toBe("Zom 100 - Episode The Beginning.mkv");
+    });
+
+    test("sanitizes illegal chars in Japanese title from context", () => {
+      const renamer = new Renamer({
+        filenameTemplate: "{animeJa} - {anime}.{ext}",
+        directoryTemplate: "{anime}/{type}",
+        sanitize: { action: "replace", replacement: "_", chars: '\\/:*?"<>|' },
+      });
+
+      const match = makeMatchResult({
+        anime: {
+          id: "1",
+          titleEn: "Zom 100",
+          titleJa: "ゾム100: ～人生の野良猫達～",
+          entryType: "tv",
+        },
+      });
+
+      const plan = renamer.plan("/source/Zom 100 - 01.mkv", match, "mkv");
+
+      expect(plan.targetDir).toBe("Zom 100/TV");
+      expect(plan.targetFilename).toBe("ゾム100_ ～人生の野良猫達～ - Zom 100.mkv");
+    });
+
+    test("no-op when sanitize config is not provided", () => {
+      const renamer = new Renamer({
+        filenameTemplate: "{anime}.{ext}",
+        directoryTemplate: "{anime}/{type}",
+      });
+
+      const match = makeMatchResult({
+        anime: { id: "1", titleEn: "Title: With Colons", entryType: "tv" },
+      });
+
+      const plan = renamer.plan("/source/file.mkv", match, "mkv");
+
+      expect(plan.targetFilename).toBe("Title: With Colons.mkv");
+    });
+  });
 });

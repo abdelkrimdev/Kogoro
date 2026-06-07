@@ -26,7 +26,7 @@ function tomlValue(value: unknown): string {
 
 function tomlStringify(config: Config): string {
   const lines: string[] = [];
-  const { template, plugins, ...topLevel } = config;
+  const { template, plugins, sanitize, ...topLevel } = config;
 
   for (const [key, value] of Object.entries(topLevel)) {
     lines.push(`${key} = ${tomlValue(value)}`);
@@ -45,6 +45,14 @@ function tomlStringify(config: Config): string {
       lines.push("");
       lines.push(`[plugins.${name}]`);
       lines.push(`enabled = ${tomlValue(toggle.enabled)}`);
+    }
+  }
+
+  if (sanitize) {
+    lines.push("");
+    lines.push("[sanitize]");
+    for (const [key, value] of Object.entries(sanitize)) {
+      lines.push(`${key} = ${tomlValue(value)}`);
     }
   }
 

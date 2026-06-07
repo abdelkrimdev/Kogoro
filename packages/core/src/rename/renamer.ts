@@ -12,6 +12,7 @@ import { ENTRY_TYPE_DIR_MAP, type RenameAction } from "../config/schema";
 import type { MatchResult } from "../match/matcher";
 import type { ParsedTags } from "../parse/parser";
 import { stripExtension } from "../parse/parser";
+import { type SanitizeConfig, sanitizeFilename } from "./sanitize";
 import { render } from "./template-engine";
 
 export type { RenameAction } from "../config/schema";
@@ -40,6 +41,7 @@ interface RenamerOptions {
   filenameTemplate: string;
   directoryTemplate: string;
   action?: RenameAction;
+  sanitize?: SanitizeConfig;
 }
 
 function buildDisambiguator(tags: ParsedTags): string {
@@ -56,6 +58,7 @@ export class Renamer {
   private filenameTemplate: string;
   private directoryTemplate: string;
   private action: RenameAction;
+  private sanitize?: SanitizeConfig;
   private usedTargets: Set<string>;
   private executedPlans: Array<RenamePlan & { absTargetPath: string }> = [];
 
@@ -63,6 +66,7 @@ export class Renamer {
     this.filenameTemplate = options.filenameTemplate;
     this.directoryTemplate = options.directoryTemplate;
     this.action = options.action ?? "move";
+    this.sanitize = options.sanitize;
     this.usedTargets = new Set();
   }
 
@@ -74,10 +78,13 @@ export class Renamer {
     numberingOverride?: { season: number; episode: number },
   ): RenamePlan {
     const { anime, episode } = match;
+    const sanitize = this.sanitize
+      ? (v: string) => sanitizeFilename(v, this.sanitize as SanitizeConfig)
+      : (v: string) => v;
 
     const dirContext: Record<string, string | number> = {
-      anime: anime.titleEn,
-      animeJa: anime.titleJa ?? anime.titleEn,
+      anime: sanitize(anime.titleEn),
+      animeJa: sanitize(anime.titleJa ?? anime.titleEn),
       type: ENTRY_TYPE_DIR_MAP[anime.entryType],
     };
 
@@ -87,13 +94,13 @@ export class Renamer {
     const episodeVal = numberingOverride?.episode ?? episode?.episode;
 
     const filenameContext = {
-      anime: anime.titleEn,
-      animeJa: anime.titleJa ?? anime.titleEn,
+      anime: sanitize(anime.titleEn),
+      animeJa: sanitize(anime.titleJa ?? anime.titleEn),
       ext: extension,
       ...(seasonVal !== undefined ? { season: seasonVal } : {}),
       ...(episodeVal !== undefined ? { episode: episodeVal } : {}),
-      ...(episode?.titleEn ? { title: episode.titleEn } : {}),
-      ...(episode?.titleJa ? { titleJa: episode.titleJa } : {}),
+      ...(episode?.titleEn ? { title: sanitize(episode.titleEn) } : {}),
+      ...(episode?.titleJa ? { titleJa: sanitize(episode.titleJa) } : {}),
     } as Record<string, string | number>;
 
     let targetFilename = render(this.filenameTemplate, filenameContext);

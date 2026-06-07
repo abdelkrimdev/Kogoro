@@ -11,6 +11,7 @@ import {
   type MatchResult,
   OverrideStore,
   Renamer,
+  type SanitizeConfig,
   SCHEMA_DEFAULTS,
   Scanner,
   ScanOrchestrator,
@@ -51,11 +52,13 @@ export async function createScanOrchestrator(
   const filenameTemplate = configManager.getTemplate();
   const directoryTemplate =
     (configManager.get("template.directory") as string) ?? SCHEMA_DEFAULTS.template.directory;
+  const sanitize = configManager.get("sanitize") as SanitizeConfig | undefined;
   const renamer = new Renamer({
     filenameTemplate: filenameTemplate.includes("{ext}")
       ? filenameTemplate
       : `${filenameTemplate}.{ext}`,
     directoryTemplate,
+    sanitize,
   });
 
   const scanner = matcher ? new Scanner({ matcher, cache, renamer, overrideStore }) : undefined;

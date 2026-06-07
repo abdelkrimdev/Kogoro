@@ -15,9 +15,7 @@
     onComplete: () => void;
   }
 
-  let { rpc, sessionId, plan: initialPlan, onComplete }: Props = $props();
-
-  let plan = $state($state.snapshot(initialPlan));
+  let { rpc, sessionId, plan, onComplete }: Props = $props();
 
   let searchQuery = $state("");
   let statusFilter = $state<StatusFilter>("all");
