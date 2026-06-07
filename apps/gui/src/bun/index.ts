@@ -37,7 +37,7 @@ const savedState = loadWindowState();
 const configManager = new ConfigManager();
 const credentialStore = createCredentialStore();
 
-const libraryHandlers = createLibraryHandlers(CONFIG_DIR, configManager);
+const libraryHandlers = createLibraryHandlers(CONFIG_DIR);
 
 const enrichmentHandlers = createEnrichmentHandlers({
   configManager,
@@ -122,9 +122,8 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         await orchestrator.approvePlan();
 
         const matches = orchestrator.getMatchResults();
-        const sourceDb = configManager.get("primary-db");
-        if (matches.length > 0 && typeof sourceDb === "string" && sourceDb) {
-          libraryHandlers.mergeMatches(matches, sourceDb);
+        if (matches.length > 0) {
+          libraryHandlers.mergeMatches(matches);
         }
 
         return undefined;

@@ -261,23 +261,22 @@ export class LibraryDb {
     return rows.map(this.rowToWatchStatus);
   }
 
+  private updateEpisodeCount(animeId: number): void {
+    const row = this.db
+      .prepare("SELECT COUNT(*) as count FROM episodes WHERE anime_id = $animeId")
+      .get({ $animeId: animeId }) as { count: number };
+    this.db
+      .prepare("UPDATE anime SET episode_count = $count WHERE id = $id")
+      .run({ $count: row.count, $id: animeId });
+  }
+
   mergeAnime(
     anime: Omit<LibraryAnime, "id" | "lastSynced">,
     episodes: Omit<LibraryEpisode, "id" | "animeId">[],
   ): { anime: LibraryAnime; episodes: LibraryEpisode[]; merged: boolean } {
     const existing = this.findAnime(anime.externalId, anime.sourceDb);
-    let merged = false;
-    let libraryAnime: LibraryAnime;
-
-    if (existing) {
-      libraryAnime = this.upsertAnime({
-        ...anime,
-        episodeCount: existing.episodeCount + anime.episodeCount,
-      });
-      merged = true;
-    } else {
-      libraryAnime = this.upsertAnime(anime);
-    }
+    const libraryAnime = this.upsertAnime({ ...anime, episodeCount: 0 });
+    const merged = existing !== null;
 
     const libraryEpisodes: LibraryEpisode[] = [];
     for (const ep of episodes) {
@@ -288,10 +287,16 @@ export class LibraryDb {
       libraryEpisodes.push(libraryEp);
     }
 
-    return { anime: libraryAnime, episodes: libraryEpisodes, merged };
+    this.updateEpisodeCount(libraryAnime.id);
+
+    return {
+      anime: this.getAnime(libraryAnime.id) as LibraryAnime,
+      episodes: libraryEpisodes,
+      merged,
+    };
   }
 
-  rebuildFromMatches(matches: MatchEntry[], sourceDb: string): void {
+  rebuildFromMatches(matches: MatchEntry[]): void {
     const oldEpisodes = this.db
       .prepare("SELECT id, anime_id, episode_number, season FROM episodes")
       .all() as Array<{
@@ -317,14 +322,17 @@ export class LibraryDb {
     this.db.run("DELETE FROM episodes");
     this.db.run("DELETE FROM anime");
 
+    const animeIds = new Set<number>();
     for (const match of matches) {
       const anime = this.upsertAnime({
         externalId: match.animeId,
-        sourceDb,
+        sourceDb: match.sourceDb,
         title: match.animeTitle,
         entryType: match.entryType,
         episodeCount: 0,
       });
+
+      animeIds.add(anime.id);
 
       if (match.episode !== null && match.filePath) {
         const newEp = this.addEpisode({
@@ -335,7 +343,7 @@ export class LibraryDb {
           season: match.season ?? undefined,
         });
 
-        const oldKey = `${match.animeId}:${sourceDb}:${match.season ?? 1}:${match.episode}`;
+        const oldKey = `${match.animeId}:${match.sourceDb}:${match.season ?? 1}:${match.episode}`;
         const oldEpId = oldEpisodeKey.get(oldKey);
         if (oldEpId !== undefined) {
           const oldStatus = this.db
@@ -358,10 +366,14 @@ export class LibraryDb {
       }
     }
 
+    for (const id of animeIds) {
+      this.updateEpisodeCount(id);
+    }
+
     this.db.run("DELETE FROM watch_status WHERE episode_id NOT IN (SELECT id FROM episodes)");
   }
 
-  mergeFromMatches(matches: MatchEntry[], sourceDb: string): void {
+  mergeFromMatches(matches: MatchEntry[]): void {
     const grouped = new Map<string, MatchEntry[]>();
     for (const match of matches) {
       const existing = grouped.get(match.animeId);
@@ -396,7 +408,7 @@ export class LibraryDb {
       this.mergeAnime(
         {
           externalId: first.animeId,
-          sourceDb,
+          sourceDb: first.sourceDb,
           title: first.animeTitle,
           entryType: first.entryType,
           episodeCount: episodes.length,
@@ -409,13 +421,14 @@ export class LibraryDb {
   exportMatches(): MatchEntry[] {
     const rows = this.db
       .prepare(
-        `SELECT a.external_id, a.title, a.entry_type, e.episode_number, e.file_path, e.title as episode_title, e.season
+        `SELECT a.external_id, a.source_db, a.title, a.entry_type, e.episode_number, e.file_path, e.title as episode_title, e.season
          FROM anime a
          JOIN episodes e ON e.anime_id = a.id
          ORDER BY a.title, e.season, e.episode_number`,
       )
       .all() as Array<{
       external_id: string;
+      source_db: string;
       title: string;
       entry_type: string;
       episode_number: number;
@@ -433,6 +446,7 @@ export class LibraryDb {
       season: row.season ?? null,
       title: row.episode_title ?? null,
       filePath: row.file_path,
+      sourceDb: row.source_db,
     }));
   }
 

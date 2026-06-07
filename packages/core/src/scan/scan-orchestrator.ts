@@ -195,6 +195,7 @@ export class ScanOrchestrator {
         season: r.match.episode?.season ?? null,
         title: r.match.episode?.titleEn ?? null,
         filePath: r.file,
+        sourceDb: this.options.sourceDb ?? "tvdb",
       });
     }
 

@@ -1350,6 +1350,7 @@ describe("ScanOrchestrator", () => {
         season: 1,
         title: "Ep 1",
         filePath: "/a/ep1.mkv",
+        sourceDb: "tvdb",
       });
     });
 

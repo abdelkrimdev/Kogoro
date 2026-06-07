@@ -9,6 +9,7 @@ export interface MatchEntry {
   season: number | null;
   title: string | null;
   filePath: string;
+  sourceDb: string;
 }
 
 export type ArtworkType = "poster" | "banner" | "fanart" | "thumbnail";

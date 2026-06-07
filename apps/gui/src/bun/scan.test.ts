@@ -287,7 +287,7 @@ describe("ScanOrchestrator", () => {
         expect(matches.length).toBeGreaterThan(0);
 
         const db = createLibraryDb(dir);
-        db.rebuildFromMatches(matches, "tvdb");
+        db.rebuildFromMatches(matches);
 
         const animeList = db.listAnime();
         expect(animeList).toHaveLength(1);

@@ -493,6 +493,7 @@ describe("LibraryDb", () => {
             season: 1,
             title: "Ryomen Sukuna",
             filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
           },
           {
             animeId: "tvdb-12345",
@@ -503,6 +504,7 @@ describe("LibraryDb", () => {
             season: 1,
             title: "Cursed Womb Must Die",
             filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+            sourceDb: "tvdb",
           },
           {
             animeId: "tvdb-67890",
@@ -513,10 +515,11 @@ describe("LibraryDb", () => {
             season: 1,
             title: "To You, in 2000 Years",
             filePath: "/media/Attack on Titan/S01E01.mkv",
+            sourceDb: "tvdb",
           },
         ];
 
-        db.rebuildFromMatches(matches, "tvdb");
+        db.rebuildFromMatches(matches);
 
         const animeList = db.listAnime();
         expect(animeList).toHaveLength(2);
@@ -798,11 +801,12 @@ describe("LibraryDb", () => {
         const exported = db.exportMatches();
         expect(exported).toHaveLength(2);
 
-        db.rebuildFromMatches(exported, "tvdb");
+        db.rebuildFromMatches(exported);
 
         const animeList = db.listAnime();
         expect(animeList).toHaveLength(1);
         expect(animeList[0]?.title).toBe("Jujutsu Kaisen");
+        expect(animeList[0]?.episodeCount).toBe(2);
 
         const episodes = db.getEpisodesByAnimeId(animeList[0]?.id as number);
         expect(episodes).toHaveLength(2);
@@ -881,6 +885,7 @@ describe("LibraryDb", () => {
             season: 1,
             title: "Ryomen Sukuna",
             filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
           },
           {
             animeId: "tvdb-12345",
@@ -891,10 +896,11 @@ describe("LibraryDb", () => {
             season: 1,
             title: "Cursed Womb Must Die",
             filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+            sourceDb: "tvdb",
           },
         ];
 
-        db.rebuildFromMatches(matches, "tvdb");
+        db.rebuildFromMatches(matches);
 
         const animeList = db.listAnime();
         expect(animeList).toHaveLength(1);
@@ -950,6 +956,7 @@ describe("LibraryDb", () => {
             season: 1,
             title: "Ryomen Sukuna",
             filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
           },
           {
             animeId: "tvdb-12345",
@@ -960,6 +967,7 @@ describe("LibraryDb", () => {
             season: 1,
             title: "Cursed Womb Must Die",
             filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+            sourceDb: "tvdb",
           },
           {
             animeId: "tvdb-67890",
@@ -970,16 +978,18 @@ describe("LibraryDb", () => {
             season: 1,
             title: "To You, in 2000 Years",
             filePath: "/media/Attack on Titan/S01E01.mkv",
+            sourceDb: "tvdb",
           },
         ];
 
-        db.mergeFromMatches(matches, "tvdb");
+        db.mergeFromMatches(matches);
 
         const animeList = db.listAnime();
         expect(animeList).toHaveLength(2);
 
         const jjk = db.findAnime("tvdb-12345", "tvdb");
         expect(jjk?.title).toBe("Jujutsu Kaisen");
+        expect(jjk?.episodeCount).toBe(2);
 
         const jjkEpisodes = db.getEpisodesByAnimeId(jjk?.id as number);
         expect(jjkEpisodes).toHaveLength(2);
@@ -991,6 +1001,256 @@ describe("LibraryDb", () => {
 
         const aot = db.findAnime("tvdb-67890", "tvdb");
         expect(aot?.title).toBe("Attack on Titan");
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  test("mergeAnime does not inflate episodeCount on repeated merges", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const first = db.mergeAnime(
+          {
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeCount: 12,
+          },
+          [
+            { episodeNumber: 1, filePath: "/media/S01E01.mkv", season: 1 },
+            { episodeNumber: 2, filePath: "/media/S01E02.mkv", season: 1 },
+          ],
+        );
+
+        expect(first.anime.episodeCount).toBe(2);
+
+        const second = db.mergeAnime(
+          {
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeCount: 2,
+          },
+          [
+            { episodeNumber: 1, filePath: "/media/S01E01.mkv", season: 1 },
+            { episodeNumber: 2, filePath: "/media/S01E02.mkv", season: 1 },
+          ],
+        );
+
+        expect(second.merged).toBe(true);
+        expect(second.anime.episodeCount).toBe(2);
+
+        const third = db.mergeAnime(
+          {
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeCount: 2,
+          },
+          [
+            { episodeNumber: 3, filePath: "/media/S01E03.mkv", season: 1 },
+            { episodeNumber: 4, filePath: "/media/S01E04.mkv", season: 1 },
+          ],
+        );
+
+        expect(third.anime.episodeCount).toBe(4);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  test("rebuildFromMatches sets correct episodeCount per anime", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const matches = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv" as const,
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv" as const,
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Cursed Womb Must Die",
+            filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "tvdb-67890",
+            animeTitle: "Attack on Titan",
+            entryType: "tv" as const,
+            episodeId: "201",
+            episode: 1,
+            season: 1,
+            title: "To You, in 2000 Years",
+            filePath: "/media/Attack on Titan/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        db.rebuildFromMatches(matches);
+
+        const animeList = db.listAnime();
+        const jjk = animeList.find((a) => a.title === "Jujutsu Kaisen");
+        expect(jjk?.episodeCount).toBe(2);
+
+        const aot = animeList.find((a) => a.title === "Attack on Titan");
+        expect(aot?.episodeCount).toBe(1);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  test("rebuildFromMatches preserves per-anime sourceDb", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const matches = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv" as const,
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "anidb-67890",
+            animeTitle: "Attack on Titan",
+            entryType: "tv" as const,
+            episodeId: "201",
+            episode: 1,
+            season: 1,
+            title: "To You, in 2000 Years",
+            filePath: "/media/Attack on Titan/S01E01.mkv",
+            sourceDb: "anidb",
+          },
+        ];
+
+        db.rebuildFromMatches(matches);
+
+        const jjk = db.findAnime("tvdb-12345", "tvdb");
+        expect(jjk).not.toBeNull();
+
+        const aot = db.findAnime("anidb-67890", "anidb");
+        expect(aot).not.toBeNull();
+
+        const wrongAot = db.findAnime("anidb-67890", "tvdb");
+        expect(wrongAot).toBeNull();
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  test("exportMatches includes sourceDb per anime", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const tvdbAnime = db.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          entryType: "tv",
+          episodeCount: 1,
+        });
+        db.addEpisode({
+          animeId: tvdbAnime.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+        });
+
+        const anidbAnime = db.upsertAnime({
+          externalId: "anidb-67890",
+          sourceDb: "anidb",
+          title: "Attack on Titan",
+          entryType: "tv",
+          episodeCount: 1,
+        });
+        db.addEpisode({
+          animeId: anidbAnime.id,
+          episodeNumber: 1,
+          filePath: "/media/AoT/S01E01.mkv",
+          season: 1,
+        });
+
+        const matches = db.exportMatches();
+        expect(matches).toHaveLength(2);
+
+        const tvdbMatch = matches.find((m) => m.animeId === "tvdb-12345");
+        expect(tvdbMatch?.sourceDb).toBe("tvdb");
+
+        const anidbMatch = matches.find((m) => m.animeId === "anidb-67890");
+        expect(anidbMatch?.sourceDb).toBe("anidb");
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  test("mergeAnime handles multi-season episodes correctly", async () => {
+    await withTempDir("library-db", async (dir) => {
+      const db = new LibraryDb({ dbPath: `${dir}/library.db` });
+      try {
+        const first = db.mergeAnime(
+          {
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeCount: 12,
+          },
+          [
+            { episodeNumber: 1, filePath: "/media/S01E01.mkv", season: 1 },
+            { episodeNumber: 2, filePath: "/media/S01E02.mkv", season: 1 },
+          ],
+        );
+
+        db.mergeAnime(
+          {
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeCount: 12,
+          },
+          [
+            { episodeNumber: 1, filePath: "/media/S02E01.mkv", season: 2 },
+            { episodeNumber: 2, filePath: "/media/S02E02.mkv", season: 2 },
+          ],
+        );
+
+        const episodes = db.getEpisodesByAnimeId(first.anime.id);
+        expect(episodes).toHaveLength(4);
+        expect(episodes[0]?.season).toBe(1);
+        expect(episodes[1]?.season).toBe(1);
+        expect(episodes[2]?.season).toBe(2);
+        expect(episodes[3]?.season).toBe(2);
+
+        const anime = db.getAnime(first.anime.id);
+        expect(anime?.episodeCount).toBe(4);
       } finally {
         db.close();
       }

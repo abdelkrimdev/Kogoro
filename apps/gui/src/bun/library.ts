@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { ConfigManager, MatchEntry } from "@kogoro/core";
+import type { MatchEntry } from "@kogoro/core";
 import { LibraryDb } from "@kogoro/core";
 
 interface LibraryAnimeItem {
@@ -32,7 +32,7 @@ interface LibraryAnimeDetail {
   filesOnDisk: number;
 }
 
-export function createLibraryHandlers(configDir: string, configManager: ConfigManager) {
+export function createLibraryHandlers(configDir: string) {
   const dbPath = join(configDir, "library.db");
   function getDb(): LibraryDb {
     return new LibraryDb({ dbPath });
@@ -64,31 +64,14 @@ export function createLibraryHandlers(configDir: string, configManager: ConfigMa
 
         const dbEpisodes = db.getEpisodesByAnimeId(anime.id);
 
-        const totalEpisodes = anime.episodeCount;
-
-        const allEpisodes: LibraryAnimeDetail["episodes"] = [];
-        for (let epNum = 1; epNum <= totalEpisodes; epNum++) {
-          const dbEp = dbEpisodes.find((e) => e.episodeNumber === epNum);
-          if (dbEp) {
-            allEpisodes.push({
-              id: String(dbEp.id),
-              season: dbEp.season ?? 1,
-              episode: dbEp.episodeNumber,
-              titleEn: dbEp.title ?? `Episode ${dbEp.episodeNumber}`,
-              filePath: dbEp.filePath,
-              missing: false,
-            });
-          } else {
-            allEpisodes.push({
-              id: `missing-${anime.id}-${epNum}`,
-              season: 1,
-              episode: epNum,
-              titleEn: `Episode ${epNum}`,
-              filePath: "",
-              missing: true,
-            });
-          }
-        }
+        const allEpisodes: LibraryAnimeDetail["episodes"] = dbEpisodes.map((dbEp) => ({
+          id: String(dbEp.id),
+          season: dbEp.season ?? 1,
+          episode: dbEp.episodeNumber,
+          titleEn: dbEp.title ?? `Episode ${dbEp.episodeNumber}`,
+          filePath: dbEp.filePath,
+          missing: false,
+        }));
 
         return {
           anime: {
@@ -97,7 +80,7 @@ export function createLibraryHandlers(configDir: string, configManager: ConfigMa
             titleJa: anime.titleJapanese,
             entryType: anime.entryType,
             sourceDb: anime.sourceDb,
-            totalEpisodes,
+            totalEpisodes: anime.episodeCount,
             coverArt: anime.coverArtPath,
           },
           episodes: allEpisodes,
@@ -148,10 +131,10 @@ export function createLibraryHandlers(configDir: string, configManager: ConfigMa
       }
     },
 
-    mergeMatches(matches: MatchEntry[], sourceDb: string): void {
+    mergeMatches(matches: MatchEntry[]): void {
       const db = getDb();
       try {
-        db.mergeFromMatches(matches, sourceDb);
+        db.mergeFromMatches(matches);
       } finally {
         db.close();
       }
@@ -162,7 +145,7 @@ export function createLibraryHandlers(configDir: string, configManager: ConfigMa
         const db = getDb();
         try {
           const matches = db.exportMatches();
-          db.rebuildFromMatches(matches, String(configManager.get("primary-db") ?? "tvdb"));
+          db.rebuildFromMatches(matches);
           return { success: true };
         } finally {
           db.close();
