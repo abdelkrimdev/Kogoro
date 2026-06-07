@@ -34,7 +34,7 @@
   let resolveModalOpen = $state(false);
   let resolveFileId = $state("");
   let resolveSourcePath = $state("");
-  let expandedGroups = $state<Set<string>>(new Set(plan.groups.map(g => g.animeId)));
+  let collapsedGroups = $state<Record<string, boolean>>({});
   let resolveCandidates = $state<ResolveCandidate[]>([]);
   let resolveLoading = $state(false);
 
@@ -44,36 +44,14 @@
 
   const stats = $derived(deriveReviewStats(plan));
 
-  let previousGroupIds = $state(new Set(plan.groups.map(g => g.animeId)));
-
-  $effect(() => {
-    const groupIds = new Set(plan.groups.map(g => g.animeId));
-    let changed = false;
-    const next = new Set(expandedGroups);
-    for (const id of next) {
-      if (!groupIds.has(id)) {
-        next.delete(id);
-        changed = true;
-      }
-    }
-    for (const id of groupIds) {
-      if (!previousGroupIds.has(id)) {
-        next.add(id);
-        changed = true;
-      }
-    }
-    previousGroupIds = groupIds;
-    if (changed) expandedGroups = next;
-  });
-
   function toggleGroup(animeId: string) {
-    const next = new Set(expandedGroups);
-    if (next.has(animeId)) {
-      next.delete(animeId);
+    const next = { ...collapsedGroups };
+    if (next[animeId]) {
+      delete next[animeId];
     } else {
-      next.add(animeId);
+      next[animeId] = true;
     }
-    expandedGroups = next;
+    collapsedGroups = next;
   }
 
   function groupStatusSummary(group: { files: { status: string }[]; rejected?: boolean }): string {
@@ -286,7 +264,7 @@
       </div>
     {:else}
       {#each filtered as group (group.animeId)}
-        {@const isExpanded = expandedGroups.has(group.animeId)}
+        {@const isExpanded = !collapsedGroups[group.animeId]}
         <div class="card preset-outlined-surface-300-700 overflow-hidden {group.rejected ? 'opacity-50' : ''}">
           <div class="px-4 py-2.5 border-b border-surface-300-700 bg-surface-200-800/80 flex items-center gap-3">
             <button
