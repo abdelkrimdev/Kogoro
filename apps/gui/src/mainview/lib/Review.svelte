@@ -44,22 +44,26 @@
 
   const stats = $derived(deriveReviewStats(plan));
 
+  let previousGroupIds = $state(new Set(plan.groups.map(g => g.animeId)));
+
   $effect(() => {
     const groupIds = new Set(plan.groups.map(g => g.animeId));
     let changed = false;
-    for (const id of expandedGroups) {
+    const next = new Set(expandedGroups);
+    for (const id of next) {
       if (!groupIds.has(id)) {
-        expandedGroups.delete(id);
+        next.delete(id);
         changed = true;
       }
     }
     for (const id of groupIds) {
-      if (!expandedGroups.has(id)) {
-        expandedGroups.add(id);
+      if (!previousGroupIds.has(id)) {
+        next.add(id);
         changed = true;
       }
     }
-    if (changed) expandedGroups = expandedGroups;
+    previousGroupIds = groupIds;
+    if (changed) expandedGroups = next;
   });
 
   function toggleGroup(animeId: string) {
