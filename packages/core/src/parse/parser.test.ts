@@ -121,6 +121,28 @@ describe("Filename parsing", () => {
       expect(result.episode).toBe(6);
     });
 
+    test("parses Title - NxEx - Episode Name (NxEx season+episode pattern)", () => {
+      const result = parse("Oshi no Ko - 1x01 - Mother and Children.mkv");
+      expect(result.title).toBe("Oshi no Ko");
+      expect(result.season).toBe(1);
+      expect(result.episode).toBe(1);
+    });
+
+    test("parses Title - NxEx - Episode Name (higher season)", () => {
+      const result = parse("Oshi no Ko - 2x01 - Tokyo Blade.mkv");
+      expect(result.title).toBe("Oshi no Ko");
+      expect(result.season).toBe(2);
+      expect(result.episode).toBe(1);
+    });
+
+    test("parses [Group] Title - NxEx (NxEx with group bracket)", () => {
+      const result = parse("[SubsPlease] Oshi no Ko - 1x01.mkv");
+      expect(result.title).toBe("Oshi no Ko");
+      expect(result.season).toBe(1);
+      expect(result.episode).toBe(1);
+      expect(result.tags.group).toBe("SubsPlease");
+    });
+
     test("parses [Group] Title S##E## [CRC] (S##E## without leading dash)", () => {
       const result = parse("[Trix] Insomniacs After School S01E01 [015350F6].mkv");
       expect(result.title).toBe("Insomniacs After School");

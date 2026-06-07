@@ -348,6 +348,14 @@ function extractSeasonEpisode(cleanName: string): EpisodeInfo {
       titleEnd: sDashMatch.index,
     };
   }
+  const xMatch = /\b(\d+)x(\d+)(?:v\d+)?\b/i.exec(cleanName);
+  if (xMatch) {
+    return {
+      season: Number(xMatch[1]),
+      episode: Number(xMatch[2]),
+      titleEnd: xMatch.index,
+    };
+  }
   return { season: null, episode: null, titleEnd: -1 };
 }
 
