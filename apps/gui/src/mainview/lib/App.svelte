@@ -18,7 +18,7 @@
     reduceOnBatchScanComplete,
     type ScanSessionSnapshot,
   } from "../state/scan-session-reducer";
-  import { NAV_ITEMS, type View } from "../state/nav";
+  import { createSidebarState, NAV_ITEMS, type View } from "../state/nav";
   import Wizard from "./Wizard.svelte";
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
@@ -62,11 +62,8 @@
     themeState.load();
   });
 
-  let sidebarCollapsed = $state(false);
-  function toggleSidebar() {
-    sidebarCollapsed = !sidebarCollapsed;
-    rpc.request("setSidebarCollapsed", { collapsed: sidebarCollapsed }).catch(() => {});
-  }
+  let sidebarState = createSidebarState(() => rpc);
+  const showSidebar = $derived(NAV_ITEMS.some((item) => item.view === currentView));
 
   $effect(() => {
     if (!themeState) return;
@@ -84,8 +81,6 @@
   let currentView = $state<View>("scan");
   let currentDetailId = $state<string | null>(null);
   let isLoading = $state(true);
-
-  const isMainView = $derived(currentView !== "review" && currentView !== "details");
 
   $effect(() => {
     if (currentView === "library" || snap.statusText === "Ready") {
@@ -146,15 +141,13 @@
   onMount(async () => {
     const startTime = Date.now();
 
-    const [{ needsOnboarding }, sidebarResult] = await Promise.all([
+    const [onboardingResult] = await Promise.all([
       rpc.request("checkOnboarding", {}) as Promise<{ needsOnboarding: boolean }>,
-      rpc.request("getSidebarCollapsed", {}) as Promise<{ collapsed: boolean }>,
+      sidebarState.load(),
     ]);
 
-    sidebarCollapsed = sidebarResult.collapsed;
-
     let view: View;
-    if (needsOnboarding) {
+    if (onboardingResult.needsOnboarding) {
       view = "onboarding";
     } else {
       const stats = (await rpc.request("getLibraryStats", {})) as LibraryStats;
@@ -199,14 +192,14 @@
   <div class="h-full flex flex-col">
     <header class="h-12 flex items-center border-b border-surface-300-700 shrink-0" style="-webkit-app-region: drag;">
       <div class="flex items-center gap-2 px-3" style="-webkit-app-region: no-drag;">
-        {#if currentView !== "review"}
+        {#if showSidebar}
           <button
             type="button"
             class="btn-icon preset-tonal-surface"
-            onclick={toggleSidebar}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onclick={() => sidebarState.toggle()}
+            aria-label={sidebarState.collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {#if sidebarCollapsed}
+            {#if sidebarState.collapsed}
               <PanelLeftOpen class="size-5" />
             {:else}
               <PanelLeftClose class="size-5" />
@@ -232,8 +225,8 @@
       </div>
     </header>
     <div class="flex-1 flex overflow-hidden">
-      {#if isMainView}
-        <Navigation layout="sidebar" class="{sidebarCollapsed ? 'w-16' : 'w-64'} border-r border-surface-200-800 transition-[width] duration-200 ease-in-out">
+      {#if showSidebar}
+        <Navigation layout="sidebar" class="{sidebarState.collapsed ? 'w-16' : 'w-64'} border-r border-surface-200-800 transition-[width] duration-200 ease-in-out">
           <Navigation.Content>
             <Navigation.Menu>
               {#each NAV_ITEMS as item}
@@ -242,12 +235,12 @@
                   onclick={() => navigate(item.view)}
                 >
                   <span class="relative">
-                    <item.icon class={sidebarCollapsed ? 'size-5' : 'size-4'} />
+                    <item.icon class={sidebarState.collapsed ? 'size-5' : 'size-4'} />
                     {#if item.view === "scan" && snap.isScanning}
                       <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary-500 animate-pulse"></span>
                     {/if}
                   </span>
-                  {#if !sidebarCollapsed}
+                  {#if !sidebarState.collapsed}
                     <Navigation.TriggerText>{item.label}</Navigation.TriggerText>
                   {/if}
                 </Navigation.Trigger>
