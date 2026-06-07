@@ -78,8 +78,9 @@ export class Renamer {
     numberingOverride?: { season: number; episode: number },
   ): RenamePlan {
     const { anime, episode } = match;
-    const sanitize = this.sanitize
-      ? (v: string) => sanitizeFilename(v, this.sanitize as SanitizeConfig)
+    const sanitizeConfig = this.sanitize;
+    const sanitize = sanitizeConfig
+      ? (v: string) => sanitizeFilename(v, sanitizeConfig)
       : (v: string) => v;
 
     const dirContext: Record<string, string | number> = {
