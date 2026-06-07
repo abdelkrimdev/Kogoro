@@ -199,18 +199,20 @@
   <div class="h-full flex flex-col">
     <header class="h-12 flex items-center border-b border-surface-300-700 shrink-0" style="-webkit-app-region: drag;">
       <div class="flex items-center gap-2 px-3" style="-webkit-app-region: no-drag;">
-        <button
-          type="button"
-          class="btn-icon preset-tonal-surface"
-          onclick={toggleSidebar}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {#if sidebarCollapsed}
-            <PanelLeftOpen class="size-5" />
-          {:else}
-            <PanelLeftClose class="size-5" />
-          {/if}
-        </button>
+        {#if currentView !== "review"}
+          <button
+            type="button"
+            class="btn-icon preset-tonal-surface"
+            onclick={toggleSidebar}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {#if sidebarCollapsed}
+              <PanelLeftOpen class="size-5" />
+            {:else}
+              <PanelLeftClose class="size-5" />
+            {/if}
+          </button>
+        {/if}
       </div>
       <span class="text-sm font-medium text-surface-700-300">Kogoro</span>
       <div class="flex-1"></div>
@@ -239,10 +241,12 @@
                   class={currentView === item.view ? 'preset-tonal-primary' : ''}
                   onclick={() => navigate(item.view)}
                 >
-                  <item.icon class="size-4" />
-                  {#if item.view === "scan" && snap.isScanning}
-                    <span class="mx-0.5 size-2 rounded-full bg-primary-500 animate-pulse"></span>
-                  {/if}
+                  <span class="relative">
+                    <item.icon class="{sidebarCollapsed ? 'size-5' : 'size-4'}" />
+                    {#if item.view === "scan" && snap.isScanning}
+                      <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary-500 animate-pulse"></span>
+                    {/if}
+                  </span>
                   {#if !sidebarCollapsed}
                     <Navigation.TriggerText>{item.label}</Navigation.TriggerText>
                   {/if}
