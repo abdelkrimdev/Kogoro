@@ -3,10 +3,10 @@ import {
   type AnimeResult,
   createCallCounter,
   createMockHttpClient,
+  type DatabasePlugin,
   mockJsonFetch,
   toUrlString,
 } from "@kogoro/core";
-import type { DatabasePlugin } from "./plugin";
 import { TVDBPlugin } from "./tvdb-plugin";
 
 function mockFetch(
@@ -56,10 +56,44 @@ function mockFetchWithRoutes(
 describe("TVDBPlugin", () => {
   test("satisfies DatabasePlugin contract", () => {
     const plugin: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
+    expect(plugin.validate).toBeInstanceOf(Function);
     expect(plugin.searchAnime).toBeInstanceOf(Function);
     expect(plugin.getAnime).toBeInstanceOf(Function);
     expect(plugin.getEpisodes).toBeInstanceOf(Function);
     expect(plugin.getArtwork).toBeInstanceOf(Function);
+  });
+
+  describe("validate", () => {
+    test("returns valid when login succeeds", async () => {
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        httpClient: createMockHttpClient(mockFetch([])),
+      });
+      const result = await plugin.validate();
+      expect(result).toEqual({ valid: true });
+    });
+
+    test("returns invalid when login fails", async () => {
+      const plugin = new TVDBPlugin({
+        apiKey: "bad-key",
+        httpClient: createMockHttpClient(mockJsonFetch({ error: "Unauthorized" }, 401)),
+      });
+      const result = await plugin.validate();
+      expect(result.valid).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    test("returns invalid on network error", async () => {
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        httpClient: createMockHttpClient(async () => {
+          throw new Error("Connection refused");
+        }),
+      });
+      const result = await plugin.validate();
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Connection refused");
+    });
   });
 
   describe("searchAnime", () => {

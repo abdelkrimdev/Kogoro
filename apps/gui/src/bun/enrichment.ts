@@ -3,12 +3,12 @@ import {
   ArtworkFetcher,
   type ConfigManager,
   type CredentialStore,
+  type DatabasePlugin,
   type EnrichmentSend,
   LibraryDb,
   MatchCache,
   MetadataWriter,
 } from "@kogoro/core";
-import type { DatabasePlugin } from "@kogoro/plugins";
 import { PluginFactory } from "@kogoro/plugins";
 
 export interface EnrichmentOptions {

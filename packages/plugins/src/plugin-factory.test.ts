@@ -77,6 +77,9 @@ describe("PluginFactory", () => {
       test("loads external plugin via dynamic import", async () => {
         mock.module("kogoro-plugin-myextdb", () => ({
           default: class ExternalPlugin {
+            async validate() {
+              return { valid: true };
+            }
             async searchAnime() {
               return [];
             }
@@ -109,6 +112,9 @@ describe("PluginFactory", () => {
         mock.module("kogoro-plugin-cached-ext", () => ({
           default: class CachedPlugin {
             id = Math.random();
+            async validate() {
+              return { valid: true };
+            }
             async searchAnime() {
               return [];
             }

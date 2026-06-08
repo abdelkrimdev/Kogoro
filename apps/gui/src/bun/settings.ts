@@ -90,7 +90,7 @@ export async function buildSettingsFormData(
   const sanitizeRaw = config.get("sanitize") as
     | { action?: string; replacement?: string; chars?: string }
     | undefined;
-  const sanitizeAction = sanitizeRaw?.action ?? "replace";
+  const sanitizeAction = sanitizeRaw?.action ?? "strip";
   const sanitizeReplacement = sanitizeRaw?.replacement ?? "_";
   const sanitizeChars = sanitizeRaw?.chars ?? '\\/:*?"<>|';
 

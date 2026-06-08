@@ -168,7 +168,7 @@ describe("ConfigSchema", () => {
       expect(result.output.plugins.tvdb.enabled).toBe(true);
       expect(result.output.plugins.anidb.enabled).toBe(true);
       expect(result.output.plugins.opensubtitles.enabled).toBe(true);
-      expect(result.output.sanitize.action).toBe("replace");
+      expect(result.output.sanitize.action).toBe("strip");
       expect(result.output.sanitize.replacement).toBe("_");
       expect(result.output.sanitize.chars).toBe('\\/:*?"<>|');
     });
@@ -213,7 +213,14 @@ describe("ConfigSchema", () => {
     });
 
     test("accepts all valid template presets", () => {
-      for (const preset of ["standard", "compact", "absolute", "plex", "anidb"] as const) {
+      for (const preset of [
+        "standard",
+        "compact",
+        "absolute",
+        "plex",
+        "anidb",
+        "custom",
+      ] as const) {
         const result = v.safeParse(ConfigSchema, {
           ...validConfig(),
           template: { preset },

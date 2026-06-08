@@ -1,5 +1,4 @@
-import type { AnimeResult, EpisodeResult } from "@kogoro/core";
-import type { DatabasePlugin } from "@kogoro/plugins";
+import type { AnimeResult, DatabasePlugin, EpisodeResult } from "@kogoro/core";
 
 export function createDatabaseHandlers(plugin: DatabasePlugin) {
   return {

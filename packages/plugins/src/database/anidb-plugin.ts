@@ -5,11 +5,11 @@ import {
   type ArtworkResult,
   type ArtworkType,
   CONFIG_DIR,
+  type DatabasePlugin,
   type EntryType,
   type EpisodeResult,
   HttpClient,
 } from "@kogoro/core";
-import type { DatabasePlugin } from "./plugin";
 
 const BASE_URL = "http://api.anidb.net:9001/httpapi";
 const TITLE_CACHE_FILENAME = "anime-titles.xml";
@@ -167,11 +167,28 @@ export class AniDBPlugin implements DatabasePlugin {
     return `client=${this.client}&clientver=${this.clientver}&protover=1`;
   }
 
-  private checkAniDBError(xml: string): void {
+  async validate(): Promise<{ valid: boolean; error?: string }> {
+    try {
+      const response = await this.httpClient.fetch(
+        `${BASE_URL}?request=anime&aid=1&${this.commonParams()}`,
+      );
+      if (!response.ok) {
+        return { valid: false, error: `AniDB request failed (${response.status})` };
+      }
+      const xml = await response.text();
+      this.checkAniDBError(xml, ["310"]);
+      return { valid: true };
+    } catch (err) {
+      return { valid: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  private checkAniDBError(xml: string, codes?: string[]): void {
     const match = xml.match(/<error(?:\s+code="([^"]*)")?>([^<]*)<\/error>/);
     if (!match) return;
     const code = match[1] || "unknown";
     const message = match[2] ?? "";
+    if (codes && !codes.includes(code)) return;
     throw new Error(`AniDB error ${code}: ${message}`);
   }
 

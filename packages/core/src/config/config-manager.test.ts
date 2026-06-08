@@ -214,7 +214,7 @@ describe("ConfigManager", () => {
       await withTestConfig("config", async (_dir, config) => {
         config.init();
         const sanitize = config.get("sanitize") as Record<string, unknown>;
-        expect(sanitize["action"]).toBe("replace");
+        expect(sanitize["action"]).toBe("strip");
         expect(sanitize["replacement"]).toBe("_");
         expect(sanitize["chars"]).toBe('\\/:*?"<>|');
       });

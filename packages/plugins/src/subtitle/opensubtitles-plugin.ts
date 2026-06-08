@@ -1,5 +1,4 @@
-import { HttpClient, type SubtitleResult } from "@kogoro/core";
-import type { SubtitlePlugin } from "./plugin";
+import { HttpClient, type SubtitlePlugin, type SubtitleResult } from "@kogoro/core";
 
 const BASE_URL = "https://api.opensubtitles.com/api/v1";
 

@@ -97,10 +97,23 @@ interface MockDbOptions {
   getEpisodes?: (animeId: string) => EpisodeResult[];
   getArtwork?: ArtworkResult[];
   getAnime?: () => AnimeResult | null;
+  track?: boolean;
 }
+
+interface MockDbTracking {
+  searchCalls: ReturnType<typeof createCallCounter>;
+  episodeCalls: ReturnType<typeof createCallCounter>;
+  searchTitles: string[];
+  episodeIds: string[];
+}
+
+type MockDbResult = DatabasePlugin & { tracking?: MockDbTracking };
 
 export function createArtworkDb(artworks: ArtworkResult[] = []): DatabasePlugin {
   return {
+    async validate() {
+      return { valid: true };
+    },
     async searchAnime() {
       return [];
     },
@@ -120,12 +133,31 @@ export function createLibraryDb(dir: string): LibraryDb {
   return new LibraryDb({ dbPath: join(dir, "library.db") });
 }
 
-export function createMockDb(opts: MockDbOptions = {}): DatabasePlugin {
-  return {
+export function createMockDb(opts: MockDbOptions = {}): MockDbResult {
+  const tracking: MockDbTracking | undefined = opts.track
+    ? {
+        searchCalls: createCallCounter(),
+        episodeCalls: createCallCounter(),
+        searchTitles: [],
+        episodeIds: [],
+      }
+    : undefined;
+
+  const db: DatabasePlugin = {
+    async validate() {
+      return { valid: true };
+    },
     async searchAnime(title: string) {
-      return opts.searchAnime?.(title) ?? [];
+      tracking?.searchCalls.inc();
+      tracking?.searchTitles.push(title);
+      return (
+        opts.searchAnime?.(title) ??
+        (tracking ? [{ id: "1", titleEn: title, entryType: "tv" }] : [])
+      );
     },
     async getEpisodes(animeId: string) {
+      tracking?.episodeCalls.inc();
+      tracking?.episodeIds.push(animeId);
       return opts.getEpisodes?.(animeId) ?? [];
     },
     async getArtwork() {
@@ -135,6 +167,8 @@ export function createMockDb(opts: MockDbOptions = {}): DatabasePlugin {
       return opts.getAnime?.() ?? null;
     },
   };
+
+  return Object.assign(db, { tracking });
 }
 
 export function makeCachedMatch(overrides: Partial<CachedMatch> = {}): CachedMatch {
@@ -454,8 +488,31 @@ export function createTrackingMatcher(): {
   };
 }
 
+export function makeSeasonEpisodes(
+  season: number,
+  count: number,
+  opts: {
+    animeId?: string;
+    startEpisode?: number;
+    entryType?: "tv" | "movie" | "ova" | "special";
+  } = {},
+): EpisodeResult[] {
+  const { animeId = "1", startEpisode = 1, entryType = "tv" } = opts;
+  return Array.from({ length: count }, (_, i) => ({
+    id: `s${season}e${i + 1}`,
+    animeId,
+    season,
+    episode: startEpisode + i,
+    titleEn: `S${season}E${i + 1}`,
+    entryType,
+  }));
+}
+
 export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {
   return {
+    async validate() {
+      return { valid: true };
+    },
     async searchAnime(title: string) {
       return animes
         .filter((a) => a.title.toLowerCase().includes(title.toLowerCase()))

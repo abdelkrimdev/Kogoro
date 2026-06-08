@@ -3,6 +3,7 @@ import { basename, dirname } from "node:path";
 import { confirm, isCancel, log, select, spinner, text } from "@clack/prompts";
 import {
   type ConfigManager,
+  type DatabasePlugin,
   type EpisodeNumbering,
   type MatchCache,
   Matcher,
@@ -18,7 +19,6 @@ import {
   TEMPLATE_PRESETS,
   walk,
 } from "@kogoro/core";
-import type { DatabasePlugin } from "@kogoro/plugins";
 import type { Logger } from "../logger";
 
 export interface ScanHandlerOptions {

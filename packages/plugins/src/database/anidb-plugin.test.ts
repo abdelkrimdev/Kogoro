@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { DatabasePlugin } from "@kogoro/core";
 import { createMockHttpClient, createSequenceHttpClient, withTempDir } from "@kogoro/core";
 import { AniDBPlugin } from "./anidb-plugin";
-import type { DatabasePlugin } from "./plugin";
 
 function mockHttpClient(data: string, status = 200) {
   return createMockHttpClient(async (_url: string | URL, _init?: RequestInit) => {
@@ -696,9 +696,67 @@ describe("AniDBPlugin", () => {
       client: "kogoro",
       clientver: "1",
     });
+    expect(plugin.validate).toBeInstanceOf(Function);
     expect(plugin.searchAnime).toBeInstanceOf(Function);
     expect(plugin.getEpisodes).toBeInstanceOf(Function);
     expect(plugin.getAnime).toBeInstanceOf(Function);
     expect(plugin.getArtwork).toBeInstanceOf(Function);
+  });
+
+  describe("validate", () => {
+    test("returns valid when API call succeeds", async () => {
+      const animeXml = `<?xml version="1.0" encoding="UTF-8"?>
+<anime>
+  <id>1</id>
+  <type>TV Series</type>
+  <titles>
+    <title type="main" xml:lang="en">Cowboy Bebop</title>
+  </titles>
+</anime>`;
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient(animeXml),
+      });
+      const result = await plugin.validate();
+      expect(result).toEqual({ valid: true });
+    });
+
+    test("returns invalid when client is rejected", async () => {
+      const errorXml = `<?xml version="1.0" encoding="UTF-8"?>
+<error code="310">illegal input or access denied</error>`;
+      const plugin = new AniDBPlugin({
+        client: "bad-client",
+        clientver: "1",
+        httpClient: mockHttpClient(errorXml),
+      });
+      const result = await plugin.validate();
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("310");
+    });
+
+    test("returns invalid on HTTP error", async () => {
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: mockHttpClient("", 500),
+      });
+      const result = await plugin.validate();
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("500");
+    });
+
+    test("returns invalid on network error", async () => {
+      const plugin = new AniDBPlugin({
+        client: "kogoro",
+        clientver: "1",
+        httpClient: createMockHttpClient(async () => {
+          throw new Error("Connection refused");
+        }),
+      });
+      const result = await plugin.validate();
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Connection refused");
+    });
   });
 });

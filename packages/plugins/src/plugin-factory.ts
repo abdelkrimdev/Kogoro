@@ -1,15 +1,15 @@
 import {
   type ConfigManager,
   type CredentialStore,
+  type DatabasePlugin,
   type DebugEntry,
   HttpClient,
+  type SubtitlePlugin,
 } from "@kogoro/core";
 import { AniDBPlugin } from "./database/anidb-plugin";
-import type { DatabasePlugin } from "./database/plugin";
 import { TVDBPlugin } from "./database/tvdb-plugin";
 import { PluginRegistry } from "./plugin-registry";
 import { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
-import type { SubtitlePlugin } from "./subtitle/plugin";
 
 const RATE_LIMITS = {
   tvdb: 200,
@@ -19,12 +19,14 @@ const RATE_LIMITS = {
 function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
   if (obj === null || typeof obj !== "object") return false;
   const p = obj as {
+    validate?: unknown;
     searchAnime?: unknown;
     getAnime?: unknown;
     getEpisodes?: unknown;
     getArtwork?: unknown;
   };
   return (
+    typeof p.validate === "function" &&
     typeof p.searchAnime === "function" &&
     typeof p.getAnime === "function" &&
     typeof p.getEpisodes === "function" &&

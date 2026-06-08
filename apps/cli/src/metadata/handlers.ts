@@ -1,5 +1,10 @@
-import { type ConfigManager, MatchCache, MetadataWriter, SCHEMA_DEFAULTS } from "@kogoro/core";
-import type { DatabasePlugin } from "@kogoro/plugins";
+import {
+  type ConfigManager,
+  type DatabasePlugin,
+  MatchCache,
+  MetadataWriter,
+  SCHEMA_DEFAULTS,
+} from "@kogoro/core";
 import type { Logger } from "../logger";
 
 export interface MetadataHandlerOptions {

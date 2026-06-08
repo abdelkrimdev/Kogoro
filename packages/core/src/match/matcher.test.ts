@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createCallCounter, createDataMockDb, createMockDb, makeParsedResult } from "../fixtures";
+import { createDataMockDb, createMockDb, makeParsedResult, makeSeasonEpisodes } from "../fixtures";
 import type { DatabasePlugin, EpisodeResult } from "../types";
 import {
   Matcher,
@@ -136,6 +136,9 @@ describe("Matcher", () => {
       },
     ]);
     const movieDb: DatabasePlugin = {
+      async validate() {
+        return { valid: true };
+      },
       async searchAnime() {
         return [{ id: "99", titleEn: "Jujutsu Kaisen", entryType: "movie" as const }];
       },
@@ -185,92 +188,63 @@ describe("Matcher", () => {
   });
 
   test("skips fetching episodes for low-similarity search results", async () => {
-    const episodeCalls = createCallCounter();
-
-    const trackingDb: DatabasePlugin = {
-      async searchAnime() {
-        return [
-          { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
-          { id: "2", titleEn: "Totally Unrelated Series XYZ", entryType: "tv" },
-        ];
-      },
-      async getEpisodes(animeId: string) {
-        episodeCalls.inc();
-        return animeId === "1"
+    const mockDb = createMockDb({
+      track: true,
+      searchAnime: () => [
+        { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+        { id: "2", titleEn: "Totally Unrelated Series XYZ", entryType: "tv" },
+      ],
+      getEpisodes: (animeId) =>
+        animeId === "1"
           ? [{ id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" }]
-          : [];
-      },
-      async getArtwork() {
-        return [];
-      },
-      async getAnime() {
-        return null;
-      },
-    };
+          : [],
+    });
 
-    const matcher = new Matcher({ database: trackingDb });
+    const matcher = new Matcher({ database: mockDb });
     const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
     const results = await matcher.match(parsed);
 
-    expect(episodeCalls.get()).toBe(1);
+    expect(mockDb.tracking?.episodeCalls.get()).toBe(1);
     expect(results[0]?.anime.id).toBe("1");
     expect(results[0]?.episode?.episode).toBe(1);
   });
 
   test("shares episode cache with matchBatch", async () => {
-    const episodeCalls = createCallCounter();
+    const mockDb = createMockDb({
+      track: true,
+      searchAnime: () => [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }],
+      getEpisodes: () => [
+        { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+      ],
+    });
 
-    const trackingDb: DatabasePlugin = {
-      async searchAnime() {
-        return [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }];
-      },
-      async getEpisodes() {
-        episodeCalls.inc();
-        return [
-          { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
-        ];
-      },
-      async getArtwork() {
-        return [];
-      },
-      async getAnime() {
-        return null;
-      },
-    };
-
-    const matcher = new Matcher({ database: trackingDb });
+    const matcher = new Matcher({ database: mockDb });
     const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
 
     await matcher.match(parsed);
-    expect(episodeCalls.get()).toBe(1);
+    expect(mockDb.tracking?.episodeCalls.get()).toBe(1);
 
     await matcher.matchBatch([parsed]);
-    expect(episodeCalls.get()).toBe(1);
+    expect(mockDb.tracking?.episodeCalls.get()).toBe(1);
   });
 
   test("shares search cache between match and matchBatch", async () => {
-    const searchCalls = createCallCounter();
-
-    const trackingDb = createMockDb({
-      searchAnime(title: string) {
-        searchCalls.inc();
-        return [{ id: "1", titleEn: title, entryType: "tv" }];
-      },
-      getEpisodes() {
-        return [
-          { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
-        ];
-      },
+    const mockDb = createMockDb({
+      track: true,
+      searchAnime: (title) => [{ id: "1", titleEn: title, entryType: "tv" }],
+      getEpisodes: () => [
+        { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+      ],
     });
 
-    const matcher = new Matcher({ database: trackingDb });
+    const matcher = new Matcher({ database: mockDb });
     const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
 
     await matcher.match(parsed);
-    expect(searchCalls.get()).toBe(1);
+    expect(mockDb.tracking?.searchCalls.get()).toBe(1);
 
     await matcher.matchBatch([parsed]);
-    expect(searchCalls.get()).toBe(1);
+    expect(mockDb.tracking?.searchCalls.get()).toBe(1);
   });
 
   describe("episode resolution", () => {
@@ -385,23 +359,15 @@ describe("Matcher", () => {
 
   describe("matchBatch", () => {
     test("deduplicates searchAnime calls for repeated titles and getEpisodes for repeated anime IDs", async () => {
-      const searchCalls = createCallCounter();
-      const episodeCalls = createCallCounter();
-      const searchTitles: string[] = [];
-      const episodesIds: string[] = [];
-
-      const trackingDb: DatabasePlugin = {
-        async searchAnime(title: string) {
-          searchCalls.inc();
-          searchTitles.push(title);
+      const mockDb = createMockDb({
+        track: true,
+        searchAnime: (title) => {
           if (title === "Jujutsu Kaisen") {
             return [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }];
           }
           return [{ id: "2", titleEn: "One Piece", entryType: "tv" }];
         },
-        async getEpisodes(animeId: string) {
-          episodeCalls.inc();
-          episodesIds.push(animeId);
+        getEpisodes: (animeId) => {
           if (animeId === "1") {
             return [
               { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
@@ -419,15 +385,9 @@ describe("Matcher", () => {
             },
           ];
         },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
+      });
 
-      const matcher = new Matcher({ database: trackingDb });
+      const matcher = new Matcher({ database: mockDb });
 
       const parsedList = [
         makeParsedResult("Jujutsu Kaisen", 1, 1),
@@ -438,10 +398,10 @@ describe("Matcher", () => {
       const results = await matcher.matchBatch(parsedList);
 
       expect(results).toHaveLength(3);
-      expect(searchCalls.get()).toBe(2);
-      expect(searchTitles).toEqual(["Jujutsu Kaisen", "One Piece"]);
-      expect(episodeCalls.get()).toBe(2);
-      expect(episodesIds).toEqual(["1", "2"]);
+      expect(mockDb.tracking?.searchCalls.get()).toBe(2);
+      expect(mockDb.tracking?.searchTitles).toEqual(["Jujutsu Kaisen", "One Piece"]);
+      expect(mockDb.tracking?.episodeCalls.get()).toBe(2);
+      expect(mockDb.tracking?.episodeIds).toEqual(["1", "2"]);
 
       expect(results[0]?.anime.titleEn).toBe("Jujutsu Kaisen");
       expect(results[0]?.episode?.episode).toBe(1);
@@ -453,26 +413,15 @@ describe("Matcher", () => {
     });
 
     test("prefers anime ID with matching season over base title when parsing explicit season", async () => {
-      const searchCalls = createCallCounter();
-
-      const trackingDb: DatabasePlugin = {
-        async searchAnime(title: string) {
-          searchCalls.inc();
-          return [
-            { id: "1", titleEn: title, entryType: "tv" },
-            { id: "2", titleEn: `${title}: Season 2`, entryType: "tv" },
-          ];
-        },
-        async getEpisodes(animeId: string) {
+      const mockDb = createMockDb({
+        track: true,
+        searchAnime: (title) => [
+          { id: "1", titleEn: title, entryType: "tv" },
+          { id: "2", titleEn: `${title}: Season 2`, entryType: "tv" },
+        ],
+        getEpisodes: (animeId) => {
           if (animeId === "1") {
-            return Array.from({ length: 11 }, (_, i) => ({
-              id: `s1e${i + 1}`,
-              animeId: "1",
-              season: 1,
-              episode: i + 1,
-              titleEn: `S1E${i + 1}`,
-              entryType: "tv" as const,
-            }));
+            return makeSeasonEpisodes(1, 11, { animeId: "1" });
           }
           return Array.from({ length: 13 }, (_, i) => ({
             id: `s2e${i + 1}`,
@@ -483,15 +432,9 @@ describe("Matcher", () => {
             entryType: "tv" as const,
           }));
         },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
+      });
 
-      const matcher = new Matcher({ database: trackingDb });
+      const matcher = new Matcher({ database: mockDb });
 
       const results = await matcher.matchBatch([makeParsedResult("Attack on Titan", 2, 8)]);
 
@@ -510,108 +453,68 @@ describe("Matcher", () => {
     });
 
     test("returns match without episode when no episode number in parsed title", async () => {
-      const searchCalls = createCallCounter();
+      const mockDb = createMockDb({
+        track: true,
+        searchAnime: (title) => [{ id: "1", titleEn: title, entryType: "movie" }],
+        getEpisodes: () => [],
+      });
 
-      const trackingDb: DatabasePlugin = {
-        async searchAnime(title: string) {
-          searchCalls.inc();
-          return [{ id: "1", titleEn: title, entryType: "movie" }];
-        },
-        async getEpisodes() {
-          return [];
-        },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
-
-      const matcher = new Matcher({ database: trackingDb });
+      const matcher = new Matcher({ database: mockDb });
       const parsedList = [makeParsedResult("Movie Title")];
 
       const results = await matcher.matchBatch(parsedList);
       expect(results).toHaveLength(1);
       expect(results[0]?.anime.titleEn).toBe("Movie Title");
       expect(results[0]?.episode).toBeUndefined();
-      expect(searchCalls.get()).toBe(1);
+      expect(mockDb.tracking?.searchCalls.get()).toBe(1);
     });
 
     test("caches episodes across repeated matchBatch calls", async () => {
-      const episodeCalls = createCallCounter();
+      const mockDb = createMockDb({
+        track: true,
+        searchAnime: () => [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }],
+        getEpisodes: () => [
+          { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+        ],
+      });
 
-      const trackingDb: DatabasePlugin = {
-        async searchAnime() {
-          return [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }];
-        },
-        async getEpisodes() {
-          episodeCalls.inc();
-          return [
-            { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
-          ];
-        },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
-
-      const matcher = new Matcher({ database: trackingDb });
+      const matcher = new Matcher({ database: mockDb });
       const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
 
       await matcher.matchBatch([parsed]);
-      expect(episodeCalls.get()).toBe(1);
+      expect(mockDb.tracking?.episodeCalls.get()).toBe(1);
 
       await matcher.matchBatch([parsed]);
-      expect(episodeCalls.get()).toBe(1);
+      expect(mockDb.tracking?.episodeCalls.get()).toBe(1);
     });
 
     test("populates cache that match reads from", async () => {
-      const episodeCalls = createCallCounter();
+      const mockDb = createMockDb({
+        track: true,
+        searchAnime: () => [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }],
+        getEpisodes: () => [
+          { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
+        ],
+      });
 
-      const trackingDb: DatabasePlugin = {
-        async searchAnime() {
-          return [{ id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" }];
-        },
-        async getEpisodes() {
-          episodeCalls.inc();
-          return [
-            { id: "101", animeId: "1", season: 1, episode: 1, titleEn: "Ep 1", entryType: "tv" },
-          ];
-        },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
-
-      const matcher = new Matcher({ database: trackingDb });
+      const matcher = new Matcher({ database: mockDb });
       const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
 
       await matcher.matchBatch([parsed]);
-      expect(episodeCalls.get()).toBe(1);
+      expect(mockDb.tracking?.episodeCalls.get()).toBe(1);
 
       await matcher.match(parsed);
-      expect(episodeCalls.get()).toBe(1);
+      expect(mockDb.tracking?.episodeCalls.get()).toBe(1);
     });
 
     test("skips fetching episodes for low-similarity search results", async () => {
-      const episodeCalls = createCallCounter();
-
-      const trackingDb: DatabasePlugin = {
-        async searchAnime() {
-          return [
-            { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
-            { id: "2", titleEn: "Totally Unrelated Series XYZ", entryType: "tv" },
-          ];
-        },
-        async getEpisodes(animeId: string) {
-          episodeCalls.inc();
+      const mockDb = createMockDb({
+        track: true,
+        searchAnime: () => [
+          { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+          { id: "2", titleEn: "Totally Unrelated Series XYZ", entryType: "tv" },
+        ],
+        getEpisodes: (animeId) => {
           if (animeId === "1") {
             return [
               {
@@ -626,42 +529,28 @@ describe("Matcher", () => {
           }
           return [];
         },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
+      });
 
-      const matcher = new Matcher({ database: trackingDb });
+      const matcher = new Matcher({ database: mockDb });
       const parsed = makeParsedResult("Jujutsu Kaisen", 1, 1);
 
       const results = await matcher.matchBatch([parsed]);
 
-      expect(episodeCalls.get()).toBe(1);
+      expect(mockDb.tracking?.episodeCalls.get()).toBe(1);
       expect(results[0]?.anime.id).toBe("1");
       expect(results[0]?.episode?.episode).toBe(1);
     });
 
     test("word-level scoring makes 'Oshi no Ko' beat 'Hoshi no Koe' with clear margin", async () => {
-      const trackingDb: DatabasePlugin = {
-        async searchAnime() {
-          return [
-            { id: "1", titleEn: "Oshi no Ko", entryType: "tv" },
-            { id: "2", titleEn: "Hoshi no Koe", entryType: "tv" },
-          ];
-        },
-        async getEpisodes(animeId: string) {
+      const mockDb = createMockDb({
+        track: true,
+        searchAnime: () => [
+          { id: "1", titleEn: "Oshi no Ko", entryType: "tv" },
+          { id: "2", titleEn: "Hoshi no Koe", entryType: "tv" },
+        ],
+        getEpisodes: (animeId) => {
           if (animeId === "1") {
-            return Array.from({ length: 11 }, (_, i) => ({
-              id: `s1e${i + 1}`,
-              animeId: "1",
-              season: 1,
-              episode: i + 1,
-              titleEn: `S1E${i + 1}`,
-              entryType: "tv" as const,
-            }));
+            return makeSeasonEpisodes(1, 11, { animeId: "1" });
           }
           return [
             {
@@ -670,19 +559,13 @@ describe("Matcher", () => {
               season: 0,
               episode: 1,
               titleEn: "OVA",
-              entryType: "ova" as const,
+              entryType: "ova",
             },
           ];
         },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
+      });
 
-      const matcher = new Matcher({ database: trackingDb });
+      const matcher = new Matcher({ database: mockDb });
 
       // "Oshi No Ko" shares all 3 words with "Oshi no Ko" but only 1/3 with "Hoshi no Koe".
       // The word-level boost breaks the dice-similarity tie, giving a clear winner.
@@ -694,34 +577,25 @@ describe("Matcher", () => {
     });
 
     test("single clear winner passes through matchBatch without ambiguity", async () => {
-      const trackingDb: DatabasePlugin = {
-        async searchAnime() {
-          return [
-            { id: "1", titleEn: "One Piece", entryType: "tv" },
-            { id: "2", titleEn: "One Punch Man", entryType: "tv" },
-          ];
-        },
-        async getEpisodes(animeId: string) {
-          return [
-            {
-              id: "101",
-              animeId,
-              season: 1,
-              episode: 1,
-              titleEn: "Ep 1",
-              entryType: "tv" as const,
-            },
-          ];
-        },
-        async getArtwork() {
-          return [];
-        },
-        async getAnime() {
-          return null;
-        },
-      };
+      const mockDb = createMockDb({
+        track: true,
+        searchAnime: () => [
+          { id: "1", titleEn: "One Piece", entryType: "tv" },
+          { id: "2", titleEn: "One Punch Man", entryType: "tv" },
+        ],
+        getEpisodes: (animeId) => [
+          {
+            id: "101",
+            animeId,
+            season: 1,
+            episode: 1,
+            titleEn: "Ep 1",
+            entryType: "tv",
+          },
+        ],
+      });
 
-      const matcher = new Matcher({ database: trackingDb });
+      const matcher = new Matcher({ database: mockDb });
       // "One Piece" vs "One Punch Man" have sufficiently different bigram profiles
       const results = await matcher.matchBatch([makeParsedResult("One Piece", null, 1)]);
 
@@ -913,37 +787,16 @@ describe("Matcher", () => {
 
     test("resolves relative episode number within season", () => {
       const episodes = [
-        ...Array.from({ length: 11 }, (_, i) => ({
-          id: `s1e${i + 1}`,
-          animeId: "1",
-          season: 1,
-          episode: i + 1,
-          titleEn: `S1E${i + 1}`,
-          entryType: "tv" as const,
-        })),
-        ...Array.from({ length: 13 }, (_, i) => ({
-          id: `s2e${i + 1}`,
-          animeId: "1",
-          season: 2,
-          episode: 12 + i,
-          titleEn: `S2E${i + 1}`,
-          entryType: "tv" as const,
-        })),
+        ...makeSeasonEpisodes(1, 11, { animeId: "1" }),
+        ...makeSeasonEpisodes(2, 13, { animeId: "1", startEpisode: 12 }),
       ];
       expect(resolveEpisode(episodes, 2, 4)?.id).toBe("s2e4");
       expect(resolveEpisode(episodes, 2, 4)?.episode).toBe(15);
     });
 
     test("falls back to absolute matching for single-season data when parsed season not found", () => {
-      const episodes = Array.from({ length: 11 }, (_, i) => ({
-        id: `e${i + 1}`,
-        animeId: "1",
-        season: 1,
-        episode: i + 1,
-        titleEn: `E${i + 1}`,
-        entryType: "tv" as const,
-      }));
-      expect(resolveEpisode(episodes, 3, 4)?.id).toBe("e4");
+      const episodes = makeSeasonEpisodes(1, 11, { animeId: "1" });
+      expect(resolveEpisode(episodes, 3, 4)?.id).toBe("s1e4");
     });
 
     test("returns undefined for nonexistent season in multi-season data", () => {

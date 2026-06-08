@@ -22,7 +22,7 @@ export const ENTRY_TYPE_DIR_MAP: Record<EntryType, string> = {
 
 export const ORGANIZED_DIRS = new Set(Object.values(ENTRY_TYPE_DIR_MAP));
 
-const TemplatePresetSchema = v.picklist(Object.keys(TEMPLATE_PRESETS) as [string, ...string[]]);
+const TemplatePresetSchema = v.picklist([...Object.keys(TEMPLATE_PRESETS), "custom"]);
 
 const EpisodeNumberingSchema = v.picklist(["relative", "absolute"]);
 
@@ -31,7 +31,7 @@ const RenameActionSchema = v.picklist(["move", "copy", "symlink", "hardlink"]);
 const SanitizeActionSchema = v.picklist(["strip", "replace"]);
 
 const SanitizeConfigSchema = v.strictObject({
-  action: v.optional(SanitizeActionSchema, "replace"),
+  action: v.optional(SanitizeActionSchema, "strip"),
   replacement: v.optional(v.string(), "_"),
   chars: v.optional(v.string(), '\\/:*?"<>|'),
 });
@@ -83,7 +83,7 @@ export const ConfigSchema = v.strictObject({
     opensubtitles: { enabled: true },
   }),
   sanitize: v.optional(SanitizeConfigSchema, {
-    action: "replace",
+    action: "strip",
     replacement: "_",
     chars: '\\/:*?"<>|',
   }),

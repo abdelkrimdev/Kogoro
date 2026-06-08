@@ -71,6 +71,9 @@ export function makeMockLogger(): {
 
 export function makeThrowingDb(): DatabasePlugin {
   return {
+    async validate() {
+      return { valid: true };
+    },
     async searchAnime() {
       throw new Error("Should not be called");
     },
@@ -125,6 +128,9 @@ export function createStandardMockDb(overrides?: {
   getEpisodes?: (animeId: string) => EpisodeResult[];
 }): DatabasePlugin {
   return {
+    async validate() {
+      return { valid: true };
+    },
     async searchAnime(title: string) {
       return (
         overrides?.searchAnime?.(title) ?? [
@@ -158,6 +164,9 @@ export function createStandardMockDb(overrides?: {
 
 export function createMockPlugin(): DatabasePlugin {
   return {
+    async validate() {
+      return { valid: true };
+    },
     async searchAnime(title: string) {
       if (title === "Jujutsu Kaisen") {
         return [

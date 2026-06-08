@@ -2,11 +2,11 @@ import {
   type AnimeResult,
   type ArtworkResult,
   type ArtworkType,
+  type DatabasePlugin,
   type EntryType,
   type EpisodeResult,
   HttpClient,
 } from "@kogoro/core";
-import type { DatabasePlugin } from "./plugin";
 
 const BASE_URL = "https://api4.thetvdb.com/v4";
 
@@ -103,6 +103,19 @@ export class TVDBPlugin implements DatabasePlugin {
   }) {
     this.apiKey = options.apiKey;
     this.httpClient = options.httpClient ?? new HttpClient();
+  }
+
+  async validate(): Promise<{ valid: boolean; error?: string }> {
+    try {
+      const token = await this.ensureToken();
+      if (!token) return { valid: false, error: "TVDB login failed" };
+      return { valid: true };
+    } catch (err) {
+      return {
+        valid: false,
+        error: `TVDB request failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
   }
 
   private async ensureToken(): Promise<string | null> {

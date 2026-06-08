@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { relative, sep } from "node:path";
+import type { SubtitlePlugin } from "@kogoro/core";
 import { type ConfigManager, MatchCache, SCHEMA_DEFAULTS, walk } from "@kogoro/core";
-import type { SubtitlePlugin } from "@kogoro/plugins";
 import type { Logger } from "../logger";
 
 export interface SubtitleHandlerOptions {

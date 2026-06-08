@@ -1,11 +1,11 @@
 import {
   ArtworkFetcher,
   type ConfigManager,
+  type DatabasePlugin,
   type HttpClient,
   MatchCache,
   SCHEMA_DEFAULTS,
 } from "@kogoro/core";
-import type { DatabasePlugin } from "@kogoro/plugins";
 import type { Logger } from "../logger";
 
 export interface ArtworkHandlerOptions {
