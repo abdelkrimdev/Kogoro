@@ -190,6 +190,7 @@ export function reduceOnBatchScanStarted(
     showSummary: false,
     plan: null,
     sessionId: null,
+    statusText: "Ready",
   };
 }
 

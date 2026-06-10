@@ -361,6 +361,14 @@ describe("reduceOnBatchScanStarted", () => {
     expect(s.plan).toBeNull();
     expect(s.sessionId).toBeNull();
   });
+
+  it("resets statusText to Ready", () => {
+    const s = reduceOnBatchScanStarted(
+      snapshot({ statusText: "Complete: 8 renamed, 2 failed" }),
+      1,
+    );
+    expect(s.statusText).toBe("Ready");
+  });
 });
 
 describe("reduceOnBatchFolderStarted", () => {

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { AppRPC } from "../../shared/types";
   import type { ReviewPlan, KeyringCheckResult } from "@kogoro/core";
   import { Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle, TriangleAlert } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
@@ -25,8 +24,7 @@
   import Detail from "./Detail.svelte";
   import Settings from "./Settings.svelte";
   import Scan from "./Scan.svelte";
-
-  type LibraryStats = AppRPC["bun"]["requests"]["getLibraryStats"]["response"];
+  import Footer from "./Footer.svelte";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -36,13 +34,6 @@
   let { rpc, onMessage }: Props = $props();
 
   let snap: ScanSessionSnapshot = $state(createInitialSnapshot());
-  let libraryStats: LibraryStats | null = $state(null);
-
-  async function refreshLibraryStats() {
-    try {
-      libraryStats = (await rpc.request("getLibraryStats", {})) as LibraryStats;
-    } catch {}
-  }
 
   async function cancelExecution() {
     if (!snap.sessionId) return;
@@ -89,12 +80,6 @@
   let isLoading = $state(true);
   let incompleteConfig = $state<{ incomplete: boolean; missingKey?: string } | null>(null);
   let keyringResult = $state<KeyringCheckResult | null>(null);
-
-  $effect(() => {
-    if (currentView === "library" || snap.statusText === "Ready") {
-      refreshLibraryStats();
-    }
-  });
 
   function navigate(view: View) {
     currentView = view;
@@ -175,11 +160,10 @@
       keyringResult = await keyringPromise;
     } else {
       const [stats, kr] = await Promise.all([
-        rpc.request("getLibraryStats", {}) as Promise<LibraryStats>,
+        rpc.request("getLibraryStats", {}) as Promise<{ animeCount: number; episodeCount: number }>,
         keyringPromise,
       ]);
       keyringResult = kr;
-      libraryStats = stats;
       await refreshIncompleteConfig();
       view = stats.animeCount > 0 ? "library" : "scan";
     }
@@ -199,7 +183,6 @@
         snap = reduceMessage(snap, message, data);
         currentView = "scan";
         snap = reduceClearAfterComplete(snap);
-        refreshLibraryStats();
         return;
       }
       snap = reduceMessage(snap, message, data);
@@ -332,20 +315,6 @@
         {/if}
       </main>
     </div>
-    <footer class="h-8 flex items-center px-4 border-t border-surface-300-700 bg-surface-100-900 shrink-0 gap-4">
-      <span class="text-xs text-surface-600-400">{snap.statusText}</span>
-      {#if snap.isExecuting}
-        <button
-          type="button"
-          class="btn btn-sm preset-filled-error-500 rounded-lg text-xs ml-auto"
-          onclick={cancelExecution}
-        >
-          Cancel
-        </button>
-      {/if}
-      {#if libraryStats && (snap.statusText === "Ready" || currentView !== "scan")}
-        <span class="text-xs text-surface-500-500">{libraryStats.animeCount} anime &bull; {libraryStats.episodeCount} episodes</span>
-      {/if}
-    </footer>
+    <Footer {rpc} statusText={snap.statusText} isExecuting={snap.isExecuting} onCancel={cancelExecution} />
   </div>
 {/if}
