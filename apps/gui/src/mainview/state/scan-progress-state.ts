@@ -6,7 +6,7 @@ export interface ScanProgressEntry {
   status: ScanFileStatus;
 }
 
-export type ScanProgressPhase = "walk" | "scan";
+type ScanProgressPhase = "walk" | "scan";
 
 export interface ScanProgressState {
   entries: ScanProgressEntry[];

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { makeFile, makeGroup, makePlan } from "../../fixtures";
+import { createScanProgressState } from "./scan-progress-state";
 import {
   createInitialSnapshot,
   reduceClearAfterComplete,
@@ -9,7 +10,6 @@ import {
   reduceOnBatchFolderStarted,
   reduceOnBatchScanComplete,
   reduceOnBatchScanStarted,
-  reduceOnScanStarted,
   reduceOnViewResults,
   type ScanSessionSnapshot,
 } from "./scan-session-reducer";
@@ -244,29 +244,9 @@ describe("reduceMessage — unknown message", () => {
   });
 });
 
-describe("reduceOnScanStarted", () => {
-  it("creates a fresh scanProgressState", () => {
-    const s = reduceOnScanStarted(snapshot());
-    expect(s.scanProgressState).not.toBeNull();
-    expect(s.scanProgressState?.entries).toHaveLength(0);
-    expect(s.scanProgressState?.phase).toBe("walk");
-  });
-
-  it("replaces existing scanProgressState", () => {
-    const prev = reduceMessage(snapshot(), "scanProgress", {
-      completed: 5,
-      total: 10,
-      file: "/a.mkv",
-      status: "matched",
-    });
-    const s = reduceOnScanStarted(prev);
-    expect(s.scanProgressState?.entries).toHaveLength(0);
-  });
-});
-
 describe("reduceOnViewResults", () => {
   it("clears scanProgressState", () => {
-    const prev = reduceOnScanStarted(snapshot());
+    const prev = snapshot({ scanProgressState: createScanProgressState() });
     const s = reduceOnViewResults(prev);
     expect(s.scanProgressState).toBeNull();
   });
@@ -322,9 +302,7 @@ describe("reduceClearAfterComplete", () => {
   });
 
   it("clears scanProgressState", () => {
-    const s = reduceClearAfterComplete(
-      snapshot({ scanProgressState: reduceOnScanStarted(snapshot()).scanProgressState }),
-    );
+    const s = reduceClearAfterComplete(snapshot({ scanProgressState: createScanProgressState() }));
     expect(s.scanProgressState).toBeNull();
   });
 
@@ -412,7 +390,7 @@ describe("reduceOnBatchFolderComplete", () => {
   });
 
   it("clears scanProgressState for next folder", () => {
-    const prev = snapshot({ scanProgressState: reduceOnScanStarted(snapshot()).scanProgressState });
+    const prev = snapshot({ scanProgressState: createScanProgressState() });
     const s = reduceOnBatchFolderComplete(prev, "/anime/Show", makePlan());
     expect(s.scanProgressState).toBeNull();
   });

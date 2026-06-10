@@ -1,3 +1,7 @@
+export interface RPCClient {
+  request: (method: string, params: unknown) => Promise<unknown>;
+}
+
 export const ENTRY_LABELS: Record<string, string> = {
   tv: "TV",
   movie: "Movie",

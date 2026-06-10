@@ -1,8 +1,9 @@
 import { LayoutGrid, Search, Settings } from "@lucide/svelte";
+import type { RPCClient } from "../shared";
 
 export type View = "onboarding" | "scan" | "library" | "details" | "settings" | "review";
 
-export interface NavItem {
+interface NavItem {
   view: View;
   label: string;
   icon: typeof Search;
@@ -13,10 +14,6 @@ export const NAV_ITEMS: NavItem[] = [
   { view: "library", label: "Library", icon: LayoutGrid },
   { view: "settings", label: "Settings", icon: Settings },
 ];
-
-interface RPCClient {
-  request: (method: string, params: unknown) => Promise<unknown>;
-}
 
 export interface SidebarState {
   collapsed: boolean;

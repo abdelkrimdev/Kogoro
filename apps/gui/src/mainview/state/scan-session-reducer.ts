@@ -132,13 +132,6 @@ export function reduceMessage(
   }
 }
 
-export function reduceOnScanStarted(state: ScanSessionSnapshot): ScanSessionSnapshot {
-  return {
-    ...state,
-    scanProgressState: createScanProgressState(),
-  };
-}
-
 export function reduceOnViewResults(state: ScanSessionSnapshot): ScanSessionSnapshot {
   return {
     ...state,

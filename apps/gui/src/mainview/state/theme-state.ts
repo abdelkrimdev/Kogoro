@@ -1,6 +1,7 @@
 import type { ThemeMode } from "../../shared/types";
+import type { RPCClient } from "../shared";
 
-export interface ThemeState {
+interface ThemeState {
   mode: ThemeMode;
   dataTheme: string;
   toggle: () => void;
@@ -10,10 +11,6 @@ export interface ThemeState {
 
 interface CreateThemeStateOptions {
   initialMode?: ThemeMode;
-}
-
-interface RPCClient {
-  request: (method: string, params: unknown) => Promise<unknown>;
 }
 
 export function createThemeState(options: CreateThemeStateOptions = {}): ThemeState {
