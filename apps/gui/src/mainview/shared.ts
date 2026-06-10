@@ -11,6 +11,7 @@ export const TEMPLATE_PRESETS = [
   { value: "absolute", label: "Absolute" },
   { value: "plex", label: "Plex" },
   { value: "anidb", label: "AniDB" },
+  { value: "custom", label: "Custom" },
 ];
 
 export function typeBadgeClass(type: string): string {

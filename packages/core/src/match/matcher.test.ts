@@ -136,9 +136,6 @@ describe("Matcher", () => {
       },
     ]);
     const movieDb: DatabasePlugin = {
-      async validate() {
-        return { valid: true };
-      },
       async searchAnime() {
         return [{ id: "99", titleEn: "Jujutsu Kaisen", entryType: "movie" as const }];
       },

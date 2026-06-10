@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ThemeMode } from "../shared/types";
 
-export type WindowFrame = { x: number; y: number; width: number; height: number };
+type WindowFrame = { x: number; y: number; width: number; height: number };
 
 export function stateDir(): string {
   return process.env["KOGORO_STATE_DIR"] ?? join(import.meta.dir, "../..");

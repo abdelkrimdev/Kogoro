@@ -1,14 +1,17 @@
 <script lang="ts">
   import { Check } from '@lucide/svelte';
   import { Steps } from '@skeletonlabs/skeleton-svelte';
+  import type { KeyringCheckResult } from "@kogoro/core";
   import { TEMPLATE_PRESETS } from "../shared";
+  import KeyringNotice from "./KeyringNotice.svelte";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
+    keyringResult: KeyringCheckResult | null;
     onComplete: () => void;
   }
 
-  let { rpc, onComplete }: Props = $props();
+  let { rpc, keyringResult, onComplete }: Props = $props();
 
   const WIZARD_STEPS = [
     { id: "database", title: "Database" },
@@ -23,6 +26,7 @@
   let templateCustom = $state("");
   let error = $state<string | null>(null);
   let saving = $state(false);
+  const customPlaceholder = "{anime} - {season}x{episode:02} - {title}";
 
   const stepIsValid = $derived.by(() => {
     if (step === 1) return apiKey.length > 0;
@@ -31,7 +35,10 @@
   });
 
   async function handleStepChange(details: { step: number }) {
-    if (details.step === 3 && step === 2 && !saving) {
+    if (details.step > step && step === 1) {
+      error = null;
+      step = details.step;
+    } else if (details.step === 3 && step === 2 && !saving) {
       saving = true;
       error = null;
       try {
@@ -56,6 +63,27 @@
     } else if (details.step < step || stepIsValid) {
       error = null;
       step = details.step;
+    }
+  }
+
+  async function handleSkip() {
+    saving = true;
+    error = null;
+    try {
+      const result = (await rpc.request("writeOnboardingConfig", {
+        primaryDb: "tvdb",
+        apiKey: "",
+        templatePreset: "standard",
+      })) as { success: boolean; error?: string };
+      if (!result.success) {
+        error = result.error ?? "Failed to save configuration";
+        saving = false;
+        return;
+      }
+      onComplete();
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+      saving = false;
     }
   }
 </script>
@@ -111,33 +139,47 @@
           <div class="space-y-6">
             <h2 class="text-xl font-bold text-surface-950-50">Enter API Key</h2>
             <p class="text-surface-700-300 text-sm">Your API key will be stored securely in your OS keyring.</p>
+            {#if keyringResult && !keyringResult.available}
+              <KeyringNotice
+                platform={keyringResult.platform}
+                envVar="KOGORO_{primaryDb.toUpperCase()}_KEY"
+              />
+            {/if}
             <label class="label">
               <span class="label-text">API Key</span>
               <input
                 type="password"
                 placeholder="Required"
                 bind:value={apiKey}
-                class="input"
+                class="input w-full"
               />
             </label>
-            {#if error}
-              <p class="text-error-500-400 text-sm">{error}</p>
-            {/if}
           </div>
         </Steps.Content>
 
         <Steps.Content index={2}>
-          <div class="space-y-6">
+          <div class="space-y-4">
             <h2 class="text-xl font-bold text-surface-950-50">Select Filename Template</h2>
             <p class="text-surface-700-300 text-sm">Choose how your organized files will be named.</p>
-            <div class="space-y-2">
+            <div class="space-y-1.5">
               {#each TEMPLATE_PRESETS as preset}
-                <label class="flex items-center gap-3 p-4 rounded-container border border-surface-200-800 hover:border-primary-500 cursor-pointer transition-colors">
+                <label class="flex items-center gap-3 p-2.5 rounded-container border border-surface-200-800 hover:border-primary-500 cursor-pointer transition-colors">
                   <input type="radio" name="templatePreset" value={preset.value} bind:group={templatePreset} class="radio text-primary-500" />
                   <span class="text-surface-950-50">{preset.label}</span>
                 </label>
               {/each}
             </div>
+            {#if templatePreset === "custom"}
+              <label class="label">
+                <span class="label-text">Custom Template</span>
+                <input
+                  type="text"
+                  placeholder={customPlaceholder}
+                  bind:value={templateCustom}
+                  class="input"
+                />
+              </label>
+            {/if}
             {#if error}
               <p class="text-error-500-400 text-sm">{error}</p>
             {/if}
@@ -154,14 +196,27 @@
           </div>
         </Steps.Content>
 
-        <div class="flex justify-between mt-8">
-          <Steps.PrevTrigger class="btn preset-outlined-surface-300-700 rounded-lg font-medium">
-            Back
-          </Steps.PrevTrigger>
-          <Steps.NextTrigger class="btn preset-filled-primary-500 rounded-lg font-medium">
-            {saving ? "Saving..." : step === 2 ? "Finish" : "Next"}
-          </Steps.NextTrigger>
-        </div>
+        {#if step < 3}
+          <div class="flex justify-between mt-8">
+            <Steps.PrevTrigger class="btn preset-outlined-surface-300-700 rounded-lg font-medium">
+              Back
+            </Steps.PrevTrigger>
+            <div class="flex gap-2">
+              <button type="button" class="btn preset-outlined-surface-300-700 rounded-lg font-medium" onclick={handleSkip}>
+                Skip
+              </button>
+              {#if stepIsValid}
+                <Steps.NextTrigger class="btn preset-filled-primary-500 rounded-lg font-medium">
+                  {saving ? "Saving..." : step === 2 ? "Finish" : "Next"}
+                </Steps.NextTrigger>
+              {:else}
+                <button type="button" class="btn preset-filled-primary-500 rounded-lg font-medium opacity-50 cursor-not-allowed" disabled>
+                  {saving ? "Saving..." : step === 2 ? "Finish" : "Next"}
+                </button>
+              {/if}
+            </div>
+          </div>
+        {/if}
       </Steps>
     </div>
   </div>

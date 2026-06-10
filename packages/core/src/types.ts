@@ -59,7 +59,6 @@ export interface SubtitleResult {
 }
 
 export interface DatabasePlugin {
-  validate(): Promise<{ valid: boolean; error?: string }>;
   searchAnime(title: string): Promise<AnimeResult[]>;
   getAnime(animeId: string): Promise<AnimeResult | null>;
   getEpisodes(animeId: string): Promise<EpisodeResult[]>;

@@ -120,7 +120,7 @@ describe("ConfigWizard", () => {
     });
   });
 
-  test("warns with correct env var when credential store throws", async () => {
+  test("warns with correct env var when keyring is unavailable", async () => {
     const throwingKeytar = {
       setPassword: async () => {
         throw new Error("keyring down");

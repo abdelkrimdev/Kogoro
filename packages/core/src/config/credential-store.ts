@@ -23,18 +23,26 @@ export class CredentialStore {
     return process.env[this.envVarName(service)] ?? undefined;
   }
 
-  async setCredential(service: string, credential: string): Promise<void> {
+  async setCredential(service: string, credential: string): Promise<{ usedKeyring: boolean }> {
     if (this.keytar) {
-      await this.keytar.setPassword("kogoro", service, credential);
-      return;
+      try {
+        await this.keytar.setPassword("kogoro", service, credential);
+        return { usedKeyring: true };
+      } catch {
+        // fall through to env var
+      }
     }
     process.env[this.envVarName(service)] = credential;
+    return { usedKeyring: false };
   }
 
   async deleteCredential(service: string): Promise<void> {
     if (this.keytar) {
-      await this.keytar.deletePassword("kogoro", service);
-      return;
+      try {
+        await this.keytar.deletePassword("kogoro", service);
+      } catch {
+        // fall through to env var cleanup
+      }
     }
     delete process.env[this.envVarName(service)];
   }

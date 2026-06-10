@@ -1,9 +1,15 @@
 import { extname } from "node:path";
-import type { DatabasePlugin } from "@kogoro/core";
+import type {
+  DatabasePlugin,
+  MatchEntry,
+  ReviewPlan,
+  ScanFileStatus,
+  ScanState,
+  ScanSummary,
+} from "@kogoro/core";
 import {
   CONFIG_DIR,
   type ConfigManager,
-  type CredentialStore,
   findCandidateMatches,
   LibraryDb,
   MatchCache,
@@ -17,7 +23,7 @@ import {
   ScanOrchestrator,
   walk,
 } from "@kogoro/core";
-import { PluginFactory } from "@kogoro/plugins";
+import type { PluginFactory } from "@kogoro/plugins";
 
 const scanSessions = new Map<
   string,
@@ -28,7 +34,7 @@ const scanSessions = new Map<
   }
 >();
 
-export function getOrchestrator(sessionId: string): ScanOrchestrator {
+function getOrchestrator(sessionId: string): ScanOrchestrator {
   const session = scanSessions.get(sessionId);
   if (!session) {
     throw new Error("Scan session not found");
@@ -36,14 +42,13 @@ export function getOrchestrator(sessionId: string): ScanOrchestrator {
   return session.orchestrator;
 }
 
-export async function createScanOrchestrator(
+async function createScanOrchestrator(
   sessionId: string,
+  pluginFactory: PluginFactory,
   configManager: ConfigManager,
-  credentialStore: CredentialStore,
   force?: boolean,
 ): Promise<ScanOrchestrator> {
-  const factory = new PluginFactory(configManager, credentialStore);
-  const database = await factory.primaryDatabase();
+  const database = await pluginFactory.primaryDatabase();
 
   const matcher = database ? new Matcher({ database }) : undefined;
   const cache = new MatchCache();
@@ -156,14 +161,191 @@ export async function createScanOrchestrator(
   return orchestrator;
 }
 
-export function getMatcher(sessionId: string): Matcher | undefined {
+function getMatcher(sessionId: string): Matcher | undefined {
   return scanSessions.get(sessionId)?.matcher;
 }
 
-export function getDatabase(sessionId: string): DatabasePlugin | undefined {
+function getDatabase(sessionId: string): DatabasePlugin | undefined {
   return scanSessions.get(sessionId)?.database;
 }
 
-export function cleanupSession(sessionId: string): void {
+function cleanupSession(sessionId: string): void {
   scanSessions.delete(sessionId);
+}
+
+export function createScanHandlers(dependencies: {
+  pluginFactory: PluginFactory;
+  configManager: ConfigManager;
+  mergeMatches: (matches: MatchEntry[]) => void;
+  send: {
+    scanProgress: (data: {
+      sessionId: string;
+      file: string;
+      status: ScanFileStatus;
+      matched: boolean;
+      completed: number;
+      total: number;
+    }) => void;
+    scanPhaseComplete: (data: {
+      sessionId: string;
+      phase: ScanState;
+      summary: ScanSummary;
+    }) => void;
+    scanReviewReady: (data: { sessionId: string; plan: ReviewPlan }) => void;
+    scanExecutionProgress: (data: {
+      sessionId: string;
+      completed: number;
+      total: number;
+      file: string;
+      status: ScanFileStatus;
+    }) => void;
+    scanComplete: (data: { sessionId: string; summary: ScanSummary }) => void;
+  };
+}) {
+  const { pluginFactory, configManager, mergeMatches, send } = dependencies;
+
+  return {
+    async scanStart(params: { path: string; force?: boolean }) {
+      const { path, force } = params;
+      const sessionId = crypto.randomUUID();
+
+      (async () => {
+        try {
+          const orchestrator = await createScanOrchestrator(
+            sessionId,
+            pluginFactory,
+            configManager,
+            force,
+          );
+
+          orchestrator.on("*", (event) => {
+            switch (event.type) {
+              case "scanProgress":
+                send.scanProgress(event);
+                break;
+              case "scanPhaseComplete":
+                send.scanPhaseComplete(event);
+                break;
+              case "scanReviewReady":
+                send.scanReviewReady(event);
+                break;
+              case "scanExecutionProgress":
+                send.scanExecutionProgress(event);
+                break;
+              case "scanComplete":
+                send.scanComplete(event);
+                cleanupSession(sessionId);
+                break;
+            }
+          });
+
+          await orchestrator.startScan(path);
+        } catch (err) {
+          console.error("Scan failed:", err);
+        }
+      })();
+
+      return { sessionId };
+    },
+
+    async approvePlan(params: { sessionId: string }) {
+      const orchestrator = getOrchestrator(params.sessionId);
+      await orchestrator.approvePlan();
+
+      const matches = orchestrator.getMatchResults();
+      if (matches.length > 0) {
+        mergeMatches(matches);
+      }
+
+      return undefined;
+    },
+
+    async approveGroup(params: { sessionId: string; animeId: string }) {
+      getOrchestrator(params.sessionId).approveGroup(params.animeId);
+      return undefined;
+    },
+
+    async rejectGroup(params: { sessionId: string; animeId: string }) {
+      getOrchestrator(params.sessionId).rejectGroup(params.animeId);
+      return undefined;
+    },
+
+    async cancelScan(params: { sessionId: string }) {
+      getOrchestrator(params.sessionId).cancel();
+      cleanupSession(params.sessionId);
+      return undefined;
+    },
+
+    async swapFiles(params: { sessionId: string; fileAId: string; fileBId: string }) {
+      const orch = getOrchestrator(params.sessionId);
+      orch.swapFiles(params.fileAId, params.fileBId);
+      const plan = orch.getPlan();
+      if (!plan) throw new Error("No plan available after swap");
+      return { plan };
+    },
+
+    async getResolveCandidates(params: { sessionId: string; fileId: string }) {
+      const { sessionId, fileId } = params;
+      const orchestrator = getOrchestrator(sessionId);
+      const plan = orchestrator.getPlan();
+      if (!plan) return { candidates: [] };
+
+      let sourcePath: string | null = null;
+      for (const group of plan.groups) {
+        for (const file of group.files) {
+          if (file.fileId === fileId) {
+            sourcePath = file.sourcePath;
+            break;
+          }
+        }
+        if (sourcePath) break;
+      }
+      if (!sourcePath) return { candidates: [] };
+
+      const matcher = getMatcher(sessionId);
+      if (!matcher) return { candidates: [] };
+
+      const { best } = await findCandidateMatches(matcher, sourcePath);
+
+      return {
+        candidates: best.map((m) => ({
+          animeId: m.anime.id,
+          animeTitle: m.anime.titleEn,
+          entryType: m.anime.entryType,
+          episodeId: m.episode?.id ?? "",
+          episodeNumber: m.episode?.episode ?? 0,
+          season: m.episode?.season ?? 1,
+          score: m.score,
+        })),
+      };
+    },
+
+    async searchAnimeByTitle(params: { sessionId: string; title: string }) {
+      const db = getDatabase(params.sessionId);
+      if (!db) return { candidates: [] };
+
+      const results = await db.searchAnime(params.title);
+      return {
+        candidates: results.map((r) => ({
+          animeId: r.id,
+          animeTitle: r.titleEn,
+          entryType: r.entryType,
+        })),
+      };
+    },
+
+    async resolveMatch(params: {
+      sessionId: string;
+      fileId: string;
+      animeId: string;
+      episodeId: string;
+    }) {
+      await getOrchestrator(params.sessionId).resolveMatch(
+        params.fileId,
+        params.animeId,
+        params.episodeId,
+      );
+      return undefined;
+    },
+  };
 }

@@ -6,7 +6,6 @@ import {
   ConfigManager,
   createArtworkDb,
   createLibraryDb,
-  createSilentCredentialStore,
   createTrackingEnrichmentSend,
   MatchCache,
   makeCachedMatch,
@@ -69,7 +68,6 @@ describe("enrichArtwork", () => {
       const configManager = new ConfigManager({ configDir: dir });
       const handlers = createEnrichmentHandlers({
         configManager,
-        credentialStore: createSilentCredentialStore(),
         configDir: dir,
         send: noopEnrichmentSend,
         database: createArtworkDb([]),
@@ -96,7 +94,6 @@ describe("enrichArtwork", () => {
       const configManager = new ConfigManager({ configDir: dir });
       const handlers = createEnrichmentHandlers({
         configManager,
-        credentialStore: createSilentCredentialStore(),
         configDir: dir,
         send: noopEnrichmentSend,
         database: createArtworkDb([]),
@@ -119,7 +116,6 @@ describe("enrichArtwork", () => {
         const configManager = new ConfigManager({ configDir: dir });
         const handlers = createEnrichmentHandlers({
           configManager,
-          credentialStore: createSilentCredentialStore(),
           configDir: dir,
           send: noopEnrichmentSend,
         });
@@ -159,7 +155,6 @@ describe("enrichArtwork", () => {
         async () => {
           const handlers = createEnrichmentHandlers({
             configManager,
-            credentialStore: createSilentCredentialStore(),
             configDir: dir,
             send: noopEnrichmentSend,
             database: artworkDb,
@@ -204,7 +199,6 @@ describe("enrichArtwork", () => {
         async () => {
           const handlers = createEnrichmentHandlers({
             configManager,
-            credentialStore: createSilentCredentialStore(),
             configDir: dir,
             send: createTrackingEnrichmentSend(progressEvents),
             database: artworkDb,
@@ -232,7 +226,6 @@ describe("enrichArtwork", () => {
       const configManager = new ConfigManager({ configDir: dir });
       const handlers = createEnrichmentHandlers({
         configManager,
-        credentialStore: createSilentCredentialStore(),
         configDir: dir,
         send: noopEnrichmentSend,
         database: artworkDb,
@@ -252,7 +245,6 @@ describe("enrichMetadata", () => {
       const configManager = new ConfigManager({ configDir: dir });
       const handlers = createEnrichmentHandlers({
         configManager,
-        credentialStore: createSilentCredentialStore(),
         configDir: dir,
         send: noopEnrichmentSend,
         database: createArtworkDb([]),
@@ -272,7 +264,6 @@ describe("enrichMetadata", () => {
       const configManager = new ConfigManager({ configDir: dir });
       const handlers = createEnrichmentHandlers({
         configManager,
-        credentialStore: createSilentCredentialStore(),
         configDir: dir,
         send: noopEnrichmentSend,
         database: createArtworkDb([]),
@@ -302,7 +293,6 @@ describe("enrichMetadata", () => {
 
       const handlers = createEnrichmentHandlers({
         configManager,
-        credentialStore: createSilentCredentialStore(),
         configDir: dir,
         send: createTrackingEnrichmentSend(progressEvents),
         database: createArtworkDb([]),
@@ -324,7 +314,6 @@ describe("enrichMetadata", () => {
       const configManager = new ConfigManager({ configDir: dir });
       const handlers = createEnrichmentHandlers({
         configManager,
-        credentialStore: createSilentCredentialStore(),
         configDir: dir,
         send: noopEnrichmentSend,
       });

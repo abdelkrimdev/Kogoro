@@ -111,9 +111,6 @@ type MockDbResult = DatabasePlugin & { tracking?: MockDbTracking };
 
 export function createArtworkDb(artworks: ArtworkResult[] = []): DatabasePlugin {
   return {
-    async validate() {
-      return { valid: true };
-    },
     async searchAnime() {
       return [];
     },
@@ -144,9 +141,6 @@ export function createMockDb(opts: MockDbOptions = {}): MockDbResult {
     : undefined;
 
   const db: DatabasePlugin = {
-    async validate() {
-      return { valid: true };
-    },
     async searchAnime(title: string) {
       tracking?.searchCalls.inc();
       tracking?.searchTitles.push(title);
@@ -510,9 +504,6 @@ export function makeSeasonEpisodes(
 
 export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {
   return {
-    async validate() {
-      return { valid: true };
-    },
     async searchAnime(title: string) {
       return animes
         .filter((a) => a.title.toLowerCase().includes(title.toLowerCase()))
@@ -536,10 +527,6 @@ export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {
       return null;
     },
   };
-}
-
-export function createSilentCredentialStore(): CredentialStore {
-  return new CredentialStore({ keytar: null });
 }
 
 export const noopEnrichmentSend: EnrichmentSend = {};

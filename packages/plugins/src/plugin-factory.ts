@@ -19,14 +19,12 @@ const RATE_LIMITS = {
 function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
   if (obj === null || typeof obj !== "object") return false;
   const p = obj as {
-    validate?: unknown;
     searchAnime?: unknown;
     getAnime?: unknown;
     getEpisodes?: unknown;
     getArtwork?: unknown;
   };
   return (
-    typeof p.validate === "function" &&
     typeof p.searchAnime === "function" &&
     typeof p.getAnime === "function" &&
     typeof p.getEpisodes === "function" &&

@@ -63,6 +63,10 @@ export type AppRPC = {
         params: Record<string, never>;
         response: { needsOnboarding: boolean };
       };
+      checkIncompleteOnboarding: {
+        params: Record<string, never>;
+        response: { incomplete: boolean; missingKey?: string };
+      };
       getLibrary: {
         params: Record<string, never>;
         response: Array<{
@@ -207,7 +211,7 @@ export type AppRPC = {
       };
       updateApiKey: {
         params: { plugin: string; apiKey: string };
-        response: { success: boolean; error?: string };
+        response: { success: boolean; usedKeyring?: boolean; error?: string };
       };
       togglePlugin: {
         params: { plugin: string; enabled: boolean };
@@ -281,6 +285,10 @@ export type AppRPC = {
       markWatchedFolderScanned: {
         params: { path: string };
         response: { success: boolean; lastScannedAt?: string };
+      };
+      checkKeyring: {
+        params: Record<string, never>;
+        response: { available: boolean; reason?: string; platform: string };
       };
     };
     messages: {

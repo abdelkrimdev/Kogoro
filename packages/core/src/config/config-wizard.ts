@@ -76,13 +76,12 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
   if (apiKey === undefined) return;
 
   if (apiKey.length > 0) {
-    try {
-      await credentialStore.setCredential(primaryDb, apiKey);
-    } catch (err) {
+    const { usedKeyring } = await credentialStore.setCredential(primaryDb, apiKey);
+    if (!usedKeyring) {
       const envVar = `KOGORO_${primaryDb.toUpperCase()}_KEY`;
       p.outro(
-        `Warning: Failed to save API key to OS keyring: ${err instanceof Error ? err.message : String(err)}. ` +
-          `Set the ${envVar} environment variable as a fallback.`,
+        `Warning: OS keyring unavailable — your API key was saved to the ${envVar} environment variable. ` +
+          `It will not persist across sessions unless you set it in your shell profile.`,
       );
     }
   }

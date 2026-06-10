@@ -1,18 +1,34 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import type { KeytarLike } from "@kogoro/core";
 import {
   ConfigManager,
-  createSilentCredentialStore,
+  CredentialStore,
+  createMockKeytar,
   withTempDir,
   writeTempFile,
 } from "@kogoro/core";
 import { buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 
 describe("buildSettingsFormData", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    for (const k of Object.keys(process.env)) {
+      if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
+    }
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
   test("builds form data from config and credential store", async () => {
     await withTempDir("settings", async (dir) => {
       writeTempFile(dir, "config.toml", 'primary-db = "anidb"\n');
       const reloaded = new ConfigManager({ configDir: dir });
-      const store = createSilentCredentialStore();
+      const keytar = createMockKeytar();
+      const store = new CredentialStore({ keytar });
       await store.setCredential("tvdb", "tvdbkey123");
       await store.setCredential("opensubtitles", "oskey456");
 
@@ -33,19 +49,60 @@ describe("buildSettingsFormData", () => {
 });
 
 describe("updateApiKey", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    for (const k of Object.keys(process.env)) {
+      if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
+    }
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
   test("stores api key", async () => {
-    const store = createSilentCredentialStore();
+    const store = new CredentialStore({ keytar: createMockKeytar() });
     const result = await updateApiKey(store, { plugin: "tvdb", apiKey: "secret123" });
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({ success: true, usedKeyring: true });
     expect(await store.getCredential("tvdb")).toBe("secret123");
   });
 
   test("deletes api key when empty", async () => {
-    const store = createSilentCredentialStore();
+    const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("tvdb", "oldkey");
     const result = await updateApiKey(store, { plugin: "tvdb", apiKey: "" });
     expect(result).toEqual({ success: true });
     expect(await store.getCredential("tvdb")).toBeUndefined();
+  });
+
+  test("falls back to env var when keyring fails", async () => {
+    const throwingKeytar: KeytarLike = {
+      setPassword: async () => {
+        throw new Error("no secret service");
+      },
+      getPassword: async () => null,
+      deletePassword: async () => false,
+    };
+    const store = new CredentialStore({ keytar: throwingKeytar });
+    const result = await updateApiKey(store, { plugin: "tvdb", apiKey: "secret123" });
+    expect(result.success).toBe(true);
+    expect(process.env["KOGORO_TVDB_KEY"]).toBe("secret123");
+  });
+
+  test("falls back to env var on DBus error", async () => {
+    const throwingKeytar: KeytarLike = {
+      setPassword: async () => {
+        throw new Error("org.freedesktop.DBus.Error.NotSupported");
+      },
+      getPassword: async () => null,
+      deletePassword: async () => false,
+    };
+    const store = new CredentialStore({ keytar: throwingKeytar });
+    const result = await updateApiKey(store, { plugin: "tvdb", apiKey: "secret123" });
+    expect(result.success).toBe(true);
+    expect(process.env["KOGORO_TVDB_KEY"]).toBe("secret123");
   });
 });
 

@@ -1,21 +1,21 @@
 import {
+  BunSecretsKeytar,
   CONFIG_DIR,
   ConfigManager,
+  checkKeyring,
   createCredentialStore,
-  findCandidateMatches,
 } from "@kogoro/core";
+import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
-import { shouldShowOnboarding, writeOnboardingConfig } from "./onboarding";
 import {
-  cleanupSession,
-  createScanOrchestrator,
-  getDatabase,
-  getMatcher,
-  getOrchestrator,
-} from "./scan";
+  checkIncompleteOnboarding,
+  shouldShowOnboarding,
+  writeOnboardingConfig,
+} from "./onboarding";
+import { createScanHandlers } from "./scan";
 import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 import {
   loadSidebarCollapsed,
@@ -30,22 +30,36 @@ import {
   getWatchedFoldersHandler,
   markWatchedFolderScannedHandler,
   removeWatchedFolderHandler,
-} from "./watched-folders-handlers";
+} from "./watched-folders";
 
 const savedState = loadWindowState();
 
 const configManager = new ConfigManager();
 const credentialStore = createCredentialStore();
+const pluginFactory = new PluginFactory(configManager, credentialStore);
 
 const libraryHandlers = createLibraryHandlers(CONFIG_DIR);
 
 const enrichmentHandlers = createEnrichmentHandlers({
+  pluginFactory,
   configManager,
-  credentialStore,
   configDir: CONFIG_DIR,
   send: {
     enrichmentProgress: (data) => rpc.send.enrichmentProgress(data),
     enrichmentComplete: (data) => rpc.send.enrichmentComplete(data),
+  },
+});
+
+const scanHandlers = createScanHandlers({
+  pluginFactory,
+  configManager,
+  mergeMatches: (matches) => libraryHandlers.mergeMatches(matches),
+  send: {
+    scanProgress: (data) => rpc.send.scanProgress(data),
+    scanPhaseComplete: (data) => rpc.send.scanPhaseComplete(data),
+    scanReviewReady: (data) => rpc.send.scanReviewReady(data),
+    scanExecutionProgress: (data) => rpc.send.scanExecutionProgress(data),
+    scanComplete: (data) => rpc.send.scanComplete(data),
   },
 });
 
@@ -54,6 +68,8 @@ const rpc = BrowserView.defineRPC<AppRPC>({
     requests: {
       getWindowState: () => savedState,
       checkOnboarding: () => ({ needsOnboarding: shouldShowOnboarding(CONFIG_DIR) }),
+      checkIncompleteOnboarding: async () =>
+        checkIncompleteOnboarding(configManager, credentialStore),
       writeOnboardingConfig: (params) =>
         writeOnboardingConfig(configManager, credentialStore, params),
       getLibrary: () => libraryHandlers.getLibrary(),
@@ -74,136 +90,15 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         const dir = paths[0];
         return dir ? { path: dir } : null;
       },
-      scanStart: async (params) => {
-        const { path, force } = params;
-        const sessionId = crypto.randomUUID();
-
-        (async () => {
-          try {
-            const orchestrator = await createScanOrchestrator(
-              sessionId,
-              configManager,
-              credentialStore,
-              force,
-            );
-
-            orchestrator.on("*", (event) => {
-              switch (event.type) {
-                case "scanProgress":
-                  rpc.send.scanProgress(event);
-                  break;
-                case "scanPhaseComplete":
-                  rpc.send.scanPhaseComplete(event);
-                  break;
-                case "scanReviewReady":
-                  rpc.send.scanReviewReady(event);
-                  break;
-                case "scanExecutionProgress":
-                  rpc.send.scanExecutionProgress(event);
-                  break;
-                case "scanComplete":
-                  rpc.send.scanComplete(event);
-                  cleanupSession(sessionId);
-                  break;
-              }
-            });
-
-            await orchestrator.startScan(path);
-          } catch (err) {
-            console.error("Scan failed:", err);
-          }
-        })();
-
-        return { sessionId };
-      },
-      approvePlan: async (params) => {
-        const { sessionId } = params;
-        const orchestrator = getOrchestrator(sessionId);
-        await orchestrator.approvePlan();
-
-        const matches = orchestrator.getMatchResults();
-        if (matches.length > 0) {
-          libraryHandlers.mergeMatches(matches);
-        }
-
-        return undefined;
-      },
-      approveGroup: async (params) => {
-        getOrchestrator(params.sessionId).approveGroup(params.animeId);
-        return undefined;
-      },
-      rejectGroup: async (params) => {
-        getOrchestrator(params.sessionId).rejectGroup(params.animeId);
-        return undefined;
-      },
-      cancelScan: async (params) => {
-        getOrchestrator(params.sessionId).cancel();
-        cleanupSession(params.sessionId);
-        return undefined;
-      },
-      swapFiles: async (params) => {
-        const orch = getOrchestrator(params.sessionId);
-        orch.swapFiles(params.fileAId, params.fileBId);
-        const plan = orch.getPlan();
-        if (!plan) throw new Error("No plan available after swap");
-        return { plan };
-      },
-      getResolveCandidates: async (params) => {
-        const { sessionId, fileId } = params;
-        const orchestrator = getOrchestrator(sessionId);
-        const plan = orchestrator.getPlan();
-        if (!plan) return { candidates: [] };
-
-        let sourcePath: string | null = null;
-        for (const group of plan.groups) {
-          for (const file of group.files) {
-            if (file.fileId === fileId) {
-              sourcePath = file.sourcePath;
-              break;
-            }
-          }
-          if (sourcePath) break;
-        }
-        if (!sourcePath) return { candidates: [] };
-
-        const matcher = getMatcher(sessionId);
-        if (!matcher) return { candidates: [] };
-
-        const { best } = await findCandidateMatches(matcher, sourcePath);
-
-        return {
-          candidates: best.map((m) => ({
-            animeId: m.anime.id,
-            animeTitle: m.anime.titleEn,
-            entryType: m.anime.entryType,
-            episodeId: m.episode?.id ?? "",
-            episodeNumber: m.episode?.episode ?? 0,
-            season: m.episode?.season ?? 1,
-            score: m.score,
-          })),
-        };
-      },
-      searchAnimeByTitle: async (params) => {
-        const db = getDatabase(params.sessionId);
-        if (!db) return { candidates: [] };
-
-        const results = await db.searchAnime(params.title);
-        return {
-          candidates: results.map((r) => ({
-            animeId: r.id,
-            animeTitle: r.titleEn,
-            entryType: r.entryType,
-          })),
-        };
-      },
-      resolveMatch: async (params) => {
-        await getOrchestrator(params.sessionId).resolveMatch(
-          params.fileId,
-          params.animeId,
-          params.episodeId,
-        );
-        return undefined;
-      },
+      scanStart: (params) => scanHandlers.scanStart(params),
+      approvePlan: (params) => scanHandlers.approvePlan(params),
+      approveGroup: (params) => scanHandlers.approveGroup(params),
+      rejectGroup: (params) => scanHandlers.rejectGroup(params),
+      cancelScan: (params) => scanHandlers.cancelScan(params),
+      swapFiles: (params) => scanHandlers.swapFiles(params),
+      getResolveCandidates: (params) => scanHandlers.getResolveCandidates(params),
+      searchAnimeByTitle: (params) => scanHandlers.searchAnimeByTitle(params),
+      resolveMatch: (params) => scanHandlers.resolveMatch(params),
       enrichArtwork: (params) => enrichmentHandlers.enrichArtwork(params),
       enrichMetadata: (params) => enrichmentHandlers.enrichMetadata(params),
       getThemeMode: () => {
@@ -224,6 +119,10 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       addWatchedFolder: async (params) => addWatchedFolderHandler(params.path),
       removeWatchedFolder: async (params) => removeWatchedFolderHandler(params.path),
       markWatchedFolderScanned: async (params) => markWatchedFolderScannedHandler(params.path),
+      checkKeyring: async () => {
+        const keytar = new BunSecretsKeytar();
+        return checkKeyring(keytar, process.platform);
+      },
     },
     messages: {
       windowWillClose: (data) => {

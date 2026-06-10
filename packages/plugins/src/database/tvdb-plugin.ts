@@ -105,19 +105,6 @@ export class TVDBPlugin implements DatabasePlugin {
     this.httpClient = options.httpClient ?? new HttpClient();
   }
 
-  async validate(): Promise<{ valid: boolean; error?: string }> {
-    try {
-      const token = await this.ensureToken();
-      if (!token) return { valid: false, error: "TVDB login failed" };
-      return { valid: true };
-    } catch (err) {
-      return {
-        valid: false,
-        error: `TVDB request failed: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
-  }
-
   private async ensureToken(): Promise<string | null> {
     if (this.token) return this.token;
 

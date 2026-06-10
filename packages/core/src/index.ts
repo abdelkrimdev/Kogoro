@@ -1,5 +1,7 @@
 export type { KeytarLike } from "./config/bun-secrets-keytar";
 export { BunSecretsKeytar } from "./config/bun-secrets-keytar";
+export type { KeyringCheckResult } from "./config/check-keyring";
+export { checkKeyring } from "./config/check-keyring";
 export type { SetResult } from "./config/config-manager";
 export { ConfigManager } from "./config/config-manager";
 export type { PromptsAPI } from "./config/config-wizard";
@@ -31,7 +33,6 @@ export {
   createMockResponse,
   createSequenceFetch,
   createSequenceHttpClient,
-  createSilentCredentialStore,
   createTrackingEnrichmentSend,
   createTrackingFetch,
   createTrackingMatcher,

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { Switch, TagsInput, Toast, createToaster, Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
+  import type { KeyringCheckResult } from "@kogoro/core";
   import SelectField from './SelectField.svelte';
+  import KeyringNotice from './KeyringNotice.svelte';
   import { TEMPLATE_PRESETS } from "../shared";
 
   type SettingsField =
@@ -12,9 +14,11 @@
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
+    keyringResult: KeyringCheckResult | null;
+    onRerunOnboarding?: () => void;
   }
 
-  let { rpc }: Props = $props();
+  let { rpc, keyringResult, onRerunOnboarding }: Props = $props();
 
   const toaster = createToaster();
 
@@ -49,6 +53,7 @@
   const plugins = $derived(
     (settingsData["plugins"] as Array<{ name: string; type: string; source: string; enabled: boolean }>) ?? [],
   );
+  const primaryDbKey = $derived((settingsData["primaryDb"] as string) ?? "tvdb");
 
   function updateField(key: string, value: unknown) {
     settingsData[key] = value;
@@ -94,7 +99,7 @@
       return;
     }
     try {
-      const result = (await rpc.request("updateApiKey", { plugin, apiKey: newApiKey })) as { success: boolean; error?: string };
+      const result = (await rpc.request("updateApiKey", { plugin, apiKey: newApiKey })) as { success: boolean; usedKeyring?: boolean; error?: string };
       if (result.success) {
         showNotification(`${plugin} API key updated`);
         editingApiKey = null;
@@ -108,17 +113,24 @@
     }
   }
 
-  async function togglePlugin(plugin: string, enabled: boolean) {
+  async function togglePlugin(pluginName: string, currentEnabled: boolean) {
+    const newEnabled = !currentEnabled;
     try {
-      const result = (await rpc.request("togglePlugin", { plugin, enabled: !enabled })) as { success: boolean; error?: string };
+      const result = (await rpc.request("togglePlugin", { plugin: pluginName, enabled: newEnabled })) as { success: boolean; error?: string };
       if (result.success) {
-        showNotification(`${plugin} ${!enabled ? "enabled" : "disabled"}`);
-        await loadSettings();
+        showNotification(`${pluginName} ${newEnabled ? "enabled" : "disabled"}`);
+        for (const p of plugins) {
+          if (p.name === pluginName) {
+            p.enabled = newEnabled;
+          }
+        }
       } else {
         showNotification(`Error: ${result.error}`);
+        await loadSettings();
       }
     } catch {
       showNotification("Failed to toggle plugin");
+      await loadSettings();
     }
   }
 
@@ -159,7 +171,7 @@
   {/snippet}
 </Toast.Group>
 
-<div class="max-w-2xl mx-auto p-6 space-y-8">
+<div class="max-w-2xl mx-auto p-6 space-y-8 relative">
   <div class="flex items-center justify-between">
     <h2 class="text-xl font-bold text-surface-950-50">Settings</h2>
     <button type="button" class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={saveSettings}>
@@ -172,7 +184,9 @@
     <div class="card preset-outlined-surface-300-700 p-4 space-y-4">
       <div class="grid grid-cols-1 gap-4">
         {#each GENERAL_FIELDS as field}
-          {#if field.type === "select"}
+          {#if field.key === "templateCustom" && settingsData["templatePreset"] !== "custom"}
+            <!-- skip custom template when preset is not custom -->
+          {:else if field.type === "select"}
             <SelectField
               value={String(settingsData[field.key] ?? "")}
               options={field.options}
@@ -296,6 +310,12 @@
 
   <section class="space-y-4">
     <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">API Keys</h3>
+    {#if keyringResult && !keyringResult.available && apiKeys[primaryDbKey] === "Not set"}
+      <KeyringNotice
+        platform={keyringResult.platform}
+        envVar="KOGORO_{primaryDbKey.toUpperCase()}_KEY"
+      />
+    {/if}
     <div class="space-y-2">
       {#each Object.entries(apiKeys) as [name, masked]}
         {#if editingApiKey === name}
@@ -330,7 +350,7 @@
 
   <section class="space-y-4">
     <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Maintenance</h3>
-    <div class="card preset-outlined-surface-300-700 p-4">
+    <div class="card preset-outlined-surface-300-700 p-4 space-y-3">
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm font-medium text-surface-950-50">Rebuild Library</p>
@@ -345,6 +365,21 @@
           disabled={rebuilding}
         >
           {rebuilding ? "Rebuilding..." : "Rebuild Library"}
+        </button>
+      </div>
+      <div class="border-t border-surface-300-700 pt-3 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-surface-950-50">Setup Wizard</p>
+          <p class="text-xs text-surface-600-400 mt-1">
+            Walk through the setup wizard again to change your database or template settings.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="btn preset-outlined-surface-300-700 rounded-lg font-medium"
+          onclick={() => onRerunOnboarding?.()}
+        >
+          Setup Wizard
         </button>
       </div>
     </div>

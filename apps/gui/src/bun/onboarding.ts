@@ -7,6 +7,22 @@ export function shouldShowOnboarding(configDir: string): boolean {
   return !existsSync(configPath);
 }
 
+export async function checkIncompleteOnboarding(
+  configManager: ConfigManager,
+  credentialStore: CredentialStore,
+): Promise<{ incomplete: boolean; missingKey?: string }> {
+  const primaryDb = String(configManager.get("primary-db") ?? "tvdb");
+  try {
+    const key = await credentialStore.getCredential(primaryDb);
+    if (!key) {
+      return { incomplete: true, missingKey: primaryDb };
+    }
+    return { incomplete: false };
+  } catch {
+    return { incomplete: true, missingKey: primaryDb };
+  }
+}
+
 export async function writeOnboardingConfig(
   configManager: ConfigManager,
   credentialStore: CredentialStore,
@@ -25,20 +41,14 @@ export async function writeOnboardingConfig(
   const result2 = configManager.set("template.preset", templatePreset);
   if (!result2.success) return { success: false, error: result2.error };
 
-  if (templateCustom) {
-    const result3 = configManager.set("template.custom", templateCustom);
-    if (!result3.success) return { success: false, error: result3.error };
-  }
+  const customResult = configManager.set(
+    "template.custom",
+    templatePreset === "custom" ? (templateCustom ?? "") : "",
+  );
+  if (!customResult.success) return { success: false, error: customResult.error };
 
   if (apiKey) {
-    try {
-      await credentialStore.setCredential(primaryDb, apiKey);
-    } catch (err) {
-      return {
-        success: false,
-        error: `Failed to store API key: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
+    await credentialStore.setCredential(primaryDb, apiKey);
   }
 
   return { success: true };

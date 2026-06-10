@@ -19,7 +19,7 @@ const SETTINGS_FIELD_MAP: Record<string, string> = {
   sanitizeChars: "sanitize.chars",
 };
 
-export type SettingsFormData = {
+type SettingsFormData = {
   primaryDb: string;
   secondaryDbs: string[];
   templatePreset: string;
@@ -146,28 +146,14 @@ export function applySettingsUpdate(
 export async function updateApiKey(
   credentialStore: CredentialStore,
   params: { plugin: string; apiKey: string },
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; usedKeyring?: boolean; error?: string }> {
   const { plugin, apiKey } = params;
   if (!apiKey) {
-    try {
-      await credentialStore.deleteCredential(plugin);
-    } catch (err) {
-      return {
-        success: false,
-        error: `Failed to delete API key: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
+    await credentialStore.deleteCredential(plugin);
     return { success: true };
   }
-  try {
-    await credentialStore.setCredential(plugin, apiKey);
-  } catch (err) {
-    return {
-      success: false,
-      error: `Failed to store API key: ${err instanceof Error ? err.message : String(err)}`,
-    };
-  }
-  return { success: true };
+  const { usedKeyring } = await credentialStore.setCredential(plugin, apiKey);
+  return { success: true, usedKeyring };
 }
 
 export function togglePlugin(

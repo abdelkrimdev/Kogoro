@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { AppRPC } from "../../shared/types";
-  import type { ReviewPlan } from "@kogoro/core";
-  import { Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle } from '@lucide/svelte';
+  import type { ReviewPlan, KeyringCheckResult } from "@kogoro/core";
+  import { Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle, TriangleAlert } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
   import { onMount } from 'svelte';
   import { createRPCThemeState, applyThemeToDocument } from "../state/theme-state";
@@ -23,7 +23,7 @@
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
   import Detail from "./Detail.svelte";
-  import SettingsView from "./Settings.svelte";
+  import Settings from "./Settings.svelte";
   import Scan from "./Scan.svelte";
 
   type LibraryStats = AppRPC["bun"]["requests"]["getLibraryStats"]["response"];
@@ -63,7 +63,13 @@
   });
 
   let sidebarState = createSidebarState(() => rpc);
+  let sidebarCollapsed = $state(false);
   const showSidebar = $derived(NAV_ITEMS.some((item) => item.view === currentView));
+
+  function toggleSidebar() {
+    sidebarState.toggle();
+    sidebarCollapsed = sidebarState.collapsed;
+  }
 
   $effect(() => {
     if (!themeState) return;
@@ -81,6 +87,8 @@
   let currentView = $state<View>("scan");
   let currentDetailId = $state<string | null>(null);
   let isLoading = $state(true);
+  let incompleteConfig = $state<{ incomplete: boolean; missingKey?: string } | null>(null);
+  let keyringResult = $state<KeyringCheckResult | null>(null);
 
   $effect(() => {
     if (currentView === "library" || snap.statusText === "Ready") {
@@ -90,6 +98,14 @@
 
   function navigate(view: View) {
     currentView = view;
+    if (view === "scan") refreshIncompleteConfig();
+  }
+
+  async function refreshIncompleteConfig() {
+    try {
+      const incomplete = (await rpc.request("checkIncompleteOnboarding", {})) as { incomplete: boolean; missingKey?: string };
+      incompleteConfig = incomplete.incomplete ? incomplete : null;
+    } catch {}
   }
 
   function openAnime(id: string) {
@@ -103,7 +119,11 @@
   }
 
   function onWizardComplete() {
-    currentView = "scan";
+    navigate("scan");
+  }
+
+  function onRerunOnboarding() {
+    currentView = "onboarding";
   }
 
   function onViewResults() {
@@ -145,13 +165,22 @@
       rpc.request("checkOnboarding", {}) as Promise<{ needsOnboarding: boolean }>,
       sidebarState.load(),
     ]);
+    sidebarCollapsed = sidebarState.collapsed;
+
+    const keyringPromise = rpc.request("checkKeyring", {}) as Promise<KeyringCheckResult>;
 
     let view: View;
     if (onboardingResult.needsOnboarding) {
       view = "onboarding";
+      keyringResult = await keyringPromise;
     } else {
-      const stats = (await rpc.request("getLibraryStats", {})) as LibraryStats;
+      const [stats, kr] = await Promise.all([
+        rpc.request("getLibraryStats", {}) as Promise<LibraryStats>,
+        keyringPromise,
+      ]);
+      keyringResult = kr;
       libraryStats = stats;
+      await refreshIncompleteConfig();
       view = stats.animeCount > 0 ? "library" : "scan";
     }
 
@@ -187,7 +216,7 @@
     </div>
   </div>
 {:else if currentView === "onboarding"}
-  <Wizard {rpc} onComplete={onWizardComplete} />
+  <Wizard {rpc} {keyringResult} onComplete={onWizardComplete} />
 {:else}
   <div class="h-full flex flex-col">
     <header class="h-12 flex items-center border-b border-surface-300-700 shrink-0" style="-webkit-app-region: drag;">
@@ -196,10 +225,10 @@
           <button
             type="button"
             class="btn-icon preset-tonal-surface"
-            onclick={() => sidebarState.toggle()}
-            aria-label={sidebarState.collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onclick={toggleSidebar}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {#if sidebarState.collapsed}
+            {#if sidebarCollapsed}
               <PanelLeftOpen class="size-5" />
             {:else}
               <PanelLeftClose class="size-5" />
@@ -226,7 +255,7 @@
     </header>
     <div class="flex-1 flex overflow-hidden">
       {#if showSidebar}
-        <Navigation layout="sidebar" class="{sidebarState.collapsed ? 'w-16' : 'w-64'} border-r border-surface-200-800 transition-[width] duration-200 ease-in-out">
+        <Navigation layout="sidebar" class="{sidebarCollapsed ? 'w-16' : 'w-64'} border-r border-surface-200-800 transition-[width] duration-200 ease-in-out">
           <Navigation.Content>
             <Navigation.Menu>
               {#each NAV_ITEMS as item}
@@ -235,12 +264,12 @@
                   onclick={() => navigate(item.view)}
                 >
                   <span class="relative">
-                    <item.icon class={sidebarState.collapsed ? 'size-5' : 'size-4'} />
+                    <item.icon class={sidebarCollapsed ? 'size-5' : 'size-4'} />
                     {#if item.view === "scan" && snap.isScanning}
                       <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary-500 animate-pulse"></span>
                     {/if}
                   </span>
-                  {#if !sidebarState.collapsed}
+                  {#if !sidebarCollapsed}
                     <Navigation.TriggerText>{item.label}</Navigation.TriggerText>
                   {/if}
                 </Navigation.Trigger>
@@ -249,16 +278,39 @@
           </Navigation.Content>
         </Navigation>
       {/if}
-      <main class="flex-1 overflow-auto relative">
+      <main class="flex-1 overflow-hidden flex flex-col">
         {#if currentView === "review" && snap.plan && snap.sessionId}
-          <Review {rpc} sessionId={snap.sessionId} plan={snap.plan} onComplete={onReviewComplete} />
+          <div class="flex-1 min-h-0 overflow-auto">
+            <Review {rpc} sessionId={snap.sessionId} plan={snap.plan} onComplete={onReviewComplete} />
+          </div>
         {:else if currentView === "library"}
-          <Library {rpc} onOpenAnime={openAnime} onStartScan={() => navigate("scan")} />
+          <div class="flex-1 min-h-0 overflow-auto">
+            <Library {rpc} onOpenAnime={openAnime} onStartScan={() => navigate("scan")} />
+          </div>
         {:else if currentView === "settings"}
-          <SettingsView {rpc} />
+          <div class="flex-1 min-h-0 overflow-auto">
+            <Settings {rpc} {keyringResult} {onRerunOnboarding} />
+          </div>
         {:else if currentView === "details" && currentDetailId}
-          <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
+          <div class="flex-1 min-h-0 overflow-auto">
+            <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />
+          </div>
         {:else}
+          {#if incompleteConfig}
+            <div class="mx-4 mt-4 card preset-tonal-warning p-3 flex items-start gap-3 text-sm shrink-0">
+              <TriangleAlert class="size-4 mt-0.5 shrink-0 text-warning-500-400" />
+              <div class="flex-1 min-w-0">
+                <p class="text-surface-950-50">
+                  API key missing — scanning needs an API key for <strong>{incompleteConfig.missingKey}</strong>.
+                  Add one in Settings, or set the <code class="text-xs bg-surface-200-800 px-1 py-0.5 rounded">KOGORO_{incompleteConfig.missingKey?.toUpperCase()}_KEY</code> environment variable.
+                </p>
+              </div>
+              <button type="button" class="btn preset-outlined-warning-500 shrink-0" onclick={() => navigate("settings")}>
+                Settings
+              </button>
+            </div>
+          {/if}
+          <div class="flex-1 min-h-0">
           <Scan
             {rpc}
             {onMessage}
@@ -276,6 +328,7 @@
             {onBatchFolderComplete}
             {onBatchScanComplete}
           />
+          </div>
         {/if}
       </main>
     </div>

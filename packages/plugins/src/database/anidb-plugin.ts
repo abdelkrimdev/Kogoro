@@ -167,22 +167,6 @@ export class AniDBPlugin implements DatabasePlugin {
     return `client=${this.client}&clientver=${this.clientver}&protover=1`;
   }
 
-  async validate(): Promise<{ valid: boolean; error?: string }> {
-    try {
-      const response = await this.httpClient.fetch(
-        `${BASE_URL}?request=anime&aid=1&${this.commonParams()}`,
-      );
-      if (!response.ok) {
-        return { valid: false, error: `AniDB request failed (${response.status})` };
-      }
-      const xml = await response.text();
-      this.checkAniDBError(xml, ["310"]);
-      return { valid: true };
-    } catch (err) {
-      return { valid: false, error: err instanceof Error ? err.message : String(err) };
-    }
-  }
-
   private checkAniDBError(xml: string, codes?: string[]): void {
     const match = xml.match(/<error(?:\s+code="([^"]*)")?>([^<]*)<\/error>/);
     if (!match) return;

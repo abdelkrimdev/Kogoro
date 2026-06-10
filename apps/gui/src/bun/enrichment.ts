@@ -2,26 +2,24 @@ import { dirname, join } from "node:path";
 import {
   ArtworkFetcher,
   type ConfigManager,
-  type CredentialStore,
   type DatabasePlugin,
   type EnrichmentSend,
   LibraryDb,
   MatchCache,
   MetadataWriter,
 } from "@kogoro/core";
-import { PluginFactory } from "@kogoro/plugins";
+import type { PluginFactory } from "@kogoro/plugins";
 
-export interface EnrichmentOptions {
+interface EnrichmentOptions {
   configManager: ConfigManager;
-  credentialStore: CredentialStore;
   configDir: string;
   send: EnrichmentSend;
+  pluginFactory?: PluginFactory;
   database?: DatabasePlugin;
 }
 
 export function createEnrichmentHandlers(options: EnrichmentOptions) {
-  const { configManager, credentialStore, configDir, send, database: overrideDb } = options;
-  const factory = new PluginFactory(configManager, credentialStore);
+  const { pluginFactory: factory, configManager, configDir, send, database: overrideDb } = options;
   const dbPath = join(configDir, "library.db");
   const cache = new MatchCache({ dbPath: join(configDir, "match-cache.db") });
   const extensions = configManager.resolveMediaExtensions();
@@ -52,6 +50,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
 
   async function getDatabasePlugin(): Promise<DatabasePlugin | undefined> {
     if (overrideDb) return overrideDb;
+    if (!factory) return undefined;
     return factory.primaryDatabase();
   }
 
