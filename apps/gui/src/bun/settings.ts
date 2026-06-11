@@ -3,7 +3,6 @@ import type { PluginInfo } from "@kogoro/plugins";
 
 const SETTINGS_FIELD_MAP: Record<string, string> = {
   primaryDb: "primary-db",
-  secondaryDbs: "secondary-dbs",
   templatePreset: "template.preset",
   templateCustom: "template.custom",
   directoryTemplate: "template.directory",
@@ -21,7 +20,6 @@ const SETTINGS_FIELD_MAP: Record<string, string> = {
 
 type SettingsFormData = {
   primaryDb: string;
-  secondaryDbs: string[];
   templatePreset: string;
   templateCustom: string;
   directoryTemplate: string;
@@ -75,7 +73,6 @@ export async function buildSettingsFormData(
   credentialStore: CredentialStore,
 ): Promise<SettingsFormData> {
   const primaryDb = String(config.get("primary-db") ?? "tvdb");
-  const secondaryDbs = config.getList("secondary-dbs");
   const templatePreset = String(config.get("template.preset") ?? "standard");
   const templateCustom = String(config.get("template.custom") ?? "");
   const directoryTemplate = String(config.get("template.directory") ?? "{anime}/{type}");
@@ -109,7 +106,6 @@ export async function buildSettingsFormData(
 
   return {
     primaryDb,
-    secondaryDbs,
     templatePreset,
     templateCustom,
     directoryTemplate,

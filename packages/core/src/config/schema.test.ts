@@ -16,7 +16,6 @@ describe("ConfigSchema", () => {
     test("accepts a complete valid config object", () => {
       const config = {
         "primary-db": "tvdb",
-        "secondary-dbs": "anidb",
         template: {
           preset: "plex",
           custom: "Custom - {title}",
@@ -144,7 +143,6 @@ describe("ConfigSchema", () => {
       expect(result.success).toBe(true);
       if (!result.success) return;
       expect(result.output["primary-db"]).toBe("tvdb");
-      expect(result.output["secondary-dbs"]).toBe("");
       expect(result.output.template.preset).toBe("standard");
       expect(result.output.template.custom).toBe("");
       expect(result.output.template.directory).toBe("{anime}/{type}");
@@ -275,7 +273,6 @@ describe("CONFIG_DIR", () => {
 function validConfig(): Config {
   return {
     "primary-db": "tvdb",
-    "secondary-dbs": "",
     template: { preset: "standard", custom: "", directory: "{anime}/{type}" },
     "media-extensions": [".mkv", ".mp4"],
     "exclude-patterns": [".part"],

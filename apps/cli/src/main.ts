@@ -41,12 +41,10 @@ export async function run(argv: string[]): Promise<void> {
     const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
-    const fallbackDatabases = await factory.secondaryDatabases();
     const cache = new MatchCache();
     const overrideStore = new OverrideStore(process.cwd());
     return createScanHandlers({
       database,
-      fallbackDatabases,
       cache,
       config,
       overrideStore,
@@ -66,8 +64,7 @@ export async function run(argv: string[]): Promise<void> {
     const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
-    const fallbackDatabases = await factory.secondaryDatabases();
-    return createArtworkHandlers({ primaryDb: database, secondaryDbs: fallbackDatabases, config });
+    return createArtworkHandlers({ primaryDb: database, config });
   }
 
   async function createSubtitleWithCredentials(debug?: boolean) {

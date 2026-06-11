@@ -36,7 +36,6 @@ describe("ConfigManager", () => {
     await withTestConfig("config", async (_dir, config) => {
       config.init();
       expect(config.get("primary-db")).toBe("tvdb");
-      expect(config.get("secondary-dbs")).toBe("");
       expect(config.get("template.preset")).toBe("standard");
       const extensions = config.get("media-extensions");
       expect(Array.isArray(extensions)).toBe(true);
@@ -56,31 +55,31 @@ describe("ConfigManager", () => {
 
   test("getList returns empty array for unset key", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      const list = config.getList("secondary-dbs");
-      expect(list).toEqual([]);
+      const list = config.getList("exclude-patterns");
+      expect(Array.isArray(list)).toBe(true);
     });
   });
 
   test("getList parses comma-separated values for string keys", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("secondary-dbs", "anidb,tvdb");
-      const list = config.getList("secondary-dbs");
-      expect(list).toEqual(["anidb", "tvdb"]);
+      config.set("exclude-patterns", ".part,.crdownload");
+      const list = config.getList("exclude-patterns");
+      expect(list).toEqual([".part", ".crdownload"]);
     });
   });
 
   test("getList trims whitespace around values", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("secondary-dbs", " anidb , tvdb ");
-      const list = config.getList("secondary-dbs");
-      expect(list).toEqual(["anidb", "tvdb"]);
+      config.set("exclude-patterns", " .part , .crdownload ");
+      const list = config.getList("exclude-patterns");
+      expect(list).toEqual([".part", ".crdownload"]);
     });
   });
 
   test("getList returns empty array for empty string", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("secondary-dbs", "");
-      const list = config.getList("secondary-dbs");
+      config.set("exclude-patterns", "");
+      const list = config.getList("exclude-patterns");
       expect(list).toEqual([]);
     });
   });

@@ -1,6 +1,6 @@
 import { lstatSync } from "node:fs";
 import { basename, dirname } from "node:path";
-import { confirm, isCancel, log, select, spinner, text } from "@clack/prompts";
+import { confirm, isCancel, log, select, text } from "@clack/prompts";
 import {
   type ConfigManager,
   type DatabasePlugin,
@@ -23,7 +23,6 @@ import type { Logger } from "../logger";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
-  fallbackDatabases?: DatabasePlugin[];
   cache?: MatchCache;
   renamer?: Renamer;
   config?: ConfigManager;
@@ -259,48 +258,8 @@ export function createScanHandlers(options: ScanHandlerOptions) {
         });
       }
 
-      async function tryScan(dbScanner: Scanner): Promise<ScanResult[]> {
-        try {
-          return await runBatch(dbScanner);
-        } catch (dbError) {
-          const fallbacks = options.fallbackDatabases ?? [];
-          if (fallbacks.length === 0 || interrupted) {
-            throw dbError;
-          }
-
-          l.error("Primary Database unreachable.");
-
-          if (!yes) {
-            const response = await confirm({
-              message: "Fall back to secondary Database?",
-            });
-            if (isCancel(response) || !response) {
-              throw dbError;
-            }
-          }
-
-          let lastError: unknown = dbError;
-          for (const fallbackDb of fallbacks) {
-            let fallbackSpinner: ReturnType<typeof spinner> | undefined;
-            fallbackSpinner = spinner();
-            fallbackSpinner.start("Trying fallback database...");
-            try {
-              const fallbackScanner = buildScanner(fallbackDb);
-              const results = await runBatch(fallbackScanner);
-              fallbackSpinner?.stop("Fallback succeeded");
-              return results;
-            } catch (fallbackError) {
-              lastError = fallbackError;
-              fallbackSpinner?.stop("Fallback failed");
-            }
-          }
-
-          throw lastError;
-        }
-      }
-
       try {
-        const scanResults = await tryScan(scanner);
+        const scanResults = await runBatch(scanner);
 
         l.info(`Processed ${filePaths.length} files`);
 

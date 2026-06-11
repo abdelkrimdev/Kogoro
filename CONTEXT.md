@@ -86,7 +86,7 @@ _Avoid_: setup flow, first-run experience
 - An **Episode** belongs to exactly one **Anime**
 - A **Match** may have one or more **Overrides** (user corrections)
 - An **Episode** has exactly one **EntryType**
-- A **Match** is resolved against one primary **Database**, optionally enriched by secondary **Databases**
+- A **Match** is resolved against one primary **Database**
 - A **Library** entry is identified by (external ID, source **Database**) and contains one or more **Episodes**
 - The **Scan Workflow** produces a **Rename Plan** that the user approves via the **Review Screen**
 - **Auto-Merge** links new **Episodes** to existing **Library** entries without duplicates

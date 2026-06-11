@@ -125,43 +125,15 @@ describe("ArtworkFetcher", () => {
     }
   });
 
-  test("falls back to secondary database when primary has no artwork", async () => {
+  test("reports noArtwork when primary database returns no poster", async () => {
     const { dir, animeDir, cache, seedCache, cleanup } = setup();
     try {
       await seedCache();
 
       const primaryDb = createArtworkDb([]);
-      const secondaryDb = createArtworkDb([
-        { id: "2", type: "poster", url: "https://secondary.example.com/poster.jpg" },
-      ]);
 
       const fetcher = new ArtworkFetcher({
         primaryDb,
-        secondaryDbs: [secondaryDb],
-        cache,
-        httpClient: createMockHttpClient(mockFetch(testImageBytes)),
-      });
-
-      const summary = await fetcher.process(dir);
-
-      expect(summary).toEqual({ total: 1, downloaded: 1, skipped: 0, noArtwork: 0 });
-      expect(existsSync(join(animeDir, "cover.jpg"))).toBe(true);
-    } finally {
-      cleanup();
-    }
-  });
-
-  test("reports noArtwork when no database returns poster", async () => {
-    const { dir, animeDir, cache, seedCache, cleanup } = setup();
-    try {
-      await seedCache();
-
-      const primaryDb = createArtworkDb([]);
-      const secondaryDb = createArtworkDb([]);
-
-      const fetcher = new ArtworkFetcher({
-        primaryDb,
-        secondaryDbs: [secondaryDb],
         cache,
       });
 

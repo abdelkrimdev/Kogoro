@@ -59,18 +59,6 @@ export class PluginFactory {
     return this.database(name);
   }
 
-  async secondaryDatabases(): Promise<DatabasePlugin[]> {
-    const names = this.config.getList("secondary-dbs");
-    const plugins: DatabasePlugin[] = [];
-    for (const name of names) {
-      const plugin = await this.database(name);
-      if (plugin) {
-        plugins.push(plugin);
-      }
-    }
-    return plugins;
-  }
-
   async database(name: string): Promise<DatabasePlugin | undefined> {
     if (!this.registry.isEnabled(name)) {
       console.warn(`Plugin "${name}" is disabled`);

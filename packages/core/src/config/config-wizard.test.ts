@@ -101,25 +101,6 @@ describe("ConfigWizard", () => {
     });
   });
 
-  test("prompts for secondary databases and stores value", async () => {
-    await withTestConfig("wizard", async (_dir, config, credentialStore) => {
-      let textCalls = 0;
-      const prompts = makePrompts({
-        select: async () => "tvdb",
-        text: async () => {
-          textCalls++;
-          if (textCalls === 1) return "";
-          if (textCalls === 2) return "anidb,opensubtitles";
-          return "";
-        },
-      });
-
-      await runConfigWizard({ config, credentialStore, prompts });
-      expect(await config.get("secondary-dbs")).toBe("anidb,opensubtitles");
-      expect(config.getList("secondary-dbs")).toEqual(["anidb", "opensubtitles"]);
-    });
-  });
-
   test("warns with correct env var when keyring is unavailable", async () => {
     const throwingKeytar = {
       setPassword: async () => {
@@ -145,18 +126,5 @@ describe("ConfigWizard", () => {
       },
       throwingKeytar,
     );
-  });
-
-  test("accepts empty secondary databases", async () => {
-    await withTestConfig("wizard", async (_dir, config, credentialStore) => {
-      const prompts = makePrompts({
-        select: async () => "tvdb",
-        text: async () => "",
-      });
-
-      await runConfigWizard({ config, credentialStore, prompts });
-      expect(await config.get("secondary-dbs")).toBe("");
-      expect(config.getList("secondary-dbs")).toEqual([]);
-    });
   });
 });

@@ -10,7 +10,6 @@ import type { Logger } from "../logger";
 
 export interface ArtworkHandlerOptions {
   primaryDb: DatabasePlugin;
-  secondaryDbs?: DatabasePlugin[];
   cache?: MatchCache;
   httpClient?: HttpClient;
   config?: ConfigManager;
@@ -29,7 +28,6 @@ export function createArtworkHandlers(options: ArtworkHandlerOptions) {
     options.config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
   const fetcher = new ArtworkFetcher({
     primaryDb: options.primaryDb,
-    secondaryDbs: options.secondaryDbs,
     cache,
     httpClient: options.httpClient,
     extensions,

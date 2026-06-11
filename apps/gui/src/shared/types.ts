@@ -172,7 +172,6 @@ export type AppRPC = {
         params: Record<string, never>;
         response: {
           primaryDb: string;
-          secondaryDbs: string[];
           templatePreset: string;
           templateCustom: string;
           directoryTemplate: string;
@@ -195,7 +194,6 @@ export type AppRPC = {
       updateSettings: {
         params: {
           primaryDb?: string;
-          secondaryDbs?: string[];
           templatePreset?: string;
           templateCustom?: string;
           directoryTemplate?: string;

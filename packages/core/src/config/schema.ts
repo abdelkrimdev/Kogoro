@@ -54,7 +54,6 @@ const PluginsConfigSchema = v.strictObject({
 
 export const ConfigSchema = v.strictObject({
   "primary-db": v.optional(v.string(), "tvdb"),
-  "secondary-dbs": v.optional(v.string(), ""),
   template: v.optional(TemplateConfigSchema, {
     preset: "standard",
     custom: "",

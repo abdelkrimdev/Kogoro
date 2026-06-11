@@ -9,7 +9,6 @@ import type { ArtworkResult, DatabasePlugin } from "../types";
 
 interface ArtworkFetcherOptions {
   primaryDb: DatabasePlugin;
-  secondaryDbs?: DatabasePlugin[];
   cache: MatchCache;
   httpClient?: HttpClient;
   extensions?: readonly string[];
@@ -24,14 +23,12 @@ interface ArtworkSummary {
 
 export class ArtworkFetcher {
   private primaryDb: DatabasePlugin;
-  private secondaryDbs: DatabasePlugin[];
   private cache: MatchCache;
   private httpClient: HttpClient;
   private extensions: readonly string[];
 
   constructor(options: ArtworkFetcherOptions) {
     this.primaryDb = options.primaryDb;
-    this.secondaryDbs = options.secondaryDbs ?? [];
     this.cache = options.cache;
     this.httpClient = options.httpClient ?? new HttpClient();
     this.extensions = options.extensions ?? SCHEMA_DEFAULTS["media-extensions"];
@@ -116,13 +113,6 @@ export class ArtworkFetcher {
     const primary = await this.primaryDb.getArtwork(animeId, "poster");
     const bestPrimary = this.pickBestPoster(primary);
     if (bestPrimary) return bestPrimary.url;
-
-    for (const db of this.secondaryDbs) {
-      const artworks = await db.getArtwork(animeId, "poster");
-      const artwork = this.pickBestPoster(artworks);
-      if (artwork) return artwork.url;
-    }
-
     return undefined;
   }
 

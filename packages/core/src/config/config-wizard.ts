@@ -86,16 +86,6 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
     }
   }
 
-  const secondaryDbs = await prompt(
-    p.text({
-      message: "Enter secondary databases (comma-separated, optional)",
-      placeholder: "e.g. anidb,trakt",
-    }),
-  );
-  if (secondaryDbs === undefined) return;
-
-  config.set("secondary-dbs", secondaryDbs);
-
   const templateChoice = await prompt(
     p.select({
       message: "Pick a rename template preset",

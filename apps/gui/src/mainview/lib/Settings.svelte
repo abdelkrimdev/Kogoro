@@ -24,7 +24,6 @@
 
   const GENERAL_FIELDS: SettingsField[] = [
     { type: "select", key: "primaryDb", label: "Primary Database", options: [{ value: "tvdb", label: "TVDB" }, { value: "anidb", label: "AniDB" }] },
-    { type: "tag-input", key: "secondaryDbs", label: "Secondary Databases", placeholder: "e.g. anidb, opensubtitles" },
     { type: "select", key: "templatePreset", label: "Filename Template Preset", options: TEMPLATE_PRESETS },
     { type: "text", key: "templateCustom", label: "Custom Template", placeholder: "{anime} - {season}x{episode:02} - {title}" },
     { type: "text", key: "directoryTemplate", label: "Directory Template", placeholder: "{anime}/{type}" },

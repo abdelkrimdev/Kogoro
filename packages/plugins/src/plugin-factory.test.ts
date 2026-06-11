@@ -204,36 +204,6 @@ describe("PluginFactory", () => {
     });
   });
 
-  describe("secondaryDatabases", () => {
-    test("returns plugins for all configured names", async () => {
-      await withMockFetch(
-        ((url: string | URL | Request) => {
-          const urlStr = typeof url === "string" ? url : url.toString();
-          if (urlStr.includes("anidb")) {
-            return new Response('<?xml version="1.0"?><animetitles/>', {
-              status: 200,
-              headers: { "Content-Type": "application/xml" },
-            });
-          }
-          return new Response("ok", { status: 200 });
-        }) as unknown as typeof fetch,
-        async () => {
-          await withTestConfig(
-            "secondary-dbs",
-            async (_dir, config, credentialStore) => {
-              config.set("secondary-dbs", "anidb");
-              const factory = new PluginFactory(config, credentialStore);
-              const plugins = await factory.secondaryDatabases();
-              expect(plugins).toHaveLength(1);
-              expect(plugins[0]?.constructor.name).toBe("AniDBPlugin");
-            },
-            createMockKeytar({ "kogoro:anidb": "testclient:1" }),
-          );
-        },
-      );
-    });
-  });
-
   describe("subtitle", () => {
     test("constructs OpenSubtitles plugin by default", async () => {
       await withMockFetch(
