@@ -70,7 +70,6 @@ async function createScanOrchestrator(
 
   const orchestrator = new ScanOrchestrator(
     {
-      scanner: { match: async () => [], matchBatch: async () => [] },
       walk: async (path: string) =>
         walk(path, SCHEMA_DEFAULTS["media-extensions"], {
           excludePatterns: configManager.getList("exclude-patterns"),
@@ -204,6 +203,13 @@ export function createScanHandlers(dependencies: {
 }) {
   const { pluginFactory, configManager, mergeMatches, send } = dependencies;
 
+  function mergeCurrentMatches(orchestrator: ScanOrchestrator) {
+    const matches = orchestrator.getMatchResults();
+    if (matches.length > 0) {
+      mergeMatches(matches);
+    }
+  }
+
   return {
     async scanStart(params: { path: string; force?: boolean }) {
       const { path, force } = params;
@@ -225,6 +231,9 @@ export function createScanHandlers(dependencies: {
                 break;
               case "scanPhaseComplete":
                 send.scanPhaseComplete(event);
+                if (event.phase === "plan") {
+                  mergeCurrentMatches(orchestrator);
+                }
                 break;
               case "scanReviewReady":
                 send.scanReviewReady(event);
@@ -252,10 +261,7 @@ export function createScanHandlers(dependencies: {
       const orchestrator = getOrchestrator(params.sessionId);
       await orchestrator.approvePlan();
 
-      const matches = orchestrator.getMatchResults();
-      if (matches.length > 0) {
-        mergeMatches(matches);
-      }
+      mergeCurrentMatches(orchestrator);
 
       return undefined;
     },

@@ -68,10 +68,6 @@ export type ScanEvent =
 type ScanEventListener = (event: ScanEvent) => void;
 
 export interface ScanOrchestratorOptions {
-  scanner: {
-    match(parsed: unknown): Promise<unknown[]>;
-    matchBatch?(parsed: unknown[]): Promise<unknown[]>;
-  };
   walk: (path: string, options?: { extensions?: readonly string[] }) => Promise<string[]>;
   scanFile: (
     filePath: string,

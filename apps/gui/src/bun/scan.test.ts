@@ -8,6 +8,8 @@ import {
   createLibraryDb,
   createMockDb,
   Matcher,
+  makeMatchResult,
+  makeParsedResult,
   OverrideStore,
   Renamer,
   SCHEMA_DEFAULTS,
@@ -47,7 +49,6 @@ function createOrchestratorWithRealScan(
   const scanner = new Scanner({ matcher, cache, renamer, overrideStore });
 
   return new ScanOrchestrator({
-    scanner: { match: async () => [], matchBatch: async () => [] },
     walk: async (path: string) => walk(path, SCHEMA_DEFAULTS["media-extensions"]),
     scanFile: async (filePath: string, options?: { dryRun?: boolean }) =>
       scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true }),
@@ -355,6 +356,63 @@ describe("ScanOrchestrator", () => {
         const matches = orch.getMatchResults();
         expect(matches).toHaveLength(1);
         expect(matches[0]?.animeId).toBe("a");
+      });
+    });
+  });
+  describe("merge on scan complete", () => {
+    test("getMatchResults returns results even when review plan is empty", async () => {
+      await withTempDir("orch-empty-plan", async (dir) => {
+        const orch = new ScanOrchestrator({
+          walk: async () => [join(dir, "ep1.mkv")],
+          scanFile: async () => ({
+            file: join(dir, "ep1.mkv"),
+            hash: "hash-ep1",
+            parsed: makeParsedResult("Jujutsu Kaisen", 1, 1),
+            match: makeMatchResult({
+              anime: { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+            }),
+            plan: {
+              sourcePath: join(dir, "ep1.mkv"),
+              targetPath: "ep1.mkv",
+              targetDir: ".",
+              targetFilename: "ep1.mkv",
+              action: "move",
+            },
+            cached: false,
+            skipped: false,
+            status: "matched",
+          }),
+        });
+        await orch.startScan(dir);
+
+        const plan = orch.getPlan();
+        expect(plan?.groups).toHaveLength(0);
+
+        const matches = orch.getMatchResults();
+        expect(matches).toHaveLength(1);
+        expect(matches[0]?.animeId).toBe("1");
+      });
+    });
+
+    test("returns empty when no files are matched", async () => {
+      await withTempDir("orch-no-match", async (dir) => {
+        const orch = new ScanOrchestrator({
+          walk: async () => [join(dir, "ep1.mkv")],
+          scanFile: async () => ({
+            file: join(dir, "ep1.mkv"),
+            hash: "hash-ep1",
+            parsed: makeParsedResult(null),
+            match: null,
+            plan: null,
+            cached: false,
+            skipped: false,
+            status: "failed",
+          }),
+        });
+        await orch.startScan(dir);
+
+        const matches = orch.getMatchResults();
+        expect(matches).toHaveLength(0);
       });
     });
   });

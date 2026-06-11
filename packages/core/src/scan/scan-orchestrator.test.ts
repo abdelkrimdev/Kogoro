@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   createCache,
-  createMockMatcher,
   makeCachedMatch,
   makeMatchResult,
   makeParsedResult,
@@ -38,7 +37,6 @@ describe("ScanOrchestrator", () => {
   describe("state transitions", () => {
     test("starts in idle state", () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -47,7 +45,6 @@ describe("ScanOrchestrator", () => {
 
     test("transitions to scan on startScan", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -58,7 +55,6 @@ describe("ScanOrchestrator", () => {
 
     test("transitions scan → plan → review → done after scan completes", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -79,7 +75,6 @@ describe("ScanOrchestrator", () => {
 
     test("transitions to done on approvePlan", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -104,7 +99,6 @@ describe("ScanOrchestrator", () => {
     test("emits scanProgress for each file", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
         scanFile: async (_file, _options, index) =>
           makeScanResult(`/a/ep${index !== undefined ? index + 1 : 1}.mkv`, {
@@ -124,7 +118,6 @@ describe("ScanOrchestrator", () => {
     test("emits scanPhaseComplete after scan phase", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -139,7 +132,6 @@ describe("ScanOrchestrator", () => {
     test("emits scanReviewReady with plan", async () => {
       let emittedPlan: ReviewPlan | undefined;
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -167,7 +159,6 @@ describe("ScanOrchestrator", () => {
     test("emits scanExecutionProgress during execute phase", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -199,7 +190,6 @@ describe("ScanOrchestrator", () => {
     test("emits scanComplete after execution", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -230,7 +220,6 @@ describe("ScanOrchestrator", () => {
   describe("ambiguous matches", () => {
     test("queues ambiguous matches without pausing scan", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -249,7 +238,6 @@ describe("ScanOrchestrator", () => {
     test("counts ambiguous in summary", async () => {
       let reviewEvent: ScanReviewReadyEvent | undefined;
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -270,7 +258,6 @@ describe("ScanOrchestrator", () => {
 
     test("populates topCandidates on ambiguous files when callback provided", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
         computeTopCandidates: async () => [
@@ -290,7 +277,6 @@ describe("ScanOrchestrator", () => {
 
     test("does not set topCandidates when callback is not provided", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
       });
@@ -303,7 +289,6 @@ describe("ScanOrchestrator", () => {
 
     test("does not set topCandidates on matched files", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -323,7 +308,6 @@ describe("ScanOrchestrator", () => {
   describe("cancellation", () => {
     test("cancels during scan phase", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -334,7 +318,6 @@ describe("ScanOrchestrator", () => {
 
     test("cancels during review phase", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -350,7 +333,6 @@ describe("ScanOrchestrator", () => {
     test("emits scanComplete on cancel", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -369,7 +351,6 @@ describe("ScanOrchestrator", () => {
     test("cancels during execute phase and stops remaining renames", async () => {
       const executedFiles: string[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv", "/a/ep3.mkv"],
         scanFile: async (_file, _options, index) =>
           makeScanResult(`/a/ep${(index ?? 0) + 1}.mkv`, {
@@ -404,7 +385,6 @@ describe("ScanOrchestrator", () => {
     test("reports failed renames in summary", async () => {
       let completeEvent: ScanCompleteEvent | undefined;
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -438,7 +418,6 @@ describe("ScanOrchestrator", () => {
 
     test("skips files without plans during execution", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -468,7 +447,6 @@ describe("ScanOrchestrator", () => {
       const ep1 = "/downloads/Oshi no Ko/TV/ep1.mkv";
       const ep2 = "/downloads/Oshi no Ko/TV/ep2.mkv";
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [ep1, ep2],
         scanFile: async (_file, _options, index) => {
           const file = (index ?? 0) === 0 ? ep1 : ep2;
@@ -502,7 +480,6 @@ describe("ScanOrchestrator", () => {
     test("only executes explicitly approved groups", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -553,7 +530,6 @@ describe("ScanOrchestrator", () => {
     test("executes all non-rejected groups when only rejections exist", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -604,7 +580,6 @@ describe("ScanOrchestrator", () => {
     test("skips rejected groups when both approvals and rejections exist", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -660,7 +635,6 @@ describe("ScanOrchestrator", () => {
       writeFileSync(`${testDir}/Anime/TV/ep1.mkv`, "");
 
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
         scanFile: async () =>
           makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
@@ -703,7 +677,6 @@ describe("ScanOrchestrator", () => {
       writeFileSync(`${testDir}/Anime/TV/other-file.txt`, "");
 
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
         scanFile: async () =>
           makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
@@ -745,7 +718,6 @@ describe("ScanOrchestrator", () => {
       writeFileSync(`${testDir}/Anime/TV/.DS_Store`, "");
 
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
         scanFile: async () =>
           makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
@@ -787,7 +759,6 @@ describe("ScanOrchestrator", () => {
       writeFileSync(`${testDir}/Anime/TV/.git/config`, "");
 
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
         scanFile: async () =>
           makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
@@ -828,7 +799,6 @@ describe("ScanOrchestrator", () => {
       writeFileSync(`${testDir}/ep1.mkv`, "");
 
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [`${testDir}/ep1.mkv`],
         scanFile: async () =>
           makeScanResult(`${testDir}/ep1.mkv`, {
@@ -865,7 +835,6 @@ describe("ScanOrchestrator", () => {
   describe("error handling", () => {
     test("rejects startScan if already running", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -875,7 +844,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects approvePlan if not in review state", () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -884,7 +852,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects cancel if idle", () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -895,7 +862,6 @@ describe("ScanOrchestrator", () => {
   describe("swapFiles", () => {
     test("swaps proposed paths between two files in same group", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -970,7 +936,6 @@ describe("ScanOrchestrator", () => {
     test("emits scanReviewReady after swap", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -1040,7 +1005,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects swapFiles if not in review state", () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -1049,7 +1013,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects swapFiles if files not in same group", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -1114,7 +1077,6 @@ describe("ScanOrchestrator", () => {
     test("marks group as approved and emits scanReviewReady", async () => {
       let emittedCount = 0;
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/b/ep2.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -1187,7 +1149,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects approveGroup if not in review state", () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -1196,7 +1157,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects approveGroup if animeId not found in plan", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -1215,7 +1175,6 @@ describe("ScanOrchestrator", () => {
     test("marks group as rejected and emits scanReviewReady", async () => {
       let emittedCount = 0;
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/b/ep2.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -1283,7 +1242,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects rejectGroup if not in review state", () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -1292,7 +1250,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects rejectGroup if animeId not found in plan", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -1310,7 +1267,6 @@ describe("ScanOrchestrator", () => {
   describe("getMatchResults", () => {
     test("returns empty array when no results exist", () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -1319,7 +1275,6 @@ describe("ScanOrchestrator", () => {
 
     test("returns matched files with anime and episode data", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -1356,7 +1311,6 @@ describe("ScanOrchestrator", () => {
 
     test("handles match without episode data", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/movie.mkv"],
         scanFile: async () =>
           makeScanResult("/a/movie.mkv", {
@@ -1379,7 +1333,6 @@ describe("ScanOrchestrator", () => {
 
     test("excludes ambiguous and failed results", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/amb.mkv", "/a/fail.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -1403,7 +1356,6 @@ describe("ScanOrchestrator", () => {
 
     test("includes cached results with match data", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/cached.mkv"],
         scanFile: async () =>
           makeScanResult("/a/cached.mkv", {
@@ -1422,7 +1374,6 @@ describe("ScanOrchestrator", () => {
 
     test("excludes rejected groups", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -1468,7 +1419,6 @@ describe("ScanOrchestrator", () => {
 
     test("only includes explicitly approved groups when approvals exist", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv", "/c/ep1.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -1506,7 +1456,6 @@ describe("ScanOrchestrator", () => {
 
     test("excludes rejected and non-approved when both approvals and rejections exist", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv", "/c/ep1.mkv"],
         scanFile: async (_file, _options, index) => {
           if (index === 0) {
@@ -1547,7 +1496,6 @@ describe("ScanOrchestrator", () => {
   describe("resolveMatch", () => {
     test("resolves ambiguous file and updates plan", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
         resolveFile: async (_filePath, _animeId, _episodeId) =>
@@ -1591,7 +1539,6 @@ describe("ScanOrchestrator", () => {
     test("emits scanReviewReady after resolve", async () => {
       const events: ScanEvent[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
         resolveFile: async (filePath) =>
@@ -1623,7 +1570,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects resolveMatch if not in review state", () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => [],
         scanFile: async () => makeScanResult("dummy"),
       });
@@ -1632,7 +1578,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects resolveMatch if fileId not found in plan", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () =>
           makeScanResult("/a/ep1.mkv", {
@@ -1648,7 +1593,6 @@ describe("ScanOrchestrator", () => {
 
     test("rejects resolveMatch if resolveFile callback not provided", async () => {
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv"],
         scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
       });
@@ -1685,7 +1629,6 @@ describe("ScanOrchestrator", () => {
         cache.set(hash1, makeCachedMatch({ animeId: "1", episodeId: "101", episode: 1 }));
 
         const orch = new ScanOrchestrator({
-          scanner: createMockMatcher(),
           walk: async () => [file1, file2],
           scanFile: async (filePath) => {
             scanFileCalls.push(filePath);
@@ -1740,7 +1683,6 @@ describe("ScanOrchestrator", () => {
         cache.setScanState(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), "stale-hash");
 
         const orch = new ScanOrchestrator({
-          scanner: createMockMatcher(),
           walk: async () => [file1],
           scanFile: async (filePath) => {
             scanFileCalls.push(filePath);
@@ -1781,7 +1723,6 @@ describe("ScanOrchestrator", () => {
         cache.setScanState(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
 
         const orch = new ScanOrchestrator({
-          scanner: createMockMatcher(),
           walk: async () => [file1],
           scanFile: async (filePath) => {
             scanFileCalls.push(filePath);
@@ -1818,7 +1759,6 @@ describe("ScanOrchestrator", () => {
         cache.set(hash1, makeCachedMatch({ animeId: "1", episodeId: "101", episode: 1 }));
 
         const orch = new ScanOrchestrator({
-          scanner: createMockMatcher(),
           walk: async () => [file1],
           scanFile: async () => makeScanResult(file1),
           planFile: () => ({
@@ -1861,7 +1801,6 @@ describe("ScanOrchestrator", () => {
         cache.set("staleHash", makeCachedMatch({ animeId: "99" }));
 
         const orch = new ScanOrchestrator({
-          scanner: createMockMatcher(),
           walk: async () => [file1],
           scanFile: async (filePath) =>
             makeScanResult(filePath, {
@@ -1883,7 +1822,6 @@ describe("ScanOrchestrator", () => {
     test("works without cache option (no incremental behavior)", async () => {
       const scanFileCalls: string[] = [];
       const orch = new ScanOrchestrator({
-        scanner: createMockMatcher(),
         walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
         scanFile: async (filePath) => {
           scanFileCalls.push(filePath);
@@ -1910,7 +1848,6 @@ describe("ScanOrchestrator", () => {
         writeFileSync(file1, "content1");
 
         const orch = new ScanOrchestrator({
-          scanner: createMockMatcher(),
           walk: async () => [file1],
           scanFile: async (filePath) =>
             makeScanResult(filePath, {
@@ -1948,7 +1885,6 @@ describe("ScanOrchestrator", () => {
         writeFileSync(srcFile, "content1");
 
         const orch = new ScanOrchestrator({
-          scanner: createMockMatcher(),
           walk: async () => [srcFile],
           scanFile: async (filePath) =>
             makeScanResult(filePath, {
@@ -2010,7 +1946,6 @@ describe("ScanOrchestrator", () => {
         writeFileSync(unorganizedFile, "content2");
 
         const orch = new ScanOrchestrator({
-          scanner: createMockMatcher(),
           walk: async () => [organizedFile, unorganizedFile],
           scanFile: async (filePath) => {
             if (filePath === organizedFile) {
