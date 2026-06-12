@@ -294,7 +294,7 @@ export class ScanOrchestrator {
         );
         if (storedHash) {
           const cachedMatch = this.options.cacheService
-            ? this.options.cacheService.get(storedHash)
+            ? this.options.cacheService.get(storedHash, this.options.sourceDb)
             : null;
           if (cachedMatch) {
             const match = matchResultFromCache(cachedMatch);

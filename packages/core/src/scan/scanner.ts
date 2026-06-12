@@ -44,6 +44,7 @@ interface ScannerOptions {
   cacheService?: CacheService;
   renamer?: Renamer;
   overrideStore?: OverrideStore;
+  sourceDb?: string;
 }
 
 interface ScanFileOptions {
@@ -128,12 +129,14 @@ export class Scanner {
   private cacheService?: CacheService;
   private renamer?: Renamer;
   private overrideStore?: OverrideStore;
+  private sourceDb: string;
 
   constructor(options: ScannerOptions) {
     this.matcher = options.matcher;
     this.cacheService = options.cacheService;
     this.renamer = options.renamer;
     this.overrideStore = options.overrideStore;
+    this.sourceDb = options.sourceDb ?? "tvdb";
   }
 
   hasRollback(): boolean {
@@ -312,7 +315,7 @@ export class Scanner {
 
     const resolvedHash = hash || (await hashFile(filePath));
 
-    this.cacheService.storeMatchFromResult(resolvedHash, match);
+    this.cacheService.storeMatchFromResult(resolvedHash, match, this.sourceDb);
 
     return resolvedHash;
   }

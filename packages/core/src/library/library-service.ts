@@ -96,8 +96,9 @@ export class LibraryService {
     }));
   }
 
-  rebuild(): void {
-    const matches = this.exportMatches();
+  rebuild(sourceDb?: string): void {
+    const allMatches = this.exportMatches();
+    const matches = sourceDb ? allMatches.filter((m) => m.sourceDb === sourceDb) : allMatches;
     this.rebuildFromMatches(matches);
   }
 
@@ -174,6 +175,20 @@ export class LibraryService {
     }
 
     this.library.transaction((tx) => {
+      const newFilePaths = new Set<string>();
+      const sourceDbs = new Set<string>();
+      for (const match of matches) {
+        if (match.filePath) {
+          newFilePaths.add(match.filePath);
+        }
+        sourceDbs.add(match.sourceDb);
+      }
+
+      if (newFilePaths.size > 0) {
+        const excludeSourceDb = sourceDbs.size === 1 ? sourceDbs.values().next().value : undefined;
+        this.deleteStaleEpisodes(tx, newFilePaths, excludeSourceDb);
+      }
+
       for (const [, group] of grouped) {
         const first = group[0];
         if (!first) continue;
@@ -201,5 +216,34 @@ export class LibraryService {
         tx.updateEpisodeCount(libraryAnime.id);
       }
     });
+  }
+
+  private deleteStaleEpisodes(
+    tx: LibraryRepository,
+    filePaths: Set<string>,
+    excludeSourceDb?: string,
+  ): void {
+    const allEpisodes = tx.getEpisodesWithSourceDb();
+
+    const episodeIdsToDelete: number[] = [];
+    const affectedAnimeIds = new Set<number>();
+
+    for (const ep of allEpisodes) {
+      if (filePaths.has(ep.filePath) && ep.sourceDb !== excludeSourceDb) {
+        episodeIdsToDelete.push(ep.id);
+        affectedAnimeIds.add(ep.animeId);
+      }
+    }
+
+    tx.deleteEpisodesByIds(episodeIdsToDelete);
+
+    const orphanedAnimeIds: number[] = [];
+    for (const animeId of affectedAnimeIds) {
+      if (tx.getEpisodeCountByAnimeId(animeId) === 0) {
+        orphanedAnimeIds.push(animeId);
+      }
+    }
+
+    tx.deleteAnimeByIds(orphanedAnimeIds);
   }
 }

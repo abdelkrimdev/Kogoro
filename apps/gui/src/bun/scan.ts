@@ -70,7 +70,13 @@ async function createScanOrchestrator(
   });
 
   const scanner = matcher
-    ? new Scanner({ matcher, cacheService, renamer, overrideStore })
+    ? new Scanner({
+        matcher,
+        cacheService,
+        renamer,
+        overrideStore,
+        sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
+      })
     : undefined;
 
   const orchestrator = new ScanOrchestrator(

@@ -11,6 +11,7 @@ export interface CachedMatch {
   season: number | null;
   episode: number | null;
   title: string | null;
+  sourceDb: string;
   timestamp: string;
 }
 
@@ -32,6 +33,7 @@ export class MatchRepository {
         season: match.season,
         episode: match.episode,
         title: match.title,
+        sourceDb: match.sourceDb,
         timestamp: match.timestamp,
       })
       .onConflictDoUpdate({
@@ -44,6 +46,7 @@ export class MatchRepository {
           season: match.season,
           episode: match.episode,
           title: match.title,
+          sourceDb: match.sourceDb,
           timestamp: match.timestamp,
         },
       })
@@ -61,6 +64,7 @@ export class MatchRepository {
           season: row.season,
           episode: row.episode,
           title: row.title,
+          sourceDb: row.sourceDb,
           timestamp: row.timestamp,
         }
       : null;
@@ -87,6 +91,7 @@ export class MatchRepository {
         season: row.season,
         episode: row.episode,
         title: row.title,
+        sourceDb: row.sourceDb,
         timestamp: row.timestamp,
       },
     }));

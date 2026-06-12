@@ -12,8 +12,11 @@ export class CacheService {
     return this.matches.list();
   }
 
-  get(hash: string) {
-    return this.matches.get(hash);
+  get(hash: string, sourceDb?: string): CachedMatch | null {
+    const match = this.matches.get(hash);
+    if (!match) return null;
+    if (sourceDb && match.sourceDb !== sourceDb) return null;
+    return match;
   }
 
   has(hash: string): boolean {
@@ -24,7 +27,7 @@ export class CacheService {
     this.matches.set(hash, match);
   }
 
-  storeMatchFromResult(hash: string, match: MatchResult): void {
+  storeMatchFromResult(hash: string, match: MatchResult, sourceDb: string): void {
     this.matches.set(hash, {
       animeId: match.anime.id,
       animeTitle: match.anime.titleEn,
@@ -33,6 +36,7 @@ export class CacheService {
       season: match.episode?.season ?? null,
       episode: match.episode?.episode ?? null,
       title: match.episode?.titleEn ?? null,
+      sourceDb,
       timestamp: new Date().toISOString(),
     });
   }

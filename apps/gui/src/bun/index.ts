@@ -51,7 +51,10 @@ const cacheService = new CacheService(matchRepo, scanStateRepo);
 const scanStateService = new ScanStateService(scanStateRepo);
 const libraryService = new LibraryService(libraryRepo);
 
-const libraryHandlers = createLibraryHandlers({ libraryService });
+const libraryHandlers = createLibraryHandlers({
+  libraryService,
+  getSourceDb: () => String(configManager.get("primary-db") ?? "tvdb"),
+});
 
 const enrichmentHandlers = createEnrichmentHandlers({
   pluginFactory,

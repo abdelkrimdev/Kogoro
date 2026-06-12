@@ -660,6 +660,7 @@ describe("Matcher", () => {
         season: 1,
         episode: 5,
         title: "Episode Title",
+        sourceDb: "tvdb",
         timestamp: "2026-01-01T00:00:00.000Z",
       });
 
@@ -683,6 +684,7 @@ describe("Matcher", () => {
         season: null,
         episode: null,
         title: null,
+        sourceDb: "tvdb",
         timestamp: "2026-01-01T00:00:00.000Z",
       });
 
@@ -700,6 +702,7 @@ describe("Matcher", () => {
         season: null,
         episode: 3,
         title: "Ep 3",
+        sourceDb: "tvdb",
         timestamp: "2026-01-01T00:00:00.000Z",
       });
 
@@ -715,6 +718,7 @@ describe("Matcher", () => {
         season: null,
         episode: null,
         title: null,
+        sourceDb: "tvdb",
         timestamp: "2026-01-01T00:00:00.000Z",
       });
 

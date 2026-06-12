@@ -32,6 +32,7 @@ interface LibraryAnimeDetail {
 
 interface LibraryHandlerOptions {
   libraryService: LibraryService;
+  getSourceDb?: () => string;
 }
 
 export function createLibraryHandlers(options: LibraryHandlerOptions) {
@@ -111,7 +112,8 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
 
     rebuild(): { success: boolean; error?: string } {
       try {
-        svc.rebuild();
+        const sourceDb = options.getSourceDb?.();
+        svc.rebuild(sourceDb);
         return { success: true };
       } catch (err) {
         return {

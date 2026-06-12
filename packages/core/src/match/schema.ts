@@ -9,6 +9,7 @@ export const matches = sqliteTable("matches", {
   season: integer("season"),
   episode: integer("episode"),
   title: text("title"),
+  sourceDb: text("source_db").notNull().default("tvdb"),
   timestamp: text("timestamp").notNull(),
 });
 

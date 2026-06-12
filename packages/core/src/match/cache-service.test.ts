@@ -157,7 +157,7 @@ describe("CacheService", () => {
 
         const match = makeMatchResult();
 
-        service.storeMatchFromResult("hash123", match);
+        service.storeMatchFromResult("hash123", match, "tvdb");
 
         const stored = service.get("hash123");
         expect(stored).not.toBeNull();
@@ -182,7 +182,7 @@ describe("CacheService", () => {
 
         const match = makeMatchResult({ episode: undefined });
 
-        service.storeMatchFromResult("hash-no-ep", match);
+        service.storeMatchFromResult("hash-no-ep", match, "tvdb");
 
         const stored = service.get("hash-no-ep");
         expect(stored).not.toBeNull();

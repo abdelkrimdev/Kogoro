@@ -379,6 +379,47 @@ export class LibraryRepository {
     this.db.delete(anime).where(eq(anime.id, id)).run();
   }
 
+  getEpisodesWithSourceDb(): Array<{
+    id: number;
+    animeId: number;
+    filePath: string;
+    sourceDb: string;
+  }> {
+    return this.db
+      .select({
+        id: episodes.id,
+        animeId: episodes.animeId,
+        filePath: episodes.filePath,
+        sourceDb: anime.sourceDb,
+      })
+      .from(episodes)
+      .innerJoin(anime, eq(episodes.animeId, anime.id))
+      .all();
+  }
+
+  deleteEpisodesByIds(ids: number[]): void {
+    if (ids.length === 0) return;
+    for (const id of ids) {
+      this.db.delete(episodes).where(eq(episodes.id, id)).run();
+    }
+  }
+
+  deleteAnimeByIds(ids: number[]): void {
+    if (ids.length === 0) return;
+    for (const id of ids) {
+      this.db.delete(anime).where(eq(anime.id, id)).run();
+    }
+  }
+
+  getEpisodeCountByAnimeId(animeId: number): number {
+    const row = this.db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(episodes)
+      .where(eq(episodes.animeId, animeId))
+      .get();
+    return row?.count ?? 0;
+  }
+
   private rowToAnime(row: {
     id: number;
     externalId: string;
