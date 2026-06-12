@@ -4,10 +4,20 @@ import { join } from "node:path";
 import type { KeytarLike } from "./config/bun-secrets-keytar";
 import { ConfigManager } from "./config/config-manager";
 import { CredentialStore } from "./config/credential-store";
+import { hashFile } from "./io/file-hash";
+
+export { hashFile } from "./io/file-hash";
+
 import { HttpClient } from "./io/http-client";
-import { LibraryDb } from "./library/library-db";
-import { type CachedMatch, MatchCache } from "./match/match-cache";
+import { LibraryRepository } from "./library/library-repository";
+import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils";
+import { CacheService } from "./match/cache-service";
+import type { CachedMatch } from "./match/match-repository";
+import { MatchRepository } from "./match/match-repository";
 import type { MatcherLike, MatchResult } from "./match/matcher";
+import { ScanStateRepository } from "./match/scan-state-repository";
+import { ScanStateService } from "./match/scan-state-service";
+import { createMatchCacheDb as createMatchCacheDbInstance } from "./match/test-utils";
 import type { ParsedResult, ParsedTags } from "./parse/parser";
 import type { AnimeResult, ArtworkResult, DatabasePlugin, EpisodeResult } from "./types";
 
@@ -86,10 +96,6 @@ export function createMockHttpClient(
   return new HttpClient({ fetch, minDelay: 0, maxRetries: 0, ...opts });
 }
 
-export function createCache(dir: string): MatchCache {
-  return new MatchCache({ dbPath: join(dir, "cache.db") });
-}
-
 export const testImageBytes = "\xff\xd8\xff\xe0\u0000\u0010JFIF\u0000\u0001";
 
 interface MockDbOptions {
@@ -126,8 +132,34 @@ export function createArtworkDb(artworks: ArtworkResult[] = []): DatabasePlugin 
   };
 }
 
-export function createLibraryDb(dir: string): LibraryDb {
-  return new LibraryDb({ dbPath: join(dir, "library.db") });
+export function createLibraryRepository(dir?: string): {
+  repo: LibraryRepository;
+  close: () => void;
+} {
+  const { db, sqlite } = createLibraryDbInstance(dir);
+  const repo = new LibraryRepository(db);
+  return { repo, close: () => sqlite.close() };
+}
+
+export function createMatchRepository(dir?: string): { repo: MatchRepository; close: () => void } {
+  const { db, sqlite } = createMatchCacheDbInstance(dir);
+  const repo = new MatchRepository(db);
+  return { repo, close: () => sqlite.close() };
+}
+
+export function createMatchCacheService(dir?: string): {
+  matchRepo: MatchRepository;
+  scanStateRepo: ScanStateRepository;
+  cacheService: CacheService;
+  scanStateService: ScanStateService;
+  close: () => void;
+} {
+  const { db, sqlite } = createMatchCacheDbInstance(dir);
+  const matchRepo = new MatchRepository(db);
+  const scanStateRepo = new ScanStateRepository(db);
+  const cacheService = new CacheService(matchRepo, scanStateRepo);
+  const scanStateService = new ScanStateService(scanStateRepo);
+  return { matchRepo, scanStateRepo, cacheService, scanStateService, close: () => sqlite.close() };
 }
 
 export function createMockDb(opts: MockDbOptions = {}): MockDbResult {
@@ -216,13 +248,18 @@ export async function seedCacheEntry(
   dir: string,
   videoFilename: string,
   overrides?: Partial<CachedMatch>,
-): Promise<{ cache: MatchCache; videoPath: string; hash: string }> {
+  cacheService?: CacheService,
+): Promise<{ matchRepo: MatchRepository | undefined; videoPath: string; hash: string }> {
   const videoPath = join(dir, videoFilename);
   writeFileSync(videoPath, "test content");
-  const cache = createCache(dir);
-  const hash = await MatchCache.hashFile(videoPath);
-  cache.set(hash, makeCachedMatch(overrides));
-  return { cache, videoPath, hash };
+  const hash = await hashFile(videoPath);
+  if (cacheService) {
+    cacheService.set(hash, makeCachedMatch(overrides));
+    return { matchRepo: undefined, videoPath, hash };
+  }
+  const { repo: matchRepo } = createMatchRepository(dir);
+  matchRepo.set(hash, makeCachedMatch(overrides));
+  return { matchRepo, videoPath, hash };
 }
 
 export async function withMockFetch(

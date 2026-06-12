@@ -1,12 +1,18 @@
 import { existsSync } from "node:fs";
 import { relative, sep } from "node:path";
 import type { SubtitlePlugin } from "@kogoro/core";
-import { type ConfigManager, MatchCache, SCHEMA_DEFAULTS, walk } from "@kogoro/core";
+import {
+  type CacheService,
+  type ConfigManager,
+  hashFile,
+  SCHEMA_DEFAULTS,
+  walk,
+} from "@kogoro/core";
 import type { Logger } from "../logger";
 
 export interface SubtitleHandlerOptions {
   subtitlePlugin: SubtitlePlugin;
-  cache: MatchCache;
+  cacheService: CacheService;
   config?: ConfigManager;
 }
 
@@ -29,7 +35,7 @@ function resolveLanguage(cliLang: string | undefined, config?: ConfigManager): s
 }
 
 export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
-  const { subtitlePlugin, cache } = options;
+  const { subtitlePlugin, cacheService } = options;
 
   async function fetch(
     dirPath: string,
@@ -48,8 +54,8 @@ export function createSubtitleHandlers(options: SubtitleHandlerOptions) {
     let completed = 0;
 
     for (const filePath of files) {
-      const hash = await MatchCache.hashFile(filePath);
-      const cached = cache.get(hash);
+      const fileHash = await hashFile(filePath);
+      const cached = cacheService.get(fileHash);
 
       if (!cached) {
         completed++;

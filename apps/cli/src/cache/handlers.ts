@@ -1,19 +1,24 @@
-import { MatchCache } from "@kogoro/core";
+import type { CacheService } from "@kogoro/core";
 
-export function createCacheHandlers(options?: { dbPath?: string }) {
-  const cache = new MatchCache(options);
+export function createCacheHandlers(options: { cacheService: CacheService }) {
+  const { cacheService } = options;
 
   return {
     list() {
-      return cache.list();
+      return cacheService.list();
     },
 
     lookup(hash: string) {
-      return cache.get(hash) ?? null;
+      return cacheService.get(hash) ?? null;
     },
 
     clear() {
-      cache.clear();
+      cacheService.clear();
+      return true;
+    },
+
+    purge(currentPaths: string[]) {
+      cacheService.purgeStale(currentPaths);
       return true;
     },
   };

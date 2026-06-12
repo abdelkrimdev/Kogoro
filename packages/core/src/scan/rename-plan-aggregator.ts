@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { LibraryDb } from "../library/library-db";
+import type { LibraryService } from "../library/library-service";
 import type {
   AnimeResult,
   FileRow,
@@ -113,7 +113,7 @@ export function detectSwaps(results: ScanResult[]): SwapPair[] {
 
 export function buildReviewPlan(
   results: ScanResult[],
-  libraryDb?: LibraryDb,
+  libraryService?: LibraryService,
   sourceDb?: string,
 ): ReviewPlan {
   const byAnime = groupByAnime(results);
@@ -166,7 +166,7 @@ export function buildReviewPlan(
         return aEp - bEp;
       });
 
-    const mergeMode = libraryDb != null && libraryDb.findAnime(animeId, sourceDb ?? "tvdb") != null;
+    const mergeMode = libraryService?.isAnimeInLibrary(animeId, sourceDb) ?? false;
 
     groups.push({
       animeId,
@@ -268,7 +268,7 @@ function toFileRow(result: ScanResult): FileRow {
 export async function aggregateReviewPlan(
   results: ScanResult[],
   sessionId: string,
-  libraryDb?: LibraryDb,
+  libraryService?: LibraryService,
   sourceDb?: string,
   computeTopCandidates?: (sourcePath: string) => Promise<TopCandidate[]>,
 ): Promise<ScanReviewPlan> {
@@ -289,9 +289,9 @@ export async function aggregateReviewPlan(
     let group = groups.get(animeId);
     if (!group) {
       const mergeMode =
-        libraryDb != null &&
+        libraryService != null &&
         matchedAnime != null &&
-        libraryDb.findAnime(animeId, sourceDb ?? "tvdb") != null;
+        libraryService.isAnimeInLibrary(animeId, sourceDb);
 
       group = {
         animeId,

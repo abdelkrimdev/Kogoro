@@ -2,10 +2,10 @@ import { lstatSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import { confirm, isCancel, log, select, text } from "@clack/prompts";
 import {
+  type CacheService,
   type ConfigManager,
   type DatabasePlugin,
   type EpisodeNumbering,
-  type MatchCache,
   Matcher,
   type MatchResult,
   type OverrideStore,
@@ -23,7 +23,7 @@ import type { Logger } from "../logger";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
-  cache?: MatchCache;
+  cacheService?: CacheService;
   renamer?: Renamer;
   config?: ConfigManager;
   overrideStore?: OverrideStore;
@@ -93,7 +93,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
     const matcher = new Matcher({ database });
     return new Scanner({
       matcher,
-      cache: options.cache,
+      cacheService: options.cacheService,
       renamer,
       overrideStore: options.overrideStore,
     });

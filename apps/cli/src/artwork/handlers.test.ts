@@ -3,6 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   createArtworkDb,
+  createMatchCacheService,
   createMockHttpClient,
   mockFetch,
   seedCacheEntry,
@@ -24,19 +25,25 @@ describe("artwork CLI commands", () => {
     await withTempDir("artwork", async (dir) => {
       const animeDir = join(dir, "TV", "Jujutsu Kaisen");
       mkdirSync(animeDir, { recursive: true });
-      const { cache } = await seedCacheEntry(animeDir, "ep1.mkv", {
-        animeId: "12345",
-        episodeId: "101",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-      });
+      const { cacheService } = createMatchCacheService(animeDir);
+      await seedCacheEntry(
+        animeDir,
+        "ep1.mkv",
+        {
+          animeId: "12345",
+          episodeId: "101",
+          season: 1,
+          episode: 1,
+          title: "Test Episode",
+        },
+        cacheService,
+      );
 
       const handlers = createArtworkHandlers({
         primaryDb: createArtworkDb([
           { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
         ]),
-        cache,
+        cacheService,
         httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
@@ -52,17 +59,23 @@ describe("artwork CLI commands", () => {
     await withTempDir("artwork", async (dir) => {
       const animeDir = join(dir, "TV", "Jujutsu Kaisen");
       mkdirSync(animeDir, { recursive: true });
-      const { cache } = await seedCacheEntry(animeDir, "ep1.mkv", {
-        animeId: "12345",
-        episodeId: "101",
-        season: 1,
-        episode: 1,
-        title: "Test Episode",
-      });
+      const { cacheService } = createMatchCacheService(animeDir);
+      await seedCacheEntry(
+        animeDir,
+        "ep1.mkv",
+        {
+          animeId: "12345",
+          episodeId: "101",
+          season: 1,
+          episode: 1,
+          title: "Test Episode",
+        },
+        cacheService,
+      );
 
       const handlers = createArtworkHandlers({
         primaryDb: createArtworkDb([]),
-        cache,
+        cacheService,
       });
 
       const result = await handlers.process(dir, {}, mock.logger);

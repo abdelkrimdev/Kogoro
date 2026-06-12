@@ -1,16 +1,16 @@
 import {
   ArtworkFetcher,
+  type CacheService,
   type ConfigManager,
   type DatabasePlugin,
   type HttpClient,
-  MatchCache,
   SCHEMA_DEFAULTS,
 } from "@kogoro/core";
 import type { Logger } from "../logger";
 
 export interface ArtworkHandlerOptions {
   primaryDb: DatabasePlugin;
-  cache?: MatchCache;
+  cacheService: CacheService;
   httpClient?: HttpClient;
   config?: ConfigManager;
 }
@@ -23,12 +23,11 @@ export interface ArtworkSummary {
 }
 
 export function createArtworkHandlers(options: ArtworkHandlerOptions) {
-  const cache = options.cache ?? new MatchCache();
   const extensions =
     options.config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
   const fetcher = new ArtworkFetcher({
     primaryDb: options.primaryDb,
-    cache,
+    cacheService: options.cacheService,
     httpClient: options.httpClient,
     extensions,
   });

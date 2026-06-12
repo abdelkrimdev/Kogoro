@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { lstatSync, readdirSync, rmdirSync, statSync, unlinkSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import type { LibraryDb } from "../library/library-db";
-import type { MatchCache, ScanStateEntry } from "../match/match-cache";
+import type { LibraryService } from "../library/library-service";
+import type { CacheService } from "../match/cache-service";
 import type { MatchResult } from "../match/matcher";
 import { matchResultFromCache } from "../match/matcher";
+import type { ScanStateService } from "../match/scan-state-service";
 import { createEmptyResult } from "../parse/parser";
 import type { RenamePlan } from "../rename/renamer";
 import type { AnimeGroup, MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
@@ -80,10 +81,11 @@ export interface ScanOrchestratorOptions {
   ) => Promise<{ success: boolean; error?: { type: string; message: string } }>;
   resolveFile?: (filePath: string, animeId: string, episodeId: string) => Promise<ScanResult>;
   planFile?: (filePath: string, match: MatchResult) => RenamePlan | null;
-  libraryDb?: LibraryDb;
+  libraryService?: LibraryService;
   sourceDb?: string;
   computeTopCandidates?: (sourcePath: string) => Promise<TopCandidate[]>;
-  cache?: MatchCache;
+  cacheService?: CacheService;
+  scanStateService?: ScanStateService;
   force?: boolean;
 }
 
@@ -231,7 +233,7 @@ export class ScanOrchestrator {
     this.plan = await aggregateReviewPlan(
       unorganizedResults,
       this.sessionId,
-      this.options.libraryDb,
+      this.options.libraryService,
       this.options.sourceDb,
       this.options.computeTopCandidates,
     );
@@ -264,14 +266,9 @@ export class ScanOrchestrator {
     const filePaths = await this.options.walk(path);
 
     // Clean up stale cache entries for files that no longer exist
-    if (this.options.cache) {
-      this.options.cache.purgeStale(filePaths);
+    if (this.options.cacheService) {
+      this.options.cacheService.purgeStale(filePaths);
     }
-
-    // Load existing scan state for all walked files
-    const existingState = this.options.cache
-      ? this.options.cache.getScanStateBatch(filePaths)
-      : new Map<string, ScanStateEntry>();
 
     for (let i = 0; i < filePaths.length; i++) {
       if (this.isDone()) break;
@@ -280,7 +277,7 @@ export class ScanOrchestrator {
       if (filePath === undefined) continue;
 
       let fileStat: ReturnType<typeof statSync> | null = null;
-      if (this.options.cache) {
+      if (this.options.scanStateService) {
         try {
           fileStat = statSync(filePath);
         } catch {
@@ -289,20 +286,22 @@ export class ScanOrchestrator {
       }
 
       // Check if file is unchanged (incremental scan)
-      if (this.options.cache && !this.options.force && fileStat) {
-        const stored = existingState.get(filePath);
-        if (
-          stored &&
-          stored.size === fileStat.size &&
-          stored.mtime === Math.floor(fileStat.mtimeMs / 1000)
-        ) {
-          const cachedMatch = stored.hash ? this.options.cache.get(stored.hash) : null;
+      if (this.options.scanStateService && !this.options.force && fileStat) {
+        const storedHash = this.options.scanStateService.isFileUpToDate(
+          filePath,
+          fileStat.size,
+          Math.floor(fileStat.mtimeMs / 1000),
+        );
+        if (storedHash) {
+          const cachedMatch = this.options.cacheService
+            ? this.options.cacheService.get(storedHash)
+            : null;
           if (cachedMatch) {
             const match = matchResultFromCache(cachedMatch);
             const plan = this.options.planFile?.(filePath, match) ?? null;
             this.results.push({
               file: filePath,
-              hash: stored.hash,
+              hash: storedHash,
               parsed: createEmptyResult(),
               match,
               plan,
@@ -327,13 +326,8 @@ export class ScanOrchestrator {
       const result = await this.options.scanFile(filePath, { dryRun: true }, i);
       this.results.push(result);
 
-      if (this.options.cache && fileStat) {
-        this.options.cache.setScanState(
-          filePath,
-          fileStat.size,
-          Math.floor(fileStat.mtimeMs / 1000),
-          result.hash,
-        );
+      if (this.options.scanStateService && fileStat) {
+        this.options.scanStateService.setFromFs(filePath, result.hash);
       }
 
       this.emit({
@@ -559,17 +553,10 @@ export class ScanOrchestrator {
       });
 
       // Update scan_state after successful rename
-      if (renameResult.success && this.options.cache) {
-        this.options.cache.deleteScanState(result.file);
+      if (renameResult.success && this.options.scanStateService) {
         try {
           const targetAbsolute = join(this.baseDir, plan.targetPath);
-          const newStat = statSync(targetAbsolute);
-          this.options.cache.setScanState(
-            targetAbsolute,
-            newStat.size,
-            Math.floor(newStat.mtimeMs / 1000),
-            result.hash,
-          );
+          this.options.scanStateService.moveRename(result.file, targetAbsolute, result.hash);
         } catch {
           // Target path stat failed — ignore
         }

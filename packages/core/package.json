@@ -9,6 +9,10 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "valibot": "^1.4.1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10"
   }
 }

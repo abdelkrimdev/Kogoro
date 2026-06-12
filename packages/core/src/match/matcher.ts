@@ -1,6 +1,6 @@
 import type { ParsedResult } from "../parse/parser";
 import type { AnimeResult, DatabasePlugin, EntryType, EpisodeResult } from "../types";
-import type { CachedMatch } from "./match-cache";
+import type { CachedMatch } from "./match-repository";
 import type { OverrideData } from "./override-store";
 
 export interface MatchResult {

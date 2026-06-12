@@ -2,14 +2,15 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { SCHEMA_DEFAULTS } from "../config/schema";
 import { walk } from "../io/directory-walker";
+import { hashFile } from "../io/file-hash";
 import { HttpClient } from "../io/http-client";
 import type { TaskContext } from "../io/progress";
-import { MatchCache } from "../match/match-cache";
+import type { CacheService } from "../match/cache-service";
 import type { ArtworkResult, DatabasePlugin } from "../types";
 
 interface ArtworkFetcherOptions {
   primaryDb: DatabasePlugin;
-  cache: MatchCache;
+  cacheService: CacheService;
   httpClient?: HttpClient;
   extensions?: readonly string[];
 }
@@ -23,13 +24,13 @@ interface ArtworkSummary {
 
 export class ArtworkFetcher {
   private primaryDb: DatabasePlugin;
-  private cache: MatchCache;
+  private cacheService: CacheService;
   private httpClient: HttpClient;
   private extensions: readonly string[];
 
   constructor(options: ArtworkFetcherOptions) {
     this.primaryDb = options.primaryDb;
-    this.cache = options.cache;
+    this.cacheService = options.cacheService;
     this.httpClient = options.httpClient ?? new HttpClient();
     this.extensions = options.extensions ?? SCHEMA_DEFAULTS["media-extensions"];
   }
@@ -45,8 +46,8 @@ export class ArtworkFetcher {
 
     for (const filePath of videoFiles) {
       if (ctx?.abortSignal?.aborted) break;
-      const hash = await MatchCache.hashFile(filePath);
-      const match = this.cache.get(hash);
+      const hash = await hashFile(filePath);
+      const match = this.cacheService.get(hash);
       if (match) {
         const files = animeMap.get(match.animeId);
         if (files) {

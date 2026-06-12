@@ -1,9 +1,15 @@
 import {
   BunSecretsKeytar,
+  CacheService,
   CONFIG_DIR,
   ConfigManager,
   checkKeyring,
   createCredentialStore,
+  createLibraryConnection,
+  createMatchCacheConnection,
+  LibraryService,
+  resolveDbPaths,
+  ScanStateService,
 } from "@kogoro/core";
 import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
@@ -38,21 +44,44 @@ const configManager = new ConfigManager();
 const credentialStore = createCredentialStore();
 const pluginFactory = new PluginFactory(configManager, credentialStore);
 
-const libraryHandlers = createLibraryHandlers(CONFIG_DIR);
+const { cacheDbPath, libraryDbPath } = resolveDbPaths();
+const { matchRepo, scanStateRepo } = createMatchCacheConnection(cacheDbPath);
+const libraryRepo = createLibraryConnection(libraryDbPath);
+const cacheService = new CacheService(matchRepo, scanStateRepo);
+const scanStateService = new ScanStateService(scanStateRepo);
+const libraryService = new LibraryService(libraryRepo);
+
+const libraryHandlers = createLibraryHandlers({ libraryService });
 
 const enrichmentHandlers = createEnrichmentHandlers({
   pluginFactory,
   configManager,
-  configDir: CONFIG_DIR,
+  libraryService,
+  cacheService,
   send: {
-    enrichmentProgress: (data) => rpc.send.enrichmentProgress(data),
-    enrichmentComplete: (data) => rpc.send.enrichmentComplete(data),
+    enrichmentProgress: (data: {
+      animeId: string;
+      command: "artwork" | "metadata";
+      completed: number;
+      total: number;
+      file: string;
+      status: string;
+    }) => rpc.send.enrichmentProgress(data),
+    enrichmentComplete: (data: {
+      animeId: string;
+      command: "artwork" | "metadata";
+      success: boolean;
+      error?: string;
+    }) => rpc.send.enrichmentComplete(data),
   },
 });
 
 const scanHandlers = createScanHandlers({
   pluginFactory,
   configManager,
+  cacheService,
+  libraryService,
+  scanStateService,
   mergeMatches: (matches) => libraryHandlers.mergeMatches(matches),
   send: {
     scanProgress: (data) => rpc.send.scanProgress(data),

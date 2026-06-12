@@ -7,6 +7,10 @@ export { ConfigManager } from "./config/config-manager";
 export type { PromptsAPI } from "./config/config-wizard";
 export { runConfigWizard } from "./config/config-wizard";
 export { CredentialStore, createCredentialStore } from "./config/credential-store";
+export type { MatchCacheConnection } from "./config/db-connection";
+export { createLibraryConnection, createMatchCacheConnection } from "./config/db-connection";
+export type { DbPaths } from "./config/db-paths";
+export { resolveDbPaths } from "./config/db-paths";
 export type { Config, EpisodeNumbering } from "./config/schema";
 export {
   CONFIG_DIR,
@@ -20,12 +24,13 @@ export type { EnrichmentSend } from "./fixtures";
 export {
   createAmbiguousMatcher,
   createArtworkDb,
-  createCache,
   createCallCounter,
   createCountingFetch,
   createDataMockDb,
   createEpisodeNumberingMatcher,
-  createLibraryDb,
+  createLibraryRepository,
+  createMatchCacheService,
+  createMatchRepository,
   createMockDb,
   createMockHttpClient,
   createMockKeytar,
@@ -55,6 +60,7 @@ export {
   writeTempFile,
 } from "./fixtures";
 export { walk } from "./io/directory-walker";
+export { hashFile } from "./io/file-hash";
 export type { DebugEntry } from "./io/http-client";
 export { HttpClient } from "./io/http-client";
 export type {
@@ -63,10 +69,12 @@ export type {
   ProgressTrackerOptions,
   TaskContext,
 } from "./io/progress";
-export type { LibraryAnime, LibraryEpisode, WatchStatus } from "./library/library-db";
-export { LibraryDb } from "./library/library-db";
-export type { CachedMatch, ScanStateEntry } from "./match/match-cache";
-export { MatchCache } from "./match/match-cache";
+export type { LibraryAnime, LibraryEpisode, WatchStatus } from "./library/library-repository";
+export { LibraryRepository } from "./library/library-repository";
+export { LibraryService } from "./library/library-service";
+export { CacheService } from "./match/cache-service";
+export type { CachedMatch } from "./match/match-repository";
+export { MatchRepository } from "./match/match-repository";
 export type { MatcherLike, MatchResult } from "./match/matcher";
 export {
   AMBIGUOUS_MATCH_REASON,
@@ -80,6 +88,8 @@ export {
 } from "./match/matcher";
 export type { OverrideData } from "./match/override-store";
 export { OVERRIDE_TOML_KEYS, OverrideStore } from "./match/override-store";
+export { ScanStateRepository } from "./match/scan-state-repository";
+export { ScanStateService } from "./match/scan-state-service";
 export { ArtworkFetcher } from "./media/artwork-fetcher";
 export { MetadataWriter } from "./media/metadata-writer";
 export { absoluteToRelative, relativeToAbsolute } from "./parse/numbering-converter";

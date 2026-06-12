@@ -1,0 +1,102 @@
+import { eq } from "drizzle-orm";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { EntryType } from "../types";
+import { matches } from "./schema";
+
+export interface CachedMatch {
+  animeId: string;
+  animeTitle?: string;
+  episodeId: string | null;
+  entryType: EntryType;
+  season: number | null;
+  episode: number | null;
+  title: string | null;
+  timestamp: string;
+}
+
+type MatchSchema = { matches: typeof matches };
+type MatchDb = BunSQLiteDatabase<MatchSchema>;
+
+export class MatchRepository {
+  constructor(private db: MatchDb) {}
+
+  set(hash: string, match: CachedMatch): void {
+    this.db
+      .insert(matches)
+      .values({
+        hash,
+        animeId: match.animeId,
+        animeTitle: match.animeTitle ?? null,
+        episodeId: match.episodeId,
+        entryType: match.entryType,
+        season: match.season,
+        episode: match.episode,
+        title: match.title,
+        timestamp: match.timestamp,
+      })
+      .onConflictDoUpdate({
+        target: matches.hash,
+        set: {
+          animeId: match.animeId,
+          animeTitle: match.animeTitle ?? null,
+          episodeId: match.episodeId,
+          entryType: match.entryType,
+          season: match.season,
+          episode: match.episode,
+          title: match.title,
+          timestamp: match.timestamp,
+        },
+      })
+      .run();
+  }
+
+  get(hash: string): CachedMatch | null {
+    const row = this.db.select().from(matches).where(eq(matches.hash, hash)).get();
+    return row
+      ? {
+          animeId: row.animeId,
+          animeTitle: row.animeTitle ?? undefined,
+          episodeId: row.episodeId,
+          entryType: row.entryType as EntryType,
+          season: row.season,
+          episode: row.episode,
+          title: row.title,
+          timestamp: row.timestamp,
+        }
+      : null;
+  }
+
+  has(hash: string): boolean {
+    const row = this.db
+      .select({ hash: matches.hash })
+      .from(matches)
+      .where(eq(matches.hash, hash))
+      .get();
+    return row != null;
+  }
+
+  list(): Array<{ hash: string; match: CachedMatch }> {
+    const rows = this.db.select().from(matches).orderBy(matches.timestamp).all();
+    return rows.map((row) => ({
+      hash: row.hash,
+      match: {
+        animeId: row.animeId,
+        animeTitle: row.animeTitle ?? undefined,
+        episodeId: row.episodeId,
+        entryType: row.entryType as EntryType,
+        season: row.season,
+        episode: row.episode,
+        title: row.title,
+        timestamp: row.timestamp,
+      },
+    }));
+  }
+
+  clear(): void {
+    this.db.delete(matches).run();
+  }
+
+  delete(hash: string): void {
+    this.db.delete(matches).where(eq(matches.hash, hash)).run();
+  }
+}

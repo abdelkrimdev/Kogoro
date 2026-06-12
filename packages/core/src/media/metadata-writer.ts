@@ -1,8 +1,10 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { SCHEMA_DEFAULTS } from "../config/schema";
 import { walk } from "../io/directory-walker";
+import { hashFile } from "../io/file-hash";
 import type { TaskContext } from "../io/progress";
-import { type CachedMatch, MatchCache } from "../match/match-cache";
+import type { CacheService } from "../match/cache-service";
+import type { CachedMatch } from "../match/match-repository";
 import { stripExtension } from "../parse/parser";
 import type { DatabasePlugin, EpisodeResult } from "../types";
 
@@ -14,7 +16,7 @@ interface MetadataSummary {
 }
 
 interface MetadataWriterOptions {
-  cache: MatchCache;
+  cacheService: CacheService;
   database?: DatabasePlugin;
   extensions?: readonly string[];
 }
@@ -29,12 +31,12 @@ function escapeXml(str: string): string {
 }
 
 export class MetadataWriter {
-  private cache: MatchCache;
+  private cacheService: CacheService;
   private database?: DatabasePlugin;
   private extensions: readonly string[];
 
   constructor(options: MetadataWriterOptions) {
-    this.cache = options.cache;
+    this.cacheService = options.cacheService;
     this.database = options.database;
     this.extensions = options.extensions ?? SCHEMA_DEFAULTS["media-extensions"];
   }
@@ -71,8 +73,8 @@ export class MetadataWriter {
           continue;
         }
 
-        const hash = await MatchCache.hashFile(filePath);
-        const match = this.cache.get(hash);
+        const hash = await hashFile(filePath);
+        const match = this.cacheService.get(hash);
 
         if (!match) {
           skipped++;

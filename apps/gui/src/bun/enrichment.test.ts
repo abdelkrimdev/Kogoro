@@ -3,11 +3,14 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabasePlugin } from "@kogoro/core";
 import {
+  type CacheService,
   ConfigManager,
   createArtworkDb,
-  createLibraryDb,
+  createLibraryRepository,
+  createMatchCacheService,
   createTrackingEnrichmentSend,
-  MatchCache,
+  hashFile,
+  LibraryService,
   makeCachedMatch,
   mockFetch,
   noopEnrichmentSend,
@@ -18,45 +21,51 @@ import {
 } from "@kogoro/core";
 import { createEnrichmentHandlers } from "./enrichment";
 
+function createLibraryService(dir: string): {
+  svc: LibraryService;
+  close: () => void;
+} {
+  const { repo, close } = createLibraryRepository(dir);
+  return { svc: new LibraryService(repo), close };
+}
+
 async function seedLibraryAndCache(
   configDir: string,
   mediaDir: string,
+  cacheService: CacheService,
 ): Promise<{ animeId: number }> {
-  const cacheDbPath = join(configDir, "match-cache.db");
-
   mkdirSync(mediaDir, { recursive: true });
 
   const ep1Path = writeTempFile(mediaDir, "S01E01.mkv", "video content 1");
   const ep2Path = writeTempFile(mediaDir, "S01E02.mkv", "video content 2");
 
-  const db = createLibraryDb(configDir);
-  const anime = db.upsertAnime({
+  const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository(configDir);
+  const anime = libraryRepo.upsertAnime({
     externalId: "tvdb-12345",
     sourceDb: "tvdb",
     title: "Test Anime",
     entryType: "tv",
     episodeCount: 2,
   });
-  db.addEpisode({
+  libraryRepo.addEpisode({
     animeId: anime.id,
     episodeNumber: 1,
     filePath: ep1Path,
     title: "Episode 1",
     season: 1,
   });
-  db.addEpisode({
+  libraryRepo.addEpisode({
     animeId: anime.id,
     episodeNumber: 2,
     filePath: ep2Path,
     title: "Episode 2",
     season: 1,
   });
-  db.close();
+  closeLibrary();
 
-  const cache = new MatchCache({ dbPath: cacheDbPath });
   for (const filePath of [ep1Path, ep2Path]) {
-    const hash = await MatchCache.hashFile(filePath);
-    cache.set(hash, makeCachedMatch({ animeId: "tvdb-12345", entryType: "tv" }));
+    const hash = await hashFile(filePath);
+    cacheService.set(hash, makeCachedMatch({ animeId: "tvdb-12345", entryType: "tv" }));
   }
 
   return { animeId: anime.id };
@@ -65,43 +74,52 @@ async function seedLibraryAndCache(
 describe("enrichArtwork", () => {
   test("fails when anime is not found in library", async () => {
     await withTempDir("enrich-artwork-unknown", async (dir) => {
+      const { svc, close } = createLibraryService(dir);
       const configManager = new ConfigManager({ configDir: dir });
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
-        configDir: dir,
         send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
         database: createArtworkDb([]),
       });
 
       const result = await handlers.enrichArtwork({ id: "99999" });
       expect(result.success).toBe(false);
       expect(result.error).toBe("Anime not found in library");
+      closeCache();
+      close();
     });
   });
 
   test("fails when no episode files found", async () => {
     await withTempDir("enrich-artwork-no-episodes", async (dir) => {
-      const db = createLibraryDb(dir);
-      const anime = db.upsertAnime({
+      const { repo: libraryRepo } = createLibraryRepository(dir);
+      const anime = libraryRepo.upsertAnime({
         externalId: "tvdb-12345",
         sourceDb: "tvdb",
         title: "Empty Anime",
         entryType: "tv",
         episodeCount: 0,
       });
-      db.close();
 
+      const { svc, close } = createLibraryService(dir);
       const configManager = new ConfigManager({ configDir: dir });
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
-        configDir: dir,
         send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
         database: createArtworkDb([]),
       });
 
       const result = await handlers.enrichArtwork({ id: String(anime.id) });
       expect(result.success).toBe(false);
       expect(result.error).toBe("No episode files found for this anime");
+      closeCache();
+      close();
     });
   });
 
@@ -111,18 +129,23 @@ describe("enrichArtwork", () => {
     try {
       await withTempDir("enrich-artwork-no-db", async (dir) => {
         const mediaDir = join(dir, "media");
-        const { animeId } = await seedLibraryAndCache(dir, mediaDir);
+        const { cacheService, close: closeCache } = createMatchCacheService(dir);
+        const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
+        const { svc, close } = createLibraryService(dir);
         const configManager = new ConfigManager({ configDir: dir });
         const handlers = createEnrichmentHandlers({
           configManager,
-          configDir: dir,
           send: noopEnrichmentSend,
+          libraryService: svc,
+          cacheService,
         });
 
         const result = await handlers.enrichArtwork({ id: String(animeId) });
         expect(result.success).toBe(false);
         expect(result.error).toBe("No database plugin available — check API key configuration");
+        closeCache();
+        close();
       });
     } finally {
       if (savedEnv !== undefined) {
@@ -134,7 +157,8 @@ describe("enrichArtwork", () => {
   test("downloads artwork and updates cover_path", async () => {
     await withTempDir("enrich-artwork-download", async (dir) => {
       const mediaDir = join(dir, "media");
-      const { animeId } = await seedLibraryAndCache(dir, mediaDir);
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const artworkDb: DatabasePlugin = {
         ...createArtworkDb([
@@ -153,10 +177,12 @@ describe("enrichArtwork", () => {
       await withMockFetch(
         mockFetch(testImageBytes, 200, "image/jpeg") as typeof globalThis.fetch,
         async () => {
+          const { svc, close } = createLibraryService(dir);
           const handlers = createEnrichmentHandlers({
             configManager,
-            configDir: dir,
             send: noopEnrichmentSend,
+            libraryService: svc,
+            cacheService,
             database: artworkDb,
           });
 
@@ -164,20 +190,23 @@ describe("enrichArtwork", () => {
           expect(result.success).toBe(true);
           expect(result.summary?.downloaded).toBe(1);
           expect(result.summary?.total).toBe(1);
+          close();
         },
       );
 
-      const db = createLibraryDb(dir);
-      const anime = db.getAnime(animeId);
+      const { repo: libraryRepo, close } = createLibraryRepository(dir);
+      const anime = libraryRepo.getAnime(animeId);
       expect(anime?.coverArtPath).toContain("cover.jpg");
-      db.close();
+      close();
+      closeCache();
     });
   });
 
   test("emits progress events", async () => {
     await withTempDir("enrich-artwork-progress", async (dir) => {
       const mediaDir = join(dir, "media");
-      const { animeId } = await seedLibraryAndCache(dir, mediaDir);
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const artworkDb: DatabasePlugin = {
         ...createArtworkDb([
@@ -197,37 +226,44 @@ describe("enrichArtwork", () => {
       await withMockFetch(
         mockFetch(testImageBytes, 200, "image/jpeg") as typeof globalThis.fetch,
         async () => {
+          const { svc, close } = createLibraryService(dir);
           const handlers = createEnrichmentHandlers({
             configManager,
-            configDir: dir,
             send: createTrackingEnrichmentSend(progressEvents),
+            libraryService: svc,
+            cacheService,
             database: artworkDb,
           });
 
           await handlers.enrichArtwork({ id: String(animeId) });
+          close();
         },
       );
 
       expect(progressEvents.length).toBeGreaterThanOrEqual(1);
       const last = progressEvents[progressEvents.length - 1];
       expect(last?.status).toBe("downloaded");
+      closeCache();
     });
   });
 
   test("handles no artwork found from database", async () => {
     await withTempDir("enrich-artwork-no-artwork", async (dir) => {
       const mediaDir = join(dir, "media");
-      const { animeId } = await seedLibraryAndCache(dir, mediaDir);
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const artworkDb: DatabasePlugin = {
         ...createArtworkDb([]),
       };
 
       const configManager = new ConfigManager({ configDir: dir });
+      const { svc, close } = createLibraryService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
-        configDir: dir,
         send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
         database: artworkDb,
       });
 
@@ -235,6 +271,8 @@ describe("enrichArtwork", () => {
       expect(result.success).toBe(true);
       expect(result.summary?.noArtwork).toBe(1);
       expect(result.summary?.downloaded).toBe(0);
+      closeCache();
+      close();
     });
   });
 });
@@ -242,30 +280,38 @@ describe("enrichArtwork", () => {
 describe("enrichMetadata", () => {
   test("fails when anime is not found in library", async () => {
     await withTempDir("enrich-metadata-unknown", async (dir) => {
+      const { svc, close } = createLibraryService(dir);
       const configManager = new ConfigManager({ configDir: dir });
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
-        configDir: dir,
         send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
         database: createArtworkDb([]),
       });
 
       const result = await handlers.enrichMetadata({ id: "99999" });
       expect(result.success).toBe(false);
       expect(result.error).toBe("Anime not found in library");
+      closeCache();
+      close();
     });
   });
 
   test("writes NFO files for episodes", async () => {
     await withTempDir("enrich-metadata-write", async (dir) => {
       const mediaDir = join(dir, "media");
-      const { animeId } = await seedLibraryAndCache(dir, mediaDir);
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const configManager = new ConfigManager({ configDir: dir });
+      const { svc, close } = createLibraryService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
-        configDir: dir,
         send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
         database: createArtworkDb([]),
       });
 
@@ -280,21 +326,26 @@ describe("enrichMetadata", () => {
       const nfo1 = readFileSync(join(mediaDir, "S01E01.nfo"), "utf-8");
       expect(nfo1).toContain("<episodedetails>");
       expect(nfo1).toContain("<episode>1</episode>");
+      closeCache();
+      close();
     });
   });
 
   test("emits progress events", async () => {
     await withTempDir("enrich-metadata-progress", async (dir) => {
       const mediaDir = join(dir, "media");
-      const { animeId } = await seedLibraryAndCache(dir, mediaDir);
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const configManager = new ConfigManager({ configDir: dir });
       const progressEvents: Array<{ completed: number; total: number; status: string }> = [];
 
+      const { svc, close } = createLibraryService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
-        configDir: dir,
         send: createTrackingEnrichmentSend(progressEvents),
+        libraryService: svc,
+        cacheService,
         database: createArtworkDb([]),
       });
 
@@ -303,24 +354,31 @@ describe("enrichMetadata", () => {
       expect(progressEvents.length).toBeGreaterThanOrEqual(2);
       const last = progressEvents[progressEvents.length - 1];
       expect(last?.status).toBe("written");
+      closeCache();
+      close();
     });
   });
 
   test("works without database plugin", async () => {
     await withTempDir("enrich-metadata-no-db", async (dir) => {
       const mediaDir = join(dir, "media");
-      const { animeId } = await seedLibraryAndCache(dir, mediaDir);
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const configManager = new ConfigManager({ configDir: dir });
+      const { svc, close } = createLibraryService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
-        configDir: dir,
         send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
       });
 
       const result = await handlers.enrichMetadata({ id: String(animeId) });
       expect(result.success).toBe(true);
       expect(result.summary?.written).toBe(2);
+      closeCache();
+      close();
     });
   });
 });

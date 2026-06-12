@@ -3,8 +3,8 @@ import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {
   createAmbiguousMatcher,
-  createCache,
   createEpisodeNumberingMatcher,
+  createMatchCacheService,
   createMockMatcher,
   createTrackingMatcher,
   makeEpisodes,
@@ -168,13 +168,13 @@ describe("Scanner", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
 
-      const cache = createCache(dir);
+      const { cacheService } = createMatchCacheService(dir);
       const renamer = new Renamer({
         filenameTemplate: "{anime} - {episode:02}.{ext}",
         directoryTemplate: "{anime}/{type}",
         action: "move",
       });
-      const scanner = new Scanner({ matcher: createMockMatcher(), cache, renamer });
+      const scanner = new Scanner({ matcher: createMockMatcher(), cacheService, renamer });
 
       const result = await scanner.scanFile(filePath, { dryRun: true });
 
@@ -195,14 +195,14 @@ describe("Scanner", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
 
-      const cache = createCache(dir);
-      const scanner = new Scanner({ matcher: createMockMatcher(), cache });
+      const { cacheService } = createMatchCacheService(dir);
+      const scanner = new Scanner({ matcher: createMockMatcher(), cacheService });
 
       const first = await scanner.scanFile(filePath, { dryRun: true });
       expect(first.status).toBe("matched");
       expect(first.cached).toBe(false);
       expect(first.hash).toBeTruthy();
-      expect(cache.has(first.hash)).toBe(true);
+      expect(cacheService.has(first.hash)).toBe(true);
 
       const second = await scanner.scanFile(filePath);
       expect(second.status).toBe("cached");
@@ -216,11 +216,11 @@ describe("Scanner", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
 
-      const cache = createCache(dir);
-      const scanner = new Scanner({ matcher: createMockMatcher(), cache });
+      const { cacheService } = createMatchCacheService(dir);
+      const scanner = new Scanner({ matcher: createMockMatcher(), cacheService });
 
       const first = await scanner.scanFile(filePath, { dryRun: true });
-      expect(cache.has(first.hash)).toBe(true);
+      expect(cacheService.has(first.hash)).toBe(true);
 
       const second = await scanner.scanFile(filePath, {
         force: true,
@@ -236,13 +236,13 @@ describe("Scanner", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
 
-      const cache = createCache(dir);
+      const { cacheService } = createMatchCacheService(dir);
       const renamer = new Renamer({
         filenameTemplate: "{anime} - {episode:02}.{ext}",
         directoryTemplate: "{anime}/{type}",
         action: "move",
       });
-      const scanner = new Scanner({ matcher: createMockMatcher(), cache, renamer });
+      const scanner = new Scanner({ matcher: createMockMatcher(), cacheService, renamer });
 
       const result = await scanner.scanFile(filePath);
 

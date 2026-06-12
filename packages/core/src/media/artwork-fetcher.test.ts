@@ -4,16 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   createArtworkDb,
-  createCache,
+  createMatchCacheService,
   createMockHttpClient,
   createTrackingFetch,
+  hashFile,
   makeCachedMatch,
   mockFetch,
   testImageBytes,
   writeTempFile,
 } from "../fixtures";
 import type { ProgressEvent, TaskContext } from "../io/progress";
-import { MatchCache } from "../match/match-cache";
 import { ArtworkFetcher } from "./artwork-fetcher";
 
 describe("ArtworkFetcher", () => {
@@ -23,11 +23,11 @@ describe("ArtworkFetcher", () => {
     mkdirSync(animeDir, { recursive: true });
     const videoPath = writeTempFile(animeDir, "ep1.mkv", "dummy video content");
 
-    const cache = createCache(dir);
+    const { cacheService, close } = createMatchCacheService(dir);
 
     async function seedCache(animeId = "12345") {
-      const hash = await MatchCache.hashFile(videoPath);
-      cache.set(
+      const hash = await hashFile(videoPath);
+      cacheService.set(
         hash,
         makeCachedMatch({
           animeId,
@@ -43,14 +43,17 @@ describe("ArtworkFetcher", () => {
       dir,
       animeDir,
       videoPath,
-      cache,
+      cacheService,
       seedCache,
-      cleanup: () => rmSync(dir, { recursive: true, force: true }),
+      cleanup: () => {
+        close();
+        rmSync(dir, { recursive: true, force: true });
+      },
     };
   }
 
   test("downloads poster and saves cover.jpg in anime directory", async () => {
-    const { dir, animeDir, cache, seedCache, cleanup } = setup();
+    const { dir, animeDir, cacheService, seedCache, cleanup } = setup();
     try {
       await seedCache();
 
@@ -60,7 +63,7 @@ describe("ArtworkFetcher", () => {
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
-        cache,
+        cacheService,
         httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
@@ -74,7 +77,7 @@ describe("ArtworkFetcher", () => {
   });
 
   test("skips anime directory that already has cover.jpg", async () => {
-    const { dir, animeDir, cache, seedCache, cleanup } = setup();
+    const { dir, animeDir, cacheService, seedCache, cleanup } = setup();
     try {
       writeFileSync(join(animeDir, "cover.jpg"), "existing cover");
 
@@ -86,7 +89,7 @@ describe("ArtworkFetcher", () => {
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
-        cache,
+        cacheService,
         httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
@@ -99,7 +102,7 @@ describe("ArtworkFetcher", () => {
   });
 
   test("force option overwrites existing cover.jpg", async () => {
-    const { dir, animeDir, cache, seedCache, cleanup } = setup();
+    const { dir, animeDir, cacheService, seedCache, cleanup } = setup();
     try {
       writeFileSync(join(animeDir, "cover.jpg"), "old cover");
 
@@ -111,7 +114,7 @@ describe("ArtworkFetcher", () => {
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
-        cache,
+        cacheService,
         httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
@@ -126,7 +129,7 @@ describe("ArtworkFetcher", () => {
   });
 
   test("reports noArtwork when primary database returns no poster", async () => {
-    const { dir, animeDir, cache, seedCache, cleanup } = setup();
+    const { dir, animeDir, cacheService, seedCache, cleanup } = setup();
     try {
       await seedCache();
 
@@ -134,7 +137,7 @@ describe("ArtworkFetcher", () => {
 
       const fetcher = new ArtworkFetcher({
         primaryDb,
-        cache,
+        cacheService,
       });
 
       const summary = await fetcher.process(dir);
@@ -147,7 +150,7 @@ describe("ArtworkFetcher", () => {
   });
 
   test("selects highest resolution poster URL when multiple available", async () => {
-    const { dir, animeDir, cache, seedCache, cleanup } = setup();
+    const { dir, animeDir, cacheService, seedCache, cleanup } = setup();
     try {
       await seedCache();
 
@@ -168,7 +171,7 @@ describe("ArtworkFetcher", () => {
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
-        cache,
+        cacheService,
         httpClient: createMockHttpClient(trackingFetch),
       });
 
@@ -182,7 +185,7 @@ describe("ArtworkFetcher", () => {
   });
 
   test("falls back to first artwork when no resolution data available", async () => {
-    const { dir, animeDir, cache, seedCache, cleanup } = setup();
+    const { dir, animeDir, cacheService, seedCache, cleanup } = setup();
     try {
       await seedCache();
 
@@ -193,7 +196,7 @@ describe("ArtworkFetcher", () => {
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
-        cache,
+        cacheService,
         httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
@@ -206,7 +209,7 @@ describe("ArtworkFetcher", () => {
   });
 
   test("reports total 0 when directory has no cached files", async () => {
-    const { dir, cache, cleanup } = setup();
+    const { dir, cacheService, cleanup } = setup();
     try {
       const mockDb = createArtworkDb([
         { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
@@ -214,7 +217,7 @@ describe("ArtworkFetcher", () => {
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
-        cache,
+        cacheService,
       });
 
       const summary = await fetcher.process(dir);
@@ -226,7 +229,7 @@ describe("ArtworkFetcher", () => {
   });
 
   test("reports progress for each anime during download phase", async () => {
-    const { dir, cache, seedCache, cleanup } = setup();
+    const { dir, cacheService, seedCache, cleanup } = setup();
     try {
       await seedCache();
 
@@ -236,7 +239,7 @@ describe("ArtworkFetcher", () => {
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
-        cache,
+        cacheService,
         httpClient: createMockHttpClient(mockFetch(testImageBytes)),
       });
 
@@ -259,7 +262,7 @@ describe("ArtworkFetcher", () => {
   });
 
   test("stops processing when aborted", async () => {
-    const { dir, cache, cleanup } = setup();
+    const { dir, cacheService, cleanup } = setup();
     try {
       const mockDb = createArtworkDb([
         { id: "1", type: "poster", url: "https://example.com/poster.jpg" },
@@ -268,7 +271,7 @@ describe("ArtworkFetcher", () => {
 
       const fetcher = new ArtworkFetcher({
         primaryDb: mockDb,
-        cache,
+        cacheService,
       });
 
       const abortController = new AbortController();

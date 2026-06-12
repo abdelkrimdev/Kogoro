@@ -5,7 +5,7 @@ import {
   createMockDb as _createMockDb,
   ConfigManager,
   computeFileHash,
-  createCache,
+  createMatchCacheService,
   makeEpisodes,
   OverrideStore,
   SCHEMA_DEFAULTS,
@@ -58,9 +58,9 @@ describe("scan CLI commands", () => {
   test("second scan of same file returns cached status", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "same content");
-      const cache = createCache(dir);
+      const { cacheService } = createMatchCacheService(dir);
 
-      const handlers = createScanHandlers({ database: createStandardMockDb(), cache });
+      const handlers = createScanHandlers({ database: createStandardMockDb(), cacheService });
       const first = await handlers.scan(filePath, { yes: true, dryRun: true });
       expect(first[0]?.status).toBe("matched");
 
@@ -72,9 +72,9 @@ describe("scan CLI commands", () => {
   test("--force ignores cache and re-matches", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
-      const cache = createCache(dir);
+      const { cacheService } = createMatchCacheService(dir);
 
-      const handlers = createScanHandlers({ database: createStandardMockDb(), cache });
+      const handlers = createScanHandlers({ database: createStandardMockDb(), cacheService });
       await handlers.scan(filePath, { yes: true, dryRun: true });
       const results = await handlers.scan(filePath, { yes: true, dryRun: true, force: true });
       expect(results[0]?.status).toBe("matched");

@@ -1,12 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { DatabasePlugin, MatcherLike, ScanEvent, ScanReviewReadyEvent } from "@kogoro/core";
+import type {
+  ConfigManager,
+  DatabasePlugin,
+  MatcherLike,
+  ScanEvent,
+  ScanReviewReadyEvent,
+} from "@kogoro/core";
 import {
   createAmbiguousMatcher,
-  createCache,
-  createLibraryDb,
+  createLibraryRepository,
+  createMatchCacheService,
   createMockDb,
+  LibraryService,
   Matcher,
   makeMatchResult,
   makeParsedResult,
@@ -15,11 +22,14 @@ import {
   SCHEMA_DEFAULTS,
   Scanner,
   ScanOrchestrator,
+  ScanStateService,
   TEMPLATE_PRESETS,
   walk,
   withTempDir,
   writeTempFile,
 } from "@kogoro/core";
+import type { PluginFactory } from "@kogoro/plugins";
+import { createScanHandlers } from "./scan";
 
 function createOrchestratorWithRealScan(
   dir: string,
@@ -39,14 +49,13 @@ function createOrchestratorWithRealScan(
     });
   }
 
-  const cache = createCache(dir);
   const overrideStore = new OverrideStore(dir);
   const renamer = new Renamer({
     filenameTemplate: `${TEMPLATE_PRESETS.standard}.{ext}`,
     directoryTemplate: SCHEMA_DEFAULTS.template.directory,
   });
 
-  const scanner = new Scanner({ matcher, cache, renamer, overrideStore });
+  const scanner = new Scanner({ matcher, renamer, overrideStore });
 
   return new ScanOrchestrator({
     walk: async (path: string) => walk(path, SCHEMA_DEFAULTS["media-extensions"]),
@@ -287,19 +296,20 @@ describe("ScanOrchestrator", () => {
         const matches = orch.getMatchResults();
         expect(matches.length).toBeGreaterThan(0);
 
-        const db = createLibraryDb(dir);
-        db.rebuildFromMatches(matches);
+        const { repo: libraryRepo, close } = createLibraryRepository(dir);
+        const libraryService = new LibraryService(libraryRepo);
+        libraryService.rebuildFromMatches(matches);
 
-        const animeList = db.listAnime();
+        const animeList = libraryRepo.listAnime();
         expect(animeList).toHaveLength(1);
         expect(animeList[0]?.title).toBe("My Anime");
         expect(animeList[0]?.entryType).toBe("tv");
 
-        const episodes = db.getEpisodesByAnimeId(animeList[0]?.id ?? 0);
+        const episodes = libraryRepo.getEpisodesByAnimeId(animeList[0]?.id ?? 0);
         expect(episodes).toHaveLength(1);
         expect(episodes[0]?.episodeNumber).toBe(1);
 
-        db.close();
+        close();
       });
     });
 
@@ -413,6 +423,98 @@ describe("ScanOrchestrator", () => {
 
         const matches = orch.getMatchResults();
         expect(matches).toHaveLength(0);
+      });
+    });
+  });
+
+  describe("CacheService wiring", () => {
+    test("scan handlers accept and pass CacheService to orchestrator", async () => {
+      await withTempDir("scan-cache-wire", async (dir) => {
+        const { matchRepo, scanStateRepo, cacheService, close } = createMatchCacheService(dir);
+        const scanStateService = new ScanStateService(scanStateRepo);
+
+        // Seed a stale entry that should be purged on scan
+        scanStateRepo.set("/deleted/old.mkv", 100, 1000, "staleHash");
+        matchRepo.set("staleHash", {
+          animeId: "99",
+          entryType: "tv",
+          episodeId: null,
+          season: null,
+          episode: null,
+          title: null,
+          timestamp: "2026-01-01T00:00:00.000Z",
+        });
+
+        const dbPlugin = createMockDb({
+          searchAnime: (title: string) => {
+            if (title === "My Anime") {
+              return [{ id: "1", titleEn: "My Anime", entryType: "tv" }];
+            }
+            return [];
+          },
+          getEpisodes: (animeId: string) => {
+            if (animeId === "1") {
+              return [
+                {
+                  id: "101",
+                  animeId: "1",
+                  season: 1,
+                  episode: 1,
+                  titleEn: "Ep 1",
+                  entryType: "tv",
+                },
+              ];
+            }
+            return [];
+          },
+        });
+
+        writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
+
+        const { repo: libraryRepo } = createLibraryRepository(dir);
+        const libraryService = new LibraryService(libraryRepo);
+
+        const handlers = createScanHandlers({
+          pluginFactory: {
+            primaryDatabase: async () => dbPlugin,
+            subtitle: async () => undefined,
+          } as unknown as PluginFactory,
+          configManager: {
+            getTemplate: () => TEMPLATE_PRESETS.standard,
+            get: (key: string) => {
+              if (key === "template.directory") return SCHEMA_DEFAULTS.template.directory;
+              if (key === "primary-db") return "tvdb";
+              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
+              return undefined;
+            },
+            getList: (key: string) => {
+              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
+              return [];
+            },
+            resolveMediaExtensions: () => SCHEMA_DEFAULTS["media-extensions"],
+          } as unknown as ConfigManager,
+          cacheService,
+          libraryService,
+          scanStateService,
+          mergeMatches: () => {},
+          send: {
+            scanProgress: () => {},
+            scanPhaseComplete: () => {},
+            scanReviewReady: () => {},
+            scanExecutionProgress: () => {},
+            scanComplete: () => {},
+          },
+        });
+
+        await handlers.scanStart({ path: dir });
+        // Wait briefly for the async scan to complete
+        await new Promise((r) => setTimeout(r, 100));
+
+        // Stale entry should be purged via CacheService
+        expect(scanStateRepo.get("/deleted/old.mkv")).toBeNull();
+        expect(matchRepo.has("staleHash")).toBe(false);
+
+        close();
       });
     });
   });

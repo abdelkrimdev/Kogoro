@@ -1,8 +1,9 @@
 import { basename, dirname, extname } from "node:path";
 import { type EpisodeNumbering, ORGANIZED_DIRS } from "../config/schema";
+import { hashFile } from "../io/file-hash";
 import type { TaskContext } from "../io/progress";
-import type { CachedMatch } from "../match/match-cache";
-import { MatchCache } from "../match/match-cache";
+import type { CacheService } from "../match/cache-service";
+import type { CachedMatch } from "../match/match-repository";
 import {
   AMBIGUOUS_MATCH_REASON,
   bestPerAnimeId,
@@ -40,7 +41,7 @@ interface ScanBatchOptions extends ScanFileOptions {
 
 interface ScannerOptions {
   matcher: MatcherLike;
-  cache?: MatchCache;
+  cacheService?: CacheService;
   renamer?: Renamer;
   overrideStore?: OverrideStore;
 }
@@ -124,13 +125,13 @@ interface BatchEntry extends PreparedFile {
 
 export class Scanner {
   private matcher: MatcherLike;
-  private cache?: MatchCache;
+  private cacheService?: CacheService;
   private renamer?: Renamer;
   private overrideStore?: OverrideStore;
 
   constructor(options: ScannerOptions) {
     this.matcher = options.matcher;
-    this.cache = options.cache;
+    this.cacheService = options.cacheService;
     this.renamer = options.renamer;
     this.overrideStore = options.overrideStore;
   }
@@ -153,10 +154,10 @@ export class Scanner {
     let hash = "";
     let cachedMatch: CachedMatch | null = null;
 
-    if (this.cache) {
-      hash = await MatchCache.hashFile(filePath);
+    if (this.cacheService) {
+      hash = await hashFile(filePath);
       if (!force) {
-        cachedMatch = this.cache.get(hash);
+        cachedMatch = this.cacheService.get(hash);
       }
     }
 
@@ -307,20 +308,11 @@ export class Scanner {
   }
 
   private async persistMatch(filePath: string, hash: string, match: MatchResult): Promise<string> {
-    if (!this.cache) return hash;
+    if (!this.cacheService) return hash;
 
-    const resolvedHash = hash || (await MatchCache.hashFile(filePath));
+    const resolvedHash = hash || (await hashFile(filePath));
 
-    this.cache.set(resolvedHash, {
-      animeId: match.anime.id,
-      animeTitle: match.anime.titleEn,
-      episodeId: match.episode?.id ?? null,
-      entryType: match.anime.entryType,
-      season: match.episode?.season ?? null,
-      episode: match.episode?.episode ?? null,
-      title: match.episode?.titleEn ?? null,
-      timestamp: new Date().toISOString(),
-    });
+    this.cacheService.storeMatchFromResult(resolvedHash, match);
 
     return resolvedHash;
   }

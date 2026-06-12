@@ -1,14 +1,14 @@
 import {
+  type CacheService,
   type ConfigManager,
   type DatabasePlugin,
-  MatchCache,
   MetadataWriter,
   SCHEMA_DEFAULTS,
 } from "@kogoro/core";
 import type { Logger } from "../logger";
 
 export interface MetadataHandlerOptions {
-  dbPath?: string;
+  cacheService: CacheService;
   database?: DatabasePlugin;
   config?: ConfigManager;
 }
@@ -20,11 +20,14 @@ export interface MetadataResult {
   failed: number;
 }
 
-export function createMetadataHandlers(options: MetadataHandlerOptions = {}) {
-  const cache = new MatchCache({ dbPath: options.dbPath });
+export function createMetadataHandlers(options: MetadataHandlerOptions) {
   const extensions =
     options.config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
-  const writer = new MetadataWriter({ cache, database: options.database, extensions });
+  const writer = new MetadataWriter({
+    cacheService: options.cacheService,
+    database: options.database,
+    extensions,
+  });
 
   return {
     async write(

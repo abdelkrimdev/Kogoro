@@ -1,52 +1,34 @@
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import {
   ArtworkFetcher,
+  type CacheService,
   type ConfigManager,
   type DatabasePlugin,
   type EnrichmentSend,
-  LibraryDb,
-  MatchCache,
+  type LibraryService,
   MetadataWriter,
 } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
 interface EnrichmentOptions {
   configManager: ConfigManager;
-  configDir: string;
   send: EnrichmentSend;
+  libraryService: LibraryService;
+  cacheService: CacheService;
   pluginFactory?: PluginFactory;
   database?: DatabasePlugin;
 }
 
 export function createEnrichmentHandlers(options: EnrichmentOptions) {
-  const { pluginFactory: factory, configManager, configDir, send, database: overrideDb } = options;
-  const dbPath = join(configDir, "library.db");
-  const cache = new MatchCache({ dbPath: join(configDir, "match-cache.db") });
+  const {
+    pluginFactory: factory,
+    configManager,
+    send,
+    database: overrideDb,
+    libraryService: svc,
+    cacheService,
+  } = options;
   const extensions = configManager.resolveMediaExtensions();
-
-  function getLibraryDb(): LibraryDb {
-    return new LibraryDb({ dbPath });
-  }
-
-  function findAnimeDir(libraryDb: LibraryDb, animeId: number): string | null {
-    const episodes = libraryDb.getEpisodesByAnimeId(animeId);
-    if (episodes.length === 0) return null;
-
-    const paths = episodes.map((ep) => ep.filePath);
-    const first = paths[0];
-    if (!first) return null;
-    if (paths.length === 1) return dirname(first);
-
-    let commonParent = dirname(first);
-    for (let i = 1; i < paths.length; i++) {
-      const path = paths[i];
-      if (!path) continue;
-      while (commonParent && !path.startsWith(commonParent)) {
-        commonParent = dirname(commonParent);
-      }
-    }
-    return commonParent;
-  }
 
   async function getDatabasePlugin(): Promise<DatabasePlugin | undefined> {
     if (overrideDb) return overrideDb;
@@ -55,14 +37,18 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
   }
 
   function resolveAnimeAndDir(
-    libDb: LibraryDb,
+    svc: LibraryService,
     id: string,
   ):
-    | { animeId: number; animeDir: string; anime: NonNullable<ReturnType<LibraryDb["getAnime"]>> }
+    | {
+        animeId: number;
+        animeDir: string;
+        anime: NonNullable<ReturnType<LibraryService["getAnime"]>>;
+      }
     | { error: string } {
-    const anime = libDb.getAnime(Number(id));
+    const anime = svc.getAnime(Number(id));
     if (!anime) return { error: "Anime not found in library" };
-    const animeDir = findAnimeDir(libDb, anime.id);
+    const animeDir = svc.getAnimeDir(anime.id);
     if (!animeDir) return { error: "No episode files found for this anime" };
     return { animeId: anime.id, animeDir, anime };
   }
@@ -72,82 +58,57 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     summary?: { total: number; downloaded: number; skipped: number; noArtwork: number };
     error?: string;
   }> {
-    const libDb = getLibraryDb();
-    try {
-      const resolved = resolveAnimeAndDir(libDb, params.id);
-      if ("error" in resolved) {
-        send.enrichmentComplete?.({
-          animeId: params.id,
-          command: "artwork",
-          success: false,
-          error: resolved.error,
-        });
-        return { success: false, error: resolved.error };
-      }
-
-      const database = await getDatabasePlugin();
-      if (!database) {
-        const error = "No database plugin available — check API key configuration";
-        send.enrichmentComplete?.({
-          animeId: params.id,
-          command: "artwork",
-          success: false,
-          error,
-        });
-        return { success: false, error };
-      }
-
-      const fetcher = new ArtworkFetcher({
-        primaryDb: database,
-        cache,
-        extensions,
+    const resolved = resolveAnimeAndDir(svc, params.id);
+    if ("error" in resolved) {
+      send.enrichmentComplete?.({
+        animeId: params.id,
+        command: "artwork",
+        success: false,
+        error: resolved.error,
       });
+      return { success: false, error: resolved.error };
+    }
 
-      const summary = await fetcher.process(resolved.animeDir, undefined, {
-        progress: (event) => {
-          send.enrichmentProgress?.({
-            animeId: params.id,
-            command: "artwork",
-            completed: event.completed,
-            total: event.total,
-            file: event.file,
-            status: event.status,
-          });
-        },
-        log: () => {},
-        error: () => {},
-      });
-
-      if (summary.downloaded > 0) {
-        const coverPath = join(resolved.animeDir, "cover.jpg");
-        const updatedDb = getLibraryDb();
-        try {
-          updatedDb.upsertAnime({
-            externalId: resolved.anime.externalId,
-            sourceDb: resolved.anime.sourceDb,
-            title: resolved.anime.title,
-            titleJapanese: resolved.anime.titleJapanese,
-            entryType: resolved.anime.entryType,
-            episodeCount: resolved.anime.episodeCount,
-            coverArtPath: coverPath,
-          });
-        } finally {
-          updatedDb.close();
-        }
-      }
-
-      send.enrichmentComplete?.({ animeId: params.id, command: "artwork", success: true });
-      return { success: true, summary };
-    } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      send.enrichmentComplete?.({ animeId: params.id, command: "artwork", success: false, error });
-      return {
+    const database = await getDatabasePlugin();
+    if (!database) {
+      const error = "No database plugin available — check API key configuration";
+      send.enrichmentComplete?.({
+        animeId: params.id,
+        command: "artwork",
         success: false,
         error,
-      };
-    } finally {
-      libDb.close();
+      });
+      return { success: false, error };
     }
+
+    const fetcher = new ArtworkFetcher({
+      primaryDb: database,
+      cacheService,
+      extensions,
+    });
+
+    const summary = await fetcher.process(resolved.animeDir, undefined, {
+      progress: (event) => {
+        send.enrichmentProgress?.({
+          animeId: params.id,
+          command: "artwork",
+          completed: event.completed,
+          total: event.total,
+          file: event.file,
+          status: event.status,
+        });
+      },
+      log: () => {},
+      error: () => {},
+    });
+
+    if (summary.downloaded > 0) {
+      const coverPath = join(resolved.animeDir, "cover.jpg");
+      svc.updateCoverArtPath(resolved.anime.id, coverPath);
+    }
+
+    send.enrichmentComplete?.({ animeId: params.id, command: "artwork", success: true });
+    return { success: true, summary };
   }
 
   async function enrichMetadata(params: { id: string }): Promise<{
@@ -155,54 +116,42 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     summary?: { total: number; written: number; skipped: number; failed: number };
     error?: string;
   }> {
-    const libDb = getLibraryDb();
-    try {
-      const resolved = resolveAnimeAndDir(libDb, params.id);
-      if ("error" in resolved) {
-        send.enrichmentComplete?.({
+    const resolved = resolveAnimeAndDir(svc, params.id);
+    if ("error" in resolved) {
+      send.enrichmentComplete?.({
+        animeId: params.id,
+        command: "metadata",
+        success: false,
+        error: resolved.error,
+      });
+      return { success: false, error: resolved.error };
+    }
+
+    const database = await getDatabasePlugin();
+
+    const writer = new MetadataWriter({
+      cacheService,
+      database,
+      extensions,
+    });
+
+    const summary = await writer.write(resolved.animeDir, undefined, {
+      progress: (event) => {
+        send.enrichmentProgress?.({
           animeId: params.id,
           command: "metadata",
-          success: false,
-          error: resolved.error,
+          completed: event.completed,
+          total: event.total,
+          file: event.file,
+          status: event.status,
         });
-        return { success: false, error: resolved.error };
-      }
+      },
+      log: () => {},
+      error: () => {},
+    });
 
-      const database = await getDatabasePlugin();
-
-      const writer = new MetadataWriter({
-        cache,
-        database,
-        extensions,
-      });
-
-      const summary = await writer.write(resolved.animeDir, undefined, {
-        progress: (event) => {
-          send.enrichmentProgress?.({
-            animeId: params.id,
-            command: "metadata",
-            completed: event.completed,
-            total: event.total,
-            file: event.file,
-            status: event.status,
-          });
-        },
-        log: () => {},
-        error: () => {},
-      });
-
-      send.enrichmentComplete?.({ animeId: params.id, command: "metadata", success: true });
-      return { success: true, summary };
-    } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      send.enrichmentComplete?.({ animeId: params.id, command: "metadata", success: false, error });
-      return {
-        success: false,
-        error,
-      };
-    } finally {
-      libDb.close();
-    }
+    send.enrichmentComplete?.({ animeId: params.id, command: "metadata", success: true });
+    return { success: true, summary };
   }
 
   return { enrichArtwork, enrichMetadata };

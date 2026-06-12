@@ -8,11 +8,11 @@ import type {
   ScanSummary,
 } from "@kogoro/core";
 import {
+  type CacheService,
   CONFIG_DIR,
   type ConfigManager,
   findCandidateMatches,
-  LibraryDb,
-  MatchCache,
+  type LibraryService,
   Matcher,
   type MatchResult,
   OverrideStore,
@@ -21,6 +21,7 @@ import {
   SCHEMA_DEFAULTS,
   Scanner,
   ScanOrchestrator,
+  type ScanStateService,
   walk,
 } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
@@ -46,12 +47,14 @@ async function createScanOrchestrator(
   sessionId: string,
   pluginFactory: PluginFactory,
   configManager: ConfigManager,
+  libraryService: LibraryService,
+  cacheService: CacheService,
+  scanStateService: ScanStateService,
   force?: boolean,
 ): Promise<ScanOrchestrator> {
   const database = await pluginFactory.primaryDatabase();
 
   const matcher = database ? new Matcher({ database }) : undefined;
-  const cache = new MatchCache();
   const overrideStore = new OverrideStore(CONFIG_DIR);
 
   const filenameTemplate = configManager.getTemplate();
@@ -66,7 +69,9 @@ async function createScanOrchestrator(
     sanitize,
   });
 
-  const scanner = matcher ? new Scanner({ matcher, cache, renamer, overrideStore }) : undefined;
+  const scanner = matcher
+    ? new Scanner({ matcher, cacheService, renamer, overrideStore })
+    : undefined;
 
   const orchestrator = new ScanOrchestrator(
     {
@@ -135,7 +140,7 @@ async function createScanOrchestrator(
             return { success: result.success, error: result.error };
           }
         : undefined,
-      libraryDb: new LibraryDb({ dbPath: `${CONFIG_DIR}/library.db` }),
+      libraryService,
       sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
       computeTopCandidates: matcher
         ? async (sourcePath: string) => {
@@ -150,7 +155,8 @@ async function createScanOrchestrator(
         const extension = extname(filePath).replace(".", "") || "mkv";
         return renamer.plan(filePath, match, extension);
       },
-      cache,
+      cacheService,
+      scanStateService,
       force,
     },
     sessionId,
@@ -175,6 +181,9 @@ function cleanupSession(sessionId: string): void {
 export function createScanHandlers(dependencies: {
   pluginFactory: PluginFactory;
   configManager: ConfigManager;
+  cacheService: CacheService;
+  libraryService: LibraryService;
+  scanStateService: ScanStateService;
   mergeMatches: (matches: MatchEntry[]) => void;
   send: {
     scanProgress: (data: {
@@ -201,7 +210,15 @@ export function createScanHandlers(dependencies: {
     scanComplete: (data: { sessionId: string; summary: ScanSummary }) => void;
   };
 }) {
-  const { pluginFactory, configManager, mergeMatches, send } = dependencies;
+  const {
+    pluginFactory,
+    configManager,
+    cacheService,
+    libraryService,
+    scanStateService,
+    mergeMatches,
+    send,
+  } = dependencies;
 
   function mergeCurrentMatches(orchestrator: ScanOrchestrator) {
     const matches = orchestrator.getMatchResults();
@@ -221,6 +238,9 @@ export function createScanHandlers(dependencies: {
             sessionId,
             pluginFactory,
             configManager,
+            libraryService,
+            cacheService,
+            scanStateService,
             force,
           );
 

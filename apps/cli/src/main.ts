@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import { log } from "@clack/prompts";
-import { ConfigManager, createCredentialStore, MatchCache, OverrideStore } from "@kogoro/core";
+import {
+  CacheService,
+  ConfigManager,
+  createCredentialStore,
+  createMatchCacheConnection,
+  OverrideStore,
+  resolveDbPaths,
+} from "@kogoro/core";
 import { PluginFactory } from "@kogoro/plugins";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -28,6 +35,10 @@ export async function run(argv: string[]): Promise<void> {
   const config = new ConfigManager();
   const credentialStore = createCredentialStore();
 
+  const { cacheDbPath } = resolveDbPaths();
+  const { matchRepo, scanStateRepo } = createMatchCacheConnection(cacheDbPath);
+  const cacheService = new CacheService(matchRepo, scanStateRepo);
+
   async function createDatabaseCommandsWithCredentials(debug?: boolean) {
     const { createDatabaseHandlers } = await import("./database/handlers");
     const factory = new PluginFactory(config, credentialStore, debug);
@@ -41,11 +52,10 @@ export async function run(argv: string[]): Promise<void> {
     const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
-    const cache = new MatchCache();
     const overrideStore = new OverrideStore(process.cwd());
     return createScanHandlers({
       database,
-      cache,
+      cacheService,
       config,
       overrideStore,
     });
@@ -56,7 +66,7 @@ export async function run(argv: string[]): Promise<void> {
     const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
-    return createMetadataHandlers({ database, config });
+    return createMetadataHandlers({ cacheService, database, config });
   }
 
   async function createArtworkWithCredentials(debug?: boolean) {
@@ -64,7 +74,7 @@ export async function run(argv: string[]): Promise<void> {
     const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
-    return createArtworkHandlers({ primaryDb: database, config });
+    return createArtworkHandlers({ primaryDb: database, cacheService, config });
   }
 
   async function createSubtitleWithCredentials(debug?: boolean) {
@@ -72,8 +82,7 @@ export async function run(argv: string[]): Promise<void> {
     const factory = new PluginFactory(config, credentialStore, debug);
     const subtitlePlugin = await factory.subtitle();
     if (!subtitlePlugin) return undefined;
-    const cache = new MatchCache();
-    return createSubtitleHandlers({ subtitlePlugin, cache, config });
+    return createSubtitleHandlers({ subtitlePlugin, cacheService, config });
   }
 
   const parser = yargs(hideBin(argv))
@@ -97,7 +106,7 @@ export async function run(argv: string[]): Promise<void> {
   registerMetadata(parser, createMetadataWithCredentials);
   registerConfig(parser);
   registerDb(parser, createDatabaseCommandsWithCredentials);
-  registerCache(parser);
+  registerCache(parser, { cacheService });
   registerPlugins(parser, config);
 
   parser

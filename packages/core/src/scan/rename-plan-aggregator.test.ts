@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createLibraryDb, makeMatchResult, makeParsedResult, withTempDir } from "../fixtures";
+import {
+  createLibraryRepository,
+  makeMatchResult,
+  makeParsedResult,
+  withTempDir,
+} from "../fixtures";
+import { LibraryService } from "../library/library-service";
 import type { RenamePlan } from "../rename/renamer";
 import type { AnimeResult, EpisodeResult } from "../types";
 import {
@@ -299,8 +305,9 @@ describe("buildReviewPlan", () => {
 
   test("marks mergeMode when anime exists in library", async () => {
     await withTempDir("merge", async (dir) => {
-      const libraryDb = createLibraryDb(dir);
-      libraryDb.upsertAnime({
+      const { repo: libraryRepo, close } = createLibraryRepository(dir);
+      const libraryService = new LibraryService(libraryRepo);
+      libraryRepo.upsertAnime({
         externalId: "1",
         sourceDb: "tvdb",
         title: "Jujutsu Kaisen",
@@ -315,17 +322,18 @@ describe("buildReviewPlan", () => {
         }),
       ];
 
-      const plan = buildReviewPlan(results, libraryDb);
+      const plan = buildReviewPlan(results, libraryService);
 
       expect(plan.groups).toHaveLength(1);
       expect(plan.groups[0]?.mergeMode).toBe(true);
-      libraryDb.close();
+      close();
     });
   });
 
   test("sets mergeMode to false when anime not in library", async () => {
     await withTempDir("no-merge", async (dir) => {
-      const libraryDb = createLibraryDb(dir);
+      const { repo: libraryRepo, close } = createLibraryRepository(dir);
+      const libraryService = new LibraryService(libraryRepo);
 
       const results = [
         makeScanResult("/a/ep1.mkv", {
@@ -334,10 +342,10 @@ describe("buildReviewPlan", () => {
         }),
       ];
 
-      const plan = buildReviewPlan(results, libraryDb);
+      const plan = buildReviewPlan(results, libraryService);
 
       expect(plan.groups[0]?.mergeMode).toBe(false);
-      libraryDb.close();
+      close();
     });
   });
 
@@ -628,10 +636,11 @@ describe("aggregateReviewPlan", () => {
     expect(plan.groups[0]?.swapPairs).toHaveLength(0);
   });
 
-  test("sets mergeMode to true when libraryDb has matching anime", async () => {
+  test("sets mergeMode to true when library has matching anime", async () => {
     await withTempDir("merge", async (dir) => {
-      const libraryDb = createLibraryDb(dir);
-      libraryDb.upsertAnime({
+      const { repo: libraryRepo, close } = createLibraryRepository(dir);
+      const libraryService = new LibraryService(libraryRepo);
+      libraryRepo.upsertAnime({
         externalId: "100",
         sourceDb: "tvdb",
         title: "Jujutsu Kaisen",
@@ -657,17 +666,18 @@ describe("aggregateReviewPlan", () => {
         }),
       ];
 
-      const plan = await aggregateReviewPlan(results, "session-1", libraryDb, "tvdb");
+      const plan = await aggregateReviewPlan(results, "session-1", libraryService, "tvdb");
 
       expect(plan.groups).toHaveLength(1);
       expect(plan.groups[0]?.mergeMode).toBe(true);
-      libraryDb.close();
+      close();
     });
   });
 
   test("sets mergeMode to false when anime not in library", async () => {
     await withTempDir("no-merge", async (dir) => {
-      const libraryDb = createLibraryDb(dir);
+      const { repo: libraryRepo, close } = createLibraryRepository(dir);
+      const libraryService = new LibraryService(libraryRepo);
 
       const results = [
         makeAggScanResult("/a/ep1.mkv", {
@@ -687,10 +697,10 @@ describe("aggregateReviewPlan", () => {
         }),
       ];
 
-      const plan = await aggregateReviewPlan(results, "session-1", libraryDb, "tvdb");
+      const plan = await aggregateReviewPlan(results, "session-1", libraryService, "tvdb");
 
       expect(plan.groups[0]?.mergeMode).toBe(false);
-      libraryDb.close();
+      close();
     });
   });
 
@@ -707,7 +717,7 @@ describe("aggregateReviewPlan", () => {
     expect(plan.groups[0]?.mergeMode).toBe(false);
   });
 
-  test("does not set mergeMode when no libraryDb is provided", async () => {
+  test("does not set mergeMode when no library service is provided", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", {
         match: {
