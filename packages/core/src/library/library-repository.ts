@@ -102,6 +102,15 @@ export class LibraryRepository {
     return row ? this.rowToAnime(row) : null;
   }
 
+  findAnimeByTitle(title: string, sourceDb: string): LibraryAnime | null {
+    const row = this.db
+      .select()
+      .from(anime)
+      .where(and(eq(anime.title, title), eq(anime.sourceDb, sourceDb)))
+      .get();
+    return row ? this.rowToAnime(row) : null;
+  }
+
   listAnime(): LibraryAnime[] {
     const rows = this.db
       .select({

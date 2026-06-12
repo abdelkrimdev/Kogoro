@@ -22,6 +22,10 @@ export class LibraryService {
     return this.library.findAnime(externalId, sourceDb);
   }
 
+  findAnimeByTitle(title: string, sourceDb: string): LibraryAnime | null {
+    return this.library.findAnimeByTitle(title, sourceDb);
+  }
+
   getEpisodesByAnimeId(animeId: number): LibraryEpisode[] {
     return this.library.getEpisodesByAnimeId(animeId);
   }
@@ -166,11 +170,12 @@ export class LibraryService {
   mergeFromMatches(matches: MatchEntry[]): void {
     const grouped = new Map<string, MatchEntry[]>();
     for (const match of matches) {
-      const existing = grouped.get(match.animeId);
+      const key = `${match.animeTitle}\0${match.sourceDb}`;
+      const existing = grouped.get(key);
       if (existing) {
         existing.push(match);
       } else {
-        grouped.set(match.animeId, [match]);
+        grouped.set(key, [match]);
       }
     }
 
@@ -193,13 +198,33 @@ export class LibraryService {
         const first = group[0];
         if (!first) continue;
 
-        const libraryAnime = tx.upsertAnime({
-          externalId: first.animeId,
-          sourceDb: first.sourceDb,
-          title: first.animeTitle,
-          entryType: first.entryType,
-          episodeCount: 0,
-        });
+        const canonicalId =
+          group
+            .map((m) => m.animeId)
+            .sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))[0] ?? first.animeId;
+
+        let libraryAnime =
+          tx.findAnimeByTitle(first.animeTitle, first.sourceDb) ??
+          tx.findAnime(canonicalId, first.sourceDb);
+        if (libraryAnime) {
+          if (Number.parseInt(canonicalId, 10) < Number.parseInt(libraryAnime.externalId, 10)) {
+            libraryAnime = tx.upsertAnime({
+              externalId: canonicalId,
+              sourceDb: first.sourceDb,
+              title: first.animeTitle,
+              entryType: first.entryType,
+              episodeCount: 0,
+            });
+          }
+        } else {
+          libraryAnime = tx.upsertAnime({
+            externalId: canonicalId,
+            sourceDb: first.sourceDb,
+            title: first.animeTitle,
+            entryType: first.entryType,
+            episodeCount: 0,
+          });
+        }
 
         for (const match of group) {
           if (match.episode !== null && match.filePath) {

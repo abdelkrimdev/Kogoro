@@ -468,6 +468,162 @@ describe("LibraryService", () => {
         sqlite.close();
       }
     });
+
+    test("groups by title instead of animeId for same-sourceDb matches", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "222",
+            animeTitle: "Oshi no Ko",
+            entryType: "tv",
+            episodeId: "201",
+            episode: 1,
+            season: 2,
+            title: "Tokyo Blade",
+            filePath: "/media/S02E01.mkv",
+            sourceDb: "anidb",
+          },
+          {
+            animeId: "111",
+            animeTitle: "Oshi no Ko",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Mother and Children",
+            filePath: "/media/S01E01.mkv",
+            sourceDb: "anidb",
+          },
+          {
+            animeId: "111",
+            animeTitle: "Oshi no Ko",
+            entryType: "tv",
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Third Option",
+            filePath: "/media/S01E02.mkv",
+            sourceDb: "anidb",
+          },
+        ];
+
+        service.mergeFromMatches(matches);
+
+        const all = repo.listAnime();
+        expect(all).toHaveLength(1);
+        expect(all[0]?.title).toBe("Oshi no Ko");
+        expect(all[0]?.externalId).toBe("111");
+        expect(all[0]?.sourceDb).toBe("anidb");
+        expect(all[0]?.episodeCount).toBe(3);
+
+        const episodes = repo.getEpisodesByAnimeId(all[0]?.id as number);
+        expect(episodes).toHaveLength(3);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("merges into existing entry when title and sourceDb match", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        repo.upsertAnime({
+          externalId: "111",
+          sourceDb: "anidb",
+          title: "Oshi no Ko",
+          entryType: "tv",
+          episodeCount: 12,
+        });
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "222",
+            animeTitle: "Oshi no Ko",
+            entryType: "tv",
+            episodeId: "201",
+            episode: 1,
+            season: 2,
+            title: "Tokyo Blade",
+            filePath: "/media/S02E01.mkv",
+            sourceDb: "anidb",
+          },
+          {
+            animeId: "222",
+            animeTitle: "Oshi no Ko",
+            entryType: "tv",
+            episodeId: "202",
+            episode: 2,
+            season: 2,
+            title: "Game of Telephone",
+            filePath: "/media/S02E02.mkv",
+            sourceDb: "anidb",
+          },
+        ];
+
+        service.mergeFromMatches(matches);
+
+        const all = repo.listAnime();
+        expect(all).toHaveLength(1);
+        expect(all[0]?.title).toBe("Oshi no Ko");
+        expect(all[0]?.externalId).toBe("111");
+        expect(all[0]?.episodeCount).toBe(2);
+
+        const episodes = repo.getEpisodesByAnimeId(all[0]?.id as number);
+        expect(episodes).toHaveLength(2);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("does not merge different sourceDbs with same title", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "anidb-12345",
+            animeTitle: "Oshi no Ko",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Mother and Children",
+            filePath: "/media/S01E01.mkv",
+            sourceDb: "anidb",
+          },
+          {
+            animeId: "tvdb-67890",
+            animeTitle: "Oshi no Ko",
+            entryType: "tv",
+            episodeId: "201",
+            episode: 1,
+            season: 1,
+            title: "Mother and Children",
+            filePath: "/media/tvdb/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        service.mergeFromMatches(matches);
+
+        const all = repo.listAnime();
+        expect(all).toHaveLength(2);
+        const anidb = repo.findAnime("anidb-12345", "anidb");
+        const tvdb = repo.findAnime("tvdb-67890", "tvdb");
+        expect(anidb).not.toBeNull();
+        expect(tvdb).not.toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
   });
 
   describe("passthrough methods", () => {

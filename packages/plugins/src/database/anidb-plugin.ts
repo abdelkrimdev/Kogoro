@@ -160,7 +160,7 @@ export class AniDBPlugin implements DatabasePlugin {
     this.httpClient = options.httpClient ?? new HttpClient();
     this.client = options.client;
     this.clientver = options.clientver;
-    this.cacheDir = options.cacheDir ?? join(CONFIG_DIR, "cache");
+    this.cacheDir = options.cacheDir ?? join(CONFIG_DIR, "anidb");
   }
 
   private commonParams(): string {

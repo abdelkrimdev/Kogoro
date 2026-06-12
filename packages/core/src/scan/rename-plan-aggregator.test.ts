@@ -86,18 +86,18 @@ function makeAggScanResult(file: string, overrides?: Partial<ScanResult>): ScanR
 }
 
 describe("groupByAnime", () => {
-  test("groups scan results by anime ID", () => {
+  test("groups scan results by anime title", () => {
     const results = [
-      makeScanResult("/a/ep1.mkv", { anime: { id: "1" } }),
-      makeScanResult("/a/ep2.mkv", { anime: { id: "1" } }),
-      makeScanResult("/b/ep1.mkv", { anime: { id: "2" } }),
+      makeScanResult("/a/ep1.mkv", { anime: { id: "1", titleEn: "Jujutsu Kaisen" } }),
+      makeScanResult("/a/ep2.mkv", { anime: { id: "1", titleEn: "Jujutsu Kaisen" } }),
+      makeScanResult("/b/ep1.mkv", { anime: { id: "2", titleEn: "One Piece" } }),
     ];
 
     const groups = groupByAnime(results);
 
     expect(groups.size).toBe(2);
-    expect(groups.get("1")).toHaveLength(2);
-    expect(groups.get("2")).toHaveLength(1);
+    expect(groups.get("Jujutsu Kaisen")).toHaveLength(2);
+    expect(groups.get("One Piece")).toHaveLength(1);
   });
 
   test("returns empty map for empty input", () => {
@@ -107,19 +107,19 @@ describe("groupByAnime", () => {
 
   test("skips failed results", () => {
     const results = [
-      makeScanResult("/a/ep1.mkv", { anime: { id: "1" } }),
+      makeScanResult("/a/ep1.mkv", { anime: { id: "1", titleEn: "Jujutsu Kaisen" } }),
       makeScanResult("/a/ep2.mkv", { status: "failed" }),
     ];
 
     const groups = groupByAnime(results);
 
     expect(groups.size).toBe(1);
-    expect(groups.get("1")).toHaveLength(1);
+    expect(groups.get("Jujutsu Kaisen")).toHaveLength(1);
   });
 
   test("skips ambiguous results without match", () => {
     const results = [
-      makeScanResult("/a/ep1.mkv", { anime: { id: "1" } }),
+      makeScanResult("/a/ep1.mkv", { anime: { id: "1", titleEn: "Jujutsu Kaisen" } }),
       {
         file: "/a/ep2.mkv",
         hash: "h",
@@ -135,18 +135,21 @@ describe("groupByAnime", () => {
     const groups = groupByAnime(results);
 
     expect(groups.size).toBe(1);
-    expect(groups.get("1")).toHaveLength(1);
+    expect(groups.get("Jujutsu Kaisen")).toHaveLength(1);
   });
 
   test("includes cached results", () => {
     const results = [
-      makeScanResult("/a/ep1.mkv", { anime: { id: "1" }, status: "cached" }),
-      makeScanResult("/a/ep2.mkv", { anime: { id: "1" } }),
+      makeScanResult("/a/ep1.mkv", {
+        anime: { id: "1", titleEn: "Jujutsu Kaisen" },
+        status: "cached",
+      }),
+      makeScanResult("/a/ep2.mkv", { anime: { id: "1", titleEn: "Jujutsu Kaisen" } }),
     ];
 
     const groups = groupByAnime(results);
 
-    expect(groups.get("1")).toHaveLength(2);
+    expect(groups.get("Jujutsu Kaisen")).toHaveLength(2);
   });
 });
 
@@ -395,6 +398,36 @@ describe("buildReviewPlan", () => {
 
     expect(plan.groups[0]?.entries[0]?.scanResult.file).toBe("/a/ep1.mkv");
     expect(plan.groups[0]?.entries[1]?.scanResult.file).toBe("/a/ep3.mkv");
+  });
+
+  test("groups by title instead of animeId for same-titled results", () => {
+    const results = [
+      makeScanResult("/a/s2e1.mkv", {
+        anime: { id: "222", titleEn: "Oshi no Ko" },
+        episode: { id: "201", animeId: "222", season: 2, episode: 1, titleEn: "Tokyo Blade" },
+        parsedSeason: 2,
+        parsedEpisode: 1,
+      }),
+      makeScanResult("/a/s1e1.mkv", {
+        anime: { id: "111", titleEn: "Oshi no Ko" },
+        episode: {
+          id: "101",
+          animeId: "111",
+          season: 1,
+          episode: 1,
+          titleEn: "Mother and Children",
+        },
+        parsedSeason: 1,
+        parsedEpisode: 1,
+      }),
+    ];
+
+    const plan = buildReviewPlan(results);
+
+    expect(plan.groups).toHaveLength(1);
+    expect(plan.groups[0]?.animeId).toBe("111");
+    expect(plan.groups[0]?.anime.titleEn).toBe("Oshi no Ko");
+    expect(plan.groups[0]?.entries).toHaveLength(2);
   });
 });
 

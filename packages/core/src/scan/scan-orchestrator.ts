@@ -155,6 +155,7 @@ export class ScanOrchestrator {
   private rejectedAnimeIds: Set<string> = new Set();
   private initialAmbiguousCount: number | null = null;
   private baseDir: string = "";
+  private canonicalIdMap: Map<string, string> = new Map();
 
   constructor(options: ScanOrchestratorOptions, sessionId?: string) {
     this.options = options;
@@ -180,12 +181,13 @@ export class ScanOrchestrator {
       if (!r.match) continue;
       if (r.status !== "matched" && r.status !== "cached") continue;
 
-      const animeId = r.match.anime.id;
-      if (this.rejectedAnimeIds.has(animeId)) continue;
-      if (this.approvedAnimeIds.size > 0 && !this.approvedAnimeIds.has(animeId)) continue;
+      const originalId = r.match.anime.id;
+      const canonicalId = this.canonicalIdMap.get(originalId) ?? originalId;
+      if (this.rejectedAnimeIds.has(canonicalId)) continue;
+      if (this.approvedAnimeIds.size > 0 && !this.approvedAnimeIds.has(canonicalId)) continue;
 
       results.push({
-        animeId,
+        animeId: canonicalId,
         animeTitle: r.match.anime.titleEn,
         entryType: r.match.anime.entryType,
         episodeId: r.match.episode?.id ?? null,
@@ -241,6 +243,15 @@ export class ScanOrchestrator {
       this.initialAmbiguousCount = this.plan.ambiguousCount;
     }
     this.plan.initialAmbiguousCount = this.initialAmbiguousCount;
+
+    this.canonicalIdMap.clear();
+    for (const group of this.plan.groups) {
+      for (const file of group.files) {
+        if (file.animeId && file.animeId !== group.animeId) {
+          this.canonicalIdMap.set(file.animeId, group.animeId);
+        }
+      }
+    }
   }
 
   async startScan(path: string): Promise<void> {
@@ -516,11 +527,12 @@ export class ScanOrchestrator {
   private shouldExecuteFile(r: ScanResult): boolean {
     if (!r.plan) return false;
 
-    const animeId = r.match?.anime.id;
-    if (!animeId) return false;
+    const originalId = r.match?.anime.id;
+    if (!originalId) return false;
 
-    if (this.approvedAnimeIds.has(animeId)) return true;
-    if (this.rejectedAnimeIds.has(animeId)) return false;
+    const canonicalId = this.canonicalIdMap.get(originalId) ?? originalId;
+    if (this.approvedAnimeIds.has(canonicalId)) return true;
+    if (this.rejectedAnimeIds.has(canonicalId)) return false;
     if (this.approvedAnimeIds.size > 0) return false;
     return true;
   }
@@ -590,10 +602,11 @@ export class ScanOrchestrator {
     for (const result of this.results) {
       if (!result.plan) continue;
       if (result.status !== "matched" && result.status !== "cached") continue;
-      const animeId = result.match?.anime.id;
-      if (!animeId) continue;
-      if (this.rejectedAnimeIds.has(animeId)) continue;
-      if (this.approvedAnimeIds.size > 0 && !this.approvedAnimeIds.has(animeId)) continue;
+      const originalId = result.match?.anime.id;
+      if (!originalId) continue;
+      const canonicalId = this.canonicalIdMap.get(originalId) ?? originalId;
+      if (this.rejectedAnimeIds.has(canonicalId)) continue;
+      if (this.approvedAnimeIds.size > 0 && !this.approvedAnimeIds.has(canonicalId)) continue;
       sourceDirs.add(dirname(result.plan.sourcePath));
     }
 

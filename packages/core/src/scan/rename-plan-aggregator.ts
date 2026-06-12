@@ -48,18 +48,22 @@ export function groupByAnime(results: ScanResult[]): Map<string, ScanResult[]> {
   for (const result of results) {
     if (!result.match || result.status === "failed") continue;
 
-    const animeId = result.match.anime.id;
-    if (!animeId) continue;
+    const title = result.match.anime.titleEn;
+    if (!title) continue;
 
-    const existing = groups.get(animeId);
+    const existing = groups.get(title);
     if (existing) {
       existing.push(result);
     } else {
-      groups.set(animeId, [result]);
+      groups.set(title, [result]);
     }
   }
 
   return groups;
+}
+
+function lowestNumericId(ids: string[]): string {
+  return ids.sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))[0] ?? "";
 }
 
 function detectSwapsFromGroups(byAnime: Map<string, ScanResult[]>): SwapPair[] {
@@ -116,38 +120,48 @@ export function buildReviewPlan(
   libraryService?: LibraryService,
   sourceDb?: string,
 ): ReviewPlan {
-  const byAnime = groupByAnime(results);
-  const allSwaps = detectSwapsFromGroups(byAnime);
+  const byTitle = groupByAnime(results);
+  const allSwaps = detectSwapsFromGroups(byTitle);
 
-  const fileToAnimeId = new Map<string, string>();
-  for (const [animeId, scanResults] of byAnime) {
+  const titleToCanonicalId = new Map<string, string>();
+  for (const [title, scanResults] of byTitle) {
+    const ids = scanResults
+      .map((r) => r.match?.anime.id)
+      .filter((id): id is string => id !== undefined);
+    titleToCanonicalId.set(title, lowestNumericId(ids));
+  }
+
+  const fileToCanonicalId = new Map<string, string>();
+  for (const [title, scanResults] of byTitle) {
+    const cid = titleToCanonicalId.get(title) ?? "";
     for (const sr of scanResults) {
-      fileToAnimeId.set(sr.file, animeId);
+      fileToCanonicalId.set(sr.file, cid);
     }
   }
 
-  const swapsByAnime = new Map<string, SwapPair[]>();
+  const swapsByCanonicalId = new Map<string, SwapPair[]>();
   for (const swap of allSwaps) {
     const firstFile = swap.files[0];
     if (!firstFile) continue;
-    const animeId = fileToAnimeId.get(firstFile);
-    if (!animeId) continue;
-    const existing = swapsByAnime.get(animeId);
+    const cid = fileToCanonicalId.get(firstFile);
+    if (!cid) continue;
+    const existing = swapsByCanonicalId.get(cid);
     if (existing) {
       existing.push(swap);
     } else {
-      swapsByAnime.set(animeId, [swap]);
+      swapsByCanonicalId.set(cid, [swap]);
     }
   }
 
   const groups: AnimeGroup[] = [];
 
-  for (const [animeId, scanResults] of byAnime) {
+  for (const [title, scanResults] of byTitle) {
     const firstMatch = scanResults[0]?.match;
     if (!firstMatch) continue;
 
     const anime = firstMatch.anime;
-    const swaps = swapsByAnime.get(animeId) ?? [];
+    const cid = titleToCanonicalId.get(title) ?? "";
+    const swaps = swapsByCanonicalId.get(cid) ?? [];
 
     const entries: AnimeGroupEntry[] = scanResults
       .map((sr) => {
@@ -166,10 +180,13 @@ export function buildReviewPlan(
         return aEp - bEp;
       });
 
-    const mergeMode = libraryService?.isAnimeInLibrary(animeId, sourceDb) ?? false;
+    const mergeMode =
+      libraryService != null &&
+      (libraryService.findAnimeByTitle(title, sourceDb ?? "tvdb") !== null ||
+        libraryService.isAnimeInLibrary(cid, sourceDb));
 
     groups.push({
-      animeId,
+      animeId: cid,
       anime,
       entries,
       swapPairs: swaps,
@@ -272,7 +289,7 @@ export async function aggregateReviewPlan(
   sourceDb?: string,
   computeTopCandidates?: (sourcePath: string) => Promise<TopCandidate[]>,
 ): Promise<ScanReviewPlan> {
-  const groups = new Map<string, ScanAnimeGroup>();
+  const groupsByTitle = new Map<string, { group: ScanAnimeGroup; animeIds: string[] }>();
   let ambiguousCount = 0;
 
   for (const result of results) {
@@ -286,30 +303,40 @@ export async function aggregateReviewPlan(
     const animeTitle = matchedAnime?.titleEn ?? "Unresolved";
     const entryType = matchedAnime?.entryType ?? "tv";
 
-    let group = groups.get(animeId);
-    if (!group) {
-      const mergeMode =
-        libraryService != null &&
-        matchedAnime != null &&
-        libraryService.isAnimeInLibrary(animeId, sourceDb);
-
-      group = {
-        animeId,
-        animeTitle,
-        entryType,
-        image: matchedAnime?.image,
-        files: [],
-        swapPairs: [],
-        mergeMode,
+    let entry = groupsByTitle.get(animeTitle);
+    if (!entry) {
+      entry = {
+        group: {
+          animeId: "",
+          animeTitle,
+          entryType,
+          image: matchedAnime?.image,
+          files: [],
+          swapPairs: [],
+          mergeMode: false,
+        },
+        animeIds: [],
       };
-      groups.set(animeId, group);
+      groupsByTitle.set(animeTitle, entry);
     }
-    group.files.push(row);
+    if (matchedAnime) {
+      entry.animeIds.push(animeId);
+    }
+    entry.group.files.push(row);
   }
 
-  const groupList = Array.from(groups.values());
-  for (const group of groupList) {
+  const groupList: ScanAnimeGroup[] = [];
+  for (const [, { group, animeIds }] of groupsByTitle) {
+    group.animeId = lowestNumericId(animeIds);
+
+    if (libraryService && group.animeId) {
+      group.mergeMode =
+        libraryService.findAnimeByTitle(group.animeTitle, sourceDb ?? "tvdb") !== null ||
+        libraryService.isAnimeInLibrary(group.animeId, sourceDb);
+    }
+
     group.swapPairs = detectSwapsFromFileRows(group.files);
+    groupList.push(group);
   }
 
   if (computeTopCandidates) {
