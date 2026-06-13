@@ -83,6 +83,23 @@ describe("CacheService", () => {
     }
   });
 
+  test("get filters by sourceDb when provided", () => {
+    const { db, sqlite } = createMatchCacheDb();
+    try {
+      const matchRepo = new MatchRepository(db);
+      const scanRepo = new ScanStateRepository(db);
+      const service = new CacheService(matchRepo, scanRepo);
+
+      matchRepo.set("hashA", makeCachedMatch({ animeId: "1", sourceDb: "tvdb" }));
+
+      expect(service.get("hashA", "tvdb")?.animeId).toBe("1");
+      expect(service.get("hashA", "mal")).toBeNull();
+      expect(service.get("hashA")?.animeId).toBe("1");
+    } finally {
+      sqlite.close();
+    }
+  });
+
   test("clear removes all cached entries", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {

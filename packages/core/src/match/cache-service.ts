@@ -13,10 +13,10 @@ export class CacheService {
   }
 
   get(hash: string, sourceDb?: string): CachedMatch | null {
-    const match = this.matches.get(hash);
-    if (!match) return null;
-    if (sourceDb && match.sourceDb !== sourceDb) return null;
-    return match;
+    if (sourceDb) {
+      return this.matches.getByHashAndSourceDb(hash, sourceDb);
+    }
+    return this.matches.get(hash);
   }
 
   has(hash: string): boolean {

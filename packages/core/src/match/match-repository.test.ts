@@ -66,6 +66,23 @@ describe("MatchRepository", () => {
     }
   });
 
+  test("getByHashAndSourceDb returns match only when both hash and sourceDb match", () => {
+    const { db, sqlite } = createMatchCacheDb();
+    try {
+      const repo = new MatchRepository(db);
+      repo.set("hashA", makeCachedMatch({ animeId: "1", sourceDb: "tvdb" }));
+      repo.set("hashB", makeCachedMatch({ animeId: "2", sourceDb: "mal" }));
+
+      expect(repo.getByHashAndSourceDb("hashA", "tvdb")?.animeId).toBe("1");
+      expect(repo.getByHashAndSourceDb("hashA", "mal")).toBeNull();
+      expect(repo.getByHashAndSourceDb("hashB", "mal")?.animeId).toBe("2");
+      expect(repo.getByHashAndSourceDb("hashB", "tvdb")).toBeNull();
+      expect(repo.getByHashAndSourceDb("hashC", "tvdb")).toBeNull();
+    } finally {
+      sqlite.close();
+    }
+  });
+
   test("list returns all entries ordered by timestamp", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {

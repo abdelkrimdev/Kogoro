@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import type { EntryType } from "../types";
 import { matches } from "./schema";
@@ -20,6 +20,20 @@ type MatchDb = BunSQLiteDatabase<MatchSchema>;
 
 export class MatchRepository {
   constructor(private db: MatchDb) {}
+
+  private rowToCachedMatch(row: typeof matches.$inferSelect): CachedMatch {
+    return {
+      animeId: row.animeId,
+      animeTitle: row.animeTitle ?? undefined,
+      episodeId: row.episodeId,
+      entryType: row.entryType as EntryType,
+      season: row.season,
+      episode: row.episode,
+      title: row.title,
+      sourceDb: row.sourceDb,
+      timestamp: row.timestamp,
+    };
+  }
 
   set(hash: string, match: CachedMatch): void {
     this.db
@@ -55,19 +69,16 @@ export class MatchRepository {
 
   get(hash: string): CachedMatch | null {
     const row = this.db.select().from(matches).where(eq(matches.hash, hash)).get();
-    return row
-      ? {
-          animeId: row.animeId,
-          animeTitle: row.animeTitle ?? undefined,
-          episodeId: row.episodeId,
-          entryType: row.entryType as EntryType,
-          season: row.season,
-          episode: row.episode,
-          title: row.title,
-          sourceDb: row.sourceDb,
-          timestamp: row.timestamp,
-        }
-      : null;
+    return row ? this.rowToCachedMatch(row) : null;
+  }
+
+  getByHashAndSourceDb(hash: string, sourceDb: string): CachedMatch | null {
+    const row = this.db
+      .select()
+      .from(matches)
+      .where(and(eq(matches.hash, hash), eq(matches.sourceDb, sourceDb)))
+      .get();
+    return row ? this.rowToCachedMatch(row) : null;
   }
 
   has(hash: string): boolean {
@@ -83,17 +94,7 @@ export class MatchRepository {
     const rows = this.db.select().from(matches).orderBy(matches.timestamp).all();
     return rows.map((row) => ({
       hash: row.hash,
-      match: {
-        animeId: row.animeId,
-        animeTitle: row.animeTitle ?? undefined,
-        episodeId: row.episodeId,
-        entryType: row.entryType as EntryType,
-        season: row.season,
-        episode: row.episode,
-        title: row.title,
-        sourceDb: row.sourceDb,
-        timestamp: row.timestamp,
-      },
+      match: this.rowToCachedMatch(row),
     }));
   }
 
