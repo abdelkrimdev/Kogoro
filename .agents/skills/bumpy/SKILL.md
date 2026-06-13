@@ -19,10 +19,24 @@ Bump levels: `major` (breaking), `minor` (feature), `patch` (fix), `none` (no re
 
 For non-release PRs (docs, CI, refactors): `bunx bumpy add --empty --name "description"`
 
+### Changelog style
+
+Write descriptions from the user's perspective. Focus on what changed in the UI/UX, not how it was implemented.
+
+- **Good:** "Fix duplicate entries appearing when switching between databases"
+- **Bad:** "Fix duplicate library entries when switching between databases (TVDB/AniDB). Match cache now tracks sourceDb, mergeFromMatches cleans up entries from other databases, and rebuild deduplicates by file path."
+
+- **Good:** "Re-scan skips unchanged files for faster incremental scans"
+- **Bad:** "Incremental scan via per-file state tracking: skip unchanged files on re-scan using stat-based cache, removing the fragile isAlreadyOrganized heuristic"
+
+### Deduplication
+
+Before creating a bump file, check if an existing one covers the same feature. Remove or consolidate duplicates to avoid redundant changelog entries.
+
 ## Release workflow
 
 ### 1. Prepare
-Ensure all changes have bump files in `.bumpy/`. If missing, run `bunx bumpy add`.
+Ensure all changes have bump files in `.bumpy/`. If missing, run `bunx bumpy add`. Review descriptions for product-focused language.
 
 ### 2. Version
 ```bash
@@ -35,3 +49,22 @@ Commit, push, and open the version PR against the base branch defined in `_confi
 
 ### 4. Publish
 Merging the version PR triggers CI to run `bunx @varlock/bumpy ci release`, which creates git tags and publishes packages.
+
+If CI doesn't push tags to remote, create and push them manually:
+```bash
+git fetch origin main
+git tag -a <version> -m "Release <version>" origin/main
+git push origin <version>
+```
+
+Then create a GitHub release:
+```bash
+gh release create <version> --title "Release <version>" --notes "..."
+```
+
+### 5. Clean up
+```bash
+git checkout main
+git branch -D <version-branch>
+git pull
+```
