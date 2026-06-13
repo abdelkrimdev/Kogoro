@@ -7,7 +7,7 @@ import {
   symlinkSync,
   unlinkSync,
 } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { ENTRY_TYPE_DIR_MAP, type RenameAction } from "../config/schema";
 import type { MatchResult } from "../match/matcher";
 import type { ParsedTags } from "../parse/parser";
@@ -105,7 +105,7 @@ export class Renamer {
     } as Record<string, string | number>;
 
     let targetFilename = render(this.filenameTemplate, filenameContext);
-    let targetPath = `${targetDir}/${targetFilename}`;
+    let targetPath = join(targetDir, targetFilename);
 
     if (this.usedTargets.has(targetPath)) {
       const resolved = this.resolveCollision(targetDir, targetFilename, extension, tags);
@@ -137,7 +137,7 @@ export class Renamer {
       const disambiguator = buildDisambiguator(tags);
       if (disambiguator) {
         const taggedFilename = `${base}${disambiguator}${ext}`;
-        const taggedPath = `${targetDir}/${taggedFilename}`;
+        const taggedPath = join(targetDir, taggedFilename);
         if (!this.usedTargets.has(taggedPath)) {
           return { filename: taggedFilename, path: taggedPath };
         }
@@ -147,7 +147,7 @@ export class Renamer {
     let counter = 2;
     while (true) {
       const suffixedFilename = `${base} (${counter})${ext}`;
-      const suffixedPath = `${targetDir}/${suffixedFilename}`;
+      const suffixedPath = join(targetDir, suffixedFilename);
       if (!this.usedTargets.has(suffixedPath)) {
         return { filename: suffixedFilename, path: suffixedPath };
       }
@@ -160,8 +160,8 @@ export class Renamer {
     const targetPath = baseDir ? join(baseDir, plan.targetPath) : plan.targetPath;
 
     if (existsSync(targetPath) && plan.sourcePath !== targetPath) {
-      const sourceName = plan.sourcePath.split("/").pop() ?? plan.sourcePath;
-      const targetName = targetPath.split("/").pop() ?? targetPath;
+      const sourceName = basename(plan.sourcePath);
+      const targetName = basename(targetPath);
       return {
         success: false,
         error: {

@@ -168,9 +168,11 @@ const defaultFrame = { width: 1200, height: 800, x: 200, y: 200 };
 
 const webviewUrl = process.env["VITE_DEV_SERVER_URL"] || "views://mainview/index.html";
 
+const isMac = process.platform === "darwin";
+
 const win = new BrowserWindow({
   title: "Kogoro",
-  titleBarStyle: "hiddenInset",
+  ...(isMac ? { titleBarStyle: "hiddenInset" } : {}),
   url: webviewUrl,
   frame: savedState
     ? { width: savedState.width, height: savedState.height, x: savedState.x, y: savedState.y }

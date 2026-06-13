@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { lstatSync, readdirSync, rmdirSync, statSync, unlinkSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import type { LibraryService } from "../library/library-service";
 import type { CacheService } from "../match/cache-service";
 import type { MatchResult } from "../match/matcher";
@@ -125,7 +125,7 @@ function buildSummary(
     else {
       renameFailed++;
       renameFailures.push({
-        file: file.split("/").pop() ?? file,
+        file: basename(file),
         reason: result.error ?? "Unknown error",
       });
     }
