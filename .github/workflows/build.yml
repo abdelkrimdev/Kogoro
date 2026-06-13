@@ -73,6 +73,7 @@ jobs:
       - run: bun install
 
       - name: Build CLI
+        shell: bash
         working-directory: apps/cli
         run: bun run build:bin
         env:
