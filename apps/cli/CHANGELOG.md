@@ -1,6 +1,12 @@
 # Changelog
 
 
+
+## 0.2.1
+<sub>2026-06-13</sub>
+
+-  *(patch)* - Fix Windows build by replacing bash-only shell expansion with cross-platform build script
+
 ## 0.2.0
 <sub>2026-06-13</sub>
 
