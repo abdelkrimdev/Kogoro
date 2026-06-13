@@ -1,6 +1,11 @@
 {
   "$schema": "https://unjs.github.io/knip/schema.json",
   "workspaces": {
+    "apps/cli": {
+      "entry": [
+        "scripts/embed-migrations.ts"
+      ]
+    },
     "apps/gui": {
       "entry": [
         "src/bun/index.ts",
