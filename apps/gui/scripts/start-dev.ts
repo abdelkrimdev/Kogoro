@@ -16,6 +16,7 @@ const serverUrl = vite.resolvedUrls?.local?.[0] ?? "http://localhost:5173";
 const ebun = spawn("electrobun", ["dev"], {
   cwd: root,
   stdio: "inherit",
+  shell: process.platform === "win32",
   env: { ...process.env, VITE_DEV_SERVER_URL: serverUrl },
 });
 

@@ -2,6 +2,12 @@
 
 
 
+
+## 0.2.2
+<sub>2026-06-13</sub>
+
+-  *(patch)* - Fix Windows runtime: conditional titleBarStyle, cross-platform path handling, and shell-safe spawn
+
 ## 0.2.1
 <sub>2026-06-13</sub>
 
