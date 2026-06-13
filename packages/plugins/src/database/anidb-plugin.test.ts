@@ -86,6 +86,51 @@ describe("AniDBPlugin", () => {
       });
     });
 
+    test("matches titles with punctuation differences", async () => {
+      const xmlWithPunctuation = `<?xml version="1.0" encoding="UTF-8"?>
+<animetitles>
+  <anime aid="17806" year="2023">
+    <title type="main" xml:lang="en">Zom 100: Bucket List of the Dead</title>
+    <title type="official" xml:lang="ja">ゾン100~ゾンビになるまでにしたい100のこと~</title>
+  </anime>
+</animetitles>`;
+      await withTempDir("anidb-cache", async (dir) => {
+        writeFileSync(join(dir, "anime-titles.xml"), xmlWithPunctuation);
+        const plugin = new AniDBPlugin({
+          client: "kogoro",
+          clientver: "1",
+          cacheDir: dir,
+        });
+        const results = await plugin.searchAnime("Zom 100 Bucket List of the Dead");
+        expect(results).toHaveLength(1);
+        expect(results[0]?.id).toBe("17806");
+      });
+    });
+
+    test("matches romanized Japanese titles", async () => {
+      const xmlWithRomanization = `<?xml version="1.0" encoding="UTF-8"?>
+<animetitles>
+  <anime aid="17806" year="2023">
+    <title type="main" xml:lang="en">Zom 100: Bucket List of the Dead</title>
+    <title type="official" xml:lang="ja">ゾン100~ゾンビになるまでにしたい100のこと~</title>
+    <title type="synonym" xml:lang="x-jat">Zom 100: Zombie ni Naru made ni Shitai 100 no Koto</title>
+  </anime>
+</animetitles>`;
+      await withTempDir("anidb-cache", async (dir) => {
+        writeFileSync(join(dir, "anime-titles.xml"), xmlWithRomanization);
+        const plugin = new AniDBPlugin({
+          client: "kogoro",
+          clientver: "1",
+          cacheDir: dir,
+        });
+        const results = await plugin.searchAnime(
+          "Zom 100: Zombie ni Naru made ni Shitai 100 no Koto",
+        );
+        expect(results).toHaveLength(1);
+        expect(results[0]?.id).toBe("17806");
+      });
+    });
+
     test("skips anime with no English title", async () => {
       const xmlWithNoEnglishTitle = `<?xml version="1.0" encoding="UTF-8"?>
 <animetitles>

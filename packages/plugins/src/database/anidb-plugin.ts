@@ -29,6 +29,14 @@ function toEntryType(animeType: string): EntryType {
   return ENTRY_TYPE_MAP[animeType] ?? "tv";
 }
 
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[:\-_,.!?'"]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function extractTag(xml: string, tag: string): string | undefined {
   const match = xml.match(new RegExp(`<${tag}[^>]*>([^<]*)<\\/${tag}>`));
   return match?.[1];
@@ -274,7 +282,7 @@ export class AniDBPlugin implements DatabasePlugin {
   private searchTitleCache(query: string): AnimeResult[] {
     const xml = this.loadTitleCacheXml();
     const results: AnimeResult[] = [];
-    const lowerQuery = query.toLowerCase();
+    const normalizedQuery = normalize(query);
     const animeRegex = /<anime\s+([^>]*)>([\s\S]*?)<\/anime>/g;
 
     for (const match of xml.matchAll(animeRegex)) {
@@ -287,7 +295,10 @@ export class AniDBPlugin implements DatabasePlugin {
 
       const titles = parseTitles(content);
       const { titleEn, titleJa } = findTitles(titles);
-      if (!titleEn?.toLowerCase().includes(lowerQuery)) continue;
+      if (!titleEn) continue;
+
+      const matched = titles.some((t) => t.value && normalize(t.value).includes(normalizedQuery));
+      if (!matched) continue;
 
       const yearAttr = attrs.match(/year="(\d+)"/)?.[1];
       results.push({
