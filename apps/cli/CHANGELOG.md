@@ -3,6 +3,12 @@
 
 
 
+
+## 0.2.3
+<sub>2026-06-13</sub>
+
+-  *(patch)* - Auto-create config directory on first run to prevent startup crash
+
 ## 0.2.2
 <sub>2026-06-13</sub>
 
