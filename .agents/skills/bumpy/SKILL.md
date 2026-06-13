@@ -38,6 +38,8 @@ Before creating a bump file, check if an existing one covers the same feature. R
 ### 1. Prepare
 Ensure all changes have bump files in `.bumpy/`. If missing, run `bunx bumpy add`. Review descriptions for product-focused language.
 
+Read `RELEASE-TEMPLATE.md` in this skill directory for the exact format to use in changelogs and GitHub releases.
+
 ### 2. Version
 ```bash
 bunx bumpy version
@@ -57,7 +59,7 @@ git tag -a <version> -m "Release <version>" origin/main
 git push origin <version>
 ```
 
-Then create a GitHub release:
+Then create a GitHub release using the template from `RELEASE-TEMPLATE.md`:
 ```bash
 gh release create <version> --title "Release <version>" --notes "..."
 ```
