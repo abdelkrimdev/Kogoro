@@ -1,6 +1,5 @@
 ---
 "@kogoro/gui": minor
-"@kogoro/core": minor
 ---
 
 - Redesign Review screen with side-by-side source/destination card layout

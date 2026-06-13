@@ -184,7 +184,6 @@
       <div class="grid grid-cols-1 gap-4">
         {#each GENERAL_FIELDS as field}
           {#if field.key === "templateCustom" && settingsData["templatePreset"] !== "custom"}
-            <!-- skip custom template when preset is not custom -->
           {:else if field.type === "select"}
             <SelectField
               value={String(settingsData[field.key] ?? "")}

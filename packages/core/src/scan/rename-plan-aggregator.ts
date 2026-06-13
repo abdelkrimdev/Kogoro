@@ -216,8 +216,6 @@ export function buildReviewPlan(
   };
 }
 
-// --- Scan workflow aggregator (issue-62) ---
-
 function generateFileId(): string {
   return randomUUID();
 }

@@ -125,8 +125,7 @@
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
 
-    // @ts-expect-error - Electrobun runtime adds `path` to File objects
-    const filePath: string | undefined = files[0].path;
+    const filePath = files[0]?.path;
     if (!filePath) return;
 
     try {

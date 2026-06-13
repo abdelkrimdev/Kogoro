@@ -1,5 +1,4 @@
 ---
-"@kogoro/core": minor
 "@kogoro/gui": minor
 ---
 

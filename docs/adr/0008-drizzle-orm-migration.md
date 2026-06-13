@@ -1,4 +1,4 @@
-# ADR 0009: Drizzle ORM Migration and Storage/Domain Separation
+# ADR 0008: Drizzle ORM Migration and Storage/Domain Separation
 
 ## Status
 

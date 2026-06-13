@@ -276,7 +276,6 @@ export class ScanOrchestrator {
 
     const filePaths = await this.options.walk(path);
 
-    // Clean up stale cache entries for files that no longer exist
     if (this.options.cacheService) {
       this.options.cacheService.purgeStale(filePaths);
     }
@@ -296,7 +295,6 @@ export class ScanOrchestrator {
         }
       }
 
-      // Check if file is unchanged (incremental scan)
       if (this.options.scanStateService && !this.options.force && fileStat) {
         const storedHash = this.options.scanStateService.isFileUpToDate(
           filePath,
@@ -578,7 +576,6 @@ export class ScanOrchestrator {
         error: renameResult.error?.message,
       });
 
-      // Update scan_state after successful rename
       if (renameResult.success && this.options.scanStateService) {
         try {
           const targetAbsolute = join(this.baseDir, plan.targetPath);
