@@ -338,7 +338,12 @@ export class ScanOrchestrator {
       this.results.push(result);
 
       if (this.options.scanStateService && fileStat) {
-        this.options.scanStateService.setFromFs(filePath, result.hash);
+        this.options.scanStateService.set(
+          filePath,
+          fileStat.size,
+          Math.floor(fileStat.mtimeMs / 1000),
+          result.hash,
+        );
       }
 
       this.emit({

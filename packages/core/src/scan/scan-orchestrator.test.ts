@@ -1959,6 +1959,37 @@ describe("ScanOrchestrator", () => {
       });
     });
 
+    test("stores scan state when file deleted mid-scan", async () => {
+      await withTempDir("orch-setfromfs-race", async (dir) => {
+        const { writeFileSync, unlinkSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const { scanStateService, close } = createMatchCacheService(dir);
+
+        const file1 = join(dir, "ep1.mkv");
+        writeFileSync(file1, "content1");
+
+        const orch = new ScanOrchestrator({
+          walk: async () => [file1],
+          scanFile: async (filePath) => {
+            unlinkSync(filePath);
+            return makeScanResult(filePath, {
+              match: makeMatchResult(),
+              status: "matched",
+            });
+          },
+          scanStateService,
+        });
+
+        await orch.startScan(dir);
+        expect(orch.getState()).toBe("review");
+
+        const stored = scanStateService.get(file1);
+        expect(stored).not.toBeNull();
+        expect(stored?.hash).toBe(`hash-${file1}`);
+        close();
+      });
+    });
+
     test("updates scan state after successful rename", async () => {
       await withTempDir("orch-execute-state", async (dir) => {
         const { writeFileSync, statSync, existsSync } = await import("node:fs");
