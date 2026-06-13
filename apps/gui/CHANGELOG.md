@@ -6,6 +6,12 @@
 
 
 
+
+## 0.2.6
+<sub>2026-06-13</sub>
+
+-  *(patch)* - Use embedded HTTP server for webview to fix Windows loading, and improve CLI error messages
+
 ## 0.2.5
 <sub>2026-06-13</sub>
 

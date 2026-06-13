@@ -110,15 +110,16 @@ export async function run(argv: string[]): Promise<void> {
   registerPlugins(parser, config);
 
   parser
-    .demandCommand(1, "Please specify a command")
+    .demandCommand(1, "See 'kogoro --help'")
     .help()
     .alias("h", "help")
     .version(readVersion())
     .alias("v", "version")
     .strict()
-    .fail((msg, err) => {
+    .fail((msg, err, yargs) => {
+      yargs.showHelp();
       if (err) {
-        log.error(err.stack ?? String(err));
+        log.error(err.message ?? String(err));
       } else {
         log.error(msg);
       }
