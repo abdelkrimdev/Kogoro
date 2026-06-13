@@ -581,13 +581,13 @@ describe("LibraryService", () => {
       }
     });
 
-    test("does not merge different sourceDbs with same title", () => {
+    test("removes anime from other sourceDbs when switching databases", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
         const service = new LibraryService(repo);
 
-        const matches: MatchEntry[] = [
+        const anidbMatches: MatchEntry[] = [
           {
             animeId: "anidb-12345",
             animeTitle: "Oshi no Ko",
@@ -596,30 +596,61 @@ describe("LibraryService", () => {
             episode: 1,
             season: 1,
             title: "Mother and Children",
-            filePath: "/media/S01E01.mkv",
+            filePath: "/media/Oshi no Ko/S01E01.mkv",
             sourceDb: "anidb",
           },
           {
-            animeId: "tvdb-67890",
+            animeId: "anidb-12345",
             animeTitle: "Oshi no Ko",
+            entryType: "tv",
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Third Option",
+            filePath: "/media/Oshi no Ko/S01E02.mkv",
+            sourceDb: "anidb",
+          },
+        ];
+
+        service.mergeFromMatches(anidbMatches);
+
+        expect(repo.listAnime()).toHaveLength(1);
+        expect(repo.findAnime("anidb-12345", "anidb")).not.toBeNull();
+
+        const tvdbMatches: MatchEntry[] = [
+          {
+            animeId: "tvdb-67890",
+            animeTitle: "Oshi no Ko (TV)",
             entryType: "tv",
             episodeId: "201",
             episode: 1,
             season: 1,
             title: "Mother and Children",
-            filePath: "/media/tvdb/S01E01.mkv",
+            filePath: "/media/Oshi no Ko/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "tvdb-67890",
+            animeTitle: "Oshi no Ko (TV)",
+            entryType: "tv",
+            episodeId: "202",
+            episode: 2,
+            season: 1,
+            title: "Third Option",
+            filePath: "/media/Oshi no Ko/S01E02.mkv",
             sourceDb: "tvdb",
           },
         ];
 
-        service.mergeFromMatches(matches);
+        service.mergeFromMatches(tvdbMatches);
 
         const all = repo.listAnime();
-        expect(all).toHaveLength(2);
-        const anidb = repo.findAnime("anidb-12345", "anidb");
+        expect(all).toHaveLength(1);
+        expect(repo.findAnime("anidb-12345", "anidb")).toBeNull();
         const tvdb = repo.findAnime("tvdb-67890", "tvdb");
-        expect(anidb).not.toBeNull();
         expect(tvdb).not.toBeNull();
+        expect(tvdb?.title).toBe("Oshi no Ko (TV)");
+        expect(repo.getEpisodesByAnimeId(tvdb?.id as number)).toHaveLength(2);
       } finally {
         sqlite.close();
       }

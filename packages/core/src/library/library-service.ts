@@ -194,6 +194,8 @@ export class LibraryService {
         this.deleteStaleEpisodes(tx, newFilePaths, excludeSourceDb);
       }
 
+      this.deleteAnimeFromOtherSourceDbs(tx, sourceDbs);
+
       for (const [, group] of grouped) {
         const first = group[0];
         if (!first) continue;
@@ -241,6 +243,19 @@ export class LibraryService {
         tx.updateEpisodeCount(libraryAnime.id);
       }
     });
+  }
+
+  private deleteAnimeFromOtherSourceDbs(tx: LibraryRepository, newSourceDbs: Set<string>): void {
+    const allAnime = tx.listAnime();
+    const animeToDelete: number[] = [];
+    for (const entry of allAnime) {
+      if (!newSourceDbs.has(entry.sourceDb)) {
+        animeToDelete.push(entry.id);
+      }
+    }
+    if (animeToDelete.length > 0) {
+      tx.deleteAnimeByIds(animeToDelete);
+    }
   }
 
   private deleteStaleEpisodes(
