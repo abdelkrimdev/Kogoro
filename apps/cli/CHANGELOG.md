@@ -4,7 +4,7 @@
 ## 0.2.0
 <sub>2026-06-13</sub>
 
--  *(minor)* - Remove isAlreadyOrganized heuristic; all files now scanned uniformly with incremental cache optimization
+-  *(minor)* - Scan now handles all files uniformly regardless of prior organization
 
 ## 0.1.1
 <sub>2026-06-01</sub>
