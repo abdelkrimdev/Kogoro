@@ -8,7 +8,6 @@ import {
 } from "@kogoro/core";
 import { AniDBPlugin } from "./database/anidb-plugin";
 import { TVDBPlugin } from "./database/tvdb-plugin";
-import { PluginRegistry } from "./plugin-registry";
 import { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
 
 const RATE_LIMITS = {
@@ -42,17 +41,13 @@ function prettifyBody(body: string): string {
 }
 
 export class PluginFactory {
-  private registry: PluginRegistry;
   private externalCache: Map<string, DatabasePlugin> = new Map();
 
   constructor(
     private config: ConfigManager,
     private credentialStore: CredentialStore,
     private debug?: boolean,
-  ) {
-    this.registry = new PluginRegistry();
-    this.registry.setDisabled(config.getDisabledPlugins());
-  }
+  ) {}
 
   async primaryDatabase(): Promise<DatabasePlugin | undefined> {
     const name = (this.config.get("primary-db") as string | undefined) ?? "tvdb";
@@ -60,7 +55,7 @@ export class PluginFactory {
   }
 
   async database(name: string): Promise<DatabasePlugin | undefined> {
-    if (!this.registry.isEnabled(name)) {
+    if (!this.config.isPluginEnabled(name)) {
       console.warn(`Plugin "${name}" is disabled`);
       return undefined;
     }
