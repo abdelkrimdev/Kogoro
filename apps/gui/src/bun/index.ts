@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   BunSecretsKeytar,
   CacheService,
@@ -166,7 +168,9 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 
 const defaultFrame = { width: 1200, height: 800, x: 200, y: 200 };
 
-const webviewUrl = process.env["VITE_DEV_SERVER_URL"] || "views://mainview/index.html";
+const webviewUrl =
+  process.env["VITE_DEV_SERVER_URL"] ||
+  pathToFileURL(join(import.meta.dirname, "..", "views", "mainview", "index.html")).href;
 
 const isMac = process.platform === "darwin";
 

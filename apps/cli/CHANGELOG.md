@@ -5,6 +5,12 @@
 
 
 
+
+## 0.2.5
+<sub>2026-06-13</sub>
+
+-  *(patch)* - Fix webview URL on Windows by using pathToFileURL instead of views:// protocol
+
 ## 0.2.4
 <sub>2026-06-13</sub>
 
