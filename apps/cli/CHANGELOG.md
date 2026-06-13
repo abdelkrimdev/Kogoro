@@ -4,6 +4,12 @@
 
 
 
+
+## 0.3.0
+<sub>2026-06-13</sub>
+
+-  *(minor)* - Embed database migrations in compiled binaries so migrations run without source files on disk
+
 ## 0.2.3
 <sub>2026-06-13</sub>
 

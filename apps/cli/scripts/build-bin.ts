@@ -1,7 +1,15 @@
 import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 
 const target = process.env["TARGET"];
 const outfile = process.env["OUTFILE"] ?? "kogoro";
+
+const workspaceRoot = resolve(import.meta.dirname, "../../..");
+
+spawnSync("bun", ["run", "apps/cli/scripts/embed-migrations.ts"], {
+  stdio: "inherit",
+  cwd: workspaceRoot,
+});
 
 const args = ["build", "--compile"];
 if (target) args.push("--target", target);
