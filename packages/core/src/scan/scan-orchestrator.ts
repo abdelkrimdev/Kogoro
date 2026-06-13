@@ -519,6 +519,15 @@ export class ScanOrchestrator {
 
     const resolved = await this.options.resolveFile(sourcePath, animeId, episodeId);
     this.results[resultIndex] = resolved;
+
+    if (this.options.cacheService && resolved.hash && resolved.match) {
+      this.options.cacheService.storeMatchFromResult(
+        resolved.hash,
+        resolved.match,
+        this.options.sourceDb ?? "tvdb",
+      );
+    }
+
     await this.refreshPlan();
 
     this.emitReviewReady();

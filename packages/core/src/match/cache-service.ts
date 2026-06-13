@@ -43,6 +43,7 @@ export class CacheService {
 
   clear() {
     this.matches.clear();
+    this.scanState.deleteAll();
   }
 
   purgeStale(currentPaths: string[]): void {

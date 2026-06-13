@@ -7,6 +7,8 @@ import {
   createMatchCacheService,
   createMockMatcher,
   createTrackingMatcher,
+  hashFile,
+  makeCachedMatch,
   makeEpisodes,
   makeNoMatchResult,
   withTempDir,
@@ -550,6 +552,27 @@ describe("Scanner", () => {
 
         expect(result.parsed.title).toBe("Correct Name");
       });
+    });
+  });
+
+  test("skips cached match when sourceDb does not match", async () => {
+    await withTempDir("scan-source-db", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
+
+      const { cacheService } = createMatchCacheService(dir);
+      const hash = await hashFile(filePath);
+      cacheService.set(hash, makeCachedMatch({ sourceDb: "tvdb" }));
+
+      const scanner = new Scanner({
+        matcher: createMockMatcher(),
+        cacheService,
+        sourceDb: "anidb",
+      });
+
+      const result = await scanner.scanFile(filePath);
+
+      expect(result.cached).toBe(false);
+      expect(result.status).toBe("matched");
     });
   });
 });

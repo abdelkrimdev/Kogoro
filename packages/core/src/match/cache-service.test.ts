@@ -195,4 +195,24 @@ describe("CacheService", () => {
       }
     });
   });
+
+  test("clear also removes scan_state entries", () => {
+    const { db, sqlite } = createMatchCacheDb();
+    try {
+      const matchRepo = new MatchRepository(db);
+      const scanRepo = new ScanStateRepository(db);
+      const service = new CacheService(matchRepo, scanRepo);
+
+      matchRepo.set("hashA", makeCachedMatch({ animeId: "1" }));
+      scanRepo.set("/a.mkv", 100, 1000, "hashA");
+      scanRepo.set("/b.mkv", 200, 2000, "hashB");
+
+      service.clear();
+
+      expect(matchRepo.list()).toHaveLength(0);
+      expect(scanRepo.getAllPaths()).toHaveLength(0);
+    } finally {
+      sqlite.close();
+    }
+  });
 });

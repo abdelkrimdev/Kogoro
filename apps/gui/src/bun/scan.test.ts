@@ -5,6 +5,7 @@ import type {
   ConfigManager,
   DatabasePlugin,
   MatcherLike,
+  ReviewPlan,
   ScanEvent,
   ScanReviewReadyEvent,
 } from "@kogoro/core";
@@ -13,6 +14,7 @@ import {
   createLibraryRepository,
   createMatchCacheService,
   createMockDb,
+  hashFile,
   LibraryService,
   Matcher,
   makeMatchResult,
@@ -514,6 +516,115 @@ describe("ScanOrchestrator", () => {
         // Stale entry should be purged via CacheService
         expect(scanStateRepo.get("/deleted/old.mkv")).toBeNull();
         expect(matchRepo.has("staleHash")).toBe(false);
+
+        close();
+      });
+    });
+
+    test("resolveMatch caches the resolved match with computed hash", async () => {
+      await withTempDir("resolve-cache", async (dir) => {
+        const { matchRepo, scanStateRepo, cacheService, close } = createMatchCacheService(dir);
+        const scanStateService = new ScanStateService(scanStateRepo);
+
+        const dbPlugin = createMockDb({
+          searchAnime: (title: string) => {
+            if (title === "My Anim") {
+              return [
+                { id: "1", titleEn: "My Anime", entryType: "tv" },
+                { id: "2", titleEn: "My Anima", entryType: "tv" },
+              ];
+            }
+            return [];
+          },
+          getEpisodes: (animeId: string) => {
+            if (animeId === "1" || animeId === "2") {
+              return [
+                {
+                  id: `${animeId}-ep1`,
+                  animeId,
+                  season: 1,
+                  episode: 1,
+                  titleEn: "Ep 1",
+                  entryType: "tv",
+                },
+              ];
+            }
+            return [];
+          },
+        });
+
+        const filePath = join(dir, "[Group] My Anim - 01.mkv");
+        writeTempFile(dir, "[Group] My Anim - 01.mkv", "fake video content");
+
+        const { repo: libraryRepo } = createLibraryRepository(dir);
+        const libraryService = new LibraryService(libraryRepo);
+
+        const captured: { plan?: ReviewPlan } = {};
+
+        const handlers = createScanHandlers({
+          pluginFactory: {
+            primaryDatabase: async () => dbPlugin,
+            subtitle: async () => undefined,
+          } as unknown as PluginFactory,
+          configManager: {
+            getTemplate: () => TEMPLATE_PRESETS.standard,
+            get: (key: string) => {
+              if (key === "template.directory") return SCHEMA_DEFAULTS.template.directory;
+              if (key === "primary-db") return "tvdb";
+              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
+              return undefined;
+            },
+            getList: (key: string) => {
+              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
+              return [];
+            },
+            resolveMediaExtensions: () => SCHEMA_DEFAULTS["media-extensions"],
+          } as unknown as ConfigManager,
+          cacheService,
+          libraryService,
+          scanStateService,
+          mergeMatches: () => {},
+          send: {
+            scanProgress: () => {},
+            scanPhaseComplete: () => {},
+            scanReviewReady: (data) => {
+              captured.plan = data.plan;
+            },
+            scanExecutionProgress: () => {},
+            scanComplete: () => {},
+          },
+        });
+
+        const { sessionId } = await handlers.scanStart({ path: dir });
+        await new Promise((r) => setTimeout(r, 100));
+
+        expect(captured.plan).toBeDefined();
+        if (!captured.plan) throw new Error("Test invariant: plan is undefined");
+        const fileId = captured.plan.groups[0]?.files[0]?.fileId;
+        expect(fileId).toBeDefined();
+        if (!fileId) throw new Error("Test invariant: fileId is undefined");
+
+        const expectedHash = await hashFile(filePath);
+        const hashBefore = matchRepo.get(expectedHash);
+        expect(hashBefore).toBeNull();
+
+        const resolveResult = await handlers.getResolveCandidates({ sessionId, fileId });
+        expect(resolveResult.candidates.length).toBeGreaterThan(0);
+
+        const candidate = resolveResult.candidates[0];
+        expect(candidate).toBeDefined();
+        if (!candidate) throw new Error("Test invariant: candidate is undefined");
+
+        await handlers.resolveMatch({
+          sessionId,
+          fileId,
+          animeId: candidate.animeId,
+          episodeId: candidate.episodeId,
+        });
+
+        const cached = matchRepo.get(expectedHash);
+        expect(cached).not.toBeNull();
+        expect(cached?.animeId).toBe(candidate.animeId);
 
         close();
       });

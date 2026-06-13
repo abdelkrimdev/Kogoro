@@ -42,6 +42,29 @@ describe("PluginFactory", () => {
           },
         );
       });
+
+      test("caches built-in plugin instance across calls", async () => {
+        await withMockFetch(
+          (() =>
+            new Response(JSON.stringify({ data: [] }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            })) as unknown as typeof fetch,
+          async () => {
+            await withTestConfig(
+              "tvdb-cache-test",
+              async (_dir, config, credentialStore) => {
+                const factory = new PluginFactory(config, credentialStore);
+                const first = await factory.database("tvdb");
+                const second = await factory.database("tvdb");
+                expect(first).toBeDefined();
+                expect(first).toBe(second);
+              },
+              createMockKeytar({ "kogoro:tvdb": "test-api-key" }),
+            );
+          },
+        );
+      });
     });
 
     describe("anidb", () => {

@@ -12,6 +12,7 @@ import {
   CONFIG_DIR,
   type ConfigManager,
   findCandidateMatches,
+  hashFile,
   type LibraryService,
   Matcher,
   type MatchResult,
@@ -125,12 +126,13 @@ async function createScanOrchestrator(
               };
             }
 
+            const hash = await hashFile(filePath);
             const extension = extname(filePath).replace(".", "") || "mkv";
             const plan = renamer.plan(filePath, chosen, extension);
 
             return {
               file: filePath,
-              hash: "",
+              hash,
               parsed,
               match: chosen,
               plan,

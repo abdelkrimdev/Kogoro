@@ -41,6 +41,7 @@ function prettifyBody(body: string): string {
 }
 
 export class PluginFactory {
+  private builtinCache: Map<string, DatabasePlugin> = new Map();
   private externalCache: Map<string, DatabasePlugin> = new Map();
 
   constructor(
@@ -61,6 +62,8 @@ export class PluginFactory {
     }
     switch (name) {
       case "tvdb": {
+        const cached = this.builtinCache.get("tvdb");
+        if (cached) return cached;
         const apiKey = await this.credentialStore.getCredential("tvdb");
         if (!apiKey) {
           console.error("No TVDB API key configured. Run 'kogoro config init' first.");
@@ -70,9 +73,13 @@ export class PluginFactory {
           minDelay: RATE_LIMITS.tvdb,
           ...this.debugOptions(),
         });
-        return new TVDBPlugin({ apiKey, httpClient });
+        const plugin = new TVDBPlugin({ apiKey, httpClient });
+        this.builtinCache.set("tvdb", plugin);
+        return plugin;
       }
       case "anidb": {
+        const cached = this.builtinCache.get("anidb");
+        if (cached) return cached;
         const credential = await this.credentialStore.getCredential("anidb");
         if (!credential) {
           console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
@@ -83,11 +90,13 @@ export class PluginFactory {
           minDelay: RATE_LIMITS.anidb,
           ...this.debugOptions(),
         });
-        return new AniDBPlugin({
+        const plugin = new AniDBPlugin({
           client: client ?? credential,
           clientver: clientver ?? "1",
           httpClient,
         });
+        this.builtinCache.set("anidb", plugin);
+        return plugin;
       }
       default:
         return this.loadExternalDatabasePlugin(name);

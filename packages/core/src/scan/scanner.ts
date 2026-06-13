@@ -160,7 +160,7 @@ export class Scanner {
     if (this.cacheService) {
       hash = await hashFile(filePath);
       if (!force) {
-        cachedMatch = this.cacheService.get(hash);
+        cachedMatch = this.cacheService.get(hash, this.sourceDb);
       }
     }
 

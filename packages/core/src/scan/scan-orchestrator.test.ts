@@ -1604,6 +1604,56 @@ describe("ScanOrchestrator", () => {
       if (!fileId) throw new Error("Test invariant: fileId is undefined");
       expect(() => orch.resolveMatch(fileId, "1", "101")).toThrow("resolve not available");
     });
+
+    test("persists resolved match to cache service", async () => {
+      await withTempDir("orch-persist-resolve", async (dir) => {
+        const { cacheService, close } = createMatchCacheService(dir);
+        const resolvedMatch = makeMatchResult({
+          anime: { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+          episode: {
+            id: "101",
+            animeId: "1",
+            season: 1,
+            episode: 1,
+            titleEn: "Ep 1",
+            entryType: "tv",
+          },
+        });
+
+        const orch = new ScanOrchestrator({
+          walk: async () => ["/a/ep1.mkv"],
+          scanFile: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+          resolveFile: async (_filePath, _animeId, _episodeId) =>
+            makeScanResult("/a/ep1.mkv", {
+              match: resolvedMatch,
+              hash: "resolved-hash",
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                targetDir: "Jujutsu Kaisen/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            }),
+          cacheService,
+          sourceDb: "tvdb",
+        });
+        await orch.startScan("/test/path");
+
+        const plan = orch.getPlan();
+        const fileId = plan?.groups[0]?.files[0]?.fileId;
+        if (!fileId) throw new Error("Test invariant: fileId is undefined");
+
+        await orch.resolveMatch(fileId, "1", "101");
+
+        expect(cacheService.has("resolved-hash")).toBe(true);
+        const cached = cacheService.get("resolved-hash");
+        expect(cached?.animeId).toBe("1");
+        expect(cached?.episodeId).toBe("101");
+        close();
+      });
+    });
   });
 
   describe("incremental scan", () => {
