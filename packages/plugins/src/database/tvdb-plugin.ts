@@ -247,12 +247,14 @@ export class TVDBPlugin implements DatabasePlugin {
   }
 
   async getArtwork(animeId: string, type: ArtworkType): Promise<ArtworkResult[]> {
-    const data = await this.apiRequest<TVDBArtworkItem[]>(`/series/${animeId}/artworks`);
+    const data = await this.apiRequest<{ artworks: TVDBArtworkItem[] }>(
+      `/series/${animeId}/artworks`,
+    );
 
-    if (!data) return [];
+    if (!data?.artworks) return [];
 
     const results: ArtworkResult[] = [];
-    for (const item of data) {
+    for (const item of data.artworks) {
       const artworkType = toArtworkType(item.type);
       if (artworkType !== type) continue;
       results.push({

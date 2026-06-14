@@ -6,7 +6,7 @@ import type { LibraryRepository } from "@kogoro/core";
 import { createLibraryRepository, LibraryService, withTempDir } from "@kogoro/core";
 import { createLibraryHandlers } from "./library";
 
-function seedLibrary(repo: LibraryRepository) {
+function seedLibrary(repo: LibraryRepository, coverDir?: string) {
   const jjk = repo.upsertAnime({
     externalId: "tvdb-12345",
     sourceDb: "tvdb",
@@ -14,7 +14,7 @@ function seedLibrary(repo: LibraryRepository) {
     titleJapanese: "呪術廻戦",
     entryType: "tv",
     episodeCount: 24,
-    coverArtPath: "/covers/jjk.jpg",
+    coverArtPath: coverDir ? join(coverDir, "jjk.jpg") : undefined,
   });
   repo.addEpisode({
     animeId: jjk.id,
@@ -37,7 +37,7 @@ function seedLibrary(repo: LibraryRepository) {
     title: "Attack on Titan",
     entryType: "tv",
     episodeCount: 25,
-    coverArtPath: "/covers/aot.jpg",
+    coverArtPath: coverDir ? join(coverDir, "aot.jpg") : undefined,
   });
   repo.addEpisode({
     animeId: aot.id,
@@ -51,8 +51,12 @@ function seedLibrary(repo: LibraryRepository) {
 describe("getLibrary handler", () => {
   test("returns formatted anime list from library database", async () => {
     await withTempDir("library-handler", async (dir) => {
+      const coverDir = join(dir, "covers");
+      mkdirSync(coverDir, { recursive: true });
+      writeFileSync(join(coverDir, "aot.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
+      writeFileSync(join(coverDir, "jjk.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
       const { repo, close } = createLibraryRepository(dir);
-      seedLibrary(repo);
+      seedLibrary(repo, coverDir);
       const libraryService = new LibraryService(repo);
       const handlers = createLibraryHandlers({ libraryService });
       const result = await handlers.getLibrary();
@@ -61,7 +65,7 @@ describe("getLibrary handler", () => {
       expect(result[0]?.titleEn).toBe("Attack on Titan");
       expect(result[0]?.entryType).toBe("tv");
       expect(result[0]?.episodeCount).toBe(25);
-      expect(result[0]?.coverArt).toBe("/covers/aot.jpg");
+      expect(result[0]?.coverArt).toStartWith("data:image/jpeg;base64,");
       expect(result[1]?.titleEn).toBe("Jujutsu Kaisen");
       expect(result[1]?.episodeCount).toBe(24);
       close();
@@ -83,8 +87,11 @@ describe("getLibrary handler", () => {
 describe("getAnimeDetail handler", () => {
   test("returns anime with episodes for valid id", async () => {
     await withTempDir("library-handler-detail", async (dir) => {
+      const coverDir = join(dir, "covers");
+      mkdirSync(coverDir, { recursive: true });
+      writeFileSync(join(coverDir, "jjk.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
       const { repo, close } = createLibraryRepository(dir);
-      seedLibrary(repo);
+      seedLibrary(repo, coverDir);
       const libraryService = new LibraryService(repo);
       const handlers = createLibraryHandlers({ libraryService });
       const library = await handlers.getLibrary();
@@ -96,11 +103,12 @@ describe("getAnimeDetail handler", () => {
       expect(result?.anime.titleEn).toBe("Jujutsu Kaisen");
       expect(result?.anime.titleJa).toBe("呪術廻戦");
       expect(result?.anime.entryType).toBe("tv");
-      expect(result?.anime.coverArt).toBe("/covers/jjk.jpg");
+      expect(result?.anime.coverArt).toStartWith("data:image/jpeg;base64,");
       expect(result?.episodes).toHaveLength(2);
       expect(result?.episodes[0]?.episode).toBe(1);
       expect(result?.episodes[0]?.titleEn).toBe("Ryomen Sukuna");
       expect(result?.episodes[1]?.episode).toBe(2);
+      expect(result?.episodes[1]?.titleEn).toBe("Cursed Womb Must Die");
       expect(result?.filesOnDisk).toBe(2);
       close();
     });

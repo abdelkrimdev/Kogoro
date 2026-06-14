@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { extname } from "node:path";
 import type { LibraryService, MatchEntry } from "@kogoro/core";
 
 interface LibraryAnimeItem {
@@ -30,6 +32,24 @@ interface LibraryAnimeDetail {
   filesOnDisk: number;
 }
 
+const MIME: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+};
+
+async function toDataUrl(filePath: string): Promise<string | undefined> {
+  try {
+    const buf = await readFile(filePath);
+    const mime = MIME[extname(filePath).toLowerCase()] ?? "image/jpeg";
+    return `data:${mime};base64,${buf.toString("base64")}`;
+  } catch {
+    return undefined;
+  }
+}
+
 interface LibraryHandlerOptions {
   libraryService: LibraryService;
   getSourceDb?: () => string;
@@ -41,14 +61,16 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
   return {
     async getLibrary(): Promise<LibraryAnimeItem[]> {
       const animeList = svc.listAnime();
-      return animeList.map((a) => ({
-        id: String(a.id),
-        titleEn: a.title,
-        entryType: a.entryType,
-        episodeCount: a.episodeCount,
-        filesOnDisk: a.filesOnDisk ?? a.episodeCount,
-        coverArt: a.coverArtPath,
-      }));
+      return Promise.all(
+        animeList.map(async (a) => ({
+          id: String(a.id),
+          titleEn: a.title,
+          entryType: a.entryType,
+          episodeCount: a.episodeCount,
+          filesOnDisk: a.filesOnDisk ?? a.episodeCount,
+          coverArt: a.coverArtPath ? await toDataUrl(a.coverArtPath) : undefined,
+        })),
+      );
     },
 
     async getAnimeDetail(params: { id: string }): Promise<LibraryAnimeDetail | null> {
@@ -66,6 +88,8 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
         missing: false,
       }));
 
+      const coverArt = anime.coverArtPath ? await toDataUrl(anime.coverArtPath) : undefined;
+
       return {
         anime: {
           id: String(anime.id),
@@ -74,7 +98,7 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
           entryType: anime.entryType,
           sourceDb: anime.sourceDb,
           totalEpisodes: anime.episodeCount,
-          coverArt: anime.coverArtPath,
+          coverArt,
         },
         episodes: allEpisodes,
         filesOnDisk: dbEpisodes.length,

@@ -470,13 +470,15 @@ describe("TVDBPlugin", () => {
 
   describe("getArtwork", () => {
     test("returns artwork filtered by type", async () => {
-      const artworkResponse = [
-        { id: 1, image: "https://example.com/poster1.jpg", type: 1 },
-        { id: 2, image: "https://example.com/poster2.jpg", type: 14 },
-        { id: 3, image: "https://example.com/fanart.jpg", type: 2 },
-        { id: 4, image: "https://example.com/banner.jpg", type: 3 },
-        { id: 5, image: "https://example.com/thumb.jpg", type: 99 },
-      ];
+      const artworkResponse = {
+        artworks: [
+          { id: 1, image: "https://example.com/poster1.jpg", type: 1 },
+          { id: 2, image: "https://example.com/poster2.jpg", type: 14 },
+          { id: 3, image: "https://example.com/fanart.jpg", type: 2 },
+          { id: 4, image: "https://example.com/banner.jpg", type: 3 },
+          { id: 5, image: "https://example.com/thumb.jpg", type: 99 },
+        ],
+      };
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
@@ -493,7 +495,9 @@ describe("TVDBPlugin", () => {
     });
 
     test("returns empty array when no matching artwork type", async () => {
-      const artworkResponse = [{ id: 1, image: "https://example.com/banner.jpg", type: 3 }];
+      const artworkResponse = {
+        artworks: [{ id: 1, image: "https://example.com/banner.jpg", type: 3 }],
+      };
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
@@ -504,10 +508,12 @@ describe("TVDBPlugin", () => {
     });
 
     test("includes width and height in artwork results", async () => {
-      const artworkResponse = [
-        { id: 1, image: "https://example.com/poster.jpg", type: 1, width: 680, height: 1000 },
-        { id: 2, image: "https://example.com/poster2.jpg", type: 14, width: 900, height: 1280 },
-      ];
+      const artworkResponse = {
+        artworks: [
+          { id: 1, image: "https://example.com/poster.jpg", type: 1, width: 680, height: 1000 },
+          { id: 2, image: "https://example.com/poster2.jpg", type: 14, width: 900, height: 1280 },
+        ],
+      };
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
@@ -524,7 +530,7 @@ describe("TVDBPlugin", () => {
     test("returns empty array when no artwork exists", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
-        httpClient: createMockHttpClient(mockFetch([])),
+        httpClient: createMockHttpClient(mockFetch({ artworks: [] })),
       });
       const results = await plugin.getArtwork("12345", "poster");
       expect(results).toEqual([]);
