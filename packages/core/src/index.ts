@@ -18,6 +18,7 @@ export {
   ENTRY_TYPE_DIR_MAP,
   ORGANIZED_DIRS,
   SCHEMA_DEFAULTS,
+  stripTypeDir,
   TEMPLATE_PRESETS,
 } from "./config/schema";
 export type { EnrichmentSend } from "./fixtures";

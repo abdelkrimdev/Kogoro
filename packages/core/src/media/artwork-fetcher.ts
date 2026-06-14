@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
-import { ORGANIZED_DIRS, SCHEMA_DEFAULTS } from "../config/schema";
+import { SCHEMA_DEFAULTS, stripTypeDir } from "../config/schema";
 import { walk } from "../io/directory-walker";
 import { hashFile } from "../io/file-hash";
 import { HttpClient } from "../io/http-client";
@@ -66,12 +66,7 @@ export class ArtworkFetcher {
 
     for (const [animeId, files] of animeMap) {
       if (ctx?.abortSignal?.aborted) break;
-      let animeDir = this.findCommonParent(files);
-
-      const lastSeg = animeDir.split(sep).pop();
-      if (lastSeg && ORGANIZED_DIRS.has(lastSeg)) {
-        animeDir = dirname(animeDir);
-      }
+      const animeDir = stripTypeDir(this.findCommonParent(files));
 
       const coverPath = join(animeDir, "cover.jpg");
       if (existsSync(coverPath) && !options?.force) {

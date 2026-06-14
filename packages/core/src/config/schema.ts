@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import * as v from "valibot";
 import type { EntryType } from "../types";
 
@@ -21,6 +21,14 @@ export const ENTRY_TYPE_DIR_MAP: Record<EntryType, string> = {
 };
 
 export const ORGANIZED_DIRS = new Set(Object.values(ENTRY_TYPE_DIR_MAP));
+
+export function stripTypeDir(dirPath: string): string {
+  const lastSeg = dirPath.split(sep).pop();
+  if (lastSeg && ORGANIZED_DIRS.has(lastSeg)) {
+    return dirname(dirPath);
+  }
+  return dirPath;
+}
 
 const TemplatePresetSchema = v.picklist([...Object.keys(TEMPLATE_PRESETS), "custom"]);
 

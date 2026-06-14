@@ -8,6 +8,7 @@ import {
   ConfigSchema,
   ENTRY_TYPE_DIR_MAP,
   ORGANIZED_DIRS,
+  stripTypeDir,
   TEMPLATE_PRESETS,
 } from "./schema";
 
@@ -261,6 +262,24 @@ describe("ENTRY_TYPE_DIR_MAP", () => {
 describe("ORGANIZED_DIRS", () => {
   test("contains all directory names from entry type map", () => {
     expect(ORGANIZED_DIRS).toEqual(new Set(["TV", "Movies", "OVA", "Specials"]));
+  });
+});
+
+describe("stripTypeDir", () => {
+  test("strips trailing TV directory", () => {
+    expect(stripTypeDir("/media/Anime/TV")).toBe("/media/Anime");
+  });
+
+  test("strips trailing Movies directory", () => {
+    expect(stripTypeDir("/media/Anime/Movies")).toBe("/media/Anime");
+  });
+
+  test("does not strip non-type directories", () => {
+    expect(stripTypeDir("/media/Anime/season1")).toBe("/media/Anime/season1");
+  });
+
+  test("returns path unchanged when no segments match", () => {
+    expect(stripTypeDir("/media/Anime")).toBe("/media/Anime");
   });
 });
 
