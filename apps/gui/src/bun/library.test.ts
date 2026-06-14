@@ -163,7 +163,7 @@ describe("mergeMatches", () => {
       const libraryService = new LibraryService(repo);
       const handlers = createLibraryHandlers({ libraryService });
 
-      handlers.mergeMatches([
+      libraryService.mergeFromMatches([
         {
           animeId: "tvdb-12345",
           animeTitle: "My Anime",

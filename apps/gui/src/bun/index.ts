@@ -87,7 +87,7 @@ const scanHandlers = createScanHandlers({
   cacheService,
   libraryService,
   scanStateService,
-  mergeMatches: (matches) => libraryHandlers.mergeMatches(matches),
+  mergeMatches: (matches) => libraryService.mergeFromMatches(matches),
   send: {
     scanProgress: (data) => rpc.send.scanProgress(data),
     scanPhaseComplete: (data) => rpc.send.scanPhaseComplete(data),

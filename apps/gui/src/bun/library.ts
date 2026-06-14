@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
-import type { LibraryService, MatchEntry } from "@kogoro/core";
+import type { LibraryService } from "@kogoro/core";
 
 interface LibraryAnimeItem {
   id: string;
@@ -128,10 +128,6 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
 
     async getLibraryStats(): Promise<{ animeCount: number; episodeCount: number }> {
       return svc.getStats();
-    },
-
-    mergeMatches(matches: MatchEntry[]): void {
-      svc.mergeFromMatches(matches);
     },
 
     rebuild(): { success: boolean; error?: string } {
