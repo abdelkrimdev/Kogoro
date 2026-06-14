@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   BunSecretsKeytar,
   CacheService,
@@ -12,7 +14,7 @@ import {
   ScanStateService,
 } from "@kogoro/core";
 import { PluginFactory } from "@kogoro/plugins";
-import { BrowserView, BrowserWindow, Utils } from "electrobun/bun";
+import { BrowserView, BrowserWindow, PATHS, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
@@ -166,7 +168,9 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 
 const defaultFrame = { width: 1200, height: 800, x: 200, y: 200 };
 
-const webviewUrl = process.env["VITE_DEV_SERVER_URL"] || "views://mainview/index.html";
+const webviewUrl =
+  process.env["VITE_DEV_SERVER_URL"] ||
+  pathToFileURL(join(PATHS.VIEWS_FOLDER, "mainview", "index.html")).href;
 
 const isMac = process.platform === "darwin";
 

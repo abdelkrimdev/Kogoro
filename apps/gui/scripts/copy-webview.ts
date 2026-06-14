@@ -11,7 +11,7 @@ if (!buildDir) {
 }
 
 if (existsSync(distDir)) {
-  const targetDir = resolve(buildDir, "views/mainview");
+  const targetDir = resolve(buildDir, "app/views/mainview");
   mkdirSync(targetDir, { recursive: true });
   for (const entry of readdirSync(distDir)) {
     cpSync(resolve(distDir, entry), resolve(targetDir, entry), { recursive: true });

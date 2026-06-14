@@ -17,9 +17,6 @@ export default {
         "process.env.VITE_DEV_SERVER_URL": JSON.stringify(process.env["VITE_DEV_SERVER_URL"] ?? ""),
       },
     },
-    copy: {
-      "dist-webview/index.html": "views/mainview/index.html",
-    },
     // linux: { bundleCEF: true },
   },
   release: {

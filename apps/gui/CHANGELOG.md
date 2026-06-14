@@ -8,6 +8,12 @@
 
 
 
+
+## 0.2.8
+<sub>2026-06-14</sub>
+
+-  *(patch)* - Fix webview URL using PATHS.VIEWS_FOLDER with pathToFileURL
+
 ## 0.2.7
 <sub>2026-06-14</sub>
 

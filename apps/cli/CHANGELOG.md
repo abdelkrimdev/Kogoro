@@ -8,6 +8,12 @@
 
 
 
+
+## 0.2.8
+<sub>2026-06-14</sub>
+
+- *(patch)* Version bump from group with `@kogoro/gui` v0.2.8
+
 ## 0.2.7
 <sub>2026-06-14</sub>
 
