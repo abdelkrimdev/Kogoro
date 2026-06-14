@@ -59,7 +59,6 @@
   let listContainer: HTMLDivElement | undefined = $state();
   let enrichedFolders: EnrichedFolder[] = $state([]);
   let removing: string | null = $state(null);
-  let dragOver = $state(false);
   let forceRescan = $state(false);
 
   $effect(() => {
@@ -100,39 +99,6 @@
       console.error("Failed to remove watched folder:", err);
     } finally {
       removing = null;
-    }
-  }
-
-  function handleDragOver(e: DragEvent) {
-    e.preventDefault();
-    dragOver = true;
-  }
-
-  function handleDragLeave() {
-    dragOver = false;
-  }
-
-  function extractFolderPath(filePath: string): string {
-    const separator = filePath.includes("\\") ? "\\" : "/";
-    const lastSep = filePath.lastIndexOf(separator);
-    return lastSep > 0 ? filePath.substring(0, lastSep) : filePath;
-  }
-
-  async function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    dragOver = false;
-
-    const files = e.dataTransfer?.files;
-    if (!files || files.length === 0) return;
-
-    const filePath = files[0]?.path;
-    if (!filePath) return;
-
-    try {
-      await rpc.request("addWatchedFolder", { path: extractFolderPath(filePath) });
-      await loadWatchedFolders();
-    } catch (err) {
-      console.error("Failed to add watched folder via drop:", err);
     }
   }
 
@@ -185,7 +151,6 @@
   const progressPercent = $derived(scanProgressState ? deriveProgressPercent(scanProgressState) : 0);
   const indeterminate = $derived(scanProgressState ? isIndeterminate(scanProgressState) : false);
   const hasWatchedFolders = $derived(enrichedFolders.length > 0);
-  const dropZoneHighlight = $derived(dragOver ? 'border-primary-500 bg-primary-500/10' : '');
   const toolbar = $derived(deriveScanToolbar(enrichedFolders));
   const scanSelectedDisabled = $derived(scanning || toolbar.noneSelected);
 
@@ -306,29 +271,23 @@
 
     <button
       type="button"
-      class="border-t border-surface-300-700 text-center cursor-pointer transition-colors shrink-0 py-4 w-full {dropZoneHighlight} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t-none"
-      ondragover={handleDragOver}
-      ondragleave={handleDragLeave}
-      ondrop={handleDrop}
+      class="border-t border-surface-300-700 text-center cursor-pointer transition-colors shrink-0 py-4 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t-none"
       onclick={startScan}
     >
       <FolderSearch class="text-surface-600-400 mx-auto size-6" />
       <p class="text-surface-600-400 text-xs mt-1">
-        Drop a folder here or click to browse
+        Click to browse for a folder
       </p>
     </button>
   {:else}
     <button
       type="button"
-      class="flex-1 flex flex-col items-center justify-center p-8 border-2 border-dashed border-surface-400-500 rounded-lg m-4 text-center cursor-pointer transition-colors {dropZoneHighlight} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-      ondragover={handleDragOver}
-      ondragleave={handleDragLeave}
-      ondrop={handleDrop}
+      class="flex-1 flex flex-col items-center justify-center p-8 border-2 border-dashed border-surface-400-500 rounded-lg m-4 text-center cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
       onclick={startScan}
     >
       <FolderSearch class="text-surface-600-400 mx-auto size-16" />
       <p class="text-surface-600-400 text-sm mt-3">
-        Drop a folder here or click to browse
+        Click to browse for a folder
       </p>
       <p class="text-surface-500-500 text-xs mt-1">
         Kogoro will scan and match your anime episodes
