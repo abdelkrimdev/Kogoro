@@ -13,4 +13,12 @@ describe("statusKindFor", () => {
   it("returns complete for Complete", () => {
     expect(statusKindFor("Complete: 8 renamed, 2 failed")).toBe("complete");
   });
+
+  it("returns complete for Complete: cover art", () => {
+    expect(statusKindFor("Complete: cover art")).toBe("complete");
+  });
+
+  it("returns complete for Complete: metadata", () => {
+    expect(statusKindFor("Complete: metadata")).toBe("complete");
+  });
 });

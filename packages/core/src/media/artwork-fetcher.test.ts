@@ -19,9 +19,10 @@ import { ArtworkFetcher } from "./artwork-fetcher";
 describe("ArtworkFetcher", () => {
   function setup() {
     const dir = mkdtempSync(join(tmpdir(), "kogoro-artwork-test-"));
-    const animeDir = join(dir, "TV", "Jujutsu Kaisen");
-    mkdirSync(animeDir, { recursive: true });
-    const videoPath = writeTempFile(animeDir, "ep1.mkv", "dummy video content");
+    const animeDir = join(dir, "Jujutsu Kaisen");
+    const typeDir = join(animeDir, "TV");
+    mkdirSync(typeDir, { recursive: true });
+    const videoPath = writeTempFile(typeDir, "ep1.mkv", "dummy video content");
 
     const { cacheService, close } = createMatchCacheService(dir);
 

@@ -23,11 +23,12 @@ describe("artwork CLI commands", () => {
 
   test("downloads cover and returns summary", async () => {
     await withTempDir("artwork", async (dir) => {
-      const animeDir = join(dir, "TV", "Jujutsu Kaisen");
-      mkdirSync(animeDir, { recursive: true });
-      const { cacheService } = createMatchCacheService(animeDir);
+      const animeDir = join(dir, "Jujutsu Kaisen");
+      const typeDir = join(animeDir, "TV");
+      mkdirSync(typeDir, { recursive: true });
+      const { cacheService } = createMatchCacheService(typeDir);
       await seedCacheEntry(
-        animeDir,
+        typeDir,
         "ep1.mkv",
         {
           animeId: "12345",
@@ -57,11 +58,12 @@ describe("artwork CLI commands", () => {
 
   test("returns nothing when database has no artwork", async () => {
     await withTempDir("artwork", async (dir) => {
-      const animeDir = join(dir, "TV", "Jujutsu Kaisen");
-      mkdirSync(animeDir, { recursive: true });
-      const { cacheService } = createMatchCacheService(animeDir);
+      const animeDir = join(dir, "Jujutsu Kaisen");
+      const typeDir = join(animeDir, "TV");
+      mkdirSync(typeDir, { recursive: true });
+      const { cacheService } = createMatchCacheService(typeDir);
       await seedCacheEntry(
-        animeDir,
+        typeDir,
         "ep1.mkv",
         {
           animeId: "12345",

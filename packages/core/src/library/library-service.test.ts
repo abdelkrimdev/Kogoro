@@ -838,6 +838,66 @@ describe("LibraryService", () => {
         sqlite.close();
       }
     });
+
+    test("strips type directory suffix from common parent", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          entryType: "tv",
+          episodeCount: 2,
+        });
+        repo.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 1,
+          filePath: "/media/Jujutsu Kaisen/TV/S01E01.mkv",
+          season: 1,
+        });
+        repo.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 2,
+          filePath: "/media/Jujutsu Kaisen/TV/S01E02.mkv",
+          season: 1,
+        });
+
+        const dir = service.getAnimeDir(anime.id);
+        expect(dir).toBe("/media/Jujutsu Kaisen");
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("does not strip non-type directory suffix", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Solo Leveling",
+          entryType: "tv",
+          episodeCount: 1,
+        });
+        repo.addEpisode({
+          animeId: anime.id,
+          episodeNumber: 1,
+          filePath: "/media/Solo Leveling/season1/S01E01.mkv",
+          season: 1,
+        });
+
+        const dir = service.getAnimeDir(anime.id);
+        expect(dir).toBe("/media/Solo Leveling/season1");
+      } finally {
+        sqlite.close();
+      }
+    });
   });
 
   describe("rebuild", () => {

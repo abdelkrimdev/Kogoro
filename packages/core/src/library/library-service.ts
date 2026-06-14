@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, sep } from "node:path";
+import { ORGANIZED_DIRS } from "../config/schema";
 import type { MatchEntry } from "../types";
 import type {
   LibraryAnime,
@@ -63,6 +64,12 @@ export class LibraryService {
       const path = paths[i];
       if (!path) continue;
       while (commonParent && !path.startsWith(commonParent)) {
+        commonParent = dirname(commonParent);
+      }
+    }
+    if (commonParent) {
+      const lastSeg = commonParent.split(sep).pop();
+      if (lastSeg && ORGANIZED_DIRS.has(lastSeg)) {
         commonParent = dirname(commonParent);
       }
     }

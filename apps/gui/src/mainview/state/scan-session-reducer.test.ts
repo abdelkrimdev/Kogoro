@@ -236,6 +236,33 @@ describe("reduceMessage — enrichmentProgress", () => {
   });
 });
 
+describe("reduceMessage — enrichmentComplete", () => {
+  it("sets completion text for artwork", () => {
+    const s = reduceMessage(snapshot(), "enrichmentComplete", {
+      command: "artwork",
+      success: true,
+    });
+    expect(s.statusText).toBe("Complete: cover art");
+  });
+
+  it("sets completion text for metadata", () => {
+    const s = reduceMessage(snapshot(), "enrichmentComplete", {
+      command: "metadata",
+      success: true,
+    });
+    expect(s.statusText).toBe("Complete: metadata");
+  });
+
+  it("sets failure text on error", () => {
+    const s = reduceMessage(snapshot(), "enrichmentComplete", {
+      command: "artwork",
+      success: false,
+      error: "No database plugin",
+    });
+    expect(s.statusText).toBe("Complete: cover art failed");
+  });
+});
+
 describe("reduceMessage — unknown message", () => {
   it("returns state unchanged", () => {
     const s = snapshot({ statusText: "custom" });

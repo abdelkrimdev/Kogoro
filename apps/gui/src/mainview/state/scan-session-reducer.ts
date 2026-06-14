@@ -127,6 +127,18 @@ export function reduceMessage(
         statusText: `${label}: ${event.completed}/${event.total} - ${event.status}`,
       };
     }
+    case "enrichmentComplete": {
+      const event = data as {
+        command: string;
+        success: boolean;
+        error?: string;
+      };
+      const label = event.command === "artwork" ? "Cover art" : "Metadata";
+      if (event.success) {
+        return { ...state, statusText: `Complete: ${label.toLowerCase()}` };
+      }
+      return { ...state, statusText: `Complete: ${label.toLowerCase()} failed` };
+    }
     default:
       return state;
   }
