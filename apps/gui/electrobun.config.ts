@@ -17,6 +17,11 @@ export default {
         "process.env.VITE_DEV_SERVER_URL": JSON.stringify(process.env["VITE_DEV_SERVER_URL"] ?? ""),
       },
     },
+    copy: {
+      "dist-webview/index.html": "views/mainview/index.html",
+      "dist-webview/assets/app.js": "views/mainview/assets/app.js",
+      "dist-webview/assets/app.css": "views/mainview/assets/app.css",
+    },
     // linux: { bundleCEF: true },
   },
   release: {
@@ -26,6 +31,5 @@ export default {
   },
   scripts: {
     preBuild: "scripts/build-webview.ts",
-    postBuild: "scripts/copy-webview.ts",
   },
 } satisfies ElectrobunConfig;

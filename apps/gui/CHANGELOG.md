@@ -9,6 +9,12 @@
 
 
 
+
+## 0.2.9
+<sub>2026-06-14</sub>
+
+-  *(patch)* - Simplify webview build by using Electrobun native copy config and fixed Vite output filenames
+
 ## 0.2.8
 <sub>2026-06-14</sub>
 

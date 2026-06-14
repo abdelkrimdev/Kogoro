@@ -21,6 +21,16 @@ export default defineConfig({
   build: {
     outDir: resolve(import.meta.dirname, "dist-webview"),
     emptyOutDir: true,
+    assetsInlineLimit: (filePath) => {
+      return filePath.endsWith(".woff") || filePath.endsWith(".woff2");
+    },
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/app.js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: "assets/app.[ext]",
+      },
+    },
   },
   resolve: {
     conditions: ["browser"],
