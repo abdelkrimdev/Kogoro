@@ -7,6 +7,12 @@
 
 
 
+
+## 0.2.7
+<sub>2026-06-14</sub>
+
+-  *(patch)* - Fix webview serving by using Electrobun's native copy config instead of embedded HTTP server
+
 ## 0.2.6
 <sub>2026-06-13</sub>
 
