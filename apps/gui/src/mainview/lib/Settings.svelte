@@ -183,63 +183,64 @@
     <div class="card preset-outlined-surface-300-700 p-4 space-y-4">
       <div class="grid grid-cols-1 gap-4">
         {#each GENERAL_FIELDS as field}
-          {#if field.key === "templateCustom" && settingsData["templatePreset"] !== "custom"}
-          {:else if field.type === "select"}
-            <SelectField
-              value={String(settingsData[field.key] ?? "")}
-              options={field.options}
-              label={field.label}
-              onValueChange={(v) => updateField(field.key, v)}
-            />
-          {:else if field.type === "text"}
-            <label class="label">
-              <span class="label-text">{field.label}</span>
-              <input
-                type="text"
+          {#if !(field.key === "templateCustom" && settingsData["templatePreset"] !== "custom")}
+            {#if field.type === "select"}
+              <SelectField
                 value={String(settingsData[field.key] ?? "")}
-                placeholder={field.placeholder ?? ""}
-                oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
-                class="input"
+                options={field.options}
+                label={field.label}
+                onValueChange={(v) => updateField(field.key, v)}
               />
-            </label>
-          {:else if field.type === "tag-input"}
-            <label class="label">
-              <span class="label-text">{field.label}</span>
-              <TagsInput
-                value={(settingsData[field.key] as string[]) ?? []}
-                onValueChange={(details) => updateField(field.key, details.value)}
-              >
-                <TagsInput.Control>
-                  <TagsInput.Context>
-                    {#snippet children(tagsInput)}
-                      {#each tagsInput().value as value, index (index)}
-                        <TagsInput.Item {value} {index}>
-                          <TagsInput.ItemPreview>
-                            <TagsInput.ItemText>{value}</TagsInput.ItemText>
-                            <TagsInput.ItemDeleteTrigger />
-                          </TagsInput.ItemPreview>
-                          <TagsInput.ItemInput />
-                        </TagsInput.Item>
-                      {/each}
-                    {/snippet}
-                  </TagsInput.Context>
-                  <TagsInput.Input placeholder={field.placeholder ?? ""} />
-                </TagsInput.Control>
-                <TagsInput.HiddenInput />
-              </TagsInput>
-            </label>
-          {:else if field.type === "number"}
-            <label class="label">
-              <span class="label-text">{field.label}</span>
-              <input
-                type="number"
-                value={Number(settingsData[field.key] ?? 0)}
-                min={field.min ?? 1}
-                max={field.max ?? 16}
-                oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
-                class="input"
-              />
-            </label>
+            {:else if field.type === "text"}
+              <label class="label">
+                <span class="label-text">{field.label}</span>
+                <input
+                  type="text"
+                  value={String(settingsData[field.key] ?? "")}
+                  placeholder={field.placeholder ?? ""}
+                  oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
+                  class="input"
+                />
+              </label>
+            {:else if field.type === "tag-input"}
+              <label class="label">
+                <span class="label-text">{field.label}</span>
+                <TagsInput
+                  value={(settingsData[field.key] as string[]) ?? []}
+                  onValueChange={(details) => updateField(field.key, details.value)}
+                >
+                  <TagsInput.Control>
+                    <TagsInput.Context>
+                      {#snippet children(tagsInput)}
+                        {#each tagsInput().value as value, index (index)}
+                          <TagsInput.Item {value} {index}>
+                            <TagsInput.ItemPreview>
+                              <TagsInput.ItemText>{value}</TagsInput.ItemText>
+                              <TagsInput.ItemDeleteTrigger />
+                            </TagsInput.ItemPreview>
+                            <TagsInput.ItemInput />
+                          </TagsInput.Item>
+                        {/each}
+                      {/snippet}
+                    </TagsInput.Context>
+                    <TagsInput.Input placeholder={field.placeholder ?? ""} />
+                  </TagsInput.Control>
+                  <TagsInput.HiddenInput />
+                </TagsInput>
+              </label>
+            {:else if field.type === "number"}
+              <label class="label">
+                <span class="label-text">{field.label}</span>
+                <input
+                  type="number"
+                  value={Number(settingsData[field.key] ?? 0)}
+                  min={field.min ?? 1}
+                  max={field.max ?? 16}
+                  oninput={(e) => updateField(field.key, Number((e.target as HTMLInputElement).value))}
+                  class="input"
+                />
+              </label>
+            {/if}
           {/if}
         {/each}
       </div>
