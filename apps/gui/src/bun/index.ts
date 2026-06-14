@@ -1,4 +1,3 @@
-import { join, resolve } from "node:path";
 import {
   BunSecretsKeytar,
   CacheService,
@@ -167,28 +166,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 
 const defaultFrame = { width: 1200, height: 800, x: 200, y: 200 };
 
-let webviewUrl: string;
-
-if (process.env["VITE_DEV_SERVER_URL"]) {
-  webviewUrl = process.env["VITE_DEV_SERVER_URL"];
-} else {
-  const viewsDir = join(import.meta.dirname, "..", "views", "mainview");
-  const resolvedViewsDir = resolve(viewsDir);
-  const server = Bun.serve({
-    port: 0,
-    async fetch(req) {
-      const url = new URL(req.url);
-      const filePath = resolve(viewsDir, url.pathname === "/" ? "index.html" : url.pathname);
-      if (!filePath.startsWith(resolvedViewsDir + "/")) {
-        return new Response("Forbidden", { status: 403 });
-      }
-      const file = Bun.file(filePath);
-      if (await file.exists()) return new Response(file);
-      return new Response("Not Found", { status: 404 });
-    },
-  });
-  webviewUrl = server.url.href + "index.html";
-}
+const webviewUrl = process.env["VITE_DEV_SERVER_URL"] || "views://mainview/index.html";
 
 const isMac = process.platform === "darwin";
 
