@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { LibraryRepository } from "@kogoro/core";
 import { createLibraryRepository, LibraryService, withTempDir } from "@kogoro/core";
 import { createLibraryHandlers } from "./library";
@@ -176,19 +179,69 @@ describe("mergeMatches", () => {
 
 describe("rebuild", () => {
   test("rebuilds library from existing data", async () => {
-    await withTempDir("library-rebuild", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
-      seedLibrary(repo);
-      const libraryService = new LibraryService(repo);
-      const handlers = createLibraryHandlers({ libraryService });
+    const tmpDir = mkdtempSync(join(tmpdir(), "library-rebuild-"));
+    try {
+      const ep1Path = join(tmpDir, "Jujutsu Kaisen", "S01E01.mkv");
+      const ep2Path = join(tmpDir, "Jujutsu Kaisen", "S01E02.mkv");
+      const ep3Path = join(tmpDir, "Attack on Titan", "S01E01.mkv");
+      mkdirSync(join(tmpDir, "Jujutsu Kaisen"), { recursive: true });
+      mkdirSync(join(tmpDir, "Attack on Titan"), { recursive: true });
+      writeFileSync(ep1Path, "");
+      writeFileSync(ep2Path, "");
+      writeFileSync(ep3Path, "");
 
-      const result = handlers.rebuild();
-      expect(result.success).toBe(true);
+      await withTempDir("library-rebuild", async (dir) => {
+        const { repo, close } = createLibraryRepository(dir);
+        const jjk = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          entryType: "tv",
+          episodeCount: 2,
+        });
+        repo.addEpisode({
+          animeId: jjk.id,
+          episodeNumber: 1,
+          filePath: ep1Path,
+          title: "Ryomen Sukuna",
+          season: 1,
+        });
+        repo.addEpisode({
+          animeId: jjk.id,
+          episodeNumber: 2,
+          filePath: ep2Path,
+          title: "Cursed Womb Must Die",
+          season: 1,
+        });
 
-      const library = await handlers.getLibrary();
-      expect(library.length).toBeGreaterThan(0);
-      close();
-    });
+        const aot = repo.upsertAnime({
+          externalId: "tvdb-67890",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          entryType: "tv",
+          episodeCount: 1,
+        });
+        repo.addEpisode({
+          animeId: aot.id,
+          episodeNumber: 1,
+          filePath: ep3Path,
+          title: "To You, in 2000 Years",
+          season: 1,
+        });
+
+        const libraryService = new LibraryService(repo);
+        const handlers = createLibraryHandlers({ libraryService });
+
+        const result = handlers.rebuild();
+        expect(result.success).toBe(true);
+
+        const library = await handlers.getLibrary();
+        expect(library.length).toBeGreaterThan(0);
+        close();
+      });
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
   });
 
   test("returns success when library is empty", async () => {

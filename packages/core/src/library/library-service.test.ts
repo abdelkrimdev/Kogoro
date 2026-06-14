@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { MatchEntry } from "../types";
 import { LibraryRepository } from "./library-repository";
 import { LibraryService } from "./library-service";
@@ -839,75 +842,151 @@ describe("LibraryService", () => {
 
   describe("rebuild", () => {
     test("exports current matches and rebuilds library from them", () => {
-      const { db, sqlite } = createLibraryDb();
+      const dir = mkdtempSync(join(tmpdir(), "library-rebuild-"));
       try {
-        const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const ep1Path = join(dir, "S01E01.mkv");
+        const ep2Path = join(dir, "S01E02.mkv");
+        writeFileSync(ep1Path, "");
+        writeFileSync(ep2Path, "");
 
-        const anime = service.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
-          title: "Jujutsu Kaisen",
-          entryType: "tv",
-          episodeCount: 2,
-        });
-        repo.addEpisode({
-          animeId: anime.id,
-          episodeNumber: 1,
-          filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
-          title: "Ryomen Sukuna",
-          season: 1,
-        });
-        repo.addEpisode({
-          animeId: anime.id,
-          episodeNumber: 2,
-          filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
-          title: "Cursed Womb Must Die",
-          season: 1,
-        });
+        const { db, sqlite } = createLibraryDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const service = new LibraryService(repo);
 
-        service.rebuild();
+          const anime = service.upsertAnime({
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeCount: 2,
+          });
+          repo.addEpisode({
+            animeId: anime.id,
+            episodeNumber: 1,
+            filePath: ep1Path,
+            title: "Ryomen Sukuna",
+            season: 1,
+          });
+          repo.addEpisode({
+            animeId: anime.id,
+            episodeNumber: 2,
+            filePath: ep2Path,
+            title: "Cursed Womb Must Die",
+            season: 1,
+          });
 
-        const animeList = repo.listAnime();
-        expect(animeList).toHaveLength(1);
-        expect(animeList[0]?.title).toBe("Jujutsu Kaisen");
-        expect(repo.getEpisodesByAnimeId(animeList[0]?.id as number)).toHaveLength(2);
+          service.rebuild();
+
+          const animeList = repo.listAnime();
+          expect(animeList).toHaveLength(1);
+          expect(animeList[0]?.title).toBe("Jujutsu Kaisen");
+          expect(repo.getEpisodesByAnimeId(animeList[0]?.id as number)).toHaveLength(2);
+        } finally {
+          sqlite.close();
+        }
       } finally {
-        sqlite.close();
+        rmSync(dir, { recursive: true });
       }
     });
 
     test("preserves watch status through rebuild", () => {
-      const { db, sqlite } = createLibraryDb();
+      const dir = mkdtempSync(join(tmpdir(), "library-rebuild-"));
       try {
-        const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const ep1Path = join(dir, "S01E01.mkv");
+        writeFileSync(ep1Path, "");
 
-        const anime = service.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
-          title: "Jujutsu Kaisen",
-          entryType: "tv",
-          episodeCount: 1,
-        });
-        const ep = repo.addEpisode({
-          animeId: anime.id,
-          episodeNumber: 1,
-          filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
-          title: "Ryomen Sukuna",
-          season: 1,
-        });
-        repo.setWatchStatus(ep.id, true, "Great pilot");
+        const { db, sqlite } = createLibraryDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const service = new LibraryService(repo);
 
-        service.rebuild();
+          const anime = service.upsertAnime({
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeCount: 1,
+          });
+          const ep = repo.addEpisode({
+            animeId: anime.id,
+            episodeNumber: 1,
+            filePath: ep1Path,
+            title: "Ryomen Sukuna",
+            season: 1,
+          });
+          repo.setWatchStatus(ep.id, true, "Great pilot");
 
-        const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
-        const statuses = repo.getWatchStatusByAnimeId(rebuilt?.id as number);
-        expect(statuses).toHaveLength(1);
-        expect(statuses[0]?.watched).toBe(true);
-        expect(statuses[0]?.notes).toBe("Great pilot");
+          service.rebuild();
+
+          const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
+          const statuses = repo.getWatchStatusByAnimeId(rebuilt?.id as number);
+          expect(statuses).toHaveLength(1);
+          expect(statuses[0]?.watched).toBe(true);
+          expect(statuses[0]?.notes).toBe("Great pilot");
+        } finally {
+          sqlite.close();
+        }
       } finally {
-        sqlite.close();
+        rmSync(dir, { recursive: true });
+      }
+    });
+
+    test("excludes anime with deleted files from rebuilt library", () => {
+      const dir = mkdtempSync(join(tmpdir(), "library-rebuild-"));
+      try {
+        const ep1Path = join(dir, "anime1", "S01E01.mkv");
+        const ep2Path = join(dir, "anime2", "S01E01.mkv");
+        mkdirSync(join(dir, "anime1"), { recursive: true });
+        mkdirSync(join(dir, "anime2"), { recursive: true });
+        writeFileSync(ep1Path, "");
+        writeFileSync(ep2Path, "");
+
+        const { db, sqlite } = createLibraryDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const service = new LibraryService(repo);
+
+          const a1 = service.upsertAnime({
+            externalId: "tvdb-100",
+            sourceDb: "tvdb",
+            title: "Anime Still On Disk",
+            entryType: "tv",
+            episodeCount: 1,
+          });
+          repo.addEpisode({
+            animeId: a1.id,
+            episodeNumber: 1,
+            filePath: ep1Path,
+            season: 1,
+          });
+
+          const a2 = service.upsertAnime({
+            externalId: "tvdb-200",
+            sourceDb: "tvdb",
+            title: "Anime Deleted From Disk",
+            entryType: "tv",
+            episodeCount: 1,
+          });
+          repo.addEpisode({
+            animeId: a2.id,
+            episodeNumber: 1,
+            filePath: ep2Path,
+            season: 1,
+          });
+
+          rmSync(join(dir, "anime2"), { recursive: true });
+
+          service.rebuild();
+
+          expect(repo.findAnime("tvdb-100", "tvdb")).not.toBeNull();
+          expect(repo.findAnime("tvdb-200", "tvdb")).toBeNull();
+          expect(repo.listAnime()).toHaveLength(1);
+        } finally {
+          sqlite.close();
+        }
+      } finally {
+        rmSync(dir, { recursive: true });
       }
     });
   });

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import type { MatchEntry } from "../types";
 import type {
@@ -102,7 +103,8 @@ export class LibraryService {
 
   rebuild(sourceDb?: string): void {
     const allMatches = this.exportMatches();
-    const matches = sourceDb ? allMatches.filter((m) => m.sourceDb === sourceDb) : allMatches;
+    const filtered = sourceDb ? allMatches.filter((m) => m.sourceDb === sourceDb) : allMatches;
+    const matches = filtered.filter((m) => existsSync(m.filePath));
     this.rebuildFromMatches(matches);
   }
 
