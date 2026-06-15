@@ -42,7 +42,7 @@ function createOrchestratorWithRealScan(
     matcherOrDb &&
     "match" in matcherOrDb &&
     typeof matcherOrDb.match === "function" &&
-    "getEpisodes" in matcherOrDb
+    "matchBatch" in matcherOrDb
   ) {
     matcher = matcherOrDb as MatcherLike;
   } else {

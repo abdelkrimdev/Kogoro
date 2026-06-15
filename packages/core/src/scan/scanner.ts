@@ -361,7 +361,7 @@ export class Scanner {
       let numberingOverride: { season: number; episode: number } | undefined;
       if (parsed.season !== null && parsed.episode !== null) {
         if (episodeNumbering === "absolute") {
-          const allEpisodes = this.matcher.getEpisodes(match.anime.id);
+          const allEpisodes = match.allEpisodes ?? [];
           const absolute = relativeToAbsolute(parsed.season, parsed.episode, allEpisodes);
           if (absolute !== null) {
             numberingOverride = { season: 1, episode: absolute };
@@ -373,7 +373,7 @@ export class Scanner {
         }
       } else if (parsed.episode !== null && match.episode) {
         if (episodeNumbering === "absolute") {
-          const allEpisodes = this.matcher.getEpisodes(match.anime.id);
+          const allEpisodes = match.allEpisodes ?? [];
           const absolute = relativeToAbsolute(
             match.episode.season,
             match.episode.episode,

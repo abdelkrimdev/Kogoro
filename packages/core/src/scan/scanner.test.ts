@@ -585,9 +585,6 @@ describe("Scanner", () => {
           }
           return results;
         },
-        getEpisodes() {
-          return [];
-        },
       };
 
       const scanner = new Scanner({ matcher: batchMatcher, overrideStore });

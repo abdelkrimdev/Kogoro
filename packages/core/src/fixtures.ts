@@ -371,6 +371,7 @@ export function createEpisodeNumberingMatcher(
         makeMatchResult({
           anime: { id: animeId, titleEn: "Test Anime", entryType: "tv" },
           episode: matchEpisode,
+          allEpisodes: episodes,
         }),
       ];
     },
@@ -379,11 +380,9 @@ export function createEpisodeNumberingMatcher(
         makeMatchResult({
           anime: { id: animeId, titleEn: "Test Anime", entryType: "tv" },
           episode: matchEpisode,
+          allEpisodes: episodes,
         }),
       ];
-    },
-    getEpisodes() {
-      return episodes;
     },
   };
 }
@@ -400,9 +399,6 @@ export function createMockMatcher(results?: MatchResult[]): MatcherLike {
         if (!r) return makeMatchResult();
         return r;
       });
-    },
-    getEpisodes() {
-      return [];
     },
   };
 }
@@ -490,9 +486,6 @@ export function createAmbiguousMatcher(): MatcherLike {
       }
       return results;
     },
-    getEpisodes() {
-      return [];
-    },
   };
 }
 
@@ -512,9 +505,6 @@ export function createTrackingMatcher(): {
       async matchBatch(parsedList) {
         batchCallTitles.push(parsedList.map((p) => p.title ?? ""));
         return baseMatcher.matchBatch(parsedList);
-      },
-      getEpisodes(animeId: string) {
-        return baseMatcher.getEpisodes(animeId);
       },
     },
   };

@@ -8,6 +8,7 @@ export interface MatchResult {
   episode?: EpisodeResult;
   score: number;
   failureReason?: string;
+  allEpisodes?: EpisodeResult[];
 }
 
 export function matchResultFromCache(cached: CachedMatch): MatchResult {
@@ -97,7 +98,6 @@ export function isClearWinner(best: MatchResult[]): MatchResult | undefined {
 export interface MatcherLike {
   match(parsed: ParsedResult): Promise<MatchResult[]>;
   matchBatch(parsedList: ParsedResult[]): Promise<MatchResult[]>;
-  getEpisodes(animeId: string): EpisodeResult[];
 }
 
 export function bestPerAnimeId(matches: MatchResult[]): MatchResult[] {
@@ -329,9 +329,9 @@ export class Matcher implements MatcherLike {
     if (parsed.episode !== null) {
       const episodes = this.episodeCache.get(anime.id) ?? [];
       const matchingEpisode = resolveEpisode(episodes, parsed.season, parsed.episode);
-      return { anime, episode: matchingEpisode, score: totalScore };
+      return { anime, episode: matchingEpisode, score: totalScore, allEpisodes: episodes };
     }
-    return { anime, score: totalScore };
+    return { anime, score: totalScore, allEpisodes: this.episodeCache.get(anime.id) };
   }
 
   private async resolveMatchTitles(results: MatchResult[]): Promise<void> {
@@ -379,10 +379,6 @@ export class Matcher implements MatcherLike {
       this.searchCache.set(key, results);
     }
     return results;
-  }
-
-  getEpisodes(animeId: string): EpisodeResult[] {
-    return this.episodeCache.get(animeId) ?? [];
   }
 
   private async batchFetchEpisodes(ids: string[]): Promise<void> {
