@@ -15,6 +15,8 @@ import {
   writeTempFile,
 } from "../fixtures";
 import type { ProgressEvent, TaskContext } from "../io/progress";
+import type { MatcherLike, MatchResult } from "../match/matcher";
+import { AMBIGUOUS_MATCH_REASON } from "../match/matcher";
 import { OverrideStore } from "../match/override-store";
 import { Renamer } from "../rename/renamer";
 import { computeFileHash, getDirectoryTitle, Scanner } from "./scanner";
@@ -552,6 +554,83 @@ describe("Scanner", () => {
 
         expect(result.parsed.title).toBe("Correct Name");
       });
+    });
+  });
+
+  test("scanBatch persists override after ambiguous batch match resolution", async () => {
+    await withTempDir("scan-batch-ambiguous-override", async (dir) => {
+      writeTempFile(dir, "[Group] My Anime - 01.mkv", "a");
+
+      const overrideStore = new OverrideStore(dir);
+      const ambiguousMatcher = createAmbiguousMatcher();
+      const batchMatcher: MatcherLike = {
+        async match(parsed) {
+          return ambiguousMatcher.match(parsed);
+        },
+        async matchBatch(parsedList) {
+          const results: MatchResult[] = [];
+          for (const p of parsedList) {
+            const matches = await ambiguousMatcher.match(p);
+            const first = matches[0];
+            if (matches.length > 1 && first) {
+              results.push({
+                anime: first.anime,
+                episode: first.episode,
+                score: first.score,
+                failureReason: AMBIGUOUS_MATCH_REASON,
+              });
+            } else {
+              results.push(first ?? makeNoMatchResult());
+            }
+          }
+          return results;
+        },
+        getEpisodes() {
+          return [];
+        },
+      };
+
+      const scanner = new Scanner({ matcher: batchMatcher, overrideStore });
+
+      const filePath = join(dir, "[Group] My Anime - 01.mkv");
+      const results = await scanner.scanBatch([filePath], {
+        concurrency: 1,
+        onFailed: async () => ({ animeId: "1", episode: 1, entryType: "tv" }),
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.status).toBe("matched");
+
+      const overrideHash = computeFileHash(basename(filePath));
+      const savedOverride = overrideStore.get(overrideHash);
+      expect(savedOverride).toBeDefined();
+      expect(savedOverride?.animeId).toBe("1");
+    });
+  });
+
+  test("scanBatch persists override after onFailed resolution", async () => {
+    await withTempDir("scan-batch-failed-override", async (dir) => {
+      writeTempFile(dir, "Unknown File.mkv", "a");
+
+      const overrideStore = new OverrideStore(dir);
+      const scanner = new Scanner({
+        matcher: createMockMatcher([makeNoMatchResult()]),
+        overrideStore,
+      });
+
+      const filePath = join(dir, "Unknown File.mkv");
+      const results = await scanner.scanBatch([filePath], {
+        concurrency: 1,
+        onFailed: async () => ({ animeId: "99", episode: 5, entryType: "special" }),
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.status).toBe("matched");
+
+      const overrideHash = computeFileHash(basename(filePath));
+      const savedOverride = overrideStore.get(overrideHash);
+      expect(savedOverride).toBeDefined();
+      expect(savedOverride?.animeId).toBe("99");
     });
   });
 

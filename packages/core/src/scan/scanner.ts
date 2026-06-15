@@ -5,7 +5,6 @@ import type { TaskContext } from "../io/progress";
 import type { CacheService } from "../match/cache-service";
 import type { CachedMatch } from "../match/match-repository";
 import {
-  AMBIGUOUS_MATCH_REASON,
   bestPerAnimeId,
   isClearWinner,
   type MatcherLike,
@@ -172,12 +171,21 @@ export class Scanner {
 
   async scanFile(filePath: string, options?: ScanFileOptions): Promise<ScanResult> {
     const prepared = await this.prepareFile(filePath, options?.force, options?.extensions);
+    return this.resolveEntry(prepared, options);
+  }
 
-    if (prepared.cachedMatch) {
-      const { match, plan } = this.planFromCache(filePath, prepared.cachedMatch);
+  private async resolveEntry(
+    entry: PreparedFile,
+    options?: ScanFileOptions,
+    precomputedMatch?: MatchResult | null,
+  ): Promise<ScanResult> {
+    const { filePath, hash, parsed, overrideKey, override, cachedMatch } = entry;
+
+    if (cachedMatch) {
+      const { match, plan } = this.planFromCache(filePath, cachedMatch);
       return {
         file: filePath,
-        hash: prepared.hash,
+        hash,
         parsed: createEmptyResult(),
         match,
         plan,
@@ -187,29 +195,23 @@ export class Scanner {
       };
     }
 
-    if (prepared.override?.animeId) {
-      const overrideMatch = matchResultFromOverride(prepared.override);
-      const resolvedHash = await this.persistMatch(filePath, prepared.hash, overrideMatch);
-      return this.renameFile(filePath, resolvedHash, overrideMatch, prepared.parsed, options);
+    if (override?.animeId) {
+      const overrideMatch = matchResultFromOverride(override);
+      const resolvedHash = await this.persistMatch(filePath, hash, overrideMatch);
+      return this.renameFile(filePath, resolvedHash, overrideMatch, parsed, options);
     }
 
-    const matches = await this.matcher.match(prepared.parsed);
+    const matches =
+      precomputedMatch != null ? [precomputedMatch] : await this.matcher.match(parsed);
 
-    if (prepared.override?.entryType) {
+    if (override?.entryType) {
       for (const match of matches) {
-        match.anime.entryType = prepared.override.entryType;
-        if (match.episode) match.episode.entryType = prepared.override.entryType;
+        match.anime.entryType = override.entryType;
+        if (match.episode) match.episode.entryType = override.entryType;
       }
     }
 
-    return this.resolveMatches(
-      filePath,
-      prepared.hash,
-      prepared.parsed,
-      matches,
-      options,
-      prepared.overrideKey,
-    );
+    return this.resolveMatches(filePath, hash, parsed, matches, options, overrideKey);
   }
 
   private async resolveMatches(
@@ -419,54 +421,6 @@ export class Scanner {
     };
   }
 
-  private async finalizeEntry(entry: BatchEntry, options?: ScanFileOptions): Promise<ScanResult> {
-    if (entry.cachedMatch) {
-      const { match, plan } = this.planFromCache(entry.filePath, entry.cachedMatch);
-      return {
-        file: entry.filePath,
-        hash: entry.hash,
-        parsed: entry.parsed,
-        match,
-        plan,
-        cached: true,
-        skipped: true,
-        status: "cached",
-      };
-    }
-
-    if (entry.match && !entry.match.failureReason) {
-      const resolvedHash = await this.persistMatch(entry.filePath, entry.hash, entry.match);
-      return this.renameFile(entry.filePath, resolvedHash, entry.match, entry.parsed, options);
-    }
-
-    if (entry.match?.failureReason === AMBIGUOUS_MATCH_REASON) {
-      return {
-        file: entry.filePath,
-        hash: entry.hash,
-        parsed: entry.parsed,
-        match: null,
-        plan: null,
-        cached: false,
-        skipped: false,
-        status: "ambiguous",
-        failureReason: AMBIGUOUS_MATCH_REASON,
-      };
-    }
-
-    const failureReason = entry.match?.failureReason ?? "No title parsed";
-    return {
-      file: entry.filePath,
-      hash: entry.hash,
-      parsed: entry.parsed,
-      match: null,
-      plan: null,
-      cached: false,
-      skipped: false,
-      status: "failed",
-      failureReason,
-    };
-  }
-
   async scanBatch(filePaths: string[], options?: ScanBatchOptions): Promise<ScanResult[]> {
     const results: ScanResult[] = [];
     const concurrency = Math.max(1, options?.concurrency ?? 1);
@@ -507,19 +461,7 @@ export class Scanner {
         for (let idx = 0; idx < needsMatch.length; idx++) {
           const entry = needsMatch[idx];
           const matchResult = matchResults[idx];
-          if (!entry || !matchResult) continue;
-
-          if (matchResult.failureReason) {
-            const manual = await this.tryResolveFailed(entry.filePath, entry.parsed, options);
-            if (manual) {
-              entry.match = matchResultFromManual(manual.animeId, manual.episode, manual.entryType);
-            }
-          } else {
-            const override = this.overrideStore?.get(entry.overrideKey);
-            if (override?.entryType) {
-              matchResult.anime.entryType = override.entryType;
-              if (matchResult.episode) matchResult.episode.entryType = override.entryType;
-            }
+          if (entry && matchResult) {
             entry.match = matchResult;
           }
         }
@@ -528,7 +470,7 @@ export class Scanner {
       for (const entry of entries) {
         if (signal?.aborted) break;
 
-        const result = await this.finalizeEntry(entry, options);
+        const result = await this.resolveEntry(entry, options, entry.match);
 
         results.push(result);
         completed++;
