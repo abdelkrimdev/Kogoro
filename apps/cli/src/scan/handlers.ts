@@ -4,19 +4,17 @@ import { confirm, isCancel, log, select, text } from "@clack/prompts";
 import {
   type CacheService,
   type ConfigManager,
+  createScanPipeline,
   type DatabasePlugin,
   type EpisodeNumbering,
-  Matcher,
   type MatchResult,
   type OverrideStore,
   type ParsedResult,
   type RenameAction,
-  Renamer,
-  type SanitizeConfig,
+  type Renamer,
   SCHEMA_DEFAULTS,
-  Scanner,
+  type Scanner,
   type ScanResult,
-  TEMPLATE_PRESETS,
   walk,
 } from "@kogoro/core";
 import type { Logger } from "../logger";
@@ -37,14 +35,6 @@ export interface ScanOptions {
   episodeNumbering?: EpisodeNumbering;
   extensions?: string[];
   concurrency?: number;
-}
-
-function getFilenameTemplate(config?: ConfigManager): string {
-  const template = config ? config.getTemplate() : `${TEMPLATE_PRESETS.standard}.{ext}`;
-  if (template.includes("{ext}")) {
-    return template;
-  }
-  return `${template}.{ext}`;
 }
 
 function resolveExtensions(config?: ConfigManager, overrides?: string[]): readonly string[] {
@@ -71,35 +61,16 @@ function discoverFiles(
   return [rootPath];
 }
 
-function getDirectoryTemplate(config?: ConfigManager): string {
-  return (
-    (config?.get("template.directory") as string | undefined) ?? SCHEMA_DEFAULTS.template.directory
-  );
-}
-
 export function createScanHandlers(options: ScanHandlerOptions) {
-  const filenameTemplate = getFilenameTemplate(options.config);
-  const directoryTemplate = getDirectoryTemplate(options.config);
-  const sanitize = options.config?.get("sanitize") as SanitizeConfig | undefined;
-  const renamer =
-    options.renamer ??
-    new Renamer({
-      filenameTemplate,
-      directoryTemplate,
-      sanitize,
-    });
+  const pipeline = createScanPipeline({
+    config: options.config,
+    cacheService: options.cacheService,
+    database: options.database,
+    renamer: options.renamer,
+    overrideStore: options.overrideStore,
+  });
 
-  function buildScanner(database: DatabasePlugin): Scanner {
-    const matcher = new Matcher({ database });
-    return new Scanner({
-      matcher,
-      cacheService: options.cacheService,
-      renamer,
-      overrideStore: options.overrideStore,
-    });
-  }
-
-  const scanner = buildScanner(options.database);
+  const scanner = pipeline.scanner as Scanner;
 
   function entryTypeLabel(t: string): string {
     if (t === "tv") return "TV";

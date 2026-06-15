@@ -9,21 +9,15 @@ import type {
 } from "@kogoro/core";
 import {
   type CacheService,
-  CONFIG_DIR,
   type ConfigManager,
+  createScanPipeline,
   findCandidateMatches,
   hashFile,
   type LibraryService,
-  Matcher,
+  type Matcher,
   type MatchResult,
-  OverrideStore,
-  Renamer,
-  type SanitizeConfig,
-  SCHEMA_DEFAULTS,
-  Scanner,
   ScanOrchestrator,
   type ScanStateService,
-  walk,
 } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
@@ -55,37 +49,18 @@ async function createScanOrchestrator(
 ): Promise<ScanOrchestrator> {
   const database = await pluginFactory.primaryDatabase();
 
-  const matcher = database ? new Matcher({ database }) : undefined;
-  const overrideStore = new OverrideStore(CONFIG_DIR);
-
-  const filenameTemplate = configManager.getTemplate();
-  const directoryTemplate =
-    (configManager.get("template.directory") as string) ?? SCHEMA_DEFAULTS.template.directory;
-  const sanitize = configManager.get("sanitize") as SanitizeConfig | undefined;
-  const renamer = new Renamer({
-    filenameTemplate: filenameTemplate.includes("{ext}")
-      ? filenameTemplate
-      : `${filenameTemplate}.{ext}`,
-    directoryTemplate,
-    sanitize,
+  const pipeline = createScanPipeline({
+    config: configManager,
+    cacheService,
+    database,
+    sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
   });
 
-  const scanner = matcher
-    ? new Scanner({
-        matcher,
-        cacheService,
-        renamer,
-        overrideStore,
-        sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
-      })
-    : undefined;
+  const { matcher, renamer, scanner } = pipeline;
 
   const orchestrator = new ScanOrchestrator(
     {
-      walk: async (path: string) =>
-        walk(path, SCHEMA_DEFAULTS["media-extensions"], {
-          excludePatterns: configManager.getList("exclude-patterns"),
-        }),
+      walk: pipeline.walk,
       scanFile: async (filePath: string, options?: { dryRun?: boolean }) => {
         if (!scanner) {
           return {

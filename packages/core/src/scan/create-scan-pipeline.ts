@@ -1,0 +1,87 @@
+import type { ConfigManager } from "../config/config-manager";
+import { CONFIG_DIR, SCHEMA_DEFAULTS, TEMPLATE_PRESETS } from "../config/schema";
+import { walk } from "../io/directory-walker";
+import type { CacheService } from "../match/cache-service";
+import { Matcher } from "../match/matcher";
+import { OverrideStore } from "../match/override-store";
+import { Renamer } from "../rename/renamer";
+import type { SanitizeConfig } from "../rename/sanitize";
+import type { DatabasePlugin } from "../types";
+import { Scanner } from "./scanner";
+
+export interface CreateScanPipelineOptions {
+  config?: ConfigManager;
+  cacheService?: CacheService;
+  database?: DatabasePlugin;
+  renamer?: Renamer;
+  overrideStore?: OverrideStore;
+  sourceDb?: string;
+}
+
+export interface ScanPipeline {
+  matcher: Matcher | undefined;
+  renamer: Renamer;
+  overrideStore: OverrideStore;
+  scanner: Scanner | undefined;
+  walk: (path: string, options?: { extensions?: readonly string[] }) => Promise<string[]>;
+}
+
+function resolveFilenameTemplate(config?: ConfigManager): string {
+  const template = config ? config.getTemplate() : `${TEMPLATE_PRESETS.standard}.{ext}`;
+  if (template.includes("{ext}")) {
+    return template;
+  }
+  return `${template}.{ext}`;
+}
+
+function resolveDirectoryTemplate(config?: ConfigManager): string {
+  return (
+    (config?.get("template.directory") as string | undefined) ?? SCHEMA_DEFAULTS.template.directory
+  );
+}
+
+export function createScanPipeline(options: CreateScanPipelineOptions): ScanPipeline {
+  const { config, cacheService, database, sourceDb: sourceDbOverride } = options;
+
+  const filenameTemplate = resolveFilenameTemplate(config);
+  const directoryTemplate = resolveDirectoryTemplate(config);
+  const sanitize = config?.get("sanitize") as SanitizeConfig | undefined;
+
+  const renamer =
+    options.renamer ??
+    new Renamer({
+      filenameTemplate,
+      directoryTemplate,
+      sanitize,
+    });
+
+  const overrideStore = options.overrideStore ?? new OverrideStore(CONFIG_DIR);
+
+  const matcher = database ? new Matcher({ database }) : undefined;
+
+  const sourceDb = sourceDbOverride ?? (config?.get("primary-db") as string | undefined) ?? "tvdb";
+
+  const scanner = matcher
+    ? new Scanner({
+        matcher,
+        cacheService,
+        renamer,
+        overrideStore,
+        sourceDb,
+      })
+    : undefined;
+
+  const extensions = config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
+  const excludePatterns = config?.getList("exclude-patterns") ?? [
+    ...SCHEMA_DEFAULTS["exclude-patterns"],
+  ];
+
+  return {
+    matcher,
+    renamer,
+    overrideStore,
+    scanner,
+    walk: async (path: string, opts?: { extensions?: readonly string[] }) =>
+      walk(path, opts?.extensions ?? extensions, { excludePatterns }),
+  };
+}

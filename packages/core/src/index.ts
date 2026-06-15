@@ -101,6 +101,8 @@ export { Renamer } from "./rename/renamer";
 export type { SanitizeConfig } from "./rename/sanitize";
 export { sanitizeFilename } from "./rename/sanitize";
 export { render } from "./rename/template-engine";
+export type { CreateScanPipelineOptions, ScanPipeline } from "./scan/create-scan-pipeline";
+export { createScanPipeline } from "./scan/create-scan-pipeline";
 export type { ScanGroupEntry } from "./scan/rename-plan-aggregator";
 export {
   aggregateReviewPlan,
