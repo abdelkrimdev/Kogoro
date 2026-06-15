@@ -60,12 +60,15 @@ function createOrchestratorWithRealScan(
   const scanner = new Scanner({ matcher, renamer, overrideStore });
 
   return new ScanOrchestrator({
-    walk: async (path: string) => walk(path, SCHEMA_DEFAULTS["media-extensions"]),
-    scanFile: async (filePath: string, options?: { dryRun?: boolean }) =>
-      scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true }),
-    executeRename: async (plan, baseDir) => {
-      const result = renamer.execute(plan, baseDir);
-      return { success: result.success, error: result.error };
+    pipeline: {
+      walk: async (path: string) => walk(path, SCHEMA_DEFAULTS["media-extensions"]),
+      scan: async (filePath: string, options?: { dryRun?: boolean }) =>
+        scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true }),
+      rename: async (plan, baseDir) => {
+        const result = renamer.execute(plan, baseDir);
+        return { success: result.success, error: result.error };
+      },
+      plan: () => null,
     },
   });
 }
@@ -375,25 +378,28 @@ describe("ScanOrchestrator", () => {
     test("getMatchResults returns results even when review plan is empty", async () => {
       await withTempDir("orch-empty-plan", async (dir) => {
         const orch = new ScanOrchestrator({
-          walk: async () => [join(dir, "ep1.mkv")],
-          scanFile: async () => ({
-            file: join(dir, "ep1.mkv"),
-            hash: "hash-ep1",
-            parsed: makeParsedResult("Jujutsu Kaisen", 1, 1),
-            match: makeMatchResult({
-              anime: { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+          pipeline: {
+            walk: async () => [join(dir, "ep1.mkv")],
+            scan: async () => ({
+              file: join(dir, "ep1.mkv"),
+              hash: "hash-ep1",
+              parsed: makeParsedResult("Jujutsu Kaisen", 1, 1),
+              match: makeMatchResult({
+                anime: { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+              }),
+              plan: {
+                sourcePath: join(dir, "ep1.mkv"),
+                targetPath: "ep1.mkv",
+                targetDir: ".",
+                targetFilename: "ep1.mkv",
+                action: "move",
+              },
+              cached: false,
+              skipped: false,
+              status: "matched",
             }),
-            plan: {
-              sourcePath: join(dir, "ep1.mkv"),
-              targetPath: "ep1.mkv",
-              targetDir: ".",
-              targetFilename: "ep1.mkv",
-              action: "move",
-            },
-            cached: false,
-            skipped: false,
-            status: "matched",
-          }),
+            plan: () => null,
+          },
         });
         await orch.startScan(dir);
 
@@ -409,17 +415,20 @@ describe("ScanOrchestrator", () => {
     test("returns empty when no files are matched", async () => {
       await withTempDir("orch-no-match", async (dir) => {
         const orch = new ScanOrchestrator({
-          walk: async () => [join(dir, "ep1.mkv")],
-          scanFile: async () => ({
-            file: join(dir, "ep1.mkv"),
-            hash: "hash-ep1",
-            parsed: makeParsedResult(null),
-            match: null,
-            plan: null,
-            cached: false,
-            skipped: false,
-            status: "failed",
-          }),
+          pipeline: {
+            walk: async () => [join(dir, "ep1.mkv")],
+            scan: async () => ({
+              file: join(dir, "ep1.mkv"),
+              hash: "hash-ep1",
+              parsed: makeParsedResult(null),
+              match: null,
+              plan: null,
+              cached: false,
+              skipped: false,
+              status: "failed",
+            }),
+            plan: () => null,
+          },
         });
         await orch.startScan(dir);
 

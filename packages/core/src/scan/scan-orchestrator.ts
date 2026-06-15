@@ -68,22 +68,25 @@ export type ScanEvent =
 
 type ScanEventListener = (event: ScanEvent) => void;
 
-export interface ScanOrchestratorOptions {
-  walk: (path: string, options?: { extensions?: readonly string[] }) => Promise<string[]>;
-  scanFile: (
+export interface OrchestratorPipeline {
+  scan: (
     filePath: string,
     options?: { dryRun?: boolean; force?: boolean; extensions?: readonly string[] },
-    index?: number,
   ) => Promise<ScanResult>;
-  executeRename?: (
+  resolve?: (filePath: string, animeId: string, episodeId: string) => Promise<ScanResult>;
+  rename?: (
     plan: NonNullable<ScanResult["plan"]>,
     baseDir: string,
   ) => Promise<{ success: boolean; error?: { type: string; message: string } }>;
-  resolveFile?: (filePath: string, animeId: string, episodeId: string) => Promise<ScanResult>;
-  planFile?: (filePath: string, match: MatchResult) => RenamePlan | null;
+  plan: (filePath: string, match: MatchResult) => RenamePlan | null;
+  walk: (path: string, options?: { extensions?: readonly string[] }) => Promise<string[]>;
+  topCandidates?: (sourcePath: string) => Promise<TopCandidate[]>;
+}
+
+export interface ScanOrchestratorOptions {
+  pipeline: OrchestratorPipeline;
   libraryService?: LibraryService;
   sourceDb?: string;
-  computeTopCandidates?: (sourcePath: string) => Promise<TopCandidate[]>;
   cacheService?: CacheService;
   scanStateService?: ScanStateService;
   force?: boolean;
@@ -150,6 +153,7 @@ export class ScanOrchestrator {
   private results: ScanResult[] = [];
   private plan: ReviewPlan | null = null;
   private listeners: ScanEventListener[] = [];
+  private pipeline: OrchestratorPipeline;
   private options: ScanOrchestratorOptions;
   private approvedAnimeIds: Set<string> = new Set();
   private rejectedAnimeIds: Set<string> = new Set();
@@ -158,6 +162,7 @@ export class ScanOrchestrator {
   private canonicalIdMap: Map<string, string> = new Map();
 
   constructor(options: ScanOrchestratorOptions, sessionId?: string) {
+    this.pipeline = options.pipeline;
     this.options = options;
     this.sessionId = sessionId ?? "";
   }
@@ -237,7 +242,7 @@ export class ScanOrchestrator {
       this.sessionId,
       this.options.libraryService,
       this.options.sourceDb,
-      this.options.computeTopCandidates,
+      this.pipeline.topCandidates,
     );
     if (this.initialAmbiguousCount === null) {
       this.initialAmbiguousCount = this.plan.ambiguousCount;
@@ -274,7 +279,7 @@ export class ScanOrchestrator {
     }
     this._state = "scan";
 
-    const filePaths = await this.options.walk(path);
+    const filePaths = await this.pipeline.walk(path);
 
     if (this.options.cacheService) {
       this.options.cacheService.purgeStale(filePaths);
@@ -307,7 +312,7 @@ export class ScanOrchestrator {
             : null;
           if (cachedMatch) {
             const match = matchResultFromCache(cachedMatch);
-            const plan = this.options.planFile?.(filePath, match) ?? null;
+            const plan = this.pipeline.plan(filePath, match);
             this.results.push({
               file: filePath,
               hash: storedHash,
@@ -332,7 +337,7 @@ export class ScanOrchestrator {
         }
       }
 
-      const result = await this.options.scanFile(filePath, { dryRun: true }, i);
+      const result = await this.pipeline.scan(filePath, { dryRun: true });
       this.results.push(result);
 
       if (this.options.scanStateService && fileStat) {
@@ -511,7 +516,7 @@ export class ScanOrchestrator {
       throw new Error("Cannot resolve: file not found");
     }
 
-    if (!this.options.resolveFile) {
+    if (!this.pipeline.resolve) {
       throw new Error("Cannot resolve: resolve not available");
     }
 
@@ -520,7 +525,7 @@ export class ScanOrchestrator {
       throw new Error("Cannot resolve: file not found");
     }
 
-    const resolved = await this.options.resolveFile(sourcePath, animeId, episodeId);
+    const resolved = await this.pipeline.resolve(sourcePath, animeId, episodeId);
     this.results[resultIndex] = resolved;
 
     if (this.options.cacheService && resolved.hash && resolved.match) {
@@ -565,8 +570,8 @@ export class ScanOrchestrator {
       const plan = result.plan;
 
       let renameResult: { success: boolean; error?: { type: string; message: string } };
-      if (this.options.executeRename) {
-        renameResult = await this.options.executeRename(plan, this.baseDir);
+      if (this.pipeline.rename) {
+        renameResult = await this.pipeline.rename(plan, this.baseDir);
       } else {
         renameResult = { success: true };
       }

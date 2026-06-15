@@ -111,6 +111,7 @@ export {
   groupByAnime,
 } from "./scan/rename-plan-aggregator";
 export type {
+  OrchestratorPipeline,
   ScanCompleteEvent,
   ScanEvent,
   ScanExecutionProgressEvent,
