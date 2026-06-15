@@ -8,7 +8,7 @@ import { matchResultFromCache } from "../match/matcher";
 import type { ScanStateService } from "../match/scan-state-service";
 import { createEmptyResult } from "../parse/parser";
 import type { RenamePlan } from "../rename/renamer";
-import type { AnimeGroup, MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
+import type { MatchEntry, ReviewGroup, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
 import { aggregateReviewPlan, type TopCandidate } from "./rename-plan-aggregator";
 import type { ScanResult } from "./scanner";
 
@@ -434,7 +434,7 @@ export class ScanOrchestrator {
       throw new Error("Cannot swap: no plan available");
     }
 
-    let targetGroup: AnimeGroup | null = null;
+    let targetGroup: ReviewGroup | null = null;
     for (const group of this.plan.groups) {
       const hasA = group.files.some((f) => f.fileId === fileAId);
       const hasB = group.files.some((f) => f.fileId === fileBId);

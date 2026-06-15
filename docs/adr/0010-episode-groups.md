@@ -76,7 +76,7 @@ The new `events` database stores append-only event logs per group and per episod
 
 ### Scan workflow interaction
 
-During auto-merge, new scanned episodes are placed into groups by matching season + entry type against existing groups. If no matching group exists, one is created. The `ScanGroup` (transient review-phase concept) is renamed from `AnimeGroup` to avoid confusion with `EpisodeGroup`.
+During auto-merge, new scanned episodes are placed into groups by matching season + entry type against existing groups. If no matching group exists, one is created.
 
 ## Trade-offs
 

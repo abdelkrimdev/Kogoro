@@ -103,7 +103,7 @@ export interface FileRow {
   topCandidates?: TopCandidate[];
 }
 
-export interface AnimeGroup {
+export interface ReviewGroup {
   animeId: string;
   animeTitle: string;
   entryType: string;
@@ -121,7 +121,7 @@ export interface SwapPair {
 
 export interface ReviewPlan {
   sessionId: string;
-  groups: AnimeGroup[];
+  groups: ReviewGroup[];
   totalFiles: number;
   ambiguousCount: number;
   initialAmbiguousCount?: number;

@@ -1,6 +1,6 @@
-import type { AnimeGroup, FileRow, ReviewPlan } from "@kogoro/core";
+import type { FileRow, ReviewGroup, ReviewPlan } from "@kogoro/core";
 
-export type { AnimeGroup, FileRow, ReviewPlan };
+export type { FileRow, ReviewGroup, ReviewPlan };
 
 export type StatusFilter = "all" | "matched" | "ambiguous" | "needs-attention";
 
@@ -28,7 +28,7 @@ function matchesStatus(file: FileRow, filter: StatusFilter): boolean {
   return file.status === filter;
 }
 
-export function filterReviewGroups(state: ReviewState): AnimeGroup[] {
+export function filterReviewGroups(state: ReviewState): ReviewGroup[] {
   const { plan, searchQuery, statusFilter } = state;
 
   return plan.groups
@@ -53,7 +53,7 @@ export interface ReviewStats {
   rejectedCount: number;
 }
 
-export function findSwapPairForFile(group: AnimeGroup, fileId: string): string | null {
+export function findSwapPairForFile(group: ReviewGroup, fileId: string): string | null {
   for (const pair of group.swapPairs) {
     if (pair.fileAId === fileId) return pair.fileBId;
     if (pair.fileBId === fileId) return pair.fileAId;

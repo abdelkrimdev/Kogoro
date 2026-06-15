@@ -1,4 +1,4 @@
-import type { AnimeGroup, FileRow, ReviewPlan, ScanFileStatus } from "@kogoro/core";
+import type { FileRow, ReviewGroup, ReviewPlan, ScanFileStatus } from "@kogoro/core";
 import type { EpisodeRow } from "./mainview/state/detail-state";
 import type { LibraryItem, LibraryState } from "./mainview/state/library-state";
 import type { ReviewState, StatusFilter } from "./mainview/state/review-state";
@@ -40,7 +40,7 @@ export function makeFile(overrides: Partial<FileRow> = {}): FileRow {
   };
 }
 
-export function makeGroup(overrides: Partial<AnimeGroup> = {}): AnimeGroup {
+export function makeGroup(overrides: Partial<ReviewGroup> = {}): ReviewGroup {
   return {
     animeId: overrides.animeId ?? "a1",
     animeTitle: overrides.animeTitle ?? "Steins;Gate",
@@ -53,7 +53,7 @@ export function makeGroup(overrides: Partial<AnimeGroup> = {}): AnimeGroup {
   };
 }
 
-export function makePlan(groups: AnimeGroup[] = []): ReviewPlan {
+export function makePlan(groups: ReviewGroup[] = []): ReviewPlan {
   return {
     sessionId: "s1",
     groups,

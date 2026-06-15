@@ -3,17 +3,17 @@ import type { LibraryService } from "../library/library-service";
 import type {
   AnimeResult,
   FileRow,
-  AnimeGroup as ScanAnimeGroup,
+  ReviewGroup,
+  ReviewPlan,
   ScanFileStatus,
-  ReviewPlan as ScanReviewPlan,
-  SwapPair as ScanSwapPair,
+  SwapPair,
   TopCandidate,
 } from "../types";
 import type { ScanResult } from "./scanner";
 
 export type { TopCandidate };
 
-export interface SwapPair {
+export interface ScanSwapPair {
   files: [string, string];
   episodeA: number;
   episodeB: number;
@@ -21,21 +21,21 @@ export interface SwapPair {
   seasonB: number;
 }
 
-export interface AnimeGroupEntry {
+export interface ScanGroupEntry {
   scanResult: ScanResult;
-  swapDetected?: SwapPair;
+  swapDetected?: ScanSwapPair;
 }
 
-export interface AnimeGroup {
+export interface ScanGroup {
   animeId: string;
   anime: AnimeResult;
-  entries: AnimeGroupEntry[];
-  swapPairs: SwapPair[];
+  entries: ScanGroupEntry[];
+  swapPairs: ScanSwapPair[];
   mergeMode: boolean;
 }
 
-export interface ReviewPlan {
-  groups: AnimeGroup[];
+export interface ScanReviewPlan {
+  groups: ScanGroup[];
   totalFiles: number;
   totalAnime: number;
   totalSwaps: number;
@@ -66,8 +66,8 @@ function lowestNumericId(ids: string[]): string {
   return ids.sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))[0] ?? "";
 }
 
-function detectSwapsFromGroups(byAnime: Map<string, ScanResult[]>): SwapPair[] {
-  const swaps: SwapPair[] = [];
+function detectSwapsFromGroups(byAnime: Map<string, ScanResult[]>): ScanSwapPair[] {
+  const swaps: ScanSwapPair[] = [];
 
   for (const [, group] of byAnime) {
     const withEpisodes = group.filter(
@@ -111,7 +111,7 @@ function detectSwapsFromGroups(byAnime: Map<string, ScanResult[]>): SwapPair[] {
   return swaps;
 }
 
-export function detectSwaps(results: ScanResult[]): SwapPair[] {
+export function detectSwaps(results: ScanResult[]): ScanSwapPair[] {
   return detectSwapsFromGroups(groupByAnime(results));
 }
 
@@ -119,7 +119,7 @@ export function buildReviewPlan(
   results: ScanResult[],
   libraryService?: LibraryService,
   sourceDb?: string,
-): ReviewPlan {
+): ScanReviewPlan {
   const byTitle = groupByAnime(results);
   const allSwaps = detectSwapsFromGroups(byTitle);
 
@@ -139,7 +139,7 @@ export function buildReviewPlan(
     }
   }
 
-  const swapsByCanonicalId = new Map<string, SwapPair[]>();
+  const swapsByCanonicalId = new Map<string, ScanSwapPair[]>();
   for (const swap of allSwaps) {
     const firstFile = swap.files[0];
     if (!firstFile) continue;
@@ -153,7 +153,7 @@ export function buildReviewPlan(
     }
   }
 
-  const groups: AnimeGroup[] = [];
+  const groups: ScanGroup[] = [];
 
   for (const [title, scanResults] of byTitle) {
     const firstMatch = scanResults[0]?.match;
@@ -163,9 +163,9 @@ export function buildReviewPlan(
     const cid = titleToCanonicalId.get(title) ?? "";
     const swaps = swapsByCanonicalId.get(cid) ?? [];
 
-    const entries: AnimeGroupEntry[] = scanResults
+    const entries: ScanGroupEntry[] = scanResults
       .map((sr) => {
-        const entry: AnimeGroupEntry = { scanResult: sr };
+        const entry: ScanGroupEntry = { scanResult: sr };
         for (const swap of swaps) {
           if (swap.files.includes(sr.file)) {
             entry.swapDetected = swap;
@@ -220,8 +220,8 @@ function generateFileId(): string {
   return randomUUID();
 }
 
-function detectSwapsFromFileRows(files: FileRow[]): ScanSwapPair[] {
-  const swaps: ScanSwapPair[] = [];
+function detectSwapsFromFileRows(files: FileRow[]): SwapPair[] {
+  const swaps: SwapPair[] = [];
   const visited = new Set<string>();
 
   for (let i = 0; i < files.length; i++) {
@@ -286,8 +286,8 @@ export async function aggregateReviewPlan(
   libraryService?: LibraryService,
   sourceDb?: string,
   computeTopCandidates?: (sourcePath: string) => Promise<TopCandidate[]>,
-): Promise<ScanReviewPlan> {
-  const groupsByTitle = new Map<string, { group: ScanAnimeGroup; animeIds: string[] }>();
+): Promise<ReviewPlan> {
+  const groupsByTitle = new Map<string, { group: ReviewGroup; animeIds: string[] }>();
   let ambiguousCount = 0;
 
   for (const result of results) {
@@ -323,7 +323,7 @@ export async function aggregateReviewPlan(
     entry.group.files.push(row);
   }
 
-  const groupList: ScanAnimeGroup[] = [];
+  const groupList: ReviewGroup[] = [];
   for (const [, { group, animeIds }] of groupsByTitle) {
     group.animeId = lowestNumericId(animeIds);
 

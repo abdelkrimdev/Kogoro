@@ -1,4 +1,4 @@
-import type { AnimeGroup, ReviewPlan } from "@kogoro/core";
+import type { ReviewGroup, ReviewPlan } from "@kogoro/core";
 
 export type FolderStatus = "new" | "indexed" | "missing";
 
@@ -125,7 +125,7 @@ export function deriveScanSummaries(
 }
 
 export function mergeReviewPlans(plans: ReviewPlan[]): ReviewPlan {
-  const groupMap = new Map<string, AnimeGroup>();
+  const groupMap = new Map<string, ReviewGroup>();
 
   for (const plan of plans) {
     for (const group of plan.groups) {

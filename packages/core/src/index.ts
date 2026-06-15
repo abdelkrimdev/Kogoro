@@ -101,7 +101,7 @@ export { Renamer } from "./rename/renamer";
 export type { SanitizeConfig } from "./rename/sanitize";
 export { sanitizeFilename } from "./rename/sanitize";
 export { render } from "./rename/template-engine";
-export type { AnimeGroupEntry } from "./scan/rename-plan-aggregator";
+export type { ScanGroupEntry } from "./scan/rename-plan-aggregator";
 export {
   aggregateReviewPlan,
   buildReviewPlan,
@@ -127,7 +127,6 @@ export {
   Scanner,
 } from "./scan/scanner";
 export type {
-  AnimeGroup,
   AnimeResult,
   ArtworkResult,
   ArtworkType,
@@ -136,6 +135,7 @@ export type {
   EpisodeResult,
   FileRow,
   MatchEntry,
+  ReviewGroup,
   ReviewPlan,
   ScanFileStatus,
   ScanSummary,
