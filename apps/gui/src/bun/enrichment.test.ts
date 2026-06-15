@@ -1,16 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { DatabasePlugin } from "@kogoro/core";
+import type { CacheService, DatabasePlugin } from "@kogoro/core";
+import { ConfigManager, LibraryService } from "@kogoro/core";
 import {
-  type CacheService,
-  ConfigManager,
   createArtworkDb,
   createLibraryRepository,
   createMatchCacheService,
   createTrackingEnrichmentSend,
   hashFile,
-  LibraryService,
   makeCachedMatch,
   mockFetch,
   noopEnrichmentSend,
@@ -18,7 +16,7 @@ import {
   withMockFetch,
   withTempDir,
   writeTempFile,
-} from "@kogoro/core";
+} from "@kogoro/core/testing";
 import { createEnrichmentHandlers } from "./enrichment";
 
 function createLibraryService(dir: string): {

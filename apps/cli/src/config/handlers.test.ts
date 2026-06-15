@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { ConfigManager, OverrideStore, withTempDir } from "@kogoro/core";
+import { ConfigManager, OverrideStore } from "@kogoro/core";
+import { withTempDir } from "@kogoro/core/testing";
 import { createConfigHandlers } from "./handlers";
 
 describe("Config CLI commands", () => {

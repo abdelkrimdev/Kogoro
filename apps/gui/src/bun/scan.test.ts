@@ -10,15 +10,8 @@ import type {
   ScanReviewReadyEvent,
 } from "@kogoro/core";
 import {
-  createAmbiguousMatcher,
-  createLibraryRepository,
-  createMatchCacheService,
-  createMockDb,
-  hashFile,
   LibraryService,
   Matcher,
-  makeMatchResult,
-  makeParsedResult,
   OverrideStore,
   Renamer,
   SCHEMA_DEFAULTS,
@@ -27,9 +20,18 @@ import {
   ScanStateService,
   TEMPLATE_PRESETS,
   walk,
+} from "@kogoro/core";
+import {
+  createAmbiguousMatcher,
+  createLibraryRepository,
+  createMatchCacheService,
+  createMockDb,
+  hashFile,
+  makeMatchResult,
+  makeParsedResult,
   withTempDir,
   writeTempFile,
-} from "@kogoro/core";
+} from "@kogoro/core/testing";
 import type { PluginFactory } from "@kogoro/plugins";
 import { createScanHandlers } from "./scan";
 

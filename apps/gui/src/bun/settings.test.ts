@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { KeytarLike } from "@kogoro/core";
-import {
-  ConfigManager,
-  CredentialStore,
-  createMockKeytar,
-  withTempDir,
-  writeTempFile,
-} from "@kogoro/core";
+import { ConfigManager, CredentialStore } from "@kogoro/core";
+import { createMockKeytar, withTempDir, writeTempFile } from "@kogoro/core/testing";
 import { buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 
 describe("buildSettingsFormData", () => {

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabasePlugin } from "@kogoro/core";
-import { createMockHttpClient, createSequenceHttpClient, withTempDir } from "@kogoro/core";
+import { createMockHttpClient, createSequenceHttpClient, withTempDir } from "@kogoro/core/testing";
 import { AniDBPlugin } from "./anidb-plugin";
 
 function mockHttpClient(data: string, status = 200) {

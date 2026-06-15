@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LibraryRepository } from "@kogoro/core";
-import { createLibraryRepository, LibraryService, withTempDir } from "@kogoro/core";
+import { LibraryService } from "@kogoro/core";
+import { createLibraryRepository, withTempDir } from "@kogoro/core/testing";
 import { createLibraryHandlers } from "./library";
 
 function seedLibrary(repo: LibraryRepository, coverDir?: string) {

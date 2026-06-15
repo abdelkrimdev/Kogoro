@@ -1,17 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
+import { ConfigManager, computeFileHash, OverrideStore, SCHEMA_DEFAULTS } from "@kogoro/core";
 import {
   createMockDb as _createMockDb,
-  ConfigManager,
-  computeFileHash,
   createMatchCacheService,
   makeEpisodes,
-  OverrideStore,
-  SCHEMA_DEFAULTS,
   withTempDir,
   writeTempFile,
-} from "@kogoro/core";
+} from "@kogoro/core/testing";
 import { createStandardMockDb, makeMockLogger, makeThrowingDb } from "../fixtures";
 import { createScanHandlers } from "./handlers";
 

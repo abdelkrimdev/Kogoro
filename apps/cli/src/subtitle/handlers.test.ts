@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { createMatchCacheService, seedCacheEntry, withTempDir, writeTempFile } from "@kogoro/core";
+import {
+  createMatchCacheService,
+  seedCacheEntry,
+  withTempDir,
+  writeTempFile,
+} from "@kogoro/core/testing";
 import { createMockSubtitlePlugin, makeMockLogger } from "../fixtures";
 import { createSubtitleHandlers } from "./handlers";
 

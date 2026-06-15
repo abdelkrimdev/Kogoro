@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createMockKeytar, withMockFetch, withTestConfig } from "@kogoro/core";
+import { createMockKeytar, withMockFetch, withTestConfig } from "@kogoro/core/testing";
 import { PluginFactory } from "./plugin-factory";
 
 describe("PluginFactory", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createMatchCacheService, makeCachedMatch, withTempDir } from "@kogoro/core";
+import { createMatchCacheService, makeCachedMatch, withTempDir } from "@kogoro/core/testing";
 import { createCacheHandlers } from "./handlers";
 
 describe("cache CLI commands", () => {

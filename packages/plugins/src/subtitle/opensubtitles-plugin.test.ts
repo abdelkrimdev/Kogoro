@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createCallCounter, createMockHttpClient, mockJsonFetch } from "@kogoro/core";
+import { createCallCounter, createMockHttpClient, mockJsonFetch } from "@kogoro/core/testing";
 import { OpenSubtitlesPlugin } from "./opensubtitles-plugin";
 
 describe("OpenSubtitlesPlugin", () => {

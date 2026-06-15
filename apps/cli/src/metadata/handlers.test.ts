@@ -7,7 +7,7 @@ import {
   seedCacheEntry,
   withTempDir,
   writeTempFile,
-} from "@kogoro/core";
+} from "@kogoro/core/testing";
 import { createLogger } from "../logger";
 import { createMetadataHandlers } from "./handlers";
 

@@ -9,7 +9,7 @@ import {
   seedCacheEntry,
   testImageBytes,
   withTempDir,
-} from "@kogoro/core";
+} from "@kogoro/core/testing";
 import { makeMockLogger } from "../fixtures";
 import { createArtworkHandlers } from "./handlers";
 
