@@ -26,12 +26,7 @@ export { walk } from "./io/directory-walker";
 export { hashFile } from "./io/file-hash";
 export type { DebugEntry } from "./io/http-client";
 export { HttpClient } from "./io/http-client";
-export type {
-  ProgressEvent,
-  ProgressTracker,
-  ProgressTrackerOptions,
-  TaskContext,
-} from "./io/progress";
+export type { ProgressEvent, TaskContext } from "./io/progress";
 export type { LibraryAnime, LibraryEpisode, WatchStatus } from "./library/library-repository";
 export { LibraryRepository } from "./library/library-repository";
 export { LibraryService } from "./library/library-service";

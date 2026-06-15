@@ -11,15 +11,3 @@ export interface TaskContext {
   error: (msg: string) => void;
   abortSignal?: AbortSignal;
 }
-
-export interface ProgressTracker {
-  ctx: TaskContext;
-  start(msg: string): void;
-  stop(msg?: string): void;
-}
-
-export interface ProgressTrackerOptions {
-  verbose?: boolean;
-  quiet?: boolean;
-  abortSignal?: AbortSignal;
-}

@@ -107,7 +107,7 @@ export async function run(argv: string[]): Promise<void> {
   registerConfig(parser);
   registerDb(parser, createDatabaseCommandsWithCredentials);
   registerCache(parser, { cacheService });
-  registerPlugins(parser, config);
+  registerPlugins(parser, config, credentialStore);
 
   parser
     .demandCommand(1, "See 'kogoro --help'")

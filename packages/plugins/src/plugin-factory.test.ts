@@ -270,4 +270,63 @@ describe("PluginFactory", () => {
       );
     });
   });
+
+  describe("list", () => {
+    test("returns built-in database plugins", async () => {
+      await withTestConfig(
+        "list-builtin-db",
+        async (_dir, config, credentialStore) => {
+          const factory = new PluginFactory(config, credentialStore);
+          const plugins = factory.list();
+          const dbPlugins = plugins.filter((p) => p.type === "database");
+          expect(dbPlugins.some((p) => p.name === "tvdb")).toBe(true);
+          expect(dbPlugins.some((p) => p.name === "anidb")).toBe(true);
+        },
+        null,
+      );
+    });
+
+    test("returns built-in subtitle plugin", async () => {
+      await withTestConfig(
+        "list-builtin-sub",
+        async (_dir, config, credentialStore) => {
+          const factory = new PluginFactory(config, credentialStore);
+          const plugins = factory.list();
+          const subPlugins = plugins.filter((p) => p.type === "subtitle");
+          expect(subPlugins.some((p) => p.name === "opensubtitles")).toBe(true);
+        },
+        null,
+      );
+    });
+
+    test("marks disabled plugins in list", async () => {
+      await withTestConfig(
+        "list-disabled",
+        async (_dir, config, credentialStore) => {
+          config.set("plugins.tvdb.enabled", "false");
+          const factory = new PluginFactory(config, credentialStore);
+          const plugins = factory.list();
+          const tvdb = plugins.find((p) => p.name === "tvdb");
+          expect(tvdb?.enabled).toBe(false);
+          const anidb = plugins.find((p) => p.name === "anidb");
+          expect(anidb?.enabled).toBe(true);
+        },
+        null,
+      );
+    });
+
+    test("all plugins enabled by default", async () => {
+      await withTestConfig(
+        "list-all-enabled",
+        async (_dir, config, credentialStore) => {
+          const factory = new PluginFactory(config, credentialStore);
+          const plugins = factory.list();
+          for (const p of plugins) {
+            expect(p.enabled).toBe(true);
+          }
+        },
+        null,
+      );
+    });
+  });
 });

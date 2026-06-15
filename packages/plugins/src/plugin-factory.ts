@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import {
   type ConfigManager,
   type CredentialStore,
@@ -9,6 +11,41 @@ import {
 import { AniDBPlugin } from "./database/anidb-plugin";
 import { TVDBPlugin } from "./database/tvdb-plugin";
 import { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
+
+export interface PluginInfo {
+  name: string;
+  type: "database" | "subtitle";
+  source: "built-in" | "external";
+  description?: string;
+  enabled: boolean;
+}
+
+const BUILT_IN_DATABASE_PLUGINS: PluginInfo[] = [
+  {
+    name: "tvdb",
+    type: "database",
+    source: "built-in",
+    description: "TheTVDB.com plugin",
+    enabled: true,
+  },
+  {
+    name: "anidb",
+    type: "database",
+    source: "built-in",
+    description: "AniDB plugin",
+    enabled: true,
+  },
+];
+
+const BUILT_IN_SUBTITLE_PLUGINS: PluginInfo[] = [
+  {
+    name: "opensubtitles",
+    type: "subtitle",
+    source: "built-in",
+    description: "OpenSubtitles.com plugin",
+    enabled: true,
+  },
+];
 
 const RATE_LIMITS = {
   tvdb: 200,
@@ -112,6 +149,58 @@ export class PluginFactory {
     }
     const httpClient = new HttpClient(this.debugOptions());
     return new OpenSubtitlesPlugin({ apiKey, httpClient });
+  }
+
+  list(): PluginInfo[] {
+    const plugins: PluginInfo[] = [];
+    for (const p of [...BUILT_IN_DATABASE_PLUGINS, ...BUILT_IN_SUBTITLE_PLUGINS]) {
+      plugins.push({ ...p, enabled: this.config.isPluginEnabled(p.name) });
+    }
+    for (const info of this.discoverExternalPlugins()) {
+      plugins.push({ ...info, enabled: this.config.isPluginEnabled(info.name) });
+    }
+    return plugins;
+  }
+
+  private discoverExternalPlugins(): PluginInfo[] {
+    const discovered: PluginInfo[] = [];
+    const seen = new Set<string>();
+    for (const nmPath of this.getNodeModulesPaths()) {
+      let entries: string[];
+      try {
+        entries = readdirSync(nmPath);
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        if (entry.startsWith("kogoro-plugin-")) {
+          const name = entry.replace("kogoro-plugin-", "");
+          if (seen.has(name)) continue;
+          seen.add(name);
+          const type: PluginInfo["type"] = name.includes("subtitle") ? "subtitle" : "database";
+          discovered.push({
+            name,
+            type,
+            source: "external",
+            description: `External plugin: ${entry}`,
+            enabled: true,
+          });
+        }
+      }
+    }
+    return discovered;
+  }
+
+  private getNodeModulesPaths(): string[] {
+    const paths: string[] = [];
+    let current = process.cwd();
+    while (true) {
+      paths.push(join(current, "node_modules"));
+      const parent = join(current, "..");
+      if (parent === current) break;
+      current = parent;
+    }
+    return paths;
   }
 
   private async loadExternalDatabasePlugin(name: string): Promise<DatabasePlugin | undefined> {
