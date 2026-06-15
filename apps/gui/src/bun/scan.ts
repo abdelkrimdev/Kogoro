@@ -11,11 +11,11 @@ import {
   type CacheService,
   type ConfigManager,
   createScanPipeline,
-  findCandidateMatches,
   hashFile,
   type LibraryService,
   type Matcher,
   type MatchResult,
+  probeMatches,
   ScanOrchestrator,
   type ScanStateService,
 } from "@kogoro/core";
@@ -85,7 +85,7 @@ async function createScanOrchestrator(
         },
         resolve: matcher
           ? async (filePath: string, animeId: string, episodeId: string) => {
-              const { parsed, best } = await findCandidateMatches(matcher, filePath);
+              const { parsed, best } = await probeMatches(matcher, filePath);
 
               const chosen = best.find(
                 (m) => m.anime.id === animeId && m.episode?.id === episodeId,
@@ -132,7 +132,7 @@ async function createScanOrchestrator(
         },
         topCandidates: matcher
           ? async (sourcePath: string) => {
-              const { best } = await findCandidateMatches(matcher, sourcePath);
+              const { best } = await probeMatches(matcher, sourcePath);
               return best.slice(0, 3).map((m) => ({
                 episodeNumber: m.episode?.episode ?? 0,
                 title: m.episode?.titleEn ?? "",
@@ -318,7 +318,7 @@ export function createScanHandlers(dependencies: {
       const matcher = getMatcher(sessionId);
       if (!matcher) return { candidates: [] };
 
-      const { best } = await findCandidateMatches(matcher, sourcePath);
+      const { best } = await probeMatches(matcher, sourcePath);
 
       return {
         candidates: best.map((m) => ({

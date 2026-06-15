@@ -60,6 +60,23 @@ export { sanitizeFilename } from "./rename/sanitize";
 export { render } from "./rename/template-engine";
 export type { CreateScanPipelineOptions, ScanPipeline } from "./scan/create-scan-pipeline";
 export { createScanPipeline } from "./scan/create-scan-pipeline";
+export type { HashCacheOptions, PreparedFile } from "./scan/hash-cache";
+export { computeFileHash, HashCache } from "./scan/hash-cache";
+export type { ManualResolution, MatchDecision, MatchInput } from "./scan/match-pipeline";
+export {
+  applyEntryTypeOverride,
+  checkCached,
+  checkOverride,
+  filterViableMatches,
+  getDirectoryTitle,
+  MatchPipeline,
+  parseFilePath,
+  probeMatches,
+  resolveManual,
+  resolveMatches,
+} from "./scan/match-pipeline";
+export type { PlanResult, RenameExecutorOptions, RenameOptions } from "./scan/rename-executor";
+export { RenameExecutor } from "./scan/rename-executor";
 export type { ScanGroupEntry } from "./scan/rename-plan-aggregator";
 export {
   aggregateReviewPlan,
@@ -80,12 +97,7 @@ export type {
 } from "./scan/scan-orchestrator";
 export { ScanOrchestrator } from "./scan/scan-orchestrator";
 export type { ScanResult } from "./scan/scanner";
-export {
-  computeFileHash,
-  findCandidateMatches,
-  getDirectoryTitle,
-  Scanner,
-} from "./scan/scanner";
+export { Scanner } from "./scan/scanner";
 export type {
   AnimeResult,
   ArtworkResult,

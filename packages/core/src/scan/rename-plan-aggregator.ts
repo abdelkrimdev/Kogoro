@@ -10,6 +10,12 @@ import type {
   TopCandidate,
 } from "../types";
 import type { ScanResult } from "./scanner";
+import {
+  detectSwaps as detectSwapsCore,
+  extractEpisodeFromPath,
+  extractSeasonFromPath,
+  type SwapInputEntry,
+} from "./swap-detection";
 
 export type { TopCandidate };
 
@@ -66,53 +72,50 @@ function lowestNumericId(ids: string[]): string {
   return ids.sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))[0] ?? "";
 }
 
-function detectSwapsFromGroups(byAnime: Map<string, ScanResult[]>): ScanSwapPair[] {
+function toSwapInputFromScanResult(result: ScanResult): SwapInputEntry | null {
+  if (!result.match?.episode || result.parsed.episode === null) return null;
+
+  const matchEp = result.match.episode;
+  const proposedSeason = result.plan?.targetPath
+    ? extractSeasonFromPath(result.plan.targetPath)
+    : null;
+  const proposedEpisode = result.plan?.targetPath
+    ? extractEpisodeFromPath(result.plan.targetPath)
+    : null;
+
+  return {
+    fileId: result.file,
+    filePath: result.file,
+    animeId: result.match.anime.id,
+    season: result.parsed.season ?? matchEp.season,
+    episode: result.parsed.episode,
+    proposedEpisode: proposedEpisode ?? matchEp.episode,
+    proposedSeason: proposedSeason ?? matchEp.season,
+  };
+}
+
+export function detectSwaps(results: ScanResult[]): ScanSwapPair[] {
+  const byAnime = groupByAnime(results);
   const swaps: ScanSwapPair[] = [];
 
   for (const [, group] of byAnime) {
-    const withEpisodes = group.filter(
-      (r) => r.match?.episode !== undefined && r.parsed.episode !== null,
-    );
+    const entries = group
+      .map(toSwapInputFromScanResult)
+      .filter((e): e is SwapInputEntry => e !== null);
 
-    for (let i = 0; i < withEpisodes.length; i++) {
-      for (let j = i + 1; j < withEpisodes.length; j++) {
-        const a = withEpisodes[i];
-        const b = withEpisodes[j];
-        if (!a || !b) continue;
-
-        const aMatch = a.match?.episode;
-        const bMatch = b.match?.episode;
-        if (!aMatch || !bMatch) continue;
-
-        const aParsedSeason = a.parsed.season ?? aMatch.season;
-        const aParsedEpisode = a.parsed.episode ?? 0;
-        const bParsedSeason = b.parsed.season ?? bMatch.season;
-        const bParsedEpisode = b.parsed.episode ?? 0;
-
-        const isSwap =
-          aParsedEpisode === bMatch.episode &&
-          aParsedSeason === bMatch.season &&
-          bParsedEpisode === aMatch.episode &&
-          bParsedSeason === aMatch.season;
-
-        if (isSwap) {
-          swaps.push({
-            files: [a.file, b.file],
-            episodeA: aMatch.episode,
-            episodeB: bMatch.episode,
-            seasonA: aMatch.season,
-            seasonB: bMatch.season,
-          });
-        }
-      }
+    const results = detectSwapsCore(entries);
+    for (const r of results) {
+      swaps.push({
+        files: [r.filePathA, r.filePathB],
+        episodeA: r.episodeA,
+        episodeB: r.episodeB,
+        seasonA: r.seasonA,
+        seasonB: r.seasonB,
+      });
     }
   }
 
   return swaps;
-}
-
-export function detectSwaps(results: ScanResult[]): ScanSwapPair[] {
-  return detectSwapsFromGroups(groupByAnime(results));
 }
 
 export function buildReviewPlan(
@@ -121,7 +124,7 @@ export function buildReviewPlan(
   sourceDb?: string,
 ): ScanReviewPlan {
   const byTitle = groupByAnime(results);
-  const allSwaps = detectSwapsFromGroups(byTitle);
+  const allSwaps = detectSwaps(results);
 
   const titleToCanonicalId = new Map<string, string>();
   for (const [title, scanResults] of byTitle) {
@@ -220,43 +223,29 @@ function generateFileId(): string {
   return randomUUID();
 }
 
-function detectSwapsFromFileRows(files: FileRow[]): SwapPair[] {
-  const swaps: SwapPair[] = [];
-  const visited = new Set<string>();
+function toSwapInputFromRow(row: FileRow): SwapInputEntry | null {
+  if (!row.animeId || row.episode === null) return null;
 
-  for (let i = 0; i < files.length; i++) {
-    const fileA = files[i];
-    if (!fileA?.animeId || fileA.episode === null) continue;
-    if (visited.has(fileA.fileId)) continue;
+  const proposedEpisode = extractEpisodeFromPath(row.proposedPath);
+  if (proposedEpisode === null) return null;
 
-    const proposedA = extractEpisodeFromPath(fileA.proposedPath);
-    if (proposedA === null) continue;
+  const proposedSeason = extractSeasonFromPath(row.proposedPath);
 
-    for (let j = i + 1; j < files.length; j++) {
-      const fileB = files[j];
-      if (!fileB?.animeId || fileB.episode === null) continue;
-      if (visited.has(fileB.fileId)) continue;
-      if (fileA.animeId !== fileB.animeId) continue;
-
-      const proposedB = extractEpisodeFromPath(fileB.proposedPath);
-      if (proposedB === null) continue;
-
-      if (proposedA === fileB.episode && proposedB === fileA.episode) {
-        swaps.push({ fileAId: fileA.fileId, fileBId: fileB.fileId });
-        visited.add(fileA.fileId);
-        visited.add(fileB.fileId);
-        break;
-      }
-    }
-  }
-
-  return swaps;
+  return {
+    fileId: row.fileId,
+    filePath: row.sourcePath,
+    animeId: row.animeId,
+    season: 1,
+    episode: row.episode,
+    proposedEpisode,
+    proposedSeason,
+  };
 }
 
-function extractEpisodeFromPath(path: string | null): number | null {
-  if (!path) return null;
-  const match = path.match(/E(\d+)/i);
-  return match?.[1] ? parseInt(match[1], 10) : null;
+function detectSwapsFromRows(files: FileRow[]): SwapPair[] {
+  const entries = files.map(toSwapInputFromRow).filter((e): e is SwapInputEntry => e !== null);
+  const results = detectSwapsCore(entries);
+  return results.map((r) => ({ fileAId: r.fileAId, fileBId: r.fileBId }));
 }
 
 function toFileRow(result: ScanResult): FileRow {
@@ -333,7 +322,7 @@ export async function aggregateReviewPlan(
         libraryService.isAnimeInLibrary(group.animeId, sourceDb);
     }
 
-    group.swapPairs = detectSwapsFromFileRows(group.files);
+    group.swapPairs = detectSwapsFromRows(group.files);
     groupList.push(group);
   }
 
