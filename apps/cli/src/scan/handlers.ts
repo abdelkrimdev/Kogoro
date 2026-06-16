@@ -4,7 +4,7 @@ import { confirm, isCancel, log, select, text } from "@clack/prompts";
 import {
   type CacheService,
   type ConfigManager,
-  createScanPipeline,
+  createScanComponents,
   type DatabasePlugin,
   type EpisodeNumbering,
   type MatchResult,
@@ -62,7 +62,7 @@ function discoverFiles(
 }
 
 export function createScanHandlers(options: ScanHandlerOptions) {
-  const pipeline = createScanPipeline({
+  const pipeline = createScanComponents({
     config: options.config,
     cacheService: options.cacheService,
     database: options.database,

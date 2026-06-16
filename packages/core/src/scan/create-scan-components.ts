@@ -9,7 +9,7 @@ import type { SanitizeConfig } from "../rename/sanitize";
 import type { DatabasePlugin } from "../types";
 import { Scanner } from "./scanner";
 
-export interface CreateScanPipelineOptions {
+export interface CreateScanComponentsOptions {
   config?: ConfigManager;
   cacheService?: CacheService;
   database?: DatabasePlugin;
@@ -18,11 +18,11 @@ export interface CreateScanPipelineOptions {
   sourceDb?: string;
 }
 
-export interface ScanPipeline {
+export interface ScanComponents {
   matcher: Matcher | undefined;
   renamer: Renamer;
   overrideStore: OverrideStore;
-  scanner: Scanner | undefined;
+  scanner: Scanner;
   walk: (path: string, options?: { extensions?: readonly string[] }) => Promise<string[]>;
 }
 
@@ -40,7 +40,7 @@ function resolveDirectoryTemplate(config?: ConfigManager): string {
   );
 }
 
-export function createScanPipeline(options: CreateScanPipelineOptions): ScanPipeline {
+export function createScanComponents(options: CreateScanComponentsOptions): ScanComponents {
   const { config, cacheService, database, sourceDb: sourceDbOverride } = options;
 
   const filenameTemplate = resolveFilenameTemplate(config);
@@ -61,15 +61,13 @@ export function createScanPipeline(options: CreateScanPipelineOptions): ScanPipe
 
   const sourceDb = sourceDbOverride ?? (config?.get("primary-db") as string | undefined) ?? "tvdb";
 
-  const scanner = matcher
-    ? new Scanner({
-        matcher,
-        cacheService,
-        renamer,
-        overrideStore,
-        sourceDb,
-      })
-    : undefined;
+  const scanner = new Scanner({
+    matcher,
+    cacheService,
+    renamer,
+    overrideStore,
+    sourceDb,
+  });
 
   const extensions = config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
   const excludePatterns = config?.getList("exclude-patterns") ?? [

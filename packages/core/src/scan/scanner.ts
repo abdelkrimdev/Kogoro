@@ -31,7 +31,7 @@ interface ScanBatchOptions extends ScanFileOptions {
 }
 
 interface ScannerOptions {
-  matcher: MatcherLike;
+  matcher?: MatcherLike;
   hashCache?: HashCache;
   matchPipeline?: MatchPipeline;
   renameExecutor?: RenameExecutor;
@@ -61,12 +61,12 @@ interface ScanFileOptions {
 
 export class Scanner {
   private hashCache: HashCache;
-  private matchPipeline: MatchPipeline;
+  private matchPipeline: MatchPipeline | null;
   private renameExecutor: RenameExecutor;
-  private matcher: MatcherLike;
+  private matcher: MatcherLike | null;
 
   constructor(options: ScannerOptions) {
-    this.matcher = options.matcher;
+    this.matcher = options.matcher ?? null;
     this.hashCache =
       options.hashCache ??
       new HashCache({
@@ -74,7 +74,9 @@ export class Scanner {
         overrideStore: options.overrideStore,
         sourceDb: options.sourceDb,
       });
-    this.matchPipeline = options.matchPipeline ?? new MatchPipeline(options.matcher);
+    this.matchPipeline = options.matcher
+      ? (options.matchPipeline ?? new MatchPipeline(options.matcher))
+      : null;
     this.renameExecutor =
       options.renameExecutor ?? new RenameExecutor({ renamer: options.renamer });
   }
@@ -87,7 +89,26 @@ export class Scanner {
     return this.renameExecutor.rollback();
   }
 
+  private noMatchResult(filePath: string): ScanResult {
+    const parsed = parseFilePath(filePath);
+    return {
+      file: filePath,
+      hash: "",
+      parsed,
+      match: null,
+      plan: null,
+      cached: false,
+      skipped: false,
+      status: "failed",
+      failureReason: "No database configured",
+    };
+  }
+
   async scanFile(filePath: string, options?: ScanFileOptions): Promise<ScanResult> {
+    if (!this.matcher || !this.matchPipeline) {
+      return this.noMatchResult(filePath);
+    }
+
     const prepared = await this.hashCache.prepareFile(
       filePath,
       options?.extensions,
@@ -107,6 +128,10 @@ export class Scanner {
   }
 
   async scanBatch(filePaths: string[], options?: ScanBatchOptions): Promise<ScanResult[]> {
+    if (!this.matcher || !this.matchPipeline) {
+      return filePaths.map((fp) => this.noMatchResult(fp));
+    }
+
     const results: ScanResult[] = [];
     const concurrency = Math.max(1, options?.concurrency ?? 1);
     const signal = options?.ctx?.abortSignal;

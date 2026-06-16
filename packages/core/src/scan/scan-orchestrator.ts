@@ -1,15 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { lstatSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, extname, join, relative } from "node:path";
 import type { LibraryService } from "../library/library-service";
 import type { CacheService } from "../match/cache-service";
-import type { MatchResult } from "../match/matcher";
+import type { MatcherLike, MatchResult } from "../match/matcher";
 import type { ScanStateService } from "../match/scan-state-service";
-import type { RenamePlan } from "../rename/renamer";
+import type { RenamePlan, Renamer } from "../rename/renamer";
 import type { MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
 import { cleanupEmptyDirs } from "./cleanup-dirs";
 import { createEventBus, type EventBus } from "./event-bus";
 import { createGroupApproval, type GroupApproval } from "./group-approval";
+import { probeMatches } from "./match-pipeline";
 import { buildMatchResults } from "./match-results";
 import {
   aggregateReviewPlan,
@@ -78,10 +79,6 @@ export type ScanEvent =
 type ScanEventListener = (event: ScanEvent) => void;
 
 export interface OrchestratorPipeline {
-  scan: (
-    filePath: string,
-    options?: { dryRun?: boolean; force?: boolean; extensions?: readonly string[] },
-  ) => Promise<ScanResult>;
   scanBatch: (
     filePaths: string[],
     options: { force?: boolean; dryRun?: boolean; extensions?: readonly string[] },
@@ -91,13 +88,15 @@ export interface OrchestratorPipeline {
     plan: NonNullable<ScanResult["plan"]>,
     baseDir: string,
   ) => Promise<{ success: boolean; error?: { type: string; message: string } }>;
-  plan: (filePath: string, match: MatchResult) => RenamePlan | null;
+  plan?: (filePath: string, match: MatchResult) => RenamePlan | null;
   walk: (path: string, options?: { extensions?: readonly string[] }) => Promise<string[]>;
   topCandidates?: (sourcePath: string) => Promise<TopCandidate[]>;
 }
 
 export interface ScanOrchestratorOptions {
   pipeline: OrchestratorPipeline;
+  matcher?: MatcherLike;
+  renamer?: Renamer;
   libraryService?: LibraryService;
   sourceDb?: string;
   cacheService?: CacheService;
@@ -147,6 +146,31 @@ export class ScanOrchestrator {
     );
   }
 
+  createRenamePlan(filePath: string, match: MatchResult): RenamePlan | null {
+    if (this.pipeline.plan) {
+      return this.pipeline.plan(filePath, match);
+    }
+    if (this.options.renamer) {
+      const extension = filePath.split(".").pop() ?? "mkv";
+      return this.options.renamer.plan(filePath, match, extension);
+    }
+    return null;
+  }
+
+  async topCandidates(sourcePath: string): Promise<TopCandidate[]> {
+    if (this.pipeline.topCandidates) {
+      return this.pipeline.topCandidates(sourcePath);
+    }
+    if (this.options.matcher) {
+      const { best } = await probeMatches(this.options.matcher, sourcePath);
+      return best.slice(0, 3).map((m) => ({
+        episodeNumber: m.episode?.episode ?? 0,
+        title: m.episode?.titleEn ?? "",
+      }));
+    }
+    return [];
+  }
+
   on(event: ScanEventType | "*", listener: ScanEventListener): void {
     this.eventBus.on(event, listener);
   }
@@ -180,7 +204,7 @@ export class ScanOrchestrator {
       this.sessionId,
       this.options.libraryService,
       this.options.sourceDb,
-      this.pipeline.topCandidates,
+      this.topCandidates.bind(this),
     );
     if (this.initialAmbiguousCount === null) {
       this.initialAmbiguousCount = this.plan.ambiguousCount;
@@ -342,16 +366,49 @@ export class ScanOrchestrator {
       throw new Error("Cannot resolve: file not found");
     }
 
-    if (!this.pipeline.resolve) {
-      throw new Error("Cannot resolve: resolve not available");
-    }
-
     const resultIndex = this.results.findIndex((r) => r.file === sourcePath);
     if (resultIndex === -1) {
       throw new Error("Cannot resolve: file not found");
     }
 
-    const resolved = await this.pipeline.resolve(sourcePath, animeId, episodeId);
+    let resolved: ScanResult;
+    if (this.pipeline.resolve) {
+      resolved = await this.pipeline.resolve(sourcePath, animeId, episodeId);
+    } else if (this.options.matcher && this.options.renamer) {
+      const { parsed, best } = await probeMatches(this.options.matcher, sourcePath);
+      const chosen = best.find((m) => m.anime.id === animeId && m.episode?.id === episodeId);
+      if (!chosen) {
+        resolved = {
+          file: sourcePath,
+          hash: "",
+          parsed,
+          match: null,
+          plan: null,
+          cached: false,
+          skipped: false,
+          status: "failed",
+          failureReason: "Selected candidate not found",
+        };
+      } else {
+        const { hashFile } = await import("../io/file-hash");
+        const hash = await hashFile(sourcePath);
+        const extension = extname(sourcePath).replace(".", "") || "mkv";
+        const plan = this.options.renamer.plan(sourcePath, chosen, extension);
+        resolved = {
+          file: sourcePath,
+          hash,
+          parsed,
+          match: chosen,
+          plan,
+          cached: false,
+          skipped: false,
+          status: "matched",
+        };
+      }
+    } else {
+      throw new Error("Cannot resolve: resolve not available");
+    }
+
     this.results[resultIndex] = resolved;
 
     if (this.options.cacheService && resolved.hash && resolved.match) {
@@ -394,6 +451,9 @@ export class ScanOrchestrator {
       let renameResult: { success: boolean; error?: { type: string; message: string } };
       if (this.pipeline.rename) {
         renameResult = await this.pipeline.rename(plan, this.baseDir);
+      } else if (this.options.renamer) {
+        const result = this.options.renamer.execute(plan, this.baseDir);
+        renameResult = { success: result.success, error: result.error };
       } else {
         renameResult = { success: true };
       }

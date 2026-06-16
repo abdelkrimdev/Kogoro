@@ -19,6 +19,31 @@ import { computeFileHash } from "./hash-cache";
 import { Scanner } from "./scanner";
 
 describe("Scanner", () => {
+  test("scanFile with no matcher returns failed status", async () => {
+    const scanner = new Scanner({});
+    const result = await scanner.scanFile("[Group] My Anime - 01.mkv");
+
+    expect(result.file).toBe("[Group] My Anime - 01.mkv");
+    expect(result.status).toBe("failed");
+    expect(result.failureReason).toBe("No database configured");
+    expect(result.match).toBeNull();
+    expect(result.plan).toBeNull();
+  });
+
+  test("scanBatch with no matcher returns failed for each file", async () => {
+    const scanner = new Scanner({});
+    const results = await scanner.scanBatch([
+      "[Group] Anime A - 01.mkv",
+      "[Group] Anime B - 02.mkv",
+    ]);
+
+    expect(results).toHaveLength(2);
+    for (const r of results) {
+      expect(r.status).toBe("failed");
+      expect(r.failureReason).toBe("No database configured");
+    }
+  });
+
   test("scanFile parses filename and returns auto-resolved match", async () => {
     const scanner = new Scanner({ matcher: createMockMatcher() });
     const result = await scanner.scanFile("[Group] My Anime - 01.mkv");

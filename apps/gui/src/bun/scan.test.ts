@@ -64,16 +64,11 @@ function createOrchestratorWithRealScan(
   return new ScanOrchestrator({
     pipeline: {
       walk: async (path: string) => walk(path, SCHEMA_DEFAULTS["media-extensions"]),
-      scan: async (filePath: string, options?: { dryRun?: boolean }) =>
-        scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true }),
       scanBatch: async (filePaths, options) =>
         scanner.scanBatch(filePaths, { force: options.force, dryRun: options.dryRun }),
-      rename: async (plan, baseDir) => {
-        const result = renamer.execute(plan, baseDir);
-        return { success: result.success, error: result.error };
-      },
-      plan: () => null,
     },
+    matcher,
+    renamer,
   });
 }
 
@@ -384,24 +379,6 @@ describe("ScanOrchestrator", () => {
         const orch = new ScanOrchestrator({
           pipeline: {
             walk: async () => [join(dir, "ep1.mkv")],
-            scan: async () => ({
-              file: join(dir, "ep1.mkv"),
-              hash: "hash-ep1",
-              parsed: makeParsedResult("Jujutsu Kaisen", 1, 1),
-              match: makeMatchResult({
-                anime: { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
-              }),
-              plan: {
-                sourcePath: join(dir, "ep1.mkv"),
-                targetPath: "ep1.mkv",
-                targetDir: ".",
-                targetFilename: "ep1.mkv",
-                action: "move",
-              },
-              cached: false,
-              skipped: false,
-              status: "matched",
-            }),
             scanBatch: async (filePaths) =>
               filePaths.map((filePath) => ({
                 file: filePath,
@@ -440,16 +417,6 @@ describe("ScanOrchestrator", () => {
         const orch = new ScanOrchestrator({
           pipeline: {
             walk: async () => [join(dir, "ep1.mkv")],
-            scan: async () => ({
-              file: join(dir, "ep1.mkv"),
-              hash: "hash-ep1",
-              parsed: makeParsedResult(null),
-              match: null,
-              plan: null,
-              cached: false,
-              skipped: false,
-              status: "failed",
-            }),
             scanBatch: async (filePaths) =>
               filePaths.map((filePath) => ({
                 file: filePath,

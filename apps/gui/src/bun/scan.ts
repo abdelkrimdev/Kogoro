@@ -1,4 +1,3 @@
-import { extname } from "node:path";
 import type {
   DatabasePlugin,
   MatchEntry,
@@ -10,11 +9,9 @@ import type {
 import {
   type CacheService,
   type ConfigManager,
-  createScanPipeline,
-  hashFile,
+  createScanComponents,
   type LibraryService,
   type Matcher,
-  type MatchResult,
   probeMatches,
   ScanOrchestrator,
   type ScanStateService,
@@ -79,122 +76,28 @@ async function createScanOrchestrator(
 ): Promise<ScanOrchestrator> {
   const database = await pluginFactory.primaryDatabase();
 
-  const pipeline = createScanPipeline({
+  const components = createScanComponents({
     config: configManager,
     cacheService,
     database,
     sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
   });
 
-  const { matcher, renamer, scanner } = pipeline;
+  const { matcher, renamer, scanner } = components;
 
   const orchestrator = new ScanOrchestrator(
     {
       pipeline: {
-        walk: pipeline.walk,
-        scan: async (filePath: string, options?: { dryRun?: boolean }) => {
-          if (!scanner) {
-            return {
-              file: filePath,
-              hash: "",
-              parsed: {
-                title: null,
-                season: null,
-                episode: null,
-                tags: { group: null, resolution: null, source: null, codec: null, audio: null },
-              },
-              match: null,
-              plan: null,
-              cached: false,
-              skipped: false,
-              status: "failed" as const,
-              failureReason: "No database configured",
-            };
-          }
-          return scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true });
-        },
-        scanBatch: async (filePaths, options) => {
-          if (!scanner) {
-            return filePaths.map((filePath) => ({
-              file: filePath,
-              hash: "",
-              parsed: {
-                title: null,
-                season: null,
-                episode: null,
-                tags: { group: null, resolution: null, source: null, codec: null, audio: null },
-              },
-              match: null,
-              plan: null,
-              cached: false,
-              skipped: false,
-              status: "failed" as const,
-              failureReason: "No database configured",
-            }));
-          }
-          return scanner.scanBatch(filePaths, {
+        walk: components.walk,
+        scanBatch: async (filePaths, options) =>
+          scanner.scanBatch(filePaths, {
             force: options.force,
             dryRun: options.dryRun,
             extensions: options.extensions,
-          });
-        },
-        resolve: matcher
-          ? async (filePath: string, animeId: string, episodeId: string) => {
-              const { parsed, best } = await probeMatches(matcher, filePath);
-
-              const chosen = best.find(
-                (m) => m.anime.id === animeId && m.episode?.id === episodeId,
-              );
-              if (!chosen) {
-                return {
-                  file: filePath,
-                  hash: "",
-                  parsed,
-                  match: null,
-                  plan: null,
-                  cached: false,
-                  skipped: false,
-                  status: "failed" as const,
-                  failureReason: "Selected candidate not found",
-                };
-              }
-
-              const hash = await hashFile(filePath);
-              const extension = extname(filePath).replace(".", "") || "mkv";
-              const plan = renamer.plan(filePath, chosen, extension);
-
-              return {
-                file: filePath,
-                hash,
-                parsed,
-                match: chosen,
-                plan,
-                cached: false,
-                skipped: false,
-                status: "matched" as const,
-              };
-            }
-          : undefined,
-        rename: scanner
-          ? async (plan, baseDir) => {
-              const result = renamer.execute(plan, baseDir);
-              return { success: result.success, error: result.error };
-            }
-          : undefined,
-        plan: (filePath: string, match: MatchResult) => {
-          const extension = extname(filePath).replace(".", "") || "mkv";
-          return renamer.plan(filePath, match, extension);
-        },
-        topCandidates: matcher
-          ? async (sourcePath: string) => {
-              const { best } = await probeMatches(matcher, sourcePath);
-              return best.slice(0, 3).map((m) => ({
-                episodeNumber: m.episode?.episode ?? 0,
-                title: m.episode?.titleEn ?? "",
-              }));
-            }
-          : undefined,
+          }),
       },
+      matcher: matcher ?? undefined,
+      renamer,
       libraryService,
       sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
       cacheService,
@@ -204,7 +107,7 @@ async function createScanOrchestrator(
     sessionId,
   );
 
-  scanSessions.set(sessionId, { orchestrator, matcher, database });
+  scanSessions.set(sessionId, { orchestrator, matcher: matcher ?? undefined, database });
   return orchestrator;
 }
 
