@@ -151,7 +151,7 @@ export class ScanOrchestrator {
       return this.pipeline.plan(filePath, match);
     }
     if (this.options.renamer) {
-      const extension = filePath.split(".").pop() ?? "mkv";
+      const extension = extname(filePath).replace(".", "") || "mkv";
       return this.options.renamer.plan(filePath, match, extension);
     }
     return null;
