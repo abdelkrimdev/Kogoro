@@ -196,9 +196,6 @@ export function createScanHandlers(dependencies: {
                 break;
               case "scanPhaseComplete":
                 send.scanPhaseComplete(event);
-                if (event.phase === "plan") {
-                  mergeCurrentMatches(orchestrator);
-                }
                 break;
               case "scanReviewReady":
                 send.scanReviewReady(event);
@@ -207,6 +204,7 @@ export function createScanHandlers(dependencies: {
                 send.scanExecutionProgress(event);
                 break;
               case "scanComplete":
+                mergeCurrentMatches(orchestrator);
                 send.scanComplete(event);
                 cleanupSession(sessionId);
                 break;
@@ -225,9 +223,6 @@ export function createScanHandlers(dependencies: {
     async approvePlan(params: { sessionId: string }) {
       const orchestrator = getOrchestrator(params.sessionId);
       await orchestrator.approvePlan();
-
-      mergeCurrentMatches(orchestrator);
-
       return undefined;
     },
 
@@ -242,8 +237,9 @@ export function createScanHandlers(dependencies: {
     },
 
     async cancelScan(params: { sessionId: string }) {
-      getOrchestrator(params.sessionId).cancel();
+      const session = scanSessions.get(params.sessionId);
       cleanupSession(params.sessionId);
+      session?.orchestrator.cancel();
       return undefined;
     },
 
