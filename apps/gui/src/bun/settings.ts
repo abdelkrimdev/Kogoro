@@ -1,7 +1,7 @@
 import type { ConfigManager, CredentialStore } from "@kogoro/core";
 import type { PluginInfo } from "@kogoro/plugins";
 
-export type SettingsFormData = {
+type SettingsFormData = {
   primaryDb: string;
   templatePreset: string;
   templateCustom: string;
@@ -20,9 +20,9 @@ export type SettingsFormData = {
   plugins: PluginInfo[];
 };
 
-export type SettingsUpdateResult = { success: boolean; error?: string };
+type SettingsUpdateResult = { success: boolean; error?: string };
 
-export type ApiKeyUpdateResult = { success: boolean; usedKeyring?: boolean; error?: string };
+type ApiKeyUpdateResult = { success: boolean; usedKeyring?: boolean; error?: string };
 
 function maskApiKey(key: string | undefined): string {
   if (!key) return "Not set";

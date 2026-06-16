@@ -17,11 +17,11 @@ export function checkOnboarding(): CheckOnboardingResult {
   return { needsOnboarding: shouldShowOnboarding(CONFIG_DIR) };
 }
 
-export type CheckOnboardingResult = { needsOnboarding: boolean };
+type CheckOnboardingResult = { needsOnboarding: boolean };
 
-export type CheckIncompleteResult = { incomplete: boolean; missingKey?: string };
+type CheckIncompleteResult = { incomplete: boolean; missingKey?: string };
 
-export type WriteConfigResult = { success: boolean; error?: string };
+type WriteConfigResult = { success: boolean; error?: string };
 
 export function shouldShowOnboarding(configDir: string): boolean {
   const configPath = join(configDir, "config.toml");

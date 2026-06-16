@@ -57,9 +57,9 @@ export function getWatchedFoldersHandler(): WatchedFolder[] {
   }));
 }
 
-export type WatchedFolderResult = { success: boolean };
+type WatchedFolderResult = { success: boolean };
 
-export type MarkFolderScannedResult = { success: boolean; lastScannedAt?: string };
+type MarkFolderScannedResult = { success: boolean; lastScannedAt?: string };
 
 export function addWatchedFolderHandler(params: { path: string }): WatchedFolderResult {
   addWatchedFolder(params.path);

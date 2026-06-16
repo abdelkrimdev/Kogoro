@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 export type ThemeMode = "light" | "dark";
 
-export type WindowFrame = { x: number; y: number; width: number; height: number };
+type WindowFrame = { x: number; y: number; width: number; height: number };
 
 export function stateDir(): string {
   return process.env["KOGORO_STATE_DIR"] ?? join(import.meta.dir, "../..");

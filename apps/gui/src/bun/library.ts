@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import type { LibraryService } from "@kogoro/core";
 
-export interface LibraryAnimeItem {
+interface LibraryAnimeItem {
   id: string;
   titleEn: string;
   entryType: string;
@@ -32,18 +32,18 @@ export interface LibraryAnimeDetail {
   filesOnDisk: number;
 }
 
-export type WatchStatusEntry = {
+type WatchStatusEntry = {
   episodeId: string;
   watched: boolean;
   notes?: string;
   updatedAt: string;
 };
 
-export type LibraryStats = { animeCount: number; episodeCount: number };
+type LibraryStats = { animeCount: number; episodeCount: number };
 
-export type WatchStatusSetResult = { success: boolean };
+type WatchStatusSetResult = { success: boolean };
 
-export type LibraryRebuildResult = { success: boolean; error?: string };
+type LibraryRebuildResult = { success: boolean; error?: string };
 
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",

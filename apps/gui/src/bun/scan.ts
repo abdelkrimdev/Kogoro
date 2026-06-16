@@ -21,9 +21,9 @@ import {
 } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
-export type ScanStartResult = { sessionId: string };
+type ScanStartResult = { sessionId: string };
 
-export type SwapFilesResult = { plan: ReviewPlan };
+type SwapFilesResult = { plan: ReviewPlan };
 
 export type ResolveCandidateEntry = {
   animeId: string;
@@ -35,17 +35,17 @@ export type ResolveCandidateEntry = {
   score: number;
 };
 
-export type ResolveCandidateResult = {
+type ResolveCandidateResult = {
   candidates: ResolveCandidateEntry[];
 };
 
-export type AnimeSearchCandidate = {
+type AnimeSearchCandidate = {
   animeId: string;
   animeTitle: string;
   entryType: string;
 };
 
-export type AnimeSearchResult = {
+type AnimeSearchResult = {
   candidates: AnimeSearchCandidate[];
 };
 
