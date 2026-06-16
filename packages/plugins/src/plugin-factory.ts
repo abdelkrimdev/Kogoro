@@ -1,247 +1,34 @@
-import { readdirSync } from "node:fs";
-import { join } from "node:path";
-import {
-  type ConfigManager,
-  type CredentialStore,
-  type DatabasePlugin,
-  type DebugEntry,
-  HttpClient,
-  type SubtitlePlugin,
-} from "@kogoro/core";
-import { AniDBPlugin } from "./database/anidb-plugin";
-import { TVDBPlugin } from "./database/tvdb-plugin";
-import { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
+import type { ConfigManager, CredentialStore, DatabasePlugin, SubtitlePlugin } from "@kogoro/core";
+import { PluginLoader } from "./plugin-loader";
+import { type PluginInfo, PluginRegistry } from "./plugin-registry";
 
-export interface PluginInfo {
-  name: string;
-  type: "database" | "subtitle";
-  source: "built-in" | "external";
-  description?: string;
-  enabled: boolean;
-}
-
-const BUILT_IN_DATABASE_PLUGINS: PluginInfo[] = [
-  {
-    name: "tvdb",
-    type: "database",
-    source: "built-in",
-    description: "TheTVDB.com plugin",
-    enabled: true,
-  },
-  {
-    name: "anidb",
-    type: "database",
-    source: "built-in",
-    description: "AniDB plugin",
-    enabled: true,
-  },
-];
-
-const BUILT_IN_SUBTITLE_PLUGINS: PluginInfo[] = [
-  {
-    name: "opensubtitles",
-    type: "subtitle",
-    source: "built-in",
-    description: "OpenSubtitles.com plugin",
-    enabled: true,
-  },
-];
-
-const RATE_LIMITS = {
-  tvdb: 200,
-  anidb: 2000,
-} as const;
-
-function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
-  if (obj === null || typeof obj !== "object") return false;
-  const p = obj as {
-    searchAnime?: unknown;
-    getAnime?: unknown;
-    getEpisodes?: unknown;
-    getArtwork?: unknown;
-  };
-  return (
-    typeof p.searchAnime === "function" &&
-    typeof p.getAnime === "function" &&
-    typeof p.getEpisodes === "function" &&
-    typeof p.getArtwork === "function"
-  );
-}
-
-function prettifyBody(body: string): string {
-  try {
-    const parsed = JSON.parse(body) as unknown;
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return body;
-  }
-}
+export type { PluginInfo } from "./plugin-registry";
 
 export class PluginFactory {
-  private builtinCache: Map<string, DatabasePlugin> = new Map();
-  private externalCache: Map<string, DatabasePlugin> = new Map();
+  private registry = new PluginRegistry();
+  private loader: PluginLoader;
 
   constructor(
     private config: ConfigManager,
     private credentialStore: CredentialStore,
-    private debug?: boolean,
-  ) {}
+    debug?: boolean,
+  ) {
+    this.loader = new PluginLoader(debug);
+  }
 
   async primaryDatabase(): Promise<DatabasePlugin | undefined> {
-    const name = this.config.primaryDb;
-    return this.database(name);
+    return this.database(this.config.primaryDb);
   }
 
   async database(name: string): Promise<DatabasePlugin | undefined> {
-    if (!this.config.isPluginEnabled(name)) {
-      console.warn(`Plugin "${name}" is disabled`);
-      return undefined;
-    }
-    switch (name) {
-      case "tvdb": {
-        const cached = this.builtinCache.get("tvdb");
-        if (cached) return cached;
-        const apiKey = await this.credentialStore.getCredential("tvdb");
-        if (!apiKey) {
-          console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-          return undefined;
-        }
-        const httpClient = new HttpClient({
-          minDelay: RATE_LIMITS.tvdb,
-          ...this.debugOptions(),
-        });
-        const plugin = new TVDBPlugin({ apiKey, httpClient });
-        this.builtinCache.set("tvdb", plugin);
-        return plugin;
-      }
-      case "anidb": {
-        const cached = this.builtinCache.get("anidb");
-        if (cached) return cached;
-        const credential = await this.credentialStore.getCredential("anidb");
-        if (!credential) {
-          console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
-          return undefined;
-        }
-        const [client, clientver] = credential.split(":", 2);
-        const httpClient = new HttpClient({
-          minDelay: RATE_LIMITS.anidb,
-          ...this.debugOptions(),
-        });
-        const plugin = new AniDBPlugin({
-          client: client ?? credential,
-          clientver: clientver ?? "1",
-          httpClient,
-        });
-        this.builtinCache.set("anidb", plugin);
-        return plugin;
-      }
-      default:
-        return this.loadExternalDatabasePlugin(name);
-    }
+    return this.loader.loadDatabase(name, this.config, this.credentialStore);
   }
 
   async subtitle(name?: string): Promise<SubtitlePlugin | undefined> {
-    const pluginName = name ?? "opensubtitles";
-    const apiKey = await this.credentialStore.getCredential(pluginName);
-    if (!apiKey) {
-      console.error(`No ${pluginName} API key configured. Run 'kogoro config init' first.`);
-      return undefined;
-    }
-    const httpClient = new HttpClient(this.debugOptions());
-    return new OpenSubtitlesPlugin({ apiKey, httpClient });
+    return this.loader.loadSubtitle(name ?? "opensubtitles", this.credentialStore);
   }
 
   list(): PluginInfo[] {
-    const plugins: PluginInfo[] = [];
-    for (const p of [...BUILT_IN_DATABASE_PLUGINS, ...BUILT_IN_SUBTITLE_PLUGINS]) {
-      plugins.push({ ...p, enabled: this.config.isPluginEnabled(p.name) });
-    }
-    for (const info of this.discoverExternalPlugins()) {
-      plugins.push({ ...info, enabled: this.config.isPluginEnabled(info.name) });
-    }
-    return plugins;
-  }
-
-  private discoverExternalPlugins(): PluginInfo[] {
-    const discovered: PluginInfo[] = [];
-    const seen = new Set<string>();
-    for (const nmPath of this.getNodeModulesPaths()) {
-      let entries: string[];
-      try {
-        entries = readdirSync(nmPath);
-      } catch {
-        continue;
-      }
-      for (const entry of entries) {
-        if (entry.startsWith("kogoro-plugin-")) {
-          const name = entry.replace("kogoro-plugin-", "");
-          if (seen.has(name)) continue;
-          seen.add(name);
-          const type: PluginInfo["type"] = name.includes("subtitle") ? "subtitle" : "database";
-          discovered.push({
-            name,
-            type,
-            source: "external",
-            description: `External plugin: ${entry}`,
-            enabled: true,
-          });
-        }
-      }
-    }
-    return discovered;
-  }
-
-  private getNodeModulesPaths(): string[] {
-    const paths: string[] = [];
-    let current = process.cwd();
-    while (true) {
-      paths.push(join(current, "node_modules"));
-      const parent = join(current, "..");
-      if (parent === current) break;
-      current = parent;
-    }
-    return paths;
-  }
-
-  private async loadExternalDatabasePlugin(name: string): Promise<DatabasePlugin | undefined> {
-    const cached = this.externalCache.get(name);
-    if (cached) return cached;
-
-    try {
-      const mod = await import(`kogoro-plugin-${name}`);
-      const PluginConstructor = mod.default as new (options: Record<string, unknown>) => unknown;
-      if (typeof PluginConstructor !== "function") {
-        console.warn(`Plugin "${name}" does not export a constructor as default`);
-        return undefined;
-      }
-      const instance = new PluginConstructor(this.debug ? { debug: true } : {});
-      if (!isDatabasePlugin(instance)) {
-        console.warn(`Plugin "${name}" does not implement DatabasePlugin interface`);
-        return undefined;
-      }
-      this.externalCache.set(name, instance);
-      return instance;
-    } catch (err) {
-      console.warn(`Failed to load external plugin "${name}": ${String(err)}`);
-      return undefined;
-    }
-  }
-
-  private debugOptions(): { onDebug?: (entry: DebugEntry) => void } {
-    if (!this.debug) return {};
-    return {
-      onDebug: (entry) => {
-        if (entry.type === "request") {
-          console.error(`→ ${entry.method} ${entry.url}`);
-        } else {
-          let bodySuffix = "";
-          if (entry.body) {
-            const prettified = prettifyBody(entry.body);
-            bodySuffix = `\n   ${prettified}`;
-          }
-          console.error(`← ${entry.status} ${entry.url} (${entry.ms}ms)${bodySuffix}`);
-        }
-      },
-    };
+    return this.registry.list(this.config);
   }
 }
