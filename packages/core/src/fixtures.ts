@@ -14,7 +14,13 @@ import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils
 import { CacheService } from "./match/cache-service";
 import type { CachedMatch } from "./match/match-repository";
 import { MatchRepository } from "./match/match-repository";
-import type { MatcherLike, MatchResult } from "./match/matcher";
+import {
+  AMBIGUOUS_MATCH_REASON,
+  bestPerAnimeId,
+  isClearWinner,
+  type MatcherLike,
+  type MatchResult,
+} from "./match/matcher";
 import { ScanStateRepository } from "./match/scan-state-repository";
 import { ScanStateService } from "./match/scan-state-service";
 import { createMatchCacheDb as createMatchCacheDbInstance } from "./match/test-utils";
@@ -476,13 +482,17 @@ export function createAmbiguousMatcher(): MatcherLike {
       const results: MatchResult[] = [];
       for (const p of parsedList) {
         const matches = await this.match(p);
-        results.push(
-          matches[0] ?? {
+        const best = bestPerAnimeId(matches);
+        const winner = isClearWinner(best);
+        if (!winner) {
+          results.push({
             anime: { id: "", titleEn: "", entryType: "tv" },
             score: 0,
-            failureReason: "No match",
-          },
-        );
+            failureReason: AMBIGUOUS_MATCH_REASON,
+          });
+        } else {
+          results.push(winner);
+        }
       }
       return results;
     },
@@ -566,5 +576,35 @@ export function createTrackingEnrichmentSend(
     enrichmentProgress: (data: { completed: number; total: number; status: string }) => {
       captured.push(data);
     },
+  };
+}
+
+export function makeReviewGroup(
+  overrides?: Partial<import("./types").ReviewGroup>,
+): import("./types").ReviewGroup {
+  return {
+    animeId: "anime-1",
+    animeTitle: "Anime",
+    entryType: "tv",
+    files: [],
+    swapPairs: [],
+    ...overrides,
+  };
+}
+
+export function makeScanResult(
+  file: string,
+  overrides?: Partial<import("./scan/scanner").ScanResult>,
+): import("./scan/scanner").ScanResult {
+  return {
+    file,
+    hash: `hash-${file}`,
+    parsed: makeParsedResult(null),
+    match: null,
+    plan: null,
+    cached: false,
+    skipped: false,
+    status: "matched",
+    ...overrides,
   };
 }

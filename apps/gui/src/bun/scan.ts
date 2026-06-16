@@ -83,6 +83,31 @@ async function createScanOrchestrator(
           }
           return scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true });
         },
+        scanBatch: async (filePaths, options) => {
+          if (!scanner) {
+            return filePaths.map((filePath) => ({
+              file: filePath,
+              hash: "",
+              parsed: {
+                title: null,
+                season: null,
+                episode: null,
+                tags: { group: null, resolution: null, source: null, codec: null, audio: null },
+              },
+              match: null,
+              plan: null,
+              cached: false,
+              skipped: false,
+              status: "failed" as const,
+              failureReason: "No database configured",
+            }));
+          }
+          return scanner.scanBatch(filePaths, {
+            force: options.force,
+            dryRun: options.dryRun,
+            extensions: options.extensions,
+          });
+        },
         resolve: matcher
           ? async (filePath: string, animeId: string, episodeId: string) => {
               const { parsed, best } = await probeMatches(matcher, filePath);

@@ -17,6 +17,18 @@ import {
   type SwapInputEntry,
 } from "./swap-detection";
 
+export function buildCanonicalIdMap(plan: ReviewPlan): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const group of plan.groups) {
+    for (const file of group.files) {
+      if (file.animeId && file.animeId !== group.animeId) {
+        map.set(file.animeId, group.animeId);
+      }
+    }
+  }
+  return map;
+}
+
 export type { TopCandidate };
 
 export interface ScanSwapPair {

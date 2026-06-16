@@ -1,16 +1,25 @@
 import { randomUUID } from "node:crypto";
-import { lstatSync, readdirSync, rmdirSync, statSync, unlinkSync } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { lstatSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import type { LibraryService } from "../library/library-service";
 import type { CacheService } from "../match/cache-service";
 import type { MatchResult } from "../match/matcher";
-import { matchResultFromCache } from "../match/matcher";
 import type { ScanStateService } from "../match/scan-state-service";
-import { createEmptyResult } from "../parse/parser";
 import type { RenamePlan } from "../rename/renamer";
-import type { MatchEntry, ReviewGroup, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
-import { aggregateReviewPlan, type TopCandidate } from "./rename-plan-aggregator";
+import type { MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
+import { cleanupEmptyDirs } from "./cleanup-dirs";
+import { createEventBus, type EventBus } from "./event-bus";
+import { createGroupApproval, type GroupApproval } from "./group-approval";
+import { buildMatchResults } from "./match-results";
+import {
+  aggregateReviewPlan,
+  buildCanonicalIdMap,
+  type TopCandidate,
+} from "./rename-plan-aggregator";
+import { findFileSourcePath } from "./resolve-match";
+import { buildSummary } from "./scan-summary";
 import type { ScanResult } from "./scanner";
+import { swapFilesInGroup } from "./swap-files";
 
 export type ScanState = "idle" | "scan" | "plan" | "review" | "execute" | "done";
 
@@ -73,6 +82,10 @@ export interface OrchestratorPipeline {
     filePath: string,
     options?: { dryRun?: boolean; force?: boolean; extensions?: readonly string[] },
   ) => Promise<ScanResult>;
+  scanBatch: (
+    filePaths: string[],
+    options: { force?: boolean; dryRun?: boolean; extensions?: readonly string[] },
+  ) => Promise<ScanResult[]>;
   resolve?: (filePath: string, animeId: string, episodeId: string) => Promise<ScanResult>;
   rename?: (
     plan: NonNullable<ScanResult["plan"]>,
@@ -92,71 +105,15 @@ export interface ScanOrchestratorOptions {
   force?: boolean;
 }
 
-function buildSummary(
-  sessionId: string,
-  results: ScanResult[],
-  renameResults: Map<string, { success: boolean; error?: string }>,
-): ScanSummary {
-  let matched = 0;
-  let cached = 0;
-  let ambiguous = 0;
-  let failed = 0;
-
-  for (const r of results) {
-    switch (r.status) {
-      case "matched":
-        matched++;
-        break;
-      case "cached":
-        cached++;
-        break;
-      case "ambiguous":
-        ambiguous++;
-        break;
-      case "failed":
-        failed++;
-        break;
-    }
-  }
-
-  let renamed = 0;
-  let renameFailed = 0;
-  const renameFailures: Array<{ file: string; reason: string }> = [];
-
-  for (const [file, result] of renameResults) {
-    if (result.success) renamed++;
-    else {
-      renameFailed++;
-      renameFailures.push({
-        file: basename(file),
-        reason: result.error ?? "Unknown error",
-      });
-    }
-  }
-
-  return {
-    sessionId,
-    totalFiles: results.length,
-    matched,
-    cached,
-    ambiguous,
-    failed,
-    renamed,
-    renameFailed,
-    renameFailures,
-  };
-}
-
 export class ScanOrchestrator {
   private _state: ScanState = "idle";
   private sessionId: string = "";
   private results: ScanResult[] = [];
   private plan: ReviewPlan | null = null;
-  private listeners: ScanEventListener[] = [];
+  private eventBus: EventBus<ScanEvent>;
+  private groupApproval: GroupApproval;
   private pipeline: OrchestratorPipeline;
   private options: ScanOrchestratorOptions;
-  private approvedAnimeIds: Set<string> = new Set();
-  private rejectedAnimeIds: Set<string> = new Set();
   private initialAmbiguousCount: number | null = null;
   private baseDir: string = "";
   private canonicalIdMap: Map<string, string> = new Map();
@@ -165,6 +122,8 @@ export class ScanOrchestrator {
     this.pipeline = options.pipeline;
     this.options = options;
     this.sessionId = sessionId ?? "";
+    this.eventBus = createEventBus<ScanEvent>();
+    this.groupApproval = createGroupApproval();
   }
 
   private isDone(): boolean {
@@ -180,41 +139,20 @@ export class ScanOrchestrator {
   }
 
   getMatchResults(): MatchEntry[] {
-    const results: MatchEntry[] = [];
-
-    for (const r of this.results) {
-      if (!r.match) continue;
-      if (r.status !== "matched" && r.status !== "cached") continue;
-
-      const originalId = r.match.anime.id;
-      const canonicalId = this.canonicalIdMap.get(originalId) ?? originalId;
-      if (this.rejectedAnimeIds.has(canonicalId)) continue;
-      if (this.approvedAnimeIds.size > 0 && !this.approvedAnimeIds.has(canonicalId)) continue;
-
-      results.push({
-        animeId: canonicalId,
-        animeTitle: r.match.anime.titleEn,
-        entryType: r.match.anime.entryType,
-        episodeId: r.match.episode?.id ?? null,
-        episode: r.match.episode?.episode ?? null,
-        season: r.match.episode?.season ?? null,
-        title: r.match.episode?.titleEn ?? null,
-        filePath: r.file,
-        sourceDb: this.options.sourceDb ?? "tvdb",
-      });
-    }
-
-    return results;
+    return buildMatchResults(
+      this.results,
+      this.canonicalIdMap,
+      this.groupApproval,
+      this.options.sourceDb ?? "tvdb",
+    );
   }
 
-  on(_event: ScanEventType | "*", listener: ScanEventListener): void {
-    this.listeners.push(listener);
+  on(event: ScanEventType | "*", listener: ScanEventListener): void {
+    this.eventBus.on(event, listener);
   }
 
   private emit(event: ScanEvent): void {
-    for (const listener of this.listeners) {
-      listener(event);
-    }
+    this.eventBus.emit(event);
   }
 
   private emitReviewReady(): void {
@@ -249,14 +187,7 @@ export class ScanOrchestrator {
     }
     this.plan.initialAmbiguousCount = this.initialAmbiguousCount;
 
-    this.canonicalIdMap.clear();
-    for (const group of this.plan.groups) {
-      for (const file of group.files) {
-        if (file.animeId && file.animeId !== group.animeId) {
-          this.canonicalIdMap.set(file.animeId, group.animeId);
-        }
-      }
-    }
+    this.canonicalIdMap = buildCanonicalIdMap(this.plan);
   }
 
   async startScan(path: string): Promise<void> {
@@ -269,8 +200,7 @@ export class ScanOrchestrator {
     }
     this.results = [];
     this.plan = null;
-    this.approvedAnimeIds.clear();
-    this.rejectedAnimeIds.clear();
+    this.groupApproval.clear();
     this.initialAmbiguousCount = null;
     try {
       this.baseDir = lstatSync(path).isDirectory() ? path : dirname(path);
@@ -285,79 +215,25 @@ export class ScanOrchestrator {
       this.options.cacheService.purgeStale(filePaths);
     }
 
-    for (let i = 0; i < filePaths.length; i++) {
-      if (this.isDone()) break;
-
-      const filePath = filePaths[i];
-      if (filePath === undefined) continue;
-
-      let fileStat: ReturnType<typeof statSync> | null = null;
-      if (this.options.scanStateService) {
-        try {
-          fileStat = statSync(filePath);
-        } catch {
-          // stat failed — treat as new file, fall through to full scan
-        }
-      }
-
-      if (this.options.scanStateService && !this.options.force && fileStat) {
-        const storedHash = this.options.scanStateService.isFileUpToDate(
-          filePath,
-          fileStat.size,
-          Math.floor(fileStat.mtimeMs / 1000),
-        );
-        if (storedHash) {
-          const cachedMatch = this.options.cacheService
-            ? this.options.cacheService.get(storedHash, this.options.sourceDb)
-            : null;
-          if (cachedMatch) {
-            const match = matchResultFromCache(cachedMatch);
-            const plan = this.pipeline.plan(filePath, match);
-            this.results.push({
-              file: filePath,
-              hash: storedHash,
-              parsed: createEmptyResult(),
-              match,
-              plan,
-              cached: true,
-              skipped: true,
-              status: "cached",
-            });
-            this.emit({
-              type: "scanProgress",
-              sessionId: this.sessionId,
-              file: filePath,
-              status: "cached",
-              matched: true,
-              completed: this.results.length,
-              total: filePaths.length,
-            });
-            continue;
-          }
-        }
-      }
-
-      const result = await this.pipeline.scan(filePath, { dryRun: true });
-      this.results.push(result);
-
-      if (this.options.scanStateService && fileStat) {
-        this.options.scanStateService.set(
-          filePath,
-          fileStat.size,
-          Math.floor(fileStat.mtimeMs / 1000),
-          result.hash,
-        );
-      }
-
-      this.emit({
-        type: "scanProgress",
-        sessionId: this.sessionId,
-        file: filePath,
-        status: result.status as ScanFileStatus,
-        matched: result.status === "matched" || result.status === "cached",
-        completed: this.results.length,
-        total: filePaths.length,
+    if (this.pipeline.scanBatch) {
+      this.results = await this.pipeline.scanBatch(filePaths, {
+        force: this.options.force,
+        dryRun: true,
       });
+      for (let i = 0; i < this.results.length; i++) {
+        const result = this.results[i];
+        if (result) {
+          this.emit({
+            type: "scanProgress",
+            sessionId: this.sessionId,
+            file: result.file,
+            status: result.status as ScanFileStatus,
+            matched: result.status === "matched" || result.status === "cached",
+            completed: i + 1,
+            total: this.results.length,
+          });
+        }
+      }
     }
 
     if (this.isDone()) return;
@@ -404,8 +280,7 @@ export class ScanOrchestrator {
       throw new Error(`Anime group not found: ${animeId}`);
     }
 
-    this.approvedAnimeIds.add(animeId);
-    this.rejectedAnimeIds.delete(animeId);
+    this.groupApproval.approve(animeId);
     group.rejected = false;
 
     this.emitReviewReady();
@@ -424,8 +299,7 @@ export class ScanOrchestrator {
       throw new Error(`Anime group not found: ${animeId}`);
     }
 
-    this.rejectedAnimeIds.add(animeId);
-    this.approvedAnimeIds.delete(animeId);
+    this.groupApproval.reject(animeId);
     group.rejected = true;
 
     this.emitReviewReady();
@@ -439,48 +313,9 @@ export class ScanOrchestrator {
       throw new Error("Cannot swap: no plan available");
     }
 
-    let targetGroup: ReviewGroup | null = null;
-    for (const group of this.plan.groups) {
-      const hasA = group.files.some((f) => f.fileId === fileAId);
-      const hasB = group.files.some((f) => f.fileId === fileBId);
-      if (hasA && hasB) {
-        targetGroup = group;
-        break;
-      }
-    }
-
-    if (!targetGroup) {
+    const swapped = swapFilesInGroup(this.plan.groups, fileAId, fileBId);
+    if (!swapped) {
       throw new Error("Cannot swap: files not in same group");
-    }
-
-    const fileA = targetGroup.files.find((f) => f.fileId === fileAId);
-    const fileB = targetGroup.files.find((f) => f.fileId === fileBId);
-
-    if (!fileA || !fileB) {
-      throw new Error("Cannot swap: file not found");
-    }
-
-    const tempPath = fileA.proposedPath;
-    fileA.proposedPath = fileB.proposedPath;
-    fileB.proposedPath = tempPath;
-
-    const tempEpisodeId = fileA.episodeId;
-    fileA.episodeId = fileB.episodeId;
-    fileB.episodeId = tempEpisodeId;
-
-    const tempEpisode = fileA.episode;
-    fileA.episode = fileB.episode;
-    fileB.episode = tempEpisode;
-
-    const existingIndex = targetGroup.swapPairs.findIndex(
-      (p) =>
-        (p.fileAId === fileAId && p.fileBId === fileBId) ||
-        (p.fileAId === fileBId && p.fileBId === fileAId),
-    );
-    if (existingIndex >= 0) {
-      targetGroup.swapPairs.splice(existingIndex, 1);
-    } else {
-      targetGroup.swapPairs.push({ fileAId, fileBId });
     }
 
     this.emitReviewReady();
@@ -501,16 +336,7 @@ export class ScanOrchestrator {
       throw new Error("Cannot resolve: no plan available");
     }
 
-    let sourcePath: string | null = null;
-    for (const group of this.plan.groups) {
-      for (const file of group.files) {
-        if (file.fileId === fileId) {
-          sourcePath = file.sourcePath;
-          break;
-        }
-      }
-      if (sourcePath) break;
-    }
+    const sourcePath = findFileSourcePath(this.plan.groups, fileId);
 
     if (!sourcePath) {
       throw new Error("Cannot resolve: file not found");
@@ -547,11 +373,7 @@ export class ScanOrchestrator {
     const originalId = r.match?.anime.id;
     if (!originalId) return false;
 
-    const canonicalId = this.canonicalIdMap.get(originalId) ?? originalId;
-    if (this.approvedAnimeIds.has(canonicalId)) return true;
-    if (this.rejectedAnimeIds.has(canonicalId)) return false;
-    if (this.approvedAnimeIds.size > 0) return false;
-    return true;
+    return this.groupApproval.shouldExecute(originalId, this.canonicalIdMap);
   }
 
   private async executeApproved(): Promise<void> {
@@ -600,7 +422,7 @@ export class ScanOrchestrator {
       });
     }
 
-    this.cleanupEmptyDirs();
+    this.runCleanup();
     this.finish(this.makeSummary(renameResults));
   }
 
@@ -613,7 +435,7 @@ export class ScanOrchestrator {
     });
   }
 
-  private cleanupEmptyDirs(): void {
+  private runCleanup(): void {
     const sourceDirs = new Set<string>();
     for (const result of this.results) {
       if (!result.plan) continue;
@@ -621,38 +443,11 @@ export class ScanOrchestrator {
       const originalId = result.match?.anime.id;
       if (!originalId) continue;
       const canonicalId = this.canonicalIdMap.get(originalId) ?? originalId;
-      if (this.rejectedAnimeIds.has(canonicalId)) continue;
-      if (this.approvedAnimeIds.size > 0 && !this.approvedAnimeIds.has(canonicalId)) continue;
+      if (this.groupApproval.isRejected(canonicalId)) continue;
+      if (this.groupApproval.hasApprovals && !this.groupApproval.isApproved(canonicalId)) continue;
       sourceDirs.add(dirname(result.plan.sourcePath));
     }
 
-    for (const dir of sourceDirs) {
-      let current = dir;
-      while (current !== this.baseDir && current.startsWith(this.baseDir)) {
-        if (this.hasOnlyHiddenFiles(current)) {
-          this.removeDirContents(current);
-          rmdirSync(current);
-          current = dirname(current);
-        } else {
-          break;
-        }
-      }
-    }
-  }
-
-  private hasOnlyHiddenFiles(dir: string): boolean {
-    try {
-      const entries = readdirSync(dir, { withFileTypes: true });
-      return entries.every((entry) => entry.name.startsWith(".") && !entry.isDirectory());
-    } catch {
-      return false;
-    }
-  }
-
-  private removeDirContents(dir: string): void {
-    const entries = readdirSync(dir);
-    for (const entry of entries) {
-      unlinkSync(join(dir, entry));
-    }
+    cleanupEmptyDirs(sourceDirs, this.baseDir);
   }
 }

@@ -66,6 +66,8 @@ function createOrchestratorWithRealScan(
       walk: async (path: string) => walk(path, SCHEMA_DEFAULTS["media-extensions"]),
       scan: async (filePath: string, options?: { dryRun?: boolean }) =>
         scanner.scanFile(filePath, { dryRun: options?.dryRun ?? true }),
+      scanBatch: async (filePaths, options) =>
+        scanner.scanBatch(filePaths, { force: options.force, dryRun: options.dryRun }),
       rename: async (plan, baseDir) => {
         const result = renamer.execute(plan, baseDir);
         return { success: result.success, error: result.error };
@@ -171,7 +173,7 @@ describe("ScanOrchestrator", () => {
       const progressEvents = events.filter((e) => e.type === "scanProgress");
       expect(progressEvents.length).toBe(1);
       expect(progressEvents[0]).toMatchObject({
-        status: "ambiguous",
+        status: "failed",
         matched: false,
       });
     });
@@ -400,6 +402,25 @@ describe("ScanOrchestrator", () => {
               skipped: false,
               status: "matched",
             }),
+            scanBatch: async (filePaths) =>
+              filePaths.map((filePath) => ({
+                file: filePath,
+                hash: "hash-ep1",
+                parsed: makeParsedResult("Jujutsu Kaisen", 1, 1),
+                match: makeMatchResult({
+                  anime: { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+                }),
+                plan: {
+                  sourcePath: filePath,
+                  targetPath: "ep1.mkv",
+                  targetDir: ".",
+                  targetFilename: "ep1.mkv",
+                  action: "move" as const,
+                },
+                cached: false,
+                skipped: false,
+                status: "matched" as const,
+              })),
             plan: () => null,
           },
         });
@@ -429,6 +450,17 @@ describe("ScanOrchestrator", () => {
               skipped: false,
               status: "failed",
             }),
+            scanBatch: async (filePaths) =>
+              filePaths.map((filePath) => ({
+                file: filePath,
+                hash: "hash-ep1",
+                parsed: makeParsedResult(null),
+                match: null,
+                plan: null,
+                cached: false,
+                skipped: false,
+                status: "failed" as const,
+              })),
             plan: () => null,
           },
         });

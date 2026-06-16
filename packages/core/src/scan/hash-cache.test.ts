@@ -37,9 +37,9 @@ describe("HashCache", () => {
     });
 
     test("computes hash and looks up cache when cache service provided", async () => {
-      await withTempDir("hashcache-prepare", async (dir) => {
-        const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "video content");
-        const { cacheService } = createMatchCacheService(dir);
+      await withTempDir("hashcache-prepare", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
+        const { cacheService } = createMatchCacheService();
         const hashCache = new HashCache({ cacheService });
 
         const result = await hashCache.prepareFile(filePath);
@@ -51,9 +51,9 @@ describe("HashCache", () => {
     });
 
     test("returns cached match when file was previously matched", async () => {
-      await withTempDir("hashcache-cached", async (dir) => {
-        const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "video content");
-        const { cacheService } = createMatchCacheService(dir);
+      await withTempDir("hashcache-cached", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
+        const { cacheService } = createMatchCacheService();
         const hashCache = new HashCache({ cacheService });
 
         const first = await hashCache.prepareFile(filePath);
@@ -68,9 +68,9 @@ describe("HashCache", () => {
     });
 
     test("skips cache lookup when force is true", async () => {
-      await withTempDir("hashcache-force", async (dir) => {
-        const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "video content");
-        const { cacheService } = createMatchCacheService(dir);
+      await withTempDir("hashcache-force", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
+        const { cacheService } = createMatchCacheService();
         const hashCache = new HashCache({ cacheService });
 
         const first = await hashCache.prepareFile(filePath);
@@ -97,9 +97,9 @@ describe("HashCache", () => {
     });
 
     test("uses sourceDb for cache lookup", async () => {
-      await withTempDir("hashcache-sourcedb", async (dir) => {
-        const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "content");
-        const { cacheService } = createMatchCacheService(dir);
+      await withTempDir("hashcache-sourcedb", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "content");
+        const { cacheService } = createMatchCacheService();
         const hash = await import("../io/file-hash").then((m) => m.hashFile(filePath));
         cacheService.set(hash, makeCachedMatch({ sourceDb: "tvdb" }));
 
@@ -116,8 +116,8 @@ describe("HashCache", () => {
 
   describe("persistMatch", () => {
     test("stores match in cache service", async () => {
-      await withTempDir("hashcache-persist", async (dir) => {
-        const { cacheService } = createMatchCacheService(dir);
+      await withTempDir("hashcache-persist", async (_dir) => {
+        const { cacheService } = createMatchCacheService();
         const hashCache = new HashCache({ cacheService });
 
         const resultHash = await hashCache.persistMatch(
@@ -132,9 +132,9 @@ describe("HashCache", () => {
     });
 
     test("computes hash when not provided", async () => {
-      await withTempDir("hashcache-persist-hash", async (dir) => {
-        const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "content");
-        const { cacheService } = createMatchCacheService(dir);
+      await withTempDir("hashcache-persist-hash", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "content");
+        const { cacheService } = createMatchCacheService();
         const hashCache = new HashCache({ cacheService });
 
         const resultHash = await hashCache.persistMatch(filePath, "", makeMatchResult());

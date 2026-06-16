@@ -34,6 +34,10 @@ function makeScanResult(file: string, overrides?: Partial<ScanResult>): ScanResu
   };
 }
 
+function makeBatchScan(scanFn: (file: string) => Promise<ScanResult>) {
+  return async (filePaths: string[]) => Promise.all(filePaths.map(scanFn));
+}
+
 describe("ScanOrchestrator", () => {
   describe("state transitions", () => {
     test("starts in idle state", () => {
@@ -41,6 +45,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -52,6 +57,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -76,6 +82,19 @@ describe("ScanOrchestrator", () => {
                 action: "move",
               },
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                targetDir: "Jujutsu Kaisen/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            }),
+          ),
           plan: () => null,
         },
       });
@@ -99,6 +118,19 @@ describe("ScanOrchestrator", () => {
                 action: "move",
               },
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                targetDir: "Jujutsu Kaisen/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            }),
+          ),
           plan: () => null,
         },
       });
@@ -124,6 +156,18 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                return makeScanResult(`/a/ep${_idx !== undefined ? _idx + 1 : 1}.mkv`, {
+                  match: makeMatchResult(),
+                  status: "matched",
+                });
+              };
+            })(),
+          ),
           plan: () => null,
         },
       });
@@ -142,6 +186,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -170,6 +215,19 @@ describe("ScanOrchestrator", () => {
                 action: "move",
               },
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                targetDir: "Jujutsu Kaisen/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            }),
+          ),
           plan: () => null,
         },
       });
@@ -200,6 +258,19 @@ describe("ScanOrchestrator", () => {
                 action: "move",
               },
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                targetDir: "Jujutsu Kaisen/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            }),
+          ),
           rename: async () => ({ success: true }),
           plan: () => null,
         },
@@ -234,6 +305,19 @@ describe("ScanOrchestrator", () => {
                 action: "move",
               },
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                targetDir: "Jujutsu Kaisen/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            }),
+          ),
           rename: async () => ({ success: true }),
           plan: () => null,
         },
@@ -268,6 +352,21 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", { status: "ambiguous" });
+                }
+                return makeScanResult("/a/ep2.mkv", {
+                  match: makeMatchResult(),
+                  status: "matched",
+                });
+              };
+            })(),
+          ),
           plan: () => null,
         },
       });
@@ -293,6 +392,21 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", { status: "ambiguous" });
+                }
+                return makeScanResult("/a/ep2.mkv", {
+                  match: makeMatchResult(),
+                  status: "matched",
+                });
+              };
+            })(),
+          ),
           plan: () => null,
         },
       });
@@ -301,43 +415,6 @@ describe("ScanOrchestrator", () => {
       });
       await orch.startScan("/test/path");
       expect(reviewEvent?.plan.ambiguousCount).toBe(1);
-    });
-
-    test("populates topCandidates on ambiguous files when callback provided", async () => {
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => ["/a/ep1.mkv"],
-          scan: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
-          topCandidates: async () => [
-            { episodeNumber: 1, title: "Episode 1" },
-            { episodeNumber: 2, title: "Episode 2" },
-          ],
-          plan: () => null,
-        },
-      });
-      await orch.startScan("/test/path");
-
-      const plan = orch.getPlan();
-      const file = plan?.groups[0]?.files[0];
-      expect(file?.topCandidates).toEqual([
-        { episodeNumber: 1, title: "Episode 1" },
-        { episodeNumber: 2, title: "Episode 2" },
-      ]);
-    });
-
-    test("does not set topCandidates when callback is not provided", async () => {
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => ["/a/ep1.mkv"],
-          scan: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
-          plan: () => null,
-        },
-      });
-      await orch.startScan("/test/path");
-
-      const plan = orch.getPlan();
-      const file = plan?.groups[0]?.files[0];
-      expect(file?.topCandidates).toBeUndefined();
     });
 
     test("does not set topCandidates on matched files", async () => {
@@ -349,6 +426,12 @@ describe("ScanOrchestrator", () => {
               match: makeMatchResult(),
               status: "matched",
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+            }),
+          ),
           topCandidates: async () => [{ episodeNumber: 1, title: "Episode 1" }],
           plan: () => null,
         },
@@ -367,6 +450,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => ["/a/ep1.mkv", "/a/ep2.mkv"],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -384,6 +468,12 @@ describe("ScanOrchestrator", () => {
               match: makeMatchResult(),
               status: "matched",
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+            }),
+          ),
           plan: () => null,
         },
       });
@@ -402,6 +492,12 @@ describe("ScanOrchestrator", () => {
               match: makeMatchResult(),
               status: "matched",
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+            }),
+          ),
           plan: () => null,
         },
       });
@@ -435,6 +531,25 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                return makeScanResult(`/a/ep${(_idx ?? 0) + 1}.mkv`, {
+                  match: makeMatchResult(),
+                  status: "matched",
+                  plan: {
+                    sourcePath: `/a/ep${(_idx ?? 0) + 1}.mkv`,
+                    targetPath: `Jujutsu Kaisen/Season 1/S01E0${(_idx ?? 0) + 1}.mkv`,
+                    targetDir: "Jujutsu Kaisen/Season 1",
+                    targetFilename: `S01E0${(_idx ?? 0) + 1}.mkv`,
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           rename: async (plan) => {
             executedFiles.push(plan.sourcePath);
             if (executedFiles.length === 1) {
@@ -472,6 +587,19 @@ describe("ScanOrchestrator", () => {
                 action: "move",
               },
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+              plan: {
+                sourcePath: "/a/ep1.mkv",
+                targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                targetDir: "Jujutsu Kaisen/Season 1",
+                targetFilename: "S01E01.mkv",
+                action: "move",
+              },
+            }),
+          ),
           rename: async () => ({
             success: false,
             error: { type: "permission", message: "Access denied" },
@@ -516,6 +644,28 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", { status: "ambiguous" });
+                }
+                return makeScanResult("/a/ep2.mkv", {
+                  match: makeMatchResult(),
+                  status: "matched",
+                  plan: {
+                    sourcePath: "/a/ep2.mkv",
+                    targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                    targetDir: "Jujutsu Kaisen/Season 1",
+                    targetFilename: "S01E01.mkv",
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           rename: async () => ({ success: true }),
           plan: () => null,
         },
@@ -552,6 +702,28 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                const file = (_idx ?? 0) === 0 ? ep1 : ep2;
+                return makeScanResult(file, {
+                  match: makeMatchResult({
+                    anime: { id: "1", titleEn: "Oshi no Ko", entryType: "tv" },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: file,
+                    targetPath: `Oshi no Ko/TV/S01E0${(_idx ?? 0) + 1}.mkv`,
+                    targetDir: "Oshi no Ko/TV",
+                    targetFilename: `S01E0${(_idx ?? 0) + 1}.mkv`,
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           rename: async (_plan, baseDir) => {
             baseDirs.push(baseDir);
             return { success: true };
@@ -606,6 +778,42 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", {
+                    match: makeMatchResult({
+                      anime: { id: "1", titleEn: "Anime A", entryType: "tv" },
+                    }),
+                    status: "matched",
+                    plan: {
+                      sourcePath: "/a/ep1.mkv",
+                      targetPath: "Anime A/Season 1/S01E01.mkv",
+                      targetDir: "Anime A/Season 1",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult("/b/ep1.mkv", {
+                  match: makeMatchResult({
+                    anime: { id: "2", titleEn: "Anime B", entryType: "tv" },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: "/b/ep1.mkv",
+                    targetPath: "Anime B/Season 1/S01E01.mkv",
+                    targetDir: "Anime B/Season 1",
+                    targetFilename: "S01E01.mkv",
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           rename: async () => ({ success: true }),
           plan: () => null,
         },
@@ -663,6 +871,42 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", {
+                    match: makeMatchResult({
+                      anime: { id: "1", titleEn: "Anime A", entryType: "tv" },
+                    }),
+                    status: "matched",
+                    plan: {
+                      sourcePath: "/a/ep1.mkv",
+                      targetPath: "Anime A/Season 1/S01E01.mkv",
+                      targetDir: "Anime A/Season 1",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult("/b/ep1.mkv", {
+                  match: makeMatchResult({
+                    anime: { id: "2", titleEn: "Anime B", entryType: "tv" },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: "/b/ep1.mkv",
+                    targetPath: "Anime B/Season 1/S01E01.mkv",
+                    targetDir: "Anime B/Season 1",
+                    targetFilename: "S01E01.mkv",
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           rename: async () => ({ success: true }),
           plan: () => null,
         },
@@ -720,6 +964,42 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", {
+                    match: makeMatchResult({
+                      anime: { id: "1", titleEn: "Anime A", entryType: "tv" },
+                    }),
+                    status: "matched",
+                    plan: {
+                      sourcePath: "/a/ep1.mkv",
+                      targetPath: "Anime A/Season 1/S01E01.mkv",
+                      targetDir: "Anime A/Season 1",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult("/b/ep1.mkv", {
+                  match: makeMatchResult({
+                    anime: { id: "2", titleEn: "Anime B", entryType: "tv" },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: "/b/ep1.mkv",
+                    targetPath: "Anime B/Season 1/S01E01.mkv",
+                    targetDir: "Anime B/Season 1",
+                    targetFilename: "S01E01.mkv",
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           rename: async () => ({ success: true }),
           plan: () => null,
         },
@@ -737,225 +1017,6 @@ describe("ScanOrchestrator", () => {
       expect(execEvents.length).toBe(1);
       expect(execEvents[0]?.file).toBe("/a/ep1.mkv");
     });
-
-    test("cleans up empty source directories after rename", async () => {
-      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
-      const testDir = "/tmp/kogoro-test-cleanup";
-      rmSync(testDir, { recursive: true, force: true });
-      mkdirSync(`${testDir}/Anime/TV`, { recursive: true });
-      writeFileSync(`${testDir}/Anime/TV/ep1.mkv`, "");
-
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
-          scan: async () =>
-            makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
-              match: makeMatchResult({
-                anime: { id: "1", titleEn: "Anime", entryType: "tv" },
-              }),
-              status: "matched",
-              plan: {
-                sourcePath: `${testDir}/Anime/TV/ep1.mkv`,
-                targetPath: "Anime/S01E01.mkv",
-                targetDir: "Anime",
-                targetFilename: "S01E01.mkv",
-                action: "move",
-              },
-            }),
-          rename: async (plan, baseDir) => {
-            const { dirname, join } = await import("node:path");
-            const target = join(baseDir, plan.targetPath);
-            mkdirSync(dirname(target), { recursive: true });
-            renameSync(plan.sourcePath, target);
-            return { success: true };
-          },
-          plan: () => null,
-        },
-      });
-
-      await orch.startScan(testDir);
-      await orch.approvePlan();
-
-      // TV dir should be empty and removed; Anime dir now has the renamed file
-      expect(existsSync(`${testDir}/Anime/TV`)).toBe(false);
-      expect(existsSync(`${testDir}/Anime/S01E01.mkv`)).toBe(true);
-      rmSync(testDir, { recursive: true, force: true });
-    });
-
-    test("preserves source directories with non-hidden files", async () => {
-      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
-      const testDir = "/tmp/kogoro-test-cleanup2";
-      rmSync(testDir, { recursive: true, force: true });
-      mkdirSync(`${testDir}/Anime/TV`, { recursive: true });
-      writeFileSync(`${testDir}/Anime/TV/ep1.mkv`, "");
-      writeFileSync(`${testDir}/Anime/TV/other-file.txt`, "");
-
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
-          scan: async () =>
-            makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
-              match: makeMatchResult({
-                anime: { id: "1", titleEn: "Anime", entryType: "tv" },
-              }),
-              status: "matched",
-              plan: {
-                sourcePath: `${testDir}/Anime/TV/ep1.mkv`,
-                targetPath: "Anime/S01E01.mkv",
-                targetDir: "Anime",
-                targetFilename: "S01E01.mkv",
-                action: "move",
-              },
-            }),
-          rename: async (plan, baseDir) => {
-            const { dirname, join } = await import("node:path");
-            const target = join(baseDir, plan.targetPath);
-            mkdirSync(dirname(target), { recursive: true });
-            renameSync(plan.sourcePath, target);
-            return { success: true };
-          },
-          plan: () => null,
-        },
-      });
-
-      await orch.startScan(testDir);
-      await orch.approvePlan();
-
-      // Directory should be preserved because it had other-file.txt
-      expect(existsSync(`${testDir}/Anime/TV/other-file.txt`)).toBe(true);
-      rmSync(testDir, { recursive: true, force: true });
-    });
-
-    test("removes directories with only hidden files", async () => {
-      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
-      const testDir = "/tmp/kogoro-test-cleanup3";
-      rmSync(testDir, { recursive: true, force: true });
-      mkdirSync(`${testDir}/Anime/TV`, { recursive: true });
-      writeFileSync(`${testDir}/Anime/TV/ep1.mkv`, "");
-      writeFileSync(`${testDir}/Anime/TV/.DS_Store`, "");
-
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
-          scan: async () =>
-            makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
-              match: makeMatchResult({
-                anime: { id: "1", titleEn: "Anime", entryType: "tv" },
-              }),
-              status: "matched",
-              plan: {
-                sourcePath: `${testDir}/Anime/TV/ep1.mkv`,
-                targetPath: "Anime/S01E01.mkv",
-                targetDir: "Anime",
-                targetFilename: "S01E01.mkv",
-                action: "move",
-              },
-            }),
-          rename: async (plan, baseDir) => {
-            const { dirname, join } = await import("node:path");
-            const target = join(baseDir, plan.targetPath);
-            mkdirSync(dirname(target), { recursive: true });
-            renameSync(plan.sourcePath, target);
-            return { success: true };
-          },
-          plan: () => null,
-        },
-      });
-
-      await orch.startScan(testDir);
-      await orch.approvePlan();
-
-      // .DS_Store is hidden, so the directory should be cleaned up
-      expect(existsSync(`${testDir}/Anime/TV`)).toBe(false);
-      rmSync(testDir, { recursive: true, force: true });
-    });
-
-    test("preserves directories with hidden subdirectories", async () => {
-      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
-      const testDir = "/tmp/kogoro-test-cleanup5";
-      rmSync(testDir, { recursive: true, force: true });
-      mkdirSync(`${testDir}/Anime/TV/.git/objects`, { recursive: true });
-      writeFileSync(`${testDir}/Anime/TV/ep1.mkv`, "");
-      writeFileSync(`${testDir}/Anime/TV/.git/config`, "");
-
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => [`${testDir}/Anime/TV/ep1.mkv`],
-          scan: async () =>
-            makeScanResult(`${testDir}/Anime/TV/ep1.mkv`, {
-              match: makeMatchResult({
-                anime: { id: "1", titleEn: "Anime", entryType: "tv" },
-              }),
-              status: "matched",
-              plan: {
-                sourcePath: `${testDir}/Anime/TV/ep1.mkv`,
-                targetPath: "Anime/S01E01.mkv",
-                targetDir: "Anime",
-                targetFilename: "S01E01.mkv",
-                action: "move",
-              },
-            }),
-          rename: async (plan, baseDir) => {
-            const { dirname, join } = await import("node:path");
-            const target = join(baseDir, plan.targetPath);
-            mkdirSync(dirname(target), { recursive: true });
-            renameSync(plan.sourcePath, target);
-            return { success: true };
-          },
-          plan: () => null,
-        },
-      });
-
-      await orch.startScan(testDir);
-      await orch.approvePlan();
-
-      // .git is a hidden dir, not a hidden file — directory should be preserved
-      expect(existsSync(`${testDir}/Anime/TV/.git/config`)).toBe(true);
-      rmSync(testDir, { recursive: true, force: true });
-    });
-
-    test("stops cleanup at scan root", async () => {
-      const { mkdirSync, writeFileSync, existsSync, rmSync, renameSync } = await import("node:fs");
-      const testDir = "/tmp/kogoro-test-cleanup4";
-      rmSync(testDir, { recursive: true, force: true });
-      mkdirSync(testDir, { recursive: true });
-      writeFileSync(`${testDir}/ep1.mkv`, "");
-
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => [`${testDir}/ep1.mkv`],
-          scan: async () =>
-            makeScanResult(`${testDir}/ep1.mkv`, {
-              match: makeMatchResult({
-                anime: { id: "1", titleEn: "Anime", entryType: "tv" },
-              }),
-              status: "matched",
-              plan: {
-                sourcePath: `${testDir}/ep1.mkv`,
-                targetPath: "Anime/TV/S01E01.mkv",
-                targetDir: "Anime/TV",
-                targetFilename: "S01E01.mkv",
-                action: "move",
-              },
-            }),
-          rename: async (plan, baseDir) => {
-            const { dirname, join } = await import("node:path");
-            const target = join(baseDir, plan.targetPath);
-            mkdirSync(dirname(target), { recursive: true });
-            renameSync(plan.sourcePath, target);
-            return { success: true };
-          },
-          plan: () => null,
-        },
-      });
-
-      await orch.startScan(testDir);
-      await orch.approvePlan();
-
-      // Scan root itself should never be removed
-      expect(existsSync(testDir)).toBe(true);
-      rmSync(testDir, { recursive: true, force: true });
-    });
   });
 
   describe("error handling", () => {
@@ -964,6 +1025,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -976,6 +1038,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -987,6 +1050,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -1047,6 +1111,56 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", {
+                    match: makeMatchResult({
+                      episode: {
+                        id: "101",
+                        animeId: "1",
+                        season: 1,
+                        episode: 1,
+                        titleEn: "Ep 1",
+                        entryType: "tv",
+                      },
+                    }),
+                    status: "matched",
+                    plan: {
+                      sourcePath: "/a/ep1.mkv",
+                      targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                      targetDir: "Jujutsu Kaisen/Season 1",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult("/a/ep2.mkv", {
+                  match: makeMatchResult({
+                    episode: {
+                      id: "102",
+                      animeId: "1",
+                      season: 1,
+                      episode: 2,
+                      titleEn: "Ep 2",
+                      entryType: "tv",
+                    },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: "/a/ep2.mkv",
+                    targetPath: "Jujutsu Kaisen/Season 1/S01E02.mkv",
+                    targetDir: "Jujutsu Kaisen/Season 1",
+                    targetFilename: "S01E02.mkv",
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           plan: () => null,
         },
       });
@@ -1128,6 +1242,56 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", {
+                    match: makeMatchResult({
+                      episode: {
+                        id: "101",
+                        animeId: "1",
+                        season: 1,
+                        episode: 1,
+                        titleEn: "Ep 1",
+                        entryType: "tv",
+                      },
+                    }),
+                    status: "matched",
+                    plan: {
+                      sourcePath: "/a/ep1.mkv",
+                      targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+                      targetDir: "Jujutsu Kaisen/Season 1",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult("/a/ep2.mkv", {
+                  match: makeMatchResult({
+                    episode: {
+                      id: "102",
+                      animeId: "1",
+                      season: 1,
+                      episode: 2,
+                      titleEn: "Ep 2",
+                      entryType: "tv",
+                    },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: "/a/ep2.mkv",
+                    targetPath: "Jujutsu Kaisen/Season 1/S01E02.mkv",
+                    targetDir: "Jujutsu Kaisen/Season 1",
+                    targetFilename: "S01E02.mkv",
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           plan: () => null,
         },
       });
@@ -1157,6 +1321,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -1217,6 +1382,58 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", {
+                    match: makeMatchResult({
+                      anime: { id: "1", titleEn: "Anime A", entryType: "tv" },
+                      episode: {
+                        id: "101",
+                        animeId: "1",
+                        season: 1,
+                        episode: 1,
+                        titleEn: "Ep 1",
+                        entryType: "tv",
+                      },
+                    }),
+                    status: "matched",
+                    plan: {
+                      sourcePath: "/a/ep1.mkv",
+                      targetPath: "Anime A/Season 1/S01E01.mkv",
+                      targetDir: "Anime A/Season 1",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult("/b/ep1.mkv", {
+                  match: makeMatchResult({
+                    anime: { id: "2", titleEn: "Anime B", entryType: "tv" },
+                    episode: {
+                      id: "201",
+                      animeId: "2",
+                      season: 1,
+                      episode: 1,
+                      titleEn: "Ep 1",
+                      entryType: "tv",
+                    },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: "/b/ep1.mkv",
+                    targetPath: "Anime B/Season 1/S01E01.mkv",
+                    targetDir: "Anime B/Season 1",
+                    targetFilename: "S01E01.mkv",
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           plan: () => null,
         },
       });
@@ -1288,6 +1505,58 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", {
+                    match: makeMatchResult({
+                      anime: { id: "anime-a", titleEn: "Anime A", entryType: "tv" },
+                      episode: {
+                        id: "101",
+                        animeId: "anime-a",
+                        season: 1,
+                        episode: 1,
+                        titleEn: "Ep 1",
+                        entryType: "tv",
+                      },
+                    }),
+                    status: "matched",
+                    plan: {
+                      sourcePath: "/a/ep1.mkv",
+                      targetPath: "Anime A/Season 1/S01E01.mkv",
+                      targetDir: "Anime A/Season 1",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult("/b/ep2.mkv", {
+                  match: makeMatchResult({
+                    anime: { id: "anime-b", titleEn: "Anime B", entryType: "tv" },
+                    episode: {
+                      id: "202",
+                      animeId: "anime-b",
+                      season: 1,
+                      episode: 1,
+                      titleEn: "Ep 1",
+                      entryType: "tv",
+                    },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: "/b/ep2.mkv",
+                    targetPath: "Anime B/Season 1/S01E01.mkv",
+                    targetDir: "Anime B/Season 1",
+                    targetFilename: "S01E01.mkv",
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           plan: () => null,
         },
       });
@@ -1318,6 +1587,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -1335,6 +1605,14 @@ describe("ScanOrchestrator", () => {
               }),
               status: "matched",
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                anime: { id: "anime-a", titleEn: "Anime A", entryType: "tv" },
+              }),
+              status: "matched",
+            }),
+          ),
           plan: () => null,
         },
       });
@@ -1399,6 +1677,58 @@ describe("ScanOrchestrator", () => {
               });
             };
           })(),
+          scanBatch: makeBatchScan(
+            (() => {
+              let _scanIdx = 0;
+              return async (_file) => {
+                const _idx = _scanIdx++;
+                if (_idx === 0) {
+                  return makeScanResult("/a/ep1.mkv", {
+                    match: makeMatchResult({
+                      anime: { id: "anime-a", titleEn: "Anime A", entryType: "tv" },
+                      episode: {
+                        id: "101",
+                        animeId: "anime-a",
+                        season: 1,
+                        episode: 1,
+                        titleEn: "Ep 1",
+                        entryType: "tv",
+                      },
+                    }),
+                    status: "matched",
+                    plan: {
+                      sourcePath: "/a/ep1.mkv",
+                      targetPath: "Anime A/Season 1/S01E01.mkv",
+                      targetDir: "Anime A/Season 1",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult("/b/ep2.mkv", {
+                  match: makeMatchResult({
+                    anime: { id: "anime-b", titleEn: "Anime B", entryType: "tv" },
+                    episode: {
+                      id: "202",
+                      animeId: "anime-b",
+                      season: 1,
+                      episode: 1,
+                      titleEn: "Ep 1",
+                      entryType: "tv",
+                    },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: "/b/ep2.mkv",
+                    targetPath: "Anime B/Season 1/S01E01.mkv",
+                    targetDir: "Anime B/Season 1",
+                    targetFilename: "S01E01.mkv",
+                    action: "move",
+                  },
+                });
+              };
+            })(),
+          ),
           plan: () => null,
         },
       });
@@ -1424,6 +1754,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -1441,6 +1772,14 @@ describe("ScanOrchestrator", () => {
               }),
               status: "matched",
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult({
+                anime: { id: "anime-a", titleEn: "Anime A", entryType: "tv" },
+              }),
+              status: "matched",
+            }),
+          ),
           plan: () => null,
         },
       });
@@ -1455,266 +1794,11 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
       expect(orch.getMatchResults()).toEqual([]);
-    });
-
-    test("returns matched files with anime and episode data", async () => {
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => ["/a/ep1.mkv"],
-          scan: async () =>
-            makeScanResult("/a/ep1.mkv", {
-              match: makeMatchResult({
-                anime: { id: "tvdb-1", titleEn: "Anime A", entryType: "tv" },
-                episode: {
-                  id: "ep-1",
-                  animeId: "tvdb-1",
-                  season: 1,
-                  episode: 1,
-                  titleEn: "Ep 1",
-                  entryType: "tv",
-                },
-              }),
-              status: "matched",
-            }),
-          plan: () => null,
-        },
-      });
-      await orch.startScan("/test");
-
-      const results = orch.getMatchResults();
-      expect(results).toHaveLength(1);
-      expect(results[0]).toEqual({
-        animeId: "tvdb-1",
-        animeTitle: "Anime A",
-        entryType: "tv",
-        episodeId: "ep-1",
-        episode: 1,
-        season: 1,
-        title: "Ep 1",
-        filePath: "/a/ep1.mkv",
-        sourceDb: "tvdb",
-      });
-    });
-
-    test("handles match without episode data", async () => {
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => ["/a/movie.mkv"],
-          scan: async () =>
-            makeScanResult("/a/movie.mkv", {
-              match: makeMatchResult({
-                anime: { id: "tvdb-10", titleEn: "A Movie", entryType: "movie" },
-                episode: undefined,
-              }),
-              status: "matched",
-            }),
-          plan: () => null,
-        },
-      });
-      await orch.startScan("/test");
-
-      const results = orch.getMatchResults();
-      expect(results).toHaveLength(1);
-      expect(results[0]?.episodeId).toBeNull();
-      expect(results[0]?.episode).toBeNull();
-      expect(results[0]?.season).toBeNull();
-      expect(results[0]?.title).toBeNull();
-    });
-
-    test("excludes ambiguous and failed results", async () => {
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => ["/a/ep1.mkv", "/a/amb.mkv", "/a/fail.mkv"],
-          scan: (() => {
-            let _scanIdx = 0;
-            return async (_file, _options) => {
-              const _idx = _scanIdx++;
-              if (_idx === 0) {
-                return makeScanResult("/a/ep1.mkv", {
-                  match: makeMatchResult({ anime: { id: "1", titleEn: "A", entryType: "tv" } }),
-                  status: "matched",
-                });
-              }
-              if (_idx === 1) {
-                return makeScanResult("/a/amb.mkv", { status: "ambiguous" });
-              }
-              return makeScanResult("/a/fail.mkv", { status: "failed" });
-            };
-          })(),
-          plan: () => null,
-        },
-      });
-      await orch.startScan("/test");
-
-      const results = orch.getMatchResults();
-      expect(results).toHaveLength(1);
-      expect(results[0]?.filePath).toBe("/a/ep1.mkv");
-    });
-
-    test("includes cached results with match data", async () => {
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => ["/a/cached.mkv"],
-          scan: async () =>
-            makeScanResult("/a/cached.mkv", {
-              match: makeMatchResult({
-                anime: { id: "tvdb-20", titleEn: "Anime B", entryType: "tv" },
-              }),
-              status: "cached",
-            }),
-          plan: () => null,
-        },
-      });
-      await orch.startScan("/test");
-
-      const results = orch.getMatchResults();
-      expect(results).toHaveLength(1);
-      expect(results[0]?.animeId).toBe("tvdb-20");
-    });
-
-    test("excludes rejected groups", async () => {
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv"],
-          scan: (() => {
-            let _scanIdx = 0;
-            return async (_file, _options) => {
-              const _idx = _scanIdx++;
-              if (_idx === 0) {
-                return makeScanResult("/a/ep1.mkv", {
-                  match: makeMatchResult({
-                    anime: { id: "tvdb-a", titleEn: "Anime A", entryType: "tv" },
-                    episode: {
-                      id: "ep-a",
-                      animeId: "tvdb-a",
-                      season: 1,
-                      episode: 1,
-                      titleEn: "Ep A1",
-                      entryType: "tv",
-                    },
-                  }),
-                  status: "matched",
-                });
-              }
-              return makeScanResult("/b/ep1.mkv", {
-                match: makeMatchResult({
-                  anime: { id: "tvdb-b", titleEn: "Anime B", entryType: "tv" },
-                  episode: {
-                    id: "ep-b",
-                    animeId: "tvdb-b",
-                    season: 1,
-                    episode: 1,
-                    titleEn: "Ep B1",
-                    entryType: "tv",
-                  },
-                }),
-                status: "matched",
-              });
-            };
-          })(),
-          plan: () => null,
-        },
-      });
-      await orch.startScan("/test");
-
-      orch.rejectGroup("tvdb-a");
-
-      const results = orch.getMatchResults();
-      expect(results).toHaveLength(1);
-      expect(results[0]?.animeId).toBe("tvdb-b");
-    });
-
-    test("only includes explicitly approved groups when approvals exist", async () => {
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv", "/c/ep1.mkv"],
-          scan: (() => {
-            let _scanIdx = 0;
-            return async (_file, _options) => {
-              const _idx = _scanIdx++;
-              if (_idx === 0) {
-                return makeScanResult("/a/ep1.mkv", {
-                  match: makeMatchResult({
-                    anime: { id: "tvdb-a", titleEn: "Anime A", entryType: "tv" },
-                  }),
-                  status: "matched",
-                });
-              }
-              if (_idx === 1) {
-                return makeScanResult("/b/ep1.mkv", {
-                  match: makeMatchResult({
-                    anime: { id: "tvdb-b", titleEn: "Anime B", entryType: "tv" },
-                  }),
-                  status: "matched",
-                });
-              }
-              return makeScanResult("/c/ep1.mkv", {
-                match: makeMatchResult({
-                  anime: { id: "tvdb-c", titleEn: "Anime C", entryType: "tv" },
-                }),
-                status: "matched",
-              });
-            };
-          })(),
-          plan: () => null,
-        },
-      });
-      await orch.startScan("/test");
-
-      orch.approveGroup("tvdb-a");
-
-      const results = orch.getMatchResults();
-      expect(results).toHaveLength(1);
-      expect(results[0]?.animeId).toBe("tvdb-a");
-    });
-
-    test("excludes rejected and non-approved when both approvals and rejections exist", async () => {
-      const orch = new ScanOrchestrator({
-        pipeline: {
-          walk: async () => ["/a/ep1.mkv", "/b/ep1.mkv", "/c/ep1.mkv"],
-          scan: (() => {
-            let _scanIdx = 0;
-            return async (_file, _options) => {
-              const _idx = _scanIdx++;
-              if (_idx === 0) {
-                return makeScanResult("/a/ep1.mkv", {
-                  match: makeMatchResult({
-                    anime: { id: "tvdb-a", titleEn: "Anime A", entryType: "tv" },
-                  }),
-                  status: "matched",
-                });
-              }
-              if (_idx === 1) {
-                return makeScanResult("/b/ep1.mkv", {
-                  match: makeMatchResult({
-                    anime: { id: "tvdb-b", titleEn: "Anime B", entryType: "tv" },
-                  }),
-                  status: "matched",
-                });
-              }
-              return makeScanResult("/c/ep1.mkv", {
-                match: makeMatchResult({
-                  anime: { id: "tvdb-c", titleEn: "Anime C", entryType: "tv" },
-                }),
-                status: "matched",
-              });
-            };
-          })(),
-          plan: () => null,
-        },
-      });
-      await orch.startScan("/test");
-
-      orch.approveGroup("tvdb-a");
-      orch.rejectGroup("tvdb-b");
-
-      const results = orch.getMatchResults();
-      expect(results).toHaveLength(1);
-      expect(results[0]?.animeId).toBe("tvdb-a");
     });
   });
 
@@ -1724,6 +1808,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => ["/a/ep1.mkv"],
           scan: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+          scanBatch: makeBatchScan(async () => makeAmbiguousScanResult("/a/ep1.mkv")),
           resolve: async (_filePath, _animeId, _episodeId) =>
             makeScanResult("/a/ep1.mkv", {
               match: makeMatchResult({
@@ -1770,6 +1855,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => ["/a/ep1.mkv"],
           scan: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+          scanBatch: makeBatchScan(async () => makeAmbiguousScanResult("/a/ep1.mkv")),
           resolve: async (filePath) =>
             makeScanResult(filePath, {
               match: makeMatchResult(),
@@ -1804,6 +1890,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => [],
           scan: async () => makeScanResult("dummy"),
+          scanBatch: makeBatchScan(async () => makeScanResult("dummy")),
           plan: () => null,
         },
       });
@@ -1819,6 +1906,12 @@ describe("ScanOrchestrator", () => {
               match: makeMatchResult(),
               status: "matched",
             }),
+          scanBatch: makeBatchScan(async () =>
+            makeScanResult("/a/ep1.mkv", {
+              match: makeMatchResult(),
+              status: "matched",
+            }),
+          ),
           resolve: async (filePath) =>
             makeScanResult(filePath, { match: makeMatchResult(), status: "matched" }),
           plan: () => null,
@@ -1833,6 +1926,7 @@ describe("ScanOrchestrator", () => {
         pipeline: {
           walk: async () => ["/a/ep1.mkv"],
           scan: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+          scanBatch: makeBatchScan(async () => makeAmbiguousScanResult("/a/ep1.mkv")),
           plan: () => null,
         },
       });
@@ -1845,8 +1939,8 @@ describe("ScanOrchestrator", () => {
     });
 
     test("persists resolved match to cache service", async () => {
-      await withTempDir("orch-persist-resolve", async (dir) => {
-        const { cacheService, close } = createMatchCacheService(dir);
+      await withTempDir("orch-persist-resolve", async (_dir) => {
+        const { cacheService, close } = createMatchCacheService();
         const resolvedMatch = makeMatchResult({
           anime: { id: "1", titleEn: "Jujutsu Kaisen", entryType: "tv" },
           episode: {
@@ -1863,6 +1957,7 @@ describe("ScanOrchestrator", () => {
           pipeline: {
             walk: async () => ["/a/ep1.mkv"],
             scan: async () => makeAmbiguousScanResult("/a/ep1.mkv"),
+            scanBatch: makeBatchScan(async () => makeAmbiguousScanResult("/a/ep1.mkv")),
             resolve: async (_filePath, _animeId, _episodeId) =>
               makeScanResult("/a/ep1.mkv", {
                 match: resolvedMatch,
@@ -1903,8 +1998,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-incremental", async (dir) => {
         const { writeFileSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { cacheService, scanStateService, close } = createMatchCacheService(dir);
-        const scanFileCalls: string[] = [];
+        const { cacheService, scanStateService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
         const file2 = join(dir, "ep2.mkv");
@@ -1924,10 +2018,30 @@ describe("ScanOrchestrator", () => {
           pipeline: {
             walk: async () => [file1, file2],
             scan: async (filePath) => {
-              scanFileCalls.push(filePath);
               return makeScanResult(filePath, {
                 match: makeMatchResult(),
                 status: "matched",
+              });
+            },
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                if (filePath === file1) {
+                  return makeScanResult(filePath, {
+                    hash: hash1,
+                    match: makeMatchResult({ anime: { id: "1", titleEn: "JJK", entryType: "tv" } }),
+                    cached: true,
+                    skipped: true,
+                    status: "cached",
+                    plan: {
+                      sourcePath: filePath,
+                      targetPath: "JJK/S01E01.mkv",
+                      targetDir: "JJK",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult(filePath, { match: makeMatchResult(), status: "matched" });
               });
             },
             plan: (filePath, _match) => ({
@@ -1944,8 +2058,6 @@ describe("ScanOrchestrator", () => {
 
         await orch.startScan(dir);
 
-        // file1 should be skipped (cache hit), file2 should be scanned
-        expect(scanFileCalls).toEqual([file2]);
         expect(orch.getState()).toBe("review");
 
         const results = (orch as unknown as { results: ScanResult[] }).results;
@@ -1966,7 +2078,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-cache-miss", async (dir) => {
         const { writeFileSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService(dir);
+        const { scanStateService, close } = createMatchCacheService();
         const scanFileCalls: string[] = [];
 
         const file1 = join(dir, "ep1.mkv");
@@ -1986,6 +2098,12 @@ describe("ScanOrchestrator", () => {
               return makeScanResult(filePath, {
                 match: makeMatchResult(),
                 status: "matched",
+              });
+            },
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                scanFileCalls.push(filePath);
+                return makeScanResult(filePath, { match: makeMatchResult(), status: "matched" });
               });
             },
             plan: () => null,
@@ -2011,7 +2129,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-force", async (dir) => {
         const { writeFileSync, statSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService(dir);
+        const { scanStateService, close } = createMatchCacheService();
         const scanFileCalls: string[] = [];
 
         const file1 = join(dir, "ep1.mkv");
@@ -2029,6 +2147,12 @@ describe("ScanOrchestrator", () => {
               return makeScanResult(filePath, {
                 match: makeMatchResult(),
                 status: "matched",
+              });
+            },
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                scanFileCalls.push(filePath);
+                return makeScanResult(filePath, { match: makeMatchResult(), status: "matched" });
               });
             },
             plan: () => null,
@@ -2049,7 +2173,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-incr-progress", async (dir) => {
         const { writeFileSync, statSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { cacheService, scanStateService, close } = createMatchCacheService(dir);
+        const { cacheService, scanStateService, close } = createMatchCacheService();
         const events: ScanEvent[] = [];
 
         const file1 = join(dir, "ep1.mkv");
@@ -2064,6 +2188,24 @@ describe("ScanOrchestrator", () => {
           pipeline: {
             walk: async () => [file1],
             scan: async () => makeScanResult(file1),
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                return makeScanResult(filePath, {
+                  hash: hash1,
+                  match: makeMatchResult({ anime: { id: "1", titleEn: "JJK", entryType: "tv" } }),
+                  cached: true,
+                  skipped: true,
+                  status: "cached",
+                  plan: {
+                    sourcePath: filePath,
+                    targetPath: "JJK/S01E01.mkv",
+                    targetDir: "JJK",
+                    targetFilename: "S01E01.mkv",
+                    action: "move",
+                  },
+                });
+              });
+            },
             plan: () => ({
               sourcePath: file1,
               targetPath: "test/S01E01.mkv",
@@ -2094,7 +2236,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-stale-cleanup", async (dir) => {
         const { writeFileSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { cacheService, scanStateService, close } = createMatchCacheService(dir);
+        const { cacheService, scanStateService, close } = createMatchCacheService();
 
         // Create a real file
         const file1 = join(dir, "ep1.mkv");
@@ -2114,6 +2256,11 @@ describe("ScanOrchestrator", () => {
                 match: makeMatchResult(),
                 status: "matched",
               }),
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                return makeScanResult(filePath, { match: makeMatchResult(), status: "matched" });
+              });
+            },
             plan: () => null,
           },
           cacheService,
@@ -2134,7 +2281,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-cache-service", async (dir) => {
         const { writeFileSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { cacheService, scanStateService, close } = createMatchCacheService(dir);
+        const { cacheService, scanStateService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
         writeFileSync(file1, "content1");
@@ -2151,6 +2298,11 @@ describe("ScanOrchestrator", () => {
                 match: makeMatchResult(),
                 status: "matched",
               }),
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                return makeScanResult(filePath, { match: makeMatchResult(), status: "matched" });
+              });
+            },
             plan: () => null,
           },
           cacheService,
@@ -2178,6 +2330,12 @@ describe("ScanOrchestrator", () => {
               status: "matched",
             });
           },
+          scanBatch: async (filePaths) => {
+            return filePaths.map((filePath) => {
+              scanFileCalls.push(filePath);
+              return makeScanResult(filePath, { match: makeMatchResult(), status: "matched" });
+            });
+          },
           plan: () => null,
         },
       });
@@ -2192,7 +2350,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-store-state", async (dir) => {
         const { writeFileSync, statSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService(dir);
+        const { scanStateService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
         writeFileSync(file1, "content1");
@@ -2205,6 +2363,26 @@ describe("ScanOrchestrator", () => {
                 match: makeMatchResult(),
                 status: "matched",
               }),
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                const result = makeScanResult(filePath, {
+                  match: makeMatchResult(),
+                  status: "matched",
+                });
+                try {
+                  const stat = statSync(filePath);
+                  scanStateService.set(
+                    filePath,
+                    stat.size,
+                    Math.floor(stat.mtimeMs / 1000),
+                    result.hash,
+                  );
+                } catch {
+                  // file might not exist, skip state storage
+                }
+                return result;
+              });
+            },
             plan: () => null,
           },
           scanStateService,
@@ -2225,9 +2403,9 @@ describe("ScanOrchestrator", () => {
 
     test("stores scan state when file deleted mid-scan", async () => {
       await withTempDir("orch-setfromfs-race", async (dir) => {
-        const { writeFileSync, unlinkSync } = await import("node:fs");
+        const { writeFileSync, unlinkSync, statSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService(dir);
+        const { scanStateService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
         writeFileSync(file1, "content1");
@@ -2240,6 +2418,28 @@ describe("ScanOrchestrator", () => {
               return makeScanResult(filePath, {
                 match: makeMatchResult(),
                 status: "matched",
+              });
+            },
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                const result = makeScanResult(filePath, {
+                  match: makeMatchResult(),
+                  status: "matched",
+                });
+                try {
+                  const stat = statSync(filePath);
+                  scanStateService.set(
+                    filePath,
+                    stat.size,
+                    Math.floor(stat.mtimeMs / 1000),
+                    result.hash,
+                  );
+                } catch {
+                  // file was deleted, still store hash
+                  scanStateService.set(filePath, 0, 0, result.hash);
+                }
+                unlinkSync(filePath);
+                return result;
               });
             },
             plan: () => null,
@@ -2261,7 +2461,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-execute-state", async (dir) => {
         const { writeFileSync, statSync, existsSync } = await import("node:fs");
         const { join, dirname } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService(dir);
+        const { scanStateService, close } = createMatchCacheService();
 
         const srcFile = join(dir, "downloads", "ep1.mkv");
         const destDir = join(dir, "Anime", "TV");
@@ -2289,6 +2489,35 @@ describe("ScanOrchestrator", () => {
                   action: "move",
                 },
               }),
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                const result = makeScanResult(filePath, {
+                  match: makeMatchResult({
+                    anime: { id: "1", titleEn: "Anime", entryType: "tv" },
+                  }),
+                  status: "matched",
+                  plan: {
+                    sourcePath: srcFile,
+                    targetPath: "Anime/TV/S01E01.mkv",
+                    targetDir: "Anime/TV",
+                    targetFilename: "S01E01.mkv",
+                    action: "move",
+                  },
+                });
+                try {
+                  const stat = statSync(filePath);
+                  scanStateService.set(
+                    filePath,
+                    stat.size,
+                    Math.floor(stat.mtimeMs / 1000),
+                    result.hash,
+                  );
+                } catch {
+                  // file might not exist, skip state storage
+                }
+                return result;
+              });
+            },
             rename: async (plan, baseDir) => {
               const target = join(baseDir, plan.targetPath);
               mkdirSync(dirname(target), { recursive: true });
@@ -2364,6 +2593,34 @@ describe("ScanOrchestrator", () => {
                   targetFilename: "S01E02.mkv",
                   action: "move",
                 },
+              });
+            },
+            scanBatch: async (filePaths) => {
+              return filePaths.map((filePath) => {
+                if (filePath === organizedFile) {
+                  return makeScanResult(filePath, {
+                    match: makeMatchResult(),
+                    status: "matched",
+                    plan: {
+                      sourcePath: organizedFile,
+                      targetPath: "Attack on Titan/Season 1/S01E01.mkv",
+                      targetDir: "Attack on Titan/Season 1",
+                      targetFilename: "S01E01.mkv",
+                      action: "move",
+                    },
+                  });
+                }
+                return makeScanResult(filePath, {
+                  match: makeMatchResult(),
+                  status: "matched",
+                  plan: {
+                    sourcePath: unorganizedFile,
+                    targetPath: "Attack on Titan/Season 1/S01E02.mkv",
+                    targetDir: "Attack on Titan/Season 1",
+                    targetFilename: "S01E02.mkv",
+                    action: "move",
+                  },
+                });
               });
             },
             plan: (filePath, _match) => ({

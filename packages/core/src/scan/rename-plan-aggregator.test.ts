@@ -7,9 +7,10 @@ import {
 } from "../fixtures";
 import { LibraryService } from "../library/library-service";
 import type { RenamePlan } from "../rename/renamer";
-import type { AnimeResult, EpisodeResult } from "../types";
+import type { AnimeResult, EpisodeResult, ReviewPlan } from "../types";
 import {
   aggregateReviewPlan,
+  buildCanonicalIdMap,
   buildReviewPlan,
   detectSwaps,
   groupByAnime,
@@ -307,8 +308,8 @@ describe("buildReviewPlan", () => {
   });
 
   test("marks mergeMode when anime exists in library", async () => {
-    await withTempDir("merge", async (dir) => {
-      const { repo: libraryRepo, close } = createLibraryRepository(dir);
+    await withTempDir("merge", async (_dir) => {
+      const { repo: libraryRepo, close } = createLibraryRepository();
       const libraryService = new LibraryService(libraryRepo);
       libraryRepo.upsertAnime({
         externalId: "1",
@@ -798,5 +799,173 @@ describe("aggregateReviewPlan", () => {
     ]);
 
     expect(plan.groups[0]?.files[0]?.topCandidates).toEqual([{ episodeNumber: 4, title: "Blind" }]);
+  });
+});
+
+describe("buildCanonicalIdMap", () => {
+  test("maps file animeIds that differ from group animeId", () => {
+    const plan: ReviewPlan = {
+      sessionId: "s1",
+      totalFiles: 2,
+      ambiguousCount: 0,
+      groups: [
+        {
+          animeId: "100",
+          animeTitle: "Anime A",
+          entryType: "tv",
+          files: [
+            {
+              fileId: "f1",
+              sourcePath: "/a/ep1.mkv",
+              proposedPath: null,
+              status: "matched",
+              animeId: "100",
+              episodeId: null,
+              episode: null,
+              episodeName: null,
+            },
+            {
+              fileId: "f2",
+              sourcePath: "/a/ep2.mkv",
+              proposedPath: null,
+              status: "matched",
+              animeId: "200",
+              episodeId: null,
+              episode: null,
+              episodeName: null,
+            },
+          ],
+          swapPairs: [],
+        },
+      ],
+    };
+
+    const map = buildCanonicalIdMap(plan);
+    expect(map.get("200")).toBe("100");
+    expect(map.has("100")).toBe(false);
+  });
+
+  test("returns empty map when all file animeIds match group", () => {
+    const plan: ReviewPlan = {
+      sessionId: "s1",
+      totalFiles: 1,
+      ambiguousCount: 0,
+      groups: [
+        {
+          animeId: "100",
+          animeTitle: "Anime A",
+          entryType: "tv",
+          files: [
+            {
+              fileId: "f1",
+              sourcePath: "/a/ep1.mkv",
+              proposedPath: null,
+              status: "matched",
+              animeId: "100",
+              episodeId: null,
+              episode: null,
+              episodeName: null,
+            },
+          ],
+          swapPairs: [],
+        },
+      ],
+    };
+
+    const map = buildCanonicalIdMap(plan);
+    expect(map.size).toBe(0);
+  });
+
+  test("returns empty map for empty groups", () => {
+    const plan: ReviewPlan = {
+      sessionId: "s1",
+      totalFiles: 0,
+      ambiguousCount: 0,
+      groups: [],
+    };
+
+    const map = buildCanonicalIdMap(plan);
+    expect(map.size).toBe(0);
+  });
+
+  test("handles multiple groups with different canonical IDs", () => {
+    const plan: ReviewPlan = {
+      sessionId: "s1",
+      totalFiles: 4,
+      ambiguousCount: 0,
+      groups: [
+        {
+          animeId: "100",
+          animeTitle: "Anime A",
+          entryType: "tv",
+          files: [
+            {
+              fileId: "f1",
+              sourcePath: "/a/ep1.mkv",
+              proposedPath: null,
+              status: "matched",
+              animeId: "300",
+              episodeId: null,
+              episode: null,
+              episodeName: null,
+            },
+          ],
+          swapPairs: [],
+        },
+        {
+          animeId: "200",
+          animeTitle: "Anime B",
+          entryType: "tv",
+          files: [
+            {
+              fileId: "f2",
+              sourcePath: "/b/ep1.mkv",
+              proposedPath: null,
+              status: "matched",
+              animeId: "400",
+              episodeId: null,
+              episode: null,
+              episodeName: null,
+            },
+          ],
+          swapPairs: [],
+        },
+      ],
+    };
+
+    const map = buildCanonicalIdMap(plan);
+    expect(map.get("300")).toBe("100");
+    expect(map.get("400")).toBe("200");
+  });
+
+  test("skips files with null animeId", () => {
+    const plan: ReviewPlan = {
+      sessionId: "s1",
+      totalFiles: 1,
+      ambiguousCount: 0,
+      groups: [
+        {
+          animeId: "100",
+          animeTitle: "Anime A",
+          entryType: "tv",
+          files: [
+            {
+              fileId: "f1",
+              sourcePath: "/a/ep1.mkv",
+              proposedPath: null,
+              status: "matched",
+              animeId: null,
+              episodeId: null,
+              episode: null,
+              episodeName: null,
+            },
+          ],
+          swapPairs: [],
+        },
+      ],
+    };
+
+    const map = buildCanonicalIdMap(plan);
+    expect(map.size).toBe(0);
   });
 });

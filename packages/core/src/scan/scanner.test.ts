@@ -126,10 +126,10 @@ describe("Scanner", () => {
   });
 
   test("scanFile with cache and dry-run renamer computes hash, matches, caches, and plans rename", async () => {
-    await withTempDir("scan", async (dir) => {
-      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
+    await withTempDir("scan", async (_dir) => {
+      const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "fake video content");
 
-      const { cacheService } = createMatchCacheService(dir);
+      const { cacheService } = createMatchCacheService();
       const renamer = new Renamer({
         filenameTemplate: "{anime} - {episode:02}.{ext}",
         directoryTemplate: "{anime}/{type}",
@@ -153,10 +153,10 @@ describe("Scanner", () => {
   });
 
   test("returns cached result for previously matched file", async () => {
-    await withTempDir("scan", async (dir) => {
-      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
+    await withTempDir("scan", async (_dir) => {
+      const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv");
 
-      const { cacheService } = createMatchCacheService(dir);
+      const { cacheService } = createMatchCacheService();
       const scanner = new Scanner({ matcher: createMockMatcher(), cacheService });
 
       const first = await scanner.scanFile(filePath, { dryRun: true });
@@ -174,10 +174,10 @@ describe("Scanner", () => {
   });
 
   test("rescans a previously-matched file when forced", async () => {
-    await withTempDir("scan", async (dir) => {
-      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
+    await withTempDir("scan", async (_dir) => {
+      const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv");
 
-      const { cacheService } = createMatchCacheService(dir);
+      const { cacheService } = createMatchCacheService();
       const scanner = new Scanner({ matcher: createMockMatcher(), cacheService });
 
       const first = await scanner.scanFile(filePath, { dryRun: true });
@@ -194,10 +194,10 @@ describe("Scanner", () => {
   });
 
   test("renames file to target path on successful match", async () => {
-    await withTempDir("scan", async (dir) => {
-      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
+    await withTempDir("scan", async (_dir) => {
+      const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "fake video content");
 
-      const { cacheService } = createMatchCacheService(dir);
+      const { cacheService } = createMatchCacheService();
       const renamer = new Renamer({
         filenameTemplate: "{anime} - {episode:02}.{ext}",
         directoryTemplate: "{anime}/{type}",
