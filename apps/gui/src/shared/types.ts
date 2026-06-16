@@ -35,7 +35,7 @@ export type { ResolveCandidateEntry as ResolveCandidate } from "../bun/scan";
 export type { ThemeMode } from "../bun/state";
 export type { WatchedFolder } from "../bun/watched-folders";
 
-type Res<T extends (...args: never[]) => unknown> = Awaited<ReturnType<T>>;
+type AwaitedReturnType<T extends (...args: never[]) => unknown> = Awaited<ReturnType<T>>;
 
 export type AppRPC = {
   bun: RPCSchema<{
@@ -50,35 +50,35 @@ export type AppRPC = {
       };
       checkIncompleteOnboarding: {
         params: Record<string, never>;
-        response: Res<typeof checkIncompleteOnboarding>;
+        response: AwaitedReturnType<typeof checkIncompleteOnboarding>;
       };
       writeOnboardingConfig: {
         params: Parameters<typeof writeOnboardingConfig>[2];
-        response: Res<typeof writeOnboardingConfig>;
+        response: AwaitedReturnType<typeof writeOnboardingConfig>;
       };
       getLibrary: {
         params: Record<string, never>;
-        response: Res<LibraryHandlers["getLibrary"]>;
+        response: AwaitedReturnType<LibraryHandlers["getLibrary"]>;
       };
       getLibraryStats: {
         params: Record<string, never>;
-        response: Res<LibraryHandlers["getLibraryStats"]>;
+        response: AwaitedReturnType<LibraryHandlers["getLibraryStats"]>;
       };
       getAnimeDetail: {
         params: Parameters<LibraryHandlers["getAnimeDetail"]>[0];
-        response: Res<LibraryHandlers["getAnimeDetail"]>;
+        response: AwaitedReturnType<LibraryHandlers["getAnimeDetail"]>;
       };
       getWatchStatusByAnime: {
         params: Parameters<LibraryHandlers["getWatchStatusByAnime"]>[0];
-        response: Res<LibraryHandlers["getWatchStatusByAnime"]>;
+        response: AwaitedReturnType<LibraryHandlers["getWatchStatusByAnime"]>;
       };
       setWatchStatus: {
         params: Parameters<LibraryHandlers["setWatchStatus"]>[0];
-        response: Res<LibraryHandlers["setWatchStatus"]>;
+        response: AwaitedReturnType<LibraryHandlers["setWatchStatus"]>;
       };
       getSettingsData: {
         params: Record<string, never>;
-        response: Res<typeof buildSettingsFormData>;
+        response: AwaitedReturnType<typeof buildSettingsFormData>;
       };
       updateSettings: {
         params: Parameters<typeof applySettingsUpdate>[1];
@@ -86,7 +86,7 @@ export type AppRPC = {
       };
       updateApiKey: {
         params: Parameters<typeof updateApiKey>[1];
-        response: Res<typeof updateApiKey>;
+        response: AwaitedReturnType<typeof updateApiKey>;
       };
       togglePlugin: {
         params: Parameters<typeof togglePlugin>[1];
@@ -94,47 +94,47 @@ export type AppRPC = {
       };
       scanStart: {
         params: Parameters<ScanHandlers["scanStart"]>[0];
-        response: Res<ScanHandlers["scanStart"]>;
+        response: AwaitedReturnType<ScanHandlers["scanStart"]>;
       };
       approvePlan: {
         params: Parameters<ScanHandlers["approvePlan"]>[0];
-        response: Res<ScanHandlers["approvePlan"]>;
+        response: AwaitedReturnType<ScanHandlers["approvePlan"]>;
       };
       approveGroup: {
         params: Parameters<ScanHandlers["approveGroup"]>[0];
-        response: Res<ScanHandlers["approveGroup"]>;
+        response: AwaitedReturnType<ScanHandlers["approveGroup"]>;
       };
       rejectGroup: {
         params: Parameters<ScanHandlers["rejectGroup"]>[0];
-        response: Res<ScanHandlers["rejectGroup"]>;
+        response: AwaitedReturnType<ScanHandlers["rejectGroup"]>;
       };
       cancelScan: {
         params: Parameters<ScanHandlers["cancelScan"]>[0];
-        response: Res<ScanHandlers["cancelScan"]>;
+        response: AwaitedReturnType<ScanHandlers["cancelScan"]>;
       };
       swapFiles: {
         params: Parameters<ScanHandlers["swapFiles"]>[0];
-        response: Res<ScanHandlers["swapFiles"]>;
+        response: AwaitedReturnType<ScanHandlers["swapFiles"]>;
       };
       getResolveCandidates: {
         params: Parameters<ScanHandlers["getResolveCandidates"]>[0];
-        response: Res<ScanHandlers["getResolveCandidates"]>;
+        response: AwaitedReturnType<ScanHandlers["getResolveCandidates"]>;
       };
       searchAnimeByTitle: {
         params: Parameters<ScanHandlers["searchAnimeByTitle"]>[0];
-        response: Res<ScanHandlers["searchAnimeByTitle"]>;
+        response: AwaitedReturnType<ScanHandlers["searchAnimeByTitle"]>;
       };
       resolveMatch: {
         params: Parameters<ScanHandlers["resolveMatch"]>[0];
-        response: Res<ScanHandlers["resolveMatch"]>;
+        response: AwaitedReturnType<ScanHandlers["resolveMatch"]>;
       };
       enrichArtwork: {
         params: Parameters<EnrichmentHandlers["enrichArtwork"]>[0];
-        response: Res<EnrichmentHandlers["enrichArtwork"]>;
+        response: AwaitedReturnType<EnrichmentHandlers["enrichArtwork"]>;
       };
       enrichMetadata: {
         params: Parameters<EnrichmentHandlers["enrichMetadata"]>[0];
-        response: Res<EnrichmentHandlers["enrichMetadata"]>;
+        response: AwaitedReturnType<EnrichmentHandlers["enrichMetadata"]>;
       };
       getThemeMode: {
         params: Record<string, never>;
@@ -158,7 +158,7 @@ export type AppRPC = {
       };
       rebuildLibrary: {
         params: Record<string, never>;
-        response: Res<LibraryHandlers["rebuild"]>;
+        response: AwaitedReturnType<LibraryHandlers["rebuild"]>;
       };
       getWatchedFolders: {
         params: Record<string, never>;
@@ -178,7 +178,7 @@ export type AppRPC = {
       };
       checkKeyring: {
         params: Record<string, never>;
-        response: Res<typeof checkKeyringStatus>;
+        response: AwaitedReturnType<typeof checkKeyringStatus>;
       };
     };
     messages: {
