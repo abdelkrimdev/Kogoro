@@ -2,10 +2,8 @@ import { basename, dirname } from "node:path";
 import type { EpisodeNumbering } from "../config/schema";
 import type { TaskContext } from "../io/progress";
 import type { CacheService } from "../match/cache-service";
-import type { CachedMatch } from "../match/match-repository";
 import type { MatcherLike, MatchResult } from "../match/matcher";
-import { matchResultFromCache, matchResultFromOverride } from "../match/matcher";
-import type { OverrideData, OverrideStore } from "../match/override-store";
+import type { OverrideStore } from "../match/override-store";
 import { createEmptyResult, type ParsedResult } from "../parse/parser";
 import type { RenameAction, RenamePlan, RenameResult, Renamer } from "../rename/renamer";
 import type { EntryType } from "../types";
@@ -59,16 +57,6 @@ interface ScanFileOptions {
     parsed: ParsedResult,
     filePath: string,
   ) => Promise<{ animeId: string; episode: number; entryType: string } | null>;
-}
-
-interface BatchEntry {
-  filePath: string;
-  hash: string;
-  parsed: ParsedResult;
-  overrideKey: string;
-  override: OverrideData | null;
-  cachedMatch: CachedMatch | null;
-  match: MatchResult | null;
 }
 
 export class Scanner {
@@ -127,7 +115,7 @@ export class Scanner {
     for (let i = 0; i < filePaths.length && !signal?.aborted; i += concurrency) {
       const chunk = filePaths.slice(i, i + concurrency);
 
-      const entries: BatchEntry[] = await Promise.all(
+      const preparedFiles = await Promise.all(
         chunk.map(async (filePath) => {
           const prepared = await this.hashCache.prepareFile(
             filePath,
@@ -135,31 +123,16 @@ export class Scanner {
             options?.force,
           );
           const parsed = parseFilePath(filePath, options?.extensions);
-
-          let match: MatchResult | null = null;
-          if (prepared.cachedMatch) {
-            match = matchResultFromCache(prepared.cachedMatch);
-          } else if (prepared.override?.animeId) {
-            match = matchResultFromOverride(prepared.override);
-          }
-
-          return { ...prepared, parsed, match };
+          return { ...prepared, parsed };
         }),
       );
 
-      const needsMatch = entries.filter((e) => !e.cachedMatch && e.match === null);
-      if (needsMatch.length > 0) {
-        const matchResults = await this.matcher.matchBatch(needsMatch.map((e) => e.parsed));
-        for (let idx = 0; idx < needsMatch.length; idx++) {
-          const entry = needsMatch[idx];
-          const matchResult = matchResults[idx];
-          if (entry && matchResult) {
-            entry.match = matchResult;
-          }
-        }
-      }
+      const needsMatch = preparedFiles.filter((e) => !e.cachedMatch && !e.override?.animeId);
+      const matchResults =
+        needsMatch.length > 0 ? await this.matcher.matchBatch(needsMatch.map((e) => e.parsed)) : [];
+      const matchMap = new Map(needsMatch.map((e, idx) => [e, matchResults[idx]]));
 
-      for (const entry of entries) {
+      for (const entry of preparedFiles) {
         if (signal?.aborted) break;
 
         const input = {
@@ -169,9 +142,8 @@ export class Scanner {
           sourceDb: this.hashCache.getSourceDb(),
         };
 
-        const decision = entry.match
-          ? await this.matchPipeline.decideWithPrecomputed(input, entry.match)
-          : await this.matchPipeline.decide(input);
+        const precomputed = matchMap.get(entry) ?? null;
+        const decision = await this.matchPipeline.decide(input, precomputed);
 
         const result = await this.executeDecision(
           entry.filePath,

@@ -357,7 +357,7 @@ describe("MatchPipeline", () => {
     expect(decision.type).toBe("ambiguous");
   });
 
-  test("decideWithPrecomputed uses provided match instead of calling matcher", async () => {
+  test("decide with precomputed match uses provided match instead of calling matcher", async () => {
     let matchCalled = false;
     const matcher: MatcherLike = {
       async match() {
@@ -372,15 +372,15 @@ describe("MatchPipeline", () => {
     const pipeline = new MatchPipeline(matcher);
     const precomputed = makeMatchResult();
 
-    const decision = await pipeline.decideWithPrecomputed(makeInput(), precomputed);
+    const decision = await pipeline.decide(makeInput(), precomputed);
 
     expect(matchCalled).toBe(false);
     expect(decision.type).toBe("match");
   });
 
-  test("decideWithPrecomputed falls back to matcher when precomputed is null", async () => {
+  test("decide with null precomputed falls back to matcher", async () => {
     const pipeline = new MatchPipeline(createMockMatcher());
-    const decision = await pipeline.decideWithPrecomputed(makeInput(), null);
+    const decision = await pipeline.decide(makeInput(), null);
 
     expect(decision.type).toBe("match");
   });
@@ -407,11 +407,11 @@ describe("MatchPipeline", () => {
     expect(decision.type).toBe("override");
   });
 
-  test("caches match from decideWithPrecomputed in batch flow", async () => {
+  test("caches match from decide with precomputed in batch flow", async () => {
     const pipeline = new MatchPipeline(createMockMatcher());
     const cachedMatch = makeCachedMatch();
 
-    const decision = await pipeline.decideWithPrecomputed(makeInput({ cachedMatch }), null);
+    const decision = await pipeline.decide(makeInput({ cachedMatch }), null);
 
     expect(decision.type).toBe("cached");
   });

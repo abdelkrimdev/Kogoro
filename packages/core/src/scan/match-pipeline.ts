@@ -127,7 +127,11 @@ export class MatchPipeline {
     this.matcher = matcher;
   }
 
-  async decide(input: MatchInput): Promise<MatchDecision> {
+  async decide(input: MatchInput, precomputedMatch?: MatchResult | null): Promise<MatchDecision> {
+    if (precomputedMatch != null) {
+      return this.resolveEntry(input, [precomputedMatch]);
+    }
+
     const cached = checkCached(input);
     if (cached) return cached;
 
@@ -135,21 +139,6 @@ export class MatchPipeline {
     if (overrideDecision) return overrideDecision;
 
     const matches = await this.matcher.match(input.parsed);
-    return this.resolveEntry(input, matches);
-  }
-
-  async decideWithPrecomputed(
-    input: MatchInput,
-    precomputedMatch: MatchResult | null,
-  ): Promise<MatchDecision> {
-    const cached = checkCached(input);
-    if (cached) return cached;
-
-    const overrideDecision = checkOverride(input);
-    if (overrideDecision) return overrideDecision;
-
-    const matches =
-      precomputedMatch != null ? [precomputedMatch] : await this.matcher.match(input.parsed);
     return this.resolveEntry(input, matches);
   }
 
