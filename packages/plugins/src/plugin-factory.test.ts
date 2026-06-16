@@ -214,7 +214,7 @@ describe("PluginFactory", () => {
           await withTestConfig(
             "primary-db",
             async (_dir, config, credentialStore) => {
-              config.set("primary-db", "anidb");
+              config.set("primaryDb", "anidb");
               const factory = new PluginFactory(config, credentialStore);
               const plugin = await factory.primaryDatabase();
               expect(plugin).toBeDefined();

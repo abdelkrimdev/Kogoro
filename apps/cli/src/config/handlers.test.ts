@@ -7,7 +7,7 @@ describe("Config CLI commands", () => {
   test("returns value for existing key", async () => {
     await withTempDir("cli-config", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
-      await config.set("primary-db", "anidb");
+      await config.set("primaryDb", "anidb");
       const handlers = createConfigHandlers({ configDir: dir });
       expect(handlers.get("primary-db")).toBe("anidb");
     });
@@ -26,7 +26,7 @@ describe("Config CLI commands", () => {
       const result = handlers.set("scan-concurrency", "8");
       expect(result).toBe(true);
       const config = new ConfigManager({ configDir: dir });
-      expect(await config.get("scan-concurrency")).toBe(8);
+      expect(config.scanConcurrency).toBe(8);
     });
   });
 
@@ -44,8 +44,8 @@ describe("Config CLI commands", () => {
       };
       await handlers.init(prompts);
       const config = new ConfigManager({ configDir: dir });
-      expect(await config.get("primary-db")).toBe("tvdb");
-      expect(await config.get("scan-concurrency")).toBe(4);
+      expect(config.primaryDb).toBe("tvdb");
+      expect(config.scanConcurrency).toBe(4);
     });
   });
 
@@ -56,7 +56,7 @@ describe("Config CLI commands", () => {
         const result = handlers.set("template.preset", "plex");
         expect(result).toBe(true);
         const config = new ConfigManager({ configDir: dir });
-        expect(await config.get("template.preset")).toBe("plex");
+        expect(config.template.preset).toBe("plex");
         expect(config.getTemplate()).toBe("{anime} - s{season:02}e{episode:02} - {title}");
       });
     });
@@ -66,7 +66,7 @@ describe("Config CLI commands", () => {
         const handlers = createConfigHandlers({ configDir: dir });
         expect(() => handlers.set("template.preset", "nonexistent")).toThrow("nonexistent");
         const config = new ConfigManager({ configDir: dir });
-        expect(await config.get("template.preset")).toBe("standard");
+        expect(config.template.preset).toBe("standard");
       });
     });
   });
@@ -85,7 +85,7 @@ describe("Config CLI commands", () => {
         const result = handlers.set("scan-concurrency", "8");
         expect(result).toBe(true);
         const config = new ConfigManager({ configDir: dir });
-        expect(await config.get("scan-concurrency")).toBe(8);
+        expect(config.scanConcurrency).toBe(8);
       });
     });
 
@@ -109,7 +109,7 @@ describe("Config CLI commands", () => {
       await withTempDir("cli-config", async (dir) => {
         const config = new ConfigManager({ configDir: dir });
         const handlers = createConfigHandlers({ configDir: dir });
-        expect(handlers.get("media-extensions")).toEqual(config.get("media-extensions"));
+        expect(handlers.get("media-extensions")).toEqual(config.mediaExtensions);
       });
     });
 

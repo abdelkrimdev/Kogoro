@@ -25,7 +25,7 @@ describe("ConfigWizard", () => {
       });
 
       await runConfigWizard({ config, credentialStore, prompts });
-      expect(await config.get("primary-db")).toBe("anidb");
+      expect(config.primaryDb).toBe("anidb");
     });
   });
 
@@ -73,8 +73,7 @@ describe("ConfigWizard", () => {
       });
 
       await runConfigWizard({ config, credentialStore, prompts });
-      const preset = await config.get("template.preset");
-      expect(preset).toBe("compact");
+      expect(config.template.preset).toBe("compact");
     });
   });
 
@@ -90,14 +89,12 @@ describe("ConfigWizard", () => {
       });
 
       await runConfigWizard({ config, credentialStore, prompts });
-      expect(await config.get("primary-db")).toBe("tvdb");
-      expect(await config.get("scan-concurrency")).toBe(4);
-      const extensions = config.get("media-extensions");
-      expect(Array.isArray(extensions)).toBe(true);
-      expect((extensions as string[]).includes(".mkv")).toBe(true);
-      const exclude = config.get("exclude-patterns") as string[];
-      expect(exclude.includes("!qb")).toBe(true);
-      expect(await config.get("template.preset")).toBe("standard");
+      expect(config.primaryDb).toBe("tvdb");
+      expect(config.scanConcurrency).toBe(4);
+      expect(Array.isArray(config.mediaExtensions)).toBe(true);
+      expect(config.mediaExtensions.includes(".mkv")).toBe(true);
+      expect(config.excludePatterns.includes("!qb")).toBe(true);
+      expect(config.template.preset).toBe("standard");
     });
   });
 

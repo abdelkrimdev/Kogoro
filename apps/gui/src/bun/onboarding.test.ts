@@ -47,8 +47,8 @@ describe("writeOnboardingConfig", () => {
       });
 
       expect(result).toEqual({ success: true });
-      expect(config.get("primary-db")).toBe("tvdb");
-      expect(config.get("template.preset")).toBe("standard");
+      expect(config.primaryDb).toBe("tvdb");
+      expect(config.template.preset).toBe("standard");
     });
   });
 
@@ -96,7 +96,7 @@ describe("writeOnboardingConfig", () => {
         templateCustom: "{anime}/{episode} {title}",
       });
 
-      expect(config.get("template.custom")).toBe("");
+      expect(config.template.custom).toBe("");
     });
   });
 
@@ -113,8 +113,8 @@ describe("writeOnboardingConfig", () => {
       });
 
       expect(result).toEqual({ success: true });
-      expect(config.get("template.preset")).toBe("custom");
-      expect(config.get("template.custom")).toBe("{anime}/S{season}/E{episode} - {title}");
+      expect(config.template.preset).toBe("custom");
+      expect(config.template.custom).toBe("{anime}/S{season}/E{episode} - {title}");
       expect(config.getTemplate()).toBe("{anime}/S{season}/E{episode} - {title}");
     });
   });
@@ -178,8 +178,8 @@ describe("writeOnboardingConfig", () => {
       });
 
       expect(result).toEqual({ success: true });
-      expect(config.get("primary-db")).toBe("tvdb");
-      expect(config.get("template.preset")).toBe("standard");
+      expect(config.primaryDb).toBe("tvdb");
+      expect(config.template.preset).toBe("standard");
       expect(config.getTemplate()).toBeTruthy();
       expect(await store.getCredential("tvdb")).toBeUndefined();
     });
@@ -192,7 +192,7 @@ describe("checkIncompleteOnboarding", () => {
       delete process.env["KOGORO_TVDB_KEY"];
       const config = new ConfigManager({ configDir: dir });
       const store = new CredentialStore({ keytar: createMockKeytar() });
-      config.set("primary-db", "tvdb");
+      config.set("primaryDb", "tvdb");
 
       const result = await checkIncompleteOnboarding(config, store);
       expect(result.incomplete).toBe(true);
@@ -204,7 +204,7 @@ describe("checkIncompleteOnboarding", () => {
     await withTempDir("incomplete-has-key", async (dir) => {
       const config = new ConfigManager({ configDir: dir });
       const store = new CredentialStore({ keytar: createMockKeytar() });
-      config.set("primary-db", "tvdb");
+      config.set("primaryDb", "tvdb");
       await store.setCredential("tvdb", "my-api-key");
 
       const result = await checkIncompleteOnboarding(config, store);
@@ -225,7 +225,7 @@ describe("checkIncompleteOnboarding", () => {
       };
       const config = new ConfigManager({ configDir: dir });
       const store = new CredentialStore({ keytar: throwingKeytar });
-      config.set("primary-db", "tvdb");
+      config.set("primaryDb", "tvdb");
 
       const result = await checkIncompleteOnboarding(config, store);
       expect(result.incomplete).toBe(true);

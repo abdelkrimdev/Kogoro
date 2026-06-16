@@ -65,7 +65,7 @@ export async function runConfigWizard(deps: WizardDeps): Promise<void> {
   );
   if (primaryDb === undefined) return;
 
-  config.set("primary-db", primaryDb);
+  config.set("primaryDb", primaryDb);
 
   const apiKeyPrompt = {
     message: "Enter your API key",

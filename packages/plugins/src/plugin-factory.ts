@@ -88,7 +88,7 @@ export class PluginFactory {
   ) {}
 
   async primaryDatabase(): Promise<DatabasePlugin | undefined> {
-    const name = (this.config.get("primary-db") as string | undefined) ?? "tvdb";
+    const name = this.config.primaryDb;
     return this.database(name);
   }
 

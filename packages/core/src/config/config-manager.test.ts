@@ -1,32 +1,32 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { withTestConfig } from "../fixtures";
+import { withTempDir, withTestConfig } from "../fixtures";
 import { ConfigManager } from "./config-manager";
 import { TEMPLATE_PRESETS } from "./schema";
 
 describe("ConfigManager", () => {
   test("set then get persists and retrieves a value", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("primary-db", "tvdb");
-      const val = config.get("primary-db");
+      config.set("primaryDb", "tvdb");
+      const val = config.primaryDb;
       expect(val).toBe("tvdb");
     });
   });
 
   test("persisted value survives re-initialization", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("primary-db", "anidb");
+      config.set("primaryDb", "anidb");
 
       const mgr2 = new ConfigManager({ configDir: _dir });
-      const val = mgr2.get("primary-db");
+      const val = mgr2.primaryDb;
       expect(val).toBe("anidb");
     });
   });
 
   test("config file is written to disk on set", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("primary-db", "tvdb");
+      config.set("primaryDb", "tvdb");
       const configPath = join(_dir, "config.toml");
       expect(existsSync(configPath)).toBe(true);
     });
@@ -35,21 +35,20 @@ describe("ConfigManager", () => {
   test("config init creates file with defaults", async () => {
     await withTestConfig("config", async (_dir, config) => {
       config.init();
-      expect(config.get("primary-db")).toBe("tvdb");
-      expect(config.get("template.preset")).toBe("standard");
-      const extensions = config.get("media-extensions");
-      expect(Array.isArray(extensions)).toBe(true);
-      expect((extensions as string[]).includes(".mkv")).toBe(true);
-      expect((extensions as string[]).includes(".ogm")).toBe(true);
-      expect(config.get("scan-concurrency")).toBe(4);
+      expect(config.primaryDb).toBe("tvdb");
+      expect(config.template.preset).toBe("standard");
+      expect(Array.isArray(config.mediaExtensions)).toBe(true);
+      expect(config.mediaExtensions.includes(".mkv")).toBe(true);
+      expect(config.mediaExtensions.includes(".ogm")).toBe(true);
+      expect(config.scanConcurrency).toBe(4);
     });
   });
 
   test("config init does not overwrite existing values", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("primary-db", "anidb");
+      config.set("primaryDb", "anidb");
       config.init();
-      expect(config.get("primary-db")).toBe("anidb");
+      expect(config.primaryDb).toBe("anidb");
     });
   });
 
@@ -62,7 +61,7 @@ describe("ConfigManager", () => {
 
   test("getList parses comma-separated values for string keys", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("exclude-patterns", ".part,.crdownload");
+      config.set("excludePatterns", ".part,.crdownload");
       const list = config.getList("exclude-patterns");
       expect(list).toEqual([".part", ".crdownload"]);
     });
@@ -70,7 +69,7 @@ describe("ConfigManager", () => {
 
   test("getList trims whitespace around values", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("exclude-patterns", " .part , .crdownload ");
+      config.set("excludePatterns", " .part , .crdownload ");
       const list = config.getList("exclude-patterns");
       expect(list).toEqual([".part", ".crdownload"]);
     });
@@ -78,7 +77,7 @@ describe("ConfigManager", () => {
 
   test("getList returns empty array for empty string", async () => {
     await withTestConfig("config", async (_dir, config) => {
-      config.set("exclude-patterns", "");
+      config.set("excludePatterns", "");
       const list = config.getList("exclude-patterns");
       expect(list).toEqual([]);
     });
@@ -89,7 +88,7 @@ describe("ConfigManager", () => {
       config.set("template.preset", "plex");
 
       const mgr2 = new ConfigManager({ configDir: _dir });
-      expect(mgr2.get("template.preset")).toBe("plex");
+      expect(mgr2.template.preset).toBe("plex");
     });
   });
 
@@ -193,6 +192,76 @@ describe("ConfigManager", () => {
         expect(disabled.has("anidb")).toBe(true);
       });
     });
+
+    test("plugins accessor returns plugin toggles", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        config.init();
+        expect(config.plugins.tvdb.enabled).toBe(true);
+        expect(config.plugins.anidb.enabled).toBe(true);
+        expect(config.plugins.opensubtitles.enabled).toBe(true);
+      });
+    });
+  });
+
+  describe("typed accessor", () => {
+    test("primaryDb returns default value when not set", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        expect(config.primaryDb).toBe("tvdb");
+      });
+    });
+
+    test("primaryDb reflects value after set", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        config.set("primaryDb", "anidb");
+        expect(config.primaryDb).toBe("anidb");
+      });
+    });
+
+    test("typed set accepts camelCase key and typed value", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        const result = config.set("primaryDb", "anidb");
+        expect(result).toEqual({ success: true });
+        expect(config.primaryDb).toBe("anidb");
+      });
+    });
+
+    test("template.preset returns default value when not set", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        expect(config.template.preset).toBe("standard");
+      });
+    });
+
+    test("template.preset reflects value after set", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        config.set("template.preset", "plex");
+        expect(config.template.preset).toBe("plex");
+      });
+    });
+
+    test("scanConcurrency returns default value when not set", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        expect(config.scanConcurrency).toBe(4);
+      });
+    });
+
+    test("scanConcurrency reflects value after set", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        config.set("scanConcurrency", "8");
+        expect(config.scanConcurrency).toBe(8);
+      });
+    });
+
+    test("episodeNumbering returns default value when not set", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        expect(config.episodeNumbering).toBe("relative");
+      });
+    });
+
+    test("renameAction returns default value when not set", async () => {
+      await withTestConfig("config", async (_dir, config) => {
+        expect(config.renameAction).toBe("move");
+      });
+    });
   });
 
   describe("sanitize config", () => {
@@ -203,19 +272,38 @@ describe("ConfigManager", () => {
         config.set("sanitize.chars", "()/");
 
         const mgr2 = new ConfigManager({ configDir: _dir });
-        expect(mgr2.get("sanitize.action")).toBe("strip");
-        expect(mgr2.get("sanitize.replacement")).toBe("-");
-        expect(mgr2.get("sanitize.chars")).toBe("()/");
+        expect(mgr2.sanitize.action).toBe("strip");
+        expect(mgr2.sanitize.replacement).toBe("-");
+        expect(mgr2.sanitize.chars).toBe("()/");
       });
     });
 
     test("sanitize defaults are returned when not configured", async () => {
       await withTestConfig("config", async (_dir, config) => {
         config.init();
-        const sanitize = config.get("sanitize") as Record<string, unknown>;
-        expect(sanitize["action"]).toBe("strip");
-        expect(sanitize["replacement"]).toBe("_");
-        expect(sanitize["chars"]).toBe('\\/:*?"<>|');
+        expect(config.sanitize.action).toBe("strip");
+        expect(config.sanitize.replacement).toBe("_");
+        expect(config.sanitize.chars).toBe('\\/:*?"<>|');
+      });
+    });
+  });
+
+  describe("TOML error handling", () => {
+    test("constructor throws on corrupt TOML file", async () => {
+      await withTempDir("config-corrupt", async (dir) => {
+        const configPath = join(dir, "config.toml");
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(configPath, "this is not valid TOML {{{");
+        expect(() => new ConfigManager({ configDir: dir })).toThrow();
+      });
+    });
+
+    test("constructor does not throw on valid TOML", async () => {
+      await withTempDir("config-valid", async (dir) => {
+        const configPath = join(dir, "config.toml");
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(configPath, 'primary-db = "tvdb"\n');
+        expect(() => new ConfigManager({ configDir: dir })).not.toThrow();
       });
     });
   });

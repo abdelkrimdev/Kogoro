@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { KeytarLike } from "@kogoro/core";
 import { ConfigManager, CredentialStore } from "@kogoro/core";
 import { createMockKeytar, withTempDir, writeTempFile } from "@kogoro/core/testing";
-import { buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
+import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 
 describe("buildSettingsFormData", () => {
   const originalEnv = process.env;
@@ -115,5 +115,75 @@ describe("togglePlugin", () => {
     const result = togglePlugin(config, { plugin: "tvdb", enabled: false });
     expect(result).toEqual({ success: true });
     expect(config.get("plugins.tvdb.enabled")).toBe(false);
+  });
+});
+
+describe("applySettingsUpdate", () => {
+  test("applies typed camelCase keys to config", async () => {
+    await withTempDir("settings", async (dir) => {
+      const config = new ConfigManager({ configDir: dir });
+      const result = applySettingsUpdate(config, {
+        primaryDb: "anidb",
+        scanConcurrency: 8,
+        episodeNumbering: "absolute",
+      });
+      expect(result).toEqual({ success: true });
+      expect(config.primaryDb).toBe("anidb");
+      expect(config.scanConcurrency).toBe(8);
+      expect(config.episodeNumbering).toBe("absolute");
+    });
+  });
+
+  test("applies array values", async () => {
+    await withTempDir("settings", async (dir) => {
+      const config = new ConfigManager({ configDir: dir });
+      const result = applySettingsUpdate(config, {
+        mediaExtensions: [".mkv", ".mp4"],
+      });
+      expect(result).toEqual({ success: true });
+      expect(config.mediaExtensions).toEqual([".mkv", ".mp4"]);
+    });
+  });
+
+  test("skips undefined values", async () => {
+    await withTempDir("settings", async (dir) => {
+      const config = new ConfigManager({ configDir: dir });
+      config.set("primaryDb", "tvdb");
+      const result = applySettingsUpdate(config, { primaryDb: undefined });
+      expect(result).toEqual({ success: true });
+      expect(config.primaryDb).toBe("tvdb");
+    });
+  });
+
+  test("returns error for invalid values", async () => {
+    await withTempDir("settings", async (dir) => {
+      const config = new ConfigManager({ configDir: dir });
+      const result = applySettingsUpdate(config, {
+        episodeNumbering: "invalid-value",
+      });
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+  });
+
+  test("applies nested config keys via dot-path", async () => {
+    await withTempDir("settings", async (dir) => {
+      const config = new ConfigManager({ configDir: dir });
+      const result = applySettingsUpdate(config, {
+        templatePreset: "plex",
+        templateCustom: "{anime} - {episode}",
+        directoryTemplate: "{type}/{anime}",
+        sanitizeAction: "replace",
+        sanitizeReplacement: "-",
+        sanitizeChars: "()/",
+      });
+      expect(result).toEqual({ success: true });
+      expect(config.template.preset).toBe("plex");
+      expect(config.template.custom).toBe("{anime} - {episode}");
+      expect(config.template.directory).toBe("{type}/{anime}");
+      expect(config.sanitize.action).toBe("replace");
+      expect(config.sanitize.replacement).toBe("-");
+      expect(config.sanitize.chars).toBe("()/");
+    });
   });
 });

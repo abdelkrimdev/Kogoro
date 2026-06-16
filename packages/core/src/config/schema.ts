@@ -101,3 +101,13 @@ export const SCHEMA_DEFAULTS = v.getDefaults(ConfigSchema);
 export type Config = v.InferOutput<typeof ConfigSchema>;
 export type EpisodeNumbering = v.InferOutput<typeof EpisodeNumberingSchema>;
 export type RenameAction = v.InferOutput<typeof RenameActionSchema>;
+
+type KebabToCamel<S extends string> = S extends `${infer Head}-${infer Tail}`
+  ? `${Head}${KebabToCamel<Tail>}`
+  : S;
+
+type KebabKeysToCamel<T> = {
+  [K in keyof T as KebabToCamel<K & string>]: T[K];
+};
+
+export type TypedConfig = KebabKeysToCamel<Config>;

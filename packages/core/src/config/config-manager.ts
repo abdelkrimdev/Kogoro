@@ -1,7 +1,16 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as v from "valibot";
-import { CONFIG_DIR, type Config, ConfigSchema, SCHEMA_DEFAULTS, TEMPLATE_PRESETS } from "./schema";
+import {
+  CONFIG_DIR,
+  type Config,
+  ConfigSchema,
+  type EpisodeNumbering,
+  type RenameAction,
+  SCHEMA_DEFAULTS,
+  TEMPLATE_PRESETS,
+  type TypedConfig,
+} from "./schema";
 
 interface ConfigManagerOptions {
   configDir?: string;
@@ -138,6 +147,10 @@ function formatSchemaError(issues: readonly v.BaseIssue<unknown>[]): string {
   return `${prefix}${issue.message}`;
 }
 
+function camelToKebab(s: string): string {
+  return s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+}
+
 export class ConfigManager {
   private configDir: string;
   private configPath: string;
@@ -150,17 +163,69 @@ export class ConfigManager {
     this.load();
   }
 
+  get primaryDb(): string {
+    return this.config["primary-db"] as string;
+  }
+
+  get template(): { preset: string; custom: string; directory: string } {
+    return this.config.template;
+  }
+
+  get scanConcurrency(): number {
+    return this.config["scan-concurrency"];
+  }
+
+  get fetchConcurrency(): number {
+    return this.config["fetch-concurrency"];
+  }
+
+  get episodeNumbering(): EpisodeNumbering {
+    return this.config["episode-numbering"];
+  }
+
+  get renameAction(): RenameAction {
+    return this.config["rename-action"];
+  }
+
+  get subtitleLanguage(): string {
+    return this.config["subtitle-language"];
+  }
+
+  get mediaExtensions(): string[] {
+    return this.config["media-extensions"];
+  }
+
+  get excludePatterns(): string[] {
+    return this.config["exclude-patterns"];
+  }
+
+  get sanitize(): { action: string; replacement: string; chars: string } {
+    return this.config.sanitize;
+  }
+
+  get plugins(): {
+    tvdb: { enabled: boolean };
+    anidb: { enabled: boolean };
+    opensubtitles: { enabled: boolean };
+  } {
+    return this.config.plugins;
+  }
+
   private load(): void {
     if (!existsSync(this.configPath)) return;
     const raw = readFileSync(this.configPath, "utf-8");
+    let parsed: Record<string, unknown>;
     try {
-      const parsed = Bun.TOML.parse(raw) as Record<string, unknown>;
-      const result = v.safeParse(ConfigSchema, parsed);
-      if (result.success) {
-        this.config = result.output;
-      }
-    } catch {
-      // Invalid TOML, use defaults
+      parsed = Bun.TOML.parse(raw) as Record<string, unknown>;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`Cannot parse config.toml: ${msg}`);
+    }
+    const result = v.safeParse(ConfigSchema, parsed);
+    if (result.success) {
+      this.config = result.output;
+    } else {
+      console.warn(`Config validation failed: ${formatSchemaError(result.issues)}, using defaults`);
     }
   }
 
@@ -188,10 +253,14 @@ export class ConfigManager {
     return [];
   }
 
-  set(key: string, value: string): SetResult {
+  set<K extends keyof TypedConfig>(key: K, value: TypedConfig[K]): SetResult;
+  set(key: string, value: string): SetResult;
+  set(key: string, value: unknown): SetResult {
+    const kebabKey = camelToKebab(key);
     const candidate = structuredClone(this.config) as Record<string, unknown>;
-    const typedValue = coerceValue(key, value);
-    setNestedValue(candidate, key, typedValue);
+    const stringValue = typeof value === "string" ? value : String(value);
+    const typedValue = coerceValue(kebabKey, stringValue);
+    setNestedValue(candidate, kebabKey, typedValue);
 
     const result = v.safeParse(ConfigSchema, candidate);
     if (result.success) {

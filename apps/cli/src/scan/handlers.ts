@@ -45,7 +45,7 @@ function resolveExtensions(config?: ConfigManager, overrides?: string[]): readon
 }
 
 function resolveExcludePatterns(config?: ConfigManager): string[] {
-  const fromConfig = config?.getList("exclude-patterns");
+  const fromConfig = config?.excludePatterns;
   if (fromConfig && fromConfig.length > 0) return fromConfig;
   return [...SCHEMA_DEFAULTS["exclude-patterns"]];
 }
@@ -169,16 +169,11 @@ export function createScanHandlers(options: ScanHandlerOptions) {
       const dryRun = scanOptions?.dryRun ?? false;
       const yes = scanOptions?.yes ?? false;
       const force = scanOptions?.force ?? false;
-      const action =
-        scanOptions?.action ?? (options.config?.get("rename-action") as RenameAction | undefined);
-      const configNumbering = options.config?.get("episode-numbering") as
-        | EpisodeNumbering
-        | undefined;
+      const action = scanOptions?.action ?? options.config?.renameAction;
+      const configNumbering = options.config?.episodeNumbering;
       const episodeNumbering =
         scanOptions?.episodeNumbering ?? configNumbering ?? SCHEMA_DEFAULTS["episode-numbering"];
-      const configConcurrency = options.config
-        ? Number(options.config.get("scan-concurrency"))
-        : NaN;
+      const configConcurrency = options.config ? options.config.scanConcurrency : NaN;
       const concurrency =
         scanOptions?.concurrency ??
         (Number.isNaN(configConcurrency) ? SCHEMA_DEFAULTS["scan-concurrency"] : configConcurrency);

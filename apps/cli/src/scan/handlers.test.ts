@@ -316,7 +316,7 @@ describe("scan CLI commands", () => {
         const configDir = join(dir, "config");
         mkdirSync(configDir);
         const config = new ConfigManager({ configDir });
-        config.set("episode-numbering", "absolute");
+        config.set("episodeNumbering", "absolute");
 
         const handlers = createScanHandlers({ database: db, config });
         const results = await handlers.scan(dir, { yes: true, dryRun: true });
@@ -353,7 +353,7 @@ describe("scan CLI commands", () => {
         const configDir = join(dir, "config");
         mkdirSync(configDir);
         const config = new ConfigManager({ configDir });
-        config.set("rename-action", "copy");
+        config.set("renameAction", "copy");
 
         const handlers = createScanHandlers({ database: createStandardMockDb(), config });
         const results = await handlers.scan(filePath, { yes: true });
@@ -372,7 +372,7 @@ describe("scan CLI commands", () => {
         const configDir = join(dir, "config");
         mkdirSync(configDir);
         const config = new ConfigManager({ configDir });
-        config.set("scan-concurrency", "2");
+        config.set("scanConcurrency", "2");
 
         const handlers = createScanHandlers({ database: createStandardMockDb(), config });
         const results = await handlers.scan(dir, { yes: true, dryRun: true });
@@ -390,7 +390,7 @@ describe("scan CLI commands", () => {
         const configDir = join(dir, "config");
         mkdirSync(configDir);
         const config = new ConfigManager({ configDir });
-        config.set("exclude-patterns", ".nfo");
+        config.set("excludePatterns", ".nfo");
 
         const handlers = createScanHandlers({ database: createStandardMockDb(), config });
         const results = await handlers.scan(dir, { yes: true, dryRun: true });
@@ -408,7 +408,7 @@ describe("scan CLI commands", () => {
         const configDir = join(dir, "config");
         mkdirSync(configDir);
         const config = new ConfigManager({ configDir });
-        config.set("media-extensions", ".custom");
+        config.set("mediaExtensions", ".custom");
 
         const handlers = createScanHandlers({ database: createStandardMockDb(), config });
         const results = await handlers.scan(dir, {
