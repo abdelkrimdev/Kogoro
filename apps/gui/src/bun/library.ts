@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import type { LibraryService } from "@kogoro/core";
 
-interface LibraryAnimeItem {
+export interface LibraryAnimeItem {
   id: string;
   titleEn: string;
   entryType: string;
@@ -11,7 +11,7 @@ interface LibraryAnimeItem {
   coverArt?: string;
 }
 
-interface LibraryAnimeDetail {
+export interface LibraryAnimeDetail {
   anime: {
     id: string;
     titleEn: string;
@@ -31,6 +31,19 @@ interface LibraryAnimeDetail {
   }>;
   filesOnDisk: number;
 }
+
+export type WatchStatusEntry = {
+  episodeId: string;
+  watched: boolean;
+  notes?: string;
+  updatedAt: string;
+};
+
+export type LibraryStats = { animeCount: number; episodeCount: number };
+
+export type WatchStatusSetResult = { success: boolean };
+
+export type LibraryRebuildResult = { success: boolean; error?: string };
 
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -54,6 +67,8 @@ interface LibraryHandlerOptions {
   libraryService: LibraryService;
   getSourceDb?: () => string;
 }
+
+export type LibraryHandlers = ReturnType<typeof createLibraryHandlers>;
 
 export function createLibraryHandlers(options: LibraryHandlerOptions) {
   const svc = options.libraryService;
@@ -105,9 +120,7 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       };
     },
 
-    async getWatchStatusByAnime(params: {
-      animeId: string;
-    }): Promise<Array<{ episodeId: string; watched: boolean; notes?: string; updatedAt: string }>> {
+    async getWatchStatusByAnime(params: { animeId: string }): Promise<WatchStatusEntry[]> {
       const statuses = svc.getWatchStatusByAnimeId(Number(params.animeId));
       return statuses.map((s) => ({
         episodeId: String(s.episodeId),
@@ -121,16 +134,16 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       episodeId: string;
       watched: boolean;
       notes?: string;
-    }): Promise<{ success: boolean }> {
+    }): Promise<WatchStatusSetResult> {
       svc.setWatchStatus(Number(params.episodeId), params.watched, params.notes);
       return { success: true };
     },
 
-    async getLibraryStats(): Promise<{ animeCount: number; episodeCount: number }> {
+    async getLibraryStats(): Promise<LibraryStats> {
       return svc.getStats();
     },
 
-    rebuild(): { success: boolean; error?: string } {
+    rebuild(): LibraryRebuildResult {
       try {
         const sourceDb = options.getSourceDb?.();
         svc.rebuild(sourceDb);

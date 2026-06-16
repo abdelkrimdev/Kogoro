@@ -1,6 +1,27 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { ConfigManager, CredentialStore } from "@kogoro/core";
+import {
+  BunSecretsKeytar,
+  CONFIG_DIR,
+  type ConfigManager,
+  type CredentialStore,
+  checkKeyring,
+} from "@kogoro/core";
+
+export function checkKeyringStatus() {
+  const keytar = new BunSecretsKeytar();
+  return checkKeyring(keytar, process.platform);
+}
+
+export function checkOnboarding(): CheckOnboardingResult {
+  return { needsOnboarding: shouldShowOnboarding(CONFIG_DIR) };
+}
+
+export type CheckOnboardingResult = { needsOnboarding: boolean };
+
+export type CheckIncompleteResult = { incomplete: boolean; missingKey?: string };
+
+export type WriteConfigResult = { success: boolean; error?: string };
 
 export function shouldShowOnboarding(configDir: string): boolean {
   const configPath = join(configDir, "config.toml");
@@ -10,7 +31,7 @@ export function shouldShowOnboarding(configDir: string): boolean {
 export async function checkIncompleteOnboarding(
   configManager: ConfigManager,
   credentialStore: CredentialStore,
-): Promise<{ incomplete: boolean; missingKey?: string }> {
+): Promise<CheckIncompleteResult> {
   const primaryDb = String(configManager.get("primary-db") ?? "tvdb");
   try {
     const key = await credentialStore.getCredential(primaryDb);
@@ -32,7 +53,7 @@ export async function writeOnboardingConfig(
     templatePreset: string;
     templateCustom?: string;
   },
-): Promise<{ success: boolean; error?: string }> {
+): Promise<WriteConfigResult> {
   const { primaryDb, apiKey, templatePreset, templateCustom } = params;
 
   const result1 = configManager.set("primary-db", primaryDb);

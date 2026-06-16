@@ -1,7 +1,13 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { WatchedFolder } from "../shared/types";
 import { readJsonFile, stateDir, writeJsonFile } from "./state";
+
+export interface WatchedFolder {
+  path: string;
+  addedAt: string;
+  lastScannedAt?: string;
+  exists?: boolean;
+}
 
 function watchedFoldersPath() {
   return join(stateDir(), ".watched-folders.json");
@@ -51,21 +57,22 @@ export function getWatchedFoldersHandler(): WatchedFolder[] {
   }));
 }
 
-export function addWatchedFolderHandler(path: string): { success: boolean } {
-  addWatchedFolder(path);
+export type WatchedFolderResult = { success: boolean };
+
+export type MarkFolderScannedResult = { success: boolean; lastScannedAt?: string };
+
+export function addWatchedFolderHandler(params: { path: string }): WatchedFolderResult {
+  addWatchedFolder(params.path);
   return { success: true };
 }
 
-export function removeWatchedFolderHandler(path: string): { success: boolean } {
-  removeWatchedFolder(path);
+export function removeWatchedFolderHandler(params: { path: string }): WatchedFolderResult {
+  removeWatchedFolder(params.path);
   return { success: true };
 }
 
-export function markWatchedFolderScannedHandler(path: string): {
-  success: boolean;
-  lastScannedAt?: string;
-} {
-  const entry = markWatchedFolderScanned(path);
+export function markWatchedFolderScannedHandler(params: { path: string }): MarkFolderScannedResult {
+  const entry = markWatchedFolderScanned(params.path);
   if (!entry) return { success: false };
   return { success: true, lastScannedAt: entry.lastScannedAt };
 }

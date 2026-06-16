@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ThemeMode } from "../shared/types";
 
-type WindowFrame = { x: number; y: number; width: number; height: number };
+export type ThemeMode = "light" | "dark";
+
+export type WindowFrame = { x: number; y: number; width: number; height: number };
 
 export function stateDir(): string {
   return process.env["KOGORO_STATE_DIR"] ?? join(import.meta.dir, "../..");
@@ -55,4 +56,23 @@ export function loadSidebarCollapsed(): boolean {
 
 export function saveSidebarCollapsed(collapsed: boolean) {
   writeJsonFile(join(stateDir(), ".sidebar-state.json"), { collapsed });
+}
+
+export function getThemeMode() {
+  const mode = loadThemeMode();
+  return mode ? { mode } : null;
+}
+
+export function setThemeMode(params: { mode: ThemeMode }) {
+  saveThemeMode(params.mode);
+  return { success: true as const };
+}
+
+export function getSidebarCollapsed() {
+  return { collapsed: loadSidebarCollapsed() };
+}
+
+export function setSidebarCollapsed(params: { collapsed: boolean }) {
+  saveSidebarCollapsed(params.collapsed);
+  return { success: true as const };
 }

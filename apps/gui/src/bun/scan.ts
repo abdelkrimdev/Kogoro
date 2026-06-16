@@ -21,6 +21,34 @@ import {
 } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
+export type ScanStartResult = { sessionId: string };
+
+export type SwapFilesResult = { plan: ReviewPlan };
+
+export type ResolveCandidateEntry = {
+  animeId: string;
+  animeTitle: string;
+  entryType: string;
+  episodeId: string;
+  episodeNumber: number;
+  season: number;
+  score: number;
+};
+
+export type ResolveCandidateResult = {
+  candidates: ResolveCandidateEntry[];
+};
+
+export type AnimeSearchCandidate = {
+  animeId: string;
+  animeTitle: string;
+  entryType: string;
+};
+
+export type AnimeSearchResult = {
+  candidates: AnimeSearchCandidate[];
+};
+
 const scanSessions = new Map<
   string,
   {
@@ -37,6 +65,8 @@ function getOrchestrator(sessionId: string): ScanOrchestrator {
   }
   return session.orchestrator;
 }
+
+export type ScanHandlers = ReturnType<typeof createScanHandlers>;
 
 async function createScanOrchestrator(
   sessionId: string,
@@ -240,7 +270,7 @@ export function createScanHandlers(dependencies: {
   }
 
   return {
-    async scanStart(params: { path: string; force?: boolean }) {
+    async scanStart(params: { path: string; force?: boolean }): Promise<ScanStartResult> {
       const { path, force } = params;
       const sessionId = crypto.randomUUID();
 
@@ -314,7 +344,11 @@ export function createScanHandlers(dependencies: {
       return undefined;
     },
 
-    async swapFiles(params: { sessionId: string; fileAId: string; fileBId: string }) {
+    async swapFiles(params: {
+      sessionId: string;
+      fileAId: string;
+      fileBId: string;
+    }): Promise<SwapFilesResult> {
       const orch = getOrchestrator(params.sessionId);
       orch.swapFiles(params.fileAId, params.fileBId);
       const plan = orch.getPlan();
@@ -322,7 +356,10 @@ export function createScanHandlers(dependencies: {
       return { plan };
     },
 
-    async getResolveCandidates(params: { sessionId: string; fileId: string }) {
+    async getResolveCandidates(params: {
+      sessionId: string;
+      fileId: string;
+    }): Promise<ResolveCandidateResult> {
       const { sessionId, fileId } = params;
       const orchestrator = getOrchestrator(sessionId);
       const plan = orchestrator.getPlan();
@@ -358,7 +395,10 @@ export function createScanHandlers(dependencies: {
       };
     },
 
-    async searchAnimeByTitle(params: { sessionId: string; title: string }) {
+    async searchAnimeByTitle(params: {
+      sessionId: string;
+      title: string;
+    }): Promise<AnimeSearchResult> {
       const db = getDatabase(params.sessionId);
       if (!db) return { candidates: [] };
 

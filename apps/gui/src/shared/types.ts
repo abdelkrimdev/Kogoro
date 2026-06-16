@@ -1,264 +1,156 @@
 import type { ReviewPlan, ScanFileStatus, ScanState, ScanSummary } from "@kogoro/core";
 import type { RPCSchema } from "electrobun";
+import type { EnrichmentHandlers } from "../bun/enrichment";
+import type { LibraryHandlers } from "../bun/library";
+import type {
+  checkIncompleteOnboarding,
+  checkKeyringStatus,
+  checkOnboarding,
+  writeOnboardingConfig,
+} from "../bun/onboarding";
+import type { ScanHandlers } from "../bun/scan";
+import type {
+  applySettingsUpdate,
+  buildSettingsFormData,
+  togglePlugin,
+  updateApiKey,
+} from "../bun/settings";
+import type {
+  getSidebarCollapsed,
+  getThemeMode,
+  loadWindowState,
+  setSidebarCollapsed,
+  setThemeMode,
+} from "../bun/state";
+import type {
+  addWatchedFolderHandler,
+  getWatchedFoldersHandler,
+  markWatchedFolderScannedHandler,
+  removeWatchedFolderHandler,
+} from "../bun/watched-folders";
 
 export type { ReviewPlan, ScanFileStatus, ScanState, ScanSummary } from "@kogoro/core";
+export type { LibraryAnimeDetail as AnimeDetail } from "../bun/library";
+export type { ResolveCandidateEntry as ResolveCandidate } from "../bun/scan";
+export type { ThemeMode } from "../bun/state";
+export type { WatchedFolder } from "../bun/watched-folders";
 
-export type ThemeMode = "light" | "dark";
-
-export interface WatchedFolder {
-  path: string;
-  addedAt: string;
-  lastScannedAt?: string;
-  exists?: boolean;
-}
-
-export interface ResolveCandidate {
-  animeId: string;
-  animeTitle: string;
-  entryType: string;
-  episodeId: string;
-  episodeNumber: number;
-  season: number;
-  score: number;
-}
-
-export interface AnimeDetail {
-  anime: {
-    id: string;
-    titleEn: string;
-    titleJa?: string;
-    entryType: string;
-    sourceDb: string;
-    totalEpisodes: number;
-    coverArt?: string;
-  };
-  episodes: Array<{
-    id: string;
-    season: number;
-    episode: number;
-    titleEn: string;
-    filePath: string;
-    missing: boolean;
-  }>;
-  filesOnDisk: number;
-}
+type Res<T extends (...args: never[]) => unknown> = Awaited<ReturnType<T>>;
 
 export type AppRPC = {
   bun: RPCSchema<{
     requests: {
       getWindowState: {
         params: Record<string, never>;
-        response: { x: number; y: number; width: number; height: number } | null;
-      };
-      writeOnboardingConfig: {
-        params: {
-          primaryDb: string;
-          apiKey: string;
-          templatePreset: string;
-          templateCustom?: string;
-        };
-        response: { success: boolean; error?: string };
+        response: ReturnType<typeof loadWindowState>;
       };
       checkOnboarding: {
         params: Record<string, never>;
-        response: { needsOnboarding: boolean };
+        response: ReturnType<typeof checkOnboarding>;
       };
       checkIncompleteOnboarding: {
         params: Record<string, never>;
-        response: { incomplete: boolean; missingKey?: string };
+        response: Res<typeof checkIncompleteOnboarding>;
+      };
+      writeOnboardingConfig: {
+        params: Parameters<typeof writeOnboardingConfig>[2];
+        response: Res<typeof writeOnboardingConfig>;
       };
       getLibrary: {
         params: Record<string, never>;
-        response: Array<{
-          id: string;
-          titleEn: string;
-          entryType: string;
-          episodeCount: number;
-          filesOnDisk: number;
-          coverArt?: string;
-        }>;
+        response: Res<LibraryHandlers["getLibrary"]>;
       };
       getLibraryStats: {
         params: Record<string, never>;
-        response: { animeCount: number; episodeCount: number };
+        response: Res<LibraryHandlers["getLibraryStats"]>;
       };
       getAnimeDetail: {
-        params: { id: string };
-        response: {
-          anime: {
-            id: string;
-            titleEn: string;
-            titleJa?: string;
-            entryType: string;
-            sourceDb: string;
-            totalEpisodes: number;
-            coverArt?: string;
-          };
-          episodes: Array<{
-            id: string;
-            season: number;
-            episode: number;
-            titleEn: string;
-            filePath: string;
-            missing: boolean;
-          }>;
-          filesOnDisk: number;
-        } | null;
+        params: Parameters<LibraryHandlers["getAnimeDetail"]>[0];
+        response: Res<LibraryHandlers["getAnimeDetail"]>;
       };
-      scanStart: {
-        params: { path: string; force?: boolean };
-        response: { sessionId: string };
+      getWatchStatusByAnime: {
+        params: Parameters<LibraryHandlers["getWatchStatusByAnime"]>[0];
+        response: Res<LibraryHandlers["getWatchStatusByAnime"]>;
       };
-      resolveMatch: {
-        params: {
-          sessionId: string;
-          fileId: string;
-          animeId: string;
-          episodeId: string;
-        };
-        response: undefined;
-      };
-      getResolveCandidates: {
-        params: {
-          sessionId: string;
-          fileId: string;
-        };
-        response: {
-          candidates: Array<{
-            animeId: string;
-            animeTitle: string;
-            entryType: string;
-            episodeId: string;
-            episodeNumber: number;
-            season: number;
-            score: number;
-          }>;
-        };
-      };
-      searchAnimeByTitle: {
-        params: {
-          sessionId: string;
-          title: string;
-        };
-        response: {
-          candidates: Array<{
-            animeId: string;
-            animeTitle: string;
-            entryType: string;
-          }>;
-        };
-      };
-      approvePlan: {
-        params: { sessionId: string };
-        response: undefined;
-      };
-      approveGroup: {
-        params: { sessionId: string; animeId: string };
-        response: undefined;
-      };
-      rejectGroup: {
-        params: { sessionId: string; animeId: string };
-        response: undefined;
-      };
-      cancelScan: {
-        params: { sessionId: string };
-        response: undefined;
-      };
-      swapFiles: {
-        params: { sessionId: string; fileAId: string; fileBId: string };
-        response: { plan: ReviewPlan };
+      setWatchStatus: {
+        params: Parameters<LibraryHandlers["setWatchStatus"]>[0];
+        response: Res<LibraryHandlers["setWatchStatus"]>;
       };
       getSettingsData: {
         params: Record<string, never>;
-        response: {
-          primaryDb: string;
-          templatePreset: string;
-          templateCustom: string;
-          directoryTemplate: string;
-          mediaExtensions: string[];
-          excludePatterns: string[];
-          scanConcurrency: number;
-          fetchConcurrency: number;
-          episodeNumbering: string;
-          renameAction: string;
-          subtitleLanguage: string;
-          apiKeys: Record<string, string>;
-          plugins: Array<{
-            name: string;
-            type: "database" | "subtitle";
-            source: "built-in" | "external";
-            enabled: boolean;
-          }>;
-        };
+        response: Res<typeof buildSettingsFormData>;
       };
       updateSettings: {
-        params: {
-          primaryDb?: string;
-          templatePreset?: string;
-          templateCustom?: string;
-          directoryTemplate?: string;
-          mediaExtensions?: string[];
-          excludePatterns?: string[];
-          scanConcurrency?: number;
-          fetchConcurrency?: number;
-          episodeNumbering?: string;
-          renameAction?: string;
-          subtitleLanguage?: string;
-        };
-        response: { success: boolean; error?: string };
+        params: Parameters<typeof applySettingsUpdate>[1];
+        response: ReturnType<typeof applySettingsUpdate>;
       };
       updateApiKey: {
-        params: { plugin: string; apiKey: string };
-        response: { success: boolean; usedKeyring?: boolean; error?: string };
+        params: Parameters<typeof updateApiKey>[1];
+        response: Res<typeof updateApiKey>;
       };
       togglePlugin: {
-        params: { plugin: string; enabled: boolean };
-        response: { success: boolean; error?: string };
+        params: Parameters<typeof togglePlugin>[1];
+        response: ReturnType<typeof togglePlugin>;
+      };
+      scanStart: {
+        params: Parameters<ScanHandlers["scanStart"]>[0];
+        response: Res<ScanHandlers["scanStart"]>;
+      };
+      approvePlan: {
+        params: Parameters<ScanHandlers["approvePlan"]>[0];
+        response: Res<ScanHandlers["approvePlan"]>;
+      };
+      approveGroup: {
+        params: Parameters<ScanHandlers["approveGroup"]>[0];
+        response: Res<ScanHandlers["approveGroup"]>;
+      };
+      rejectGroup: {
+        params: Parameters<ScanHandlers["rejectGroup"]>[0];
+        response: Res<ScanHandlers["rejectGroup"]>;
+      };
+      cancelScan: {
+        params: Parameters<ScanHandlers["cancelScan"]>[0];
+        response: Res<ScanHandlers["cancelScan"]>;
+      };
+      swapFiles: {
+        params: Parameters<ScanHandlers["swapFiles"]>[0];
+        response: Res<ScanHandlers["swapFiles"]>;
+      };
+      getResolveCandidates: {
+        params: Parameters<ScanHandlers["getResolveCandidates"]>[0];
+        response: Res<ScanHandlers["getResolveCandidates"]>;
+      };
+      searchAnimeByTitle: {
+        params: Parameters<ScanHandlers["searchAnimeByTitle"]>[0];
+        response: Res<ScanHandlers["searchAnimeByTitle"]>;
+      };
+      resolveMatch: {
+        params: Parameters<ScanHandlers["resolveMatch"]>[0];
+        response: Res<ScanHandlers["resolveMatch"]>;
       };
       enrichArtwork: {
-        params: { id: string };
-        response: {
-          success: boolean;
-          summary?: { total: number; downloaded: number; skipped: number; noArtwork: number };
-          error?: string;
-        };
+        params: Parameters<EnrichmentHandlers["enrichArtwork"]>[0];
+        response: Res<EnrichmentHandlers["enrichArtwork"]>;
       };
       enrichMetadata: {
-        params: { id: string };
-        response: {
-          success: boolean;
-          summary?: { total: number; written: number; skipped: number; failed: number };
-          error?: string;
-        };
+        params: Parameters<EnrichmentHandlers["enrichMetadata"]>[0];
+        response: Res<EnrichmentHandlers["enrichMetadata"]>;
       };
       getThemeMode: {
         params: Record<string, never>;
-        response: { mode: "light" | "dark" } | null;
+        response: ReturnType<typeof getThemeMode>;
       };
       setThemeMode: {
-        params: { mode: "light" | "dark" };
-        response: { success: boolean };
+        params: Parameters<typeof setThemeMode>[0];
+        response: ReturnType<typeof setThemeMode>;
       };
       getSidebarCollapsed: {
         params: Record<string, never>;
-        response: { collapsed: boolean };
+        response: ReturnType<typeof getSidebarCollapsed>;
       };
       setSidebarCollapsed: {
-        params: { collapsed: boolean };
-        response: { success: boolean };
-      };
-      getWatchStatusByAnime: {
-        params: { animeId: string };
-        response: Array<{
-          episodeId: string;
-          watched: boolean;
-          notes?: string;
-          updatedAt: string;
-        }>;
-      };
-      setWatchStatus: {
-        params: { episodeId: string; watched: boolean; notes?: string };
-        response: { success: boolean };
+        params: Parameters<typeof setSidebarCollapsed>[0];
+        response: ReturnType<typeof setSidebarCollapsed>;
       };
       openDirectoryPicker: {
         params: Record<string, never>;
@@ -266,27 +158,27 @@ export type AppRPC = {
       };
       rebuildLibrary: {
         params: Record<string, never>;
-        response: { success: boolean; error?: string };
+        response: Res<LibraryHandlers["rebuild"]>;
       };
       getWatchedFolders: {
         params: Record<string, never>;
-        response: WatchedFolder[];
+        response: ReturnType<typeof getWatchedFoldersHandler>;
       };
       addWatchedFolder: {
-        params: { path: string };
-        response: { success: boolean };
+        params: Parameters<typeof addWatchedFolderHandler>[0];
+        response: ReturnType<typeof addWatchedFolderHandler>;
       };
       removeWatchedFolder: {
-        params: { path: string };
-        response: { success: boolean };
+        params: Parameters<typeof removeWatchedFolderHandler>[0];
+        response: ReturnType<typeof removeWatchedFolderHandler>;
       };
       markWatchedFolderScanned: {
-        params: { path: string };
-        response: { success: boolean; lastScannedAt?: string };
+        params: Parameters<typeof markWatchedFolderScannedHandler>[0];
+        response: ReturnType<typeof markWatchedFolderScannedHandler>;
       };
       checkKeyring: {
         params: Record<string, never>;
-        response: { available: boolean; reason?: string; platform: string };
+        response: Res<typeof checkKeyringStatus>;
       };
     };
     messages: {

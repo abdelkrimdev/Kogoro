@@ -19,6 +19,20 @@ interface EnrichmentOptions {
   database?: DatabasePlugin;
 }
 
+type EnrichArtworkResult = {
+  success: boolean;
+  summary?: { total: number; downloaded: number; skipped: number; noArtwork: number };
+  error?: string;
+};
+
+type EnrichMetadataResult = {
+  success: boolean;
+  summary?: { total: number; written: number; skipped: number; failed: number };
+  error?: string;
+};
+
+export type EnrichmentHandlers = ReturnType<typeof createEnrichmentHandlers>;
+
 export function createEnrichmentHandlers(options: EnrichmentOptions) {
   const {
     pluginFactory: factory,
@@ -53,11 +67,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     return { animeId: anime.id, animeDir, anime };
   }
 
-  async function enrichArtwork(params: { id: string }): Promise<{
-    success: boolean;
-    summary?: { total: number; downloaded: number; skipped: number; noArtwork: number };
-    error?: string;
-  }> {
+  async function enrichArtwork(params: { id: string }): Promise<EnrichArtworkResult> {
     const resolved = resolveAnimeAndDir(svc, params.id);
     if ("error" in resolved) {
       send.enrichmentComplete?.({
@@ -111,11 +121,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     return { success: true, summary };
   }
 
-  async function enrichMetadata(params: { id: string }): Promise<{
-    success: boolean;
-    summary?: { total: number; written: number; skipped: number; failed: number };
-    error?: string;
-  }> {
+  async function enrichMetadata(params: { id: string }): Promise<EnrichMetadataResult> {
     const resolved = resolveAnimeAndDir(svc, params.id);
     if ("error" in resolved) {
       send.enrichmentComplete?.({

@@ -1,7 +1,7 @@
 import type { ConfigManager, CredentialStore } from "@kogoro/core";
 import type { PluginInfo } from "@kogoro/plugins";
 
-type SettingsFormData = {
+export type SettingsFormData = {
   primaryDb: string;
   templatePreset: string;
   templateCustom: string;
@@ -19,6 +19,10 @@ type SettingsFormData = {
   apiKeys: Record<string, string>;
   plugins: PluginInfo[];
 };
+
+export type SettingsUpdateResult = { success: boolean; error?: string };
+
+export type ApiKeyUpdateResult = { success: boolean; usedKeyring?: boolean; error?: string };
 
 function maskApiKey(key: string | undefined): string {
   if (!key) return "Not set";
@@ -99,7 +103,7 @@ const NESTED_CONFIG_KEYS: Record<string, string> = {
 export function applySettingsUpdate(
   config: ConfigManager,
   params: Record<string, unknown>,
-): { success: boolean; error?: string } {
+): SettingsUpdateResult {
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue;
     const configKey = NESTED_CONFIG_KEYS[key] ?? key;
@@ -113,7 +117,7 @@ export function applySettingsUpdate(
 export async function updateApiKey(
   credentialStore: CredentialStore,
   params: { plugin: string; apiKey: string },
-): Promise<{ success: boolean; usedKeyring?: boolean; error?: string }> {
+): Promise<ApiKeyUpdateResult> {
   const { plugin, apiKey } = params;
   if (!apiKey) {
     await credentialStore.deleteCredential(plugin);
@@ -126,7 +130,7 @@ export async function updateApiKey(
 export function togglePlugin(
   config: ConfigManager,
   params: { plugin: string; enabled: boolean },
-): { success: boolean; error?: string } {
+): SettingsUpdateResult {
   const result = config.set(`plugins.${params.plugin}.enabled`, String(params.enabled));
   if (!result.success) return { success: false, error: result.error };
   return { success: true };

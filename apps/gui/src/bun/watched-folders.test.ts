@@ -139,7 +139,7 @@ describe("getWatchedFoldersHandler", () => {
   test("returns exists:false for folders that do not exist on disk", () => {
     mkdirSync(testDir, { recursive: true });
     process.env["KOGORO_STATE_DIR"] = testDir;
-    addWatchedFolderHandler("/nonexistent/folder");
+    addWatchedFolderHandler({ path: "/nonexistent/folder" });
     const folders = getWatchedFoldersHandler();
     expect(folders).toHaveLength(1);
     expect(folders[0]?.exists).toBe(false);
@@ -148,7 +148,7 @@ describe("getWatchedFoldersHandler", () => {
   test("returns exists:true for folders that exist on disk", () => {
     mkdirSync(testDir, { recursive: true });
     process.env["KOGORO_STATE_DIR"] = testDir;
-    addWatchedFolderHandler(testDir);
+    addWatchedFolderHandler({ path: testDir });
     const folders = getWatchedFoldersHandler();
     expect(folders).toHaveLength(1);
     expect(folders[0]?.exists).toBe(true);
@@ -159,7 +159,7 @@ describe("addWatchedFolderHandler", () => {
   test("adds a folder and returns success", () => {
     mkdirSync(testDir, { recursive: true });
     process.env["KOGORO_STATE_DIR"] = testDir;
-    const result = addWatchedFolderHandler("/anime/One Piece");
+    const result = addWatchedFolderHandler({ path: "/anime/One Piece" });
     expect(result).toEqual({ success: true });
     const folders = getWatchedFoldersHandler();
     expect(folders).toHaveLength(1);
@@ -170,9 +170,9 @@ describe("removeWatchedFolderHandler", () => {
   test("removes a folder and returns success", () => {
     mkdirSync(testDir, { recursive: true });
     process.env["KOGORO_STATE_DIR"] = testDir;
-    addWatchedFolderHandler("/anime/One Piece");
-    addWatchedFolderHandler("/anime/Naruto");
-    const result = removeWatchedFolderHandler("/anime/One Piece");
+    addWatchedFolderHandler({ path: "/anime/One Piece" });
+    addWatchedFolderHandler({ path: "/anime/Naruto" });
+    const result = removeWatchedFolderHandler({ path: "/anime/One Piece" });
     expect(result).toEqual({ success: true });
     const folders = getWatchedFoldersHandler();
     expect(folders).toHaveLength(1);

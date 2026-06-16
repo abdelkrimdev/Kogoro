@@ -1,11 +1,8 @@
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  BunSecretsKeytar,
   CacheService,
-  CONFIG_DIR,
   ConfigManager,
-  checkKeyring,
   createCredentialStore,
   createLibraryConnection,
   createMatchCacheConnection,
@@ -20,18 +17,19 @@ import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
 import {
   checkIncompleteOnboarding,
-  shouldShowOnboarding,
+  checkKeyringStatus,
+  checkOnboarding,
   writeOnboardingConfig,
 } from "./onboarding";
 import { createScanHandlers } from "./scan";
 import { applySettingsUpdate, buildSettingsFormData, togglePlugin, updateApiKey } from "./settings";
 import {
-  loadSidebarCollapsed,
-  loadThemeMode,
+  getSidebarCollapsed,
+  getThemeMode,
   loadWindowState,
-  saveSidebarCollapsed,
-  saveThemeMode,
   saveWindowState,
+  setSidebarCollapsed,
+  setThemeMode,
 } from "./state";
 import {
   addWatchedFolderHandler,
@@ -97,11 +95,16 @@ const scanHandlers = createScanHandlers({
   },
 });
 
+function openDirectoryPickerResult(paths: string[]): { path: string } | null {
+  const dir = paths[0];
+  return dir ? { path: dir } : null;
+}
+
 const rpc = BrowserView.defineRPC<AppRPC>({
   handlers: {
     requests: {
       getWindowState: () => savedState,
-      checkOnboarding: () => ({ needsOnboarding: shouldShowOnboarding(CONFIG_DIR) }),
+      checkOnboarding: () => checkOnboarding(),
       checkIncompleteOnboarding: async () =>
         checkIncompleteOnboarding(configManager, credentialStore),
       writeOnboardingConfig: (params) =>
@@ -121,8 +124,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
           canChooseDirectory: true,
           allowsMultipleSelection: false,
         });
-        const dir = paths[0];
-        return dir ? { path: dir } : null;
+        return openDirectoryPickerResult(paths);
       },
       scanStart: (params) => scanHandlers.scanStart(params),
       approvePlan: (params) => scanHandlers.approvePlan(params),
@@ -135,28 +137,16 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       resolveMatch: (params) => scanHandlers.resolveMatch(params),
       enrichArtwork: (params) => enrichmentHandlers.enrichArtwork(params),
       enrichMetadata: (params) => enrichmentHandlers.enrichMetadata(params),
-      getThemeMode: () => {
-        const mode = loadThemeMode();
-        return mode ? { mode } : null;
-      },
-      setThemeMode: (params) => {
-        saveThemeMode(params.mode);
-        return { success: true };
-      },
-      getSidebarCollapsed: () => ({ collapsed: loadSidebarCollapsed() }),
-      setSidebarCollapsed: (params) => {
-        saveSidebarCollapsed(params.collapsed);
-        return { success: true };
-      },
+      getThemeMode: () => getThemeMode(),
+      setThemeMode: (params) => setThemeMode(params),
+      getSidebarCollapsed: () => getSidebarCollapsed(),
+      setSidebarCollapsed: (params) => setSidebarCollapsed(params),
       rebuildLibrary: async () => libraryHandlers.rebuild(),
       getWatchedFolders: async () => getWatchedFoldersHandler(),
-      addWatchedFolder: async (params) => addWatchedFolderHandler(params.path),
-      removeWatchedFolder: async (params) => removeWatchedFolderHandler(params.path),
-      markWatchedFolderScanned: async (params) => markWatchedFolderScannedHandler(params.path),
-      checkKeyring: async () => {
-        const keytar = new BunSecretsKeytar();
-        return checkKeyring(keytar, process.platform);
-      },
+      addWatchedFolder: async (params) => addWatchedFolderHandler(params),
+      removeWatchedFolder: async (params) => removeWatchedFolderHandler(params),
+      markWatchedFolderScanned: async (params) => markWatchedFolderScannedHandler(params),
+      checkKeyring: async () => checkKeyringStatus(),
     },
     messages: {
       windowWillClose: (data) => {
