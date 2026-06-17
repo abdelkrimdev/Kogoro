@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   createAmbiguousMatcher,
   createMatchCacheService,
   createMockMatcher,
+  createTestHashCache,
   createTrackingMatcher,
   makeNoMatchResult,
+  overrideKey,
   withTempDir,
   writeTempFile,
 } from "../fixtures";
@@ -15,12 +17,11 @@ import type { MatcherLike, MatchResult } from "../match/matcher";
 import { AMBIGUOUS_MATCH_REASON } from "../match/matcher";
 import { OverrideStore } from "../match/override-store";
 import { Renamer } from "../rename/renamer";
-import { computeFileHash } from "./hash-cache";
 import { Scanner } from "./scanner";
 
 describe("Scanner", () => {
   test("scanFile with no matcher returns failed status", async () => {
-    const scanner = new Scanner({});
+    const scanner = new Scanner({ hashCache: createTestHashCache() });
     const result = await scanner.scanFile("[Group] My Anime - 01.mkv");
 
     expect(result.file).toBe("[Group] My Anime - 01.mkv");
@@ -31,7 +32,7 @@ describe("Scanner", () => {
   });
 
   test("scanBatch with no matcher returns failed for each file", async () => {
-    const scanner = new Scanner({});
+    const scanner = new Scanner({ hashCache: createTestHashCache() });
     const results = await scanner.scanBatch([
       "[Group] Anime A - 01.mkv",
       "[Group] Anime B - 02.mkv",
@@ -45,16 +46,22 @@ describe("Scanner", () => {
   });
 
   test("scanFile parses filename and returns auto-resolved match", async () => {
-    const scanner = new Scanner({ matcher: createMockMatcher() });
-    const result = await scanner.scanFile("[Group] My Anime - 01.mkv");
+    await withTempDir("scan-parse", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "content");
+      const scanner = new Scanner({
+        hashCache: createTestHashCache(),
+        matcher: createMockMatcher(),
+      });
+      const result = await scanner.scanFile(filePath);
 
-    expect(result.file).toBe("[Group] My Anime - 01.mkv");
-    expect(result.parsed.title).toBe("My Anime");
-    expect(result.parsed.episode).toBe(1);
-    expect(result.status).toBe("matched");
-    expect(result.match).not.toBeNull();
-    expect(result.match?.anime.titleEn).toBe("Jujutsu Kaisen");
-    expect(result.hash).toBe("");
+      expect(result.file).toBe(filePath);
+      expect(result.parsed.title).toBe("My Anime");
+      expect(result.parsed.episode).toBe(1);
+      expect(result.status).toBe("matched");
+      expect(result.match).not.toBeNull();
+      expect(result.match?.anime.titleEn).toBe("Jujutsu Kaisen");
+      expect(result.hash).toBeTruthy();
+    });
   });
 
   test("persists override after interactive ambiguous resolution", async () => {
@@ -62,7 +69,11 @@ describe("Scanner", () => {
       const ambiguousMatcher = createAmbiguousMatcher();
 
       const overrideStore = new OverrideStore(dir);
-      const scanner = new Scanner({ matcher: ambiguousMatcher, overrideStore });
+      const scanner = new Scanner({
+        hashCache: createTestHashCache({ overrideStore }),
+        matcher: ambiguousMatcher,
+        overrideStore,
+      });
 
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake content");
 
@@ -72,7 +83,7 @@ describe("Scanner", () => {
 
       expect(result.status).toBe("matched");
 
-      const overrideHash = computeFileHash(basename(filePath));
+      const overrideHash = overrideKey(filePath);
       const savedOverride = overrideStore.get(overrideHash);
       expect(savedOverride).toBeDefined();
       expect(savedOverride?.animeId).toBe("1");
@@ -83,6 +94,7 @@ describe("Scanner", () => {
     await withTempDir("scan-failed-override", async (dir) => {
       const overrideStore = new OverrideStore(dir);
       const scanner = new Scanner({
+        hashCache: createTestHashCache({ overrideStore }),
         matcher: createMockMatcher([makeNoMatchResult()]),
         overrideStore,
       });
@@ -99,7 +111,7 @@ describe("Scanner", () => {
 
       expect(result.status).toBe("matched");
 
-      const overrideHash = computeFileHash(basename(filePath));
+      const overrideHash = overrideKey(filePath);
       const savedOverride = overrideStore.get(overrideHash);
       expect(savedOverride).toBeDefined();
       expect(savedOverride?.animeId).toBe("99");
@@ -111,6 +123,7 @@ describe("Scanner", () => {
     await withTempDir("scan-cross-session", async (dir) => {
       const overrideStore = new OverrideStore(dir);
       const scanner = new Scanner({
+        hashCache: createTestHashCache({ overrideStore }),
         matcher: createMockMatcher([makeNoMatchResult()]),
         overrideStore,
       });
@@ -122,10 +135,11 @@ describe("Scanner", () => {
       });
       expect(firstResult.status).toBe("matched");
 
-      const overrideHash = computeFileHash(basename(filePath));
+      const overrideHash = overrideKey(filePath);
       expect(overrideStore.get(overrideHash)?.animeId).toBe("42");
 
       const secondScanner = new Scanner({
+        hashCache: createTestHashCache({ overrideStore }),
         matcher: createMockMatcher([
           {
             anime: { id: "42", titleEn: "(overridden)", entryType: "movie" },
@@ -160,7 +174,11 @@ describe("Scanner", () => {
         directoryTemplate: "{anime}/{type}",
         action: "move",
       });
-      const scanner = new Scanner({ matcher: createMockMatcher(), cacheService, renamer });
+      const scanner = new Scanner({
+        hashCache: createTestHashCache({ cacheService }),
+        matcher: createMockMatcher(),
+        renamer,
+      });
 
       const result = await scanner.scanFile(filePath, { dryRun: true });
 
@@ -182,7 +200,10 @@ describe("Scanner", () => {
       const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv");
 
       const { cacheService } = createMatchCacheService();
-      const scanner = new Scanner({ matcher: createMockMatcher(), cacheService });
+      const scanner = new Scanner({
+        hashCache: createTestHashCache({ cacheService }),
+        matcher: createMockMatcher(),
+      });
 
       const first = await scanner.scanFile(filePath, { dryRun: true });
       expect(first.status).toBe("matched");
@@ -203,7 +224,10 @@ describe("Scanner", () => {
       const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv");
 
       const { cacheService } = createMatchCacheService();
-      const scanner = new Scanner({ matcher: createMockMatcher(), cacheService });
+      const scanner = new Scanner({
+        hashCache: createTestHashCache({ cacheService }),
+        matcher: createMockMatcher(),
+      });
 
       const first = await scanner.scanFile(filePath, { dryRun: true });
       expect(cacheService.has(first.hash)).toBe(true);
@@ -228,7 +252,11 @@ describe("Scanner", () => {
         directoryTemplate: "{anime}/{type}",
         action: "move",
       });
-      const scanner = new Scanner({ matcher: createMockMatcher(), cacheService, renamer });
+      const scanner = new Scanner({
+        hashCache: createTestHashCache({ cacheService }),
+        matcher: createMockMatcher(),
+        renamer,
+      });
 
       const result = await scanner.scanFile(filePath);
 
@@ -255,7 +283,11 @@ describe("Scanner", () => {
         directoryTemplate: "{anime}/{type}",
         action: "move",
       });
-      const scanner = new Scanner({ matcher: createMockMatcher(), renamer });
+      const scanner = new Scanner({
+        hashCache: createTestHashCache(),
+        matcher: createMockMatcher(),
+        renamer,
+      });
 
       const result = await scanner.scanFile(filePath, { baseDir: dir });
 
@@ -268,20 +300,28 @@ describe("Scanner", () => {
   });
 
   test("batches all files into a single database call", async () => {
-    const { matcher: trackingMatcher, batchCallTitles } = createTrackingMatcher();
+    await withTempDir("scan-batch-single", async (dir) => {
+      const { matcher: trackingMatcher, batchCallTitles } = createTrackingMatcher();
+      writeTempFile(dir, "[Group] Anime - 01.mkv", "a");
+      writeTempFile(dir, "[Group] Anime - 02.mkv", "b");
+      writeTempFile(dir, "[Group] Anime - 03.mkv", "c");
 
-    const scanner = new Scanner({ matcher: trackingMatcher });
-    const results = await scanner.scanBatch(
-      ["[Group] Anime - 01.mkv", "[Group] Anime - 02.mkv", "[Group] Anime - 03.mkv"],
-      { concurrency: 3 },
-    );
+      const scanner = new Scanner({ hashCache: createTestHashCache(), matcher: trackingMatcher });
+      const filePaths = [
+        join(dir, "[Group] Anime - 01.mkv"),
+        join(dir, "[Group] Anime - 02.mkv"),
+        join(dir, "[Group] Anime - 03.mkv"),
+      ];
 
-    expect(results).toHaveLength(3);
-    for (const r of results) {
-      expect(r.status).toBe("matched");
-    }
-    expect(batchCallTitles).toHaveLength(1);
-    expect(batchCallTitles[0]).toEqual(["Anime", "Anime", "Anime"]);
+      const results = await scanner.scanBatch(filePaths, { concurrency: 3 });
+
+      expect(results).toHaveLength(3);
+      for (const r of results) {
+        expect(r.status).toBe("matched");
+      }
+      expect(batchCallTitles).toHaveLength(1);
+      expect(batchCallTitles[0]).toEqual(["Anime", "Anime", "Anime"]);
+    });
   });
 
   test("reports progress for each file in batch", async () => {
@@ -290,7 +330,10 @@ describe("Scanner", () => {
       writeTempFile(dir, "[Group] Anime - 02.mkv", "b");
       writeTempFile(dir, "[Group] Anime - 03.mkv", "c");
 
-      const scanner = new Scanner({ matcher: createMockMatcher() });
+      const scanner = new Scanner({
+        hashCache: createTestHashCache(),
+        matcher: createMockMatcher(),
+      });
       const filePaths = [
         join(dir, "[Group] Anime - 01.mkv"),
         join(dir, "[Group] Anime - 02.mkv"),
@@ -322,7 +365,10 @@ describe("Scanner", () => {
       writeTempFile(dir, "[Group] Anime - 03.mkv", "c");
       writeTempFile(dir, "[Group] Anime - 04.mkv", "d");
 
-      const scanner = new Scanner({ matcher: createMockMatcher() });
+      const scanner = new Scanner({
+        hashCache: createTestHashCache(),
+        matcher: createMockMatcher(),
+      });
       const filePaths = [
         join(dir, "[Group] Anime - 01.mkv"),
         join(dir, "[Group] Anime - 02.mkv"),
@@ -377,7 +423,11 @@ describe("Scanner", () => {
         },
       };
 
-      const scanner = new Scanner({ matcher: batchMatcher, overrideStore });
+      const scanner = new Scanner({
+        hashCache: createTestHashCache({ overrideStore }),
+        matcher: batchMatcher,
+        overrideStore,
+      });
 
       const filePath = join(dir, "[Group] My Anime - 01.mkv");
       const results = await scanner.scanBatch([filePath], {
@@ -388,7 +438,7 @@ describe("Scanner", () => {
       expect(results).toHaveLength(1);
       expect(results[0]?.status).toBe("matched");
 
-      const overrideHash = computeFileHash(basename(filePath));
+      const overrideHash = overrideKey(filePath);
       const savedOverride = overrideStore.get(overrideHash);
       expect(savedOverride).toBeDefined();
       expect(savedOverride?.animeId).toBe("1");
@@ -401,6 +451,7 @@ describe("Scanner", () => {
 
       const overrideStore = new OverrideStore(dir);
       const scanner = new Scanner({
+        hashCache: createTestHashCache({ overrideStore }),
         matcher: createMockMatcher([makeNoMatchResult()]),
         overrideStore,
       });
@@ -414,7 +465,7 @@ describe("Scanner", () => {
       expect(results).toHaveLength(1);
       expect(results[0]?.status).toBe("matched");
 
-      const overrideHash = computeFileHash(basename(filePath));
+      const overrideHash = overrideKey(filePath);
       const savedOverride = overrideStore.get(overrideHash);
       expect(savedOverride).toBeDefined();
       expect(savedOverride?.animeId).toBe("99");

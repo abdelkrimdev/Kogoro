@@ -1,13 +1,12 @@
-import { basename, dirname } from "node:path";
+import { dirname } from "node:path";
 import type { EpisodeNumbering } from "../config/schema";
 import type { TaskContext } from "../io/progress";
-import type { CacheService } from "../match/cache-service";
 import type { MatcherLike, MatchResult } from "../match/matcher";
 import type { OverrideStore } from "../match/override-store";
 import { createEmptyResult, type ParsedResult } from "../parse/parser";
 import type { RenameAction, RenamePlan, RenameResult, Renamer } from "../rename/renamer";
 import type { EntryType } from "../types";
-import { computeFileHash, HashCache } from "./hash-cache";
+import type { HashCache } from "./hash-cache";
 import { type MatchDecision, MatchPipeline, parseFilePath, resolveManual } from "./match-pipeline";
 import { RenameExecutor, type RenameOptions } from "./rename-executor";
 
@@ -32,13 +31,11 @@ interface ScanBatchOptions extends ScanFileOptions {
 
 interface ScannerOptions {
   matcher?: MatcherLike;
-  hashCache?: HashCache;
+  hashCache: HashCache;
   matchPipeline?: MatchPipeline;
   renameExecutor?: RenameExecutor;
-  cacheService?: CacheService;
   renamer?: Renamer;
   overrideStore?: OverrideStore;
-  sourceDb?: string;
 }
 
 interface ScanFileOptions {
@@ -67,13 +64,7 @@ export class Scanner {
 
   constructor(options: ScannerOptions) {
     this.matcher = options.matcher ?? null;
-    this.hashCache =
-      options.hashCache ??
-      new HashCache({
-        cacheService: options.cacheService,
-        overrideStore: options.overrideStore,
-        sourceDb: options.sourceDb,
-      });
+    this.hashCache = options.hashCache;
     this.matchPipeline = options.matcher
       ? (options.matchPipeline ?? new MatchPipeline(options.matcher))
       : null;
@@ -109,18 +100,14 @@ export class Scanner {
       return this.noMatchResult(filePath);
     }
 
-    const prepared = await this.hashCache.prepareFile(
-      filePath,
-      options?.extensions,
-      options?.force,
-    );
+    const prepared = await this.hashCache.prepareFile(filePath, options?.force);
     const parsed = parseFilePath(filePath, options?.extensions);
 
     const input = {
       parsed,
       override: prepared.override,
       cachedMatch: prepared.cachedMatch,
-      sourceDb: this.hashCache.getSourceDb(),
+      sourceDb: prepared.sourceDb,
     };
 
     const decision = await this.matchPipeline.decide(input);
@@ -142,11 +129,7 @@ export class Scanner {
 
       const preparedFiles = await Promise.all(
         chunk.map(async (filePath) => {
-          const prepared = await this.hashCache.prepareFile(
-            filePath,
-            options?.extensions,
-            options?.force,
-          );
+          const prepared = await this.hashCache.prepareFile(filePath, options?.force);
           const parsed = parseFilePath(filePath, options?.extensions);
           return { ...prepared, parsed };
         }),
@@ -164,7 +147,7 @@ export class Scanner {
           parsed: entry.parsed,
           override: entry.override,
           cachedMatch: entry.cachedMatch,
-          sourceDb: this.hashCache.getSourceDb(),
+          sourceDb: entry.sourceDb,
         };
 
         const precomputed = matchMap.get(entry) ?? null;
@@ -224,7 +207,7 @@ export class Scanner {
         const resolved = await options?.onAmbiguous?.(decision.candidates, parsed, filePath);
         if (resolved) {
           const resolvedHash = await this.hashCache.persistMatch(filePath, hash, resolved);
-          this.hashCache.persistOverride(computeFileHash(basename(filePath)), resolved);
+          this.hashCache.persistOverride(filePath, resolved);
           return this.planAndExecute(filePath, resolvedHash, resolved, parsed, options);
         }
         return {
@@ -248,7 +231,7 @@ export class Scanner {
             entryType: manual.entryType as EntryType,
           });
           const resolvedHash = await this.hashCache.persistMatch(filePath, hash, manualMatch);
-          this.hashCache.persistOverride(computeFileHash(basename(filePath)), manualMatch);
+          this.hashCache.persistOverride(filePath, manualMatch);
           return this.planAndExecute(filePath, resolvedHash, manualMatch, parsed, options);
         }
         return {

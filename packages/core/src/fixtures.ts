@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { KeytarLike } from "./config/bun-secrets-keytar";
 import { ConfigManager } from "./config/config-manager";
 import { CredentialStore } from "./config/credential-store";
@@ -21,10 +21,12 @@ import {
   type MatcherLike,
   type MatchResult,
 } from "./match/matcher";
+import type { OverrideStore } from "./match/override-store";
 import { ScanStateRepository } from "./match/scan-state-repository";
 import { ScanStateService } from "./match/scan-state-service";
 import { createMatchCacheDb as createMatchCacheDbInstance } from "./match/test-utils";
 import type { ParsedResult, ParsedTags } from "./parse/parser";
+import { HashCache } from "./scan/hash-cache";
 import type { AnimeResult, ArtworkResult, DatabasePlugin, EpisodeResult } from "./types";
 
 export interface EnrichmentSend {
@@ -607,4 +609,18 @@ export function makeScanResult(
     status: "matched",
     ...overrides,
   };
+}
+
+export function overrideKey(filePath: string): string {
+  return Bun.hash(basename(filePath)).toString(16);
+}
+
+export function createTestHashCache(overrides?: {
+  cacheService?: CacheService;
+  overrideStore?: InstanceType<typeof OverrideStore>;
+}) {
+  const { cacheService } = overrides?.cacheService
+    ? { cacheService: overrides.cacheService }
+    : createMatchCacheService();
+  return new HashCache({ cacheService, overrideStore: overrides?.overrideStore });
 }

@@ -1,22 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { lstatSync } from "node:fs";
 import { dirname, extname, join, relative } from "node:path";
+import type { TaskContext } from "../io/progress";
 import type { LibraryService } from "../library/library-service";
 import type { CacheService } from "../match/cache-service";
 import type { MatcherLike, MatchResult } from "../match/matcher";
 import type { ScanStateService } from "../match/scan-state-service";
 import type { RenamePlan, Renamer } from "../rename/renamer";
-import type { MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary } from "../types";
+import type { MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary, TopCandidate } from "../types";
 import { cleanupEmptyDirs } from "./cleanup-dirs";
 import { createEventBus, type EventBus } from "./event-bus";
 import { createGroupApproval, type GroupApproval } from "./group-approval";
 import { probeMatches } from "./match-pipeline";
 import { buildMatchResults } from "./match-results";
-import {
-  aggregateReviewPlan,
-  buildCanonicalIdMap,
-  type TopCandidate,
-} from "./rename-plan-aggregator";
+import { aggregateReviewPlan, buildCanonicalIdMap } from "./rename-plan-aggregator";
 import { findFileSourcePath } from "./resolve-match";
 import { buildSummary } from "./scan-summary";
 import type { ScanResult } from "./scanner";
@@ -29,7 +26,8 @@ export type ScanEventType =
   | "scanPhaseComplete"
   | "scanReviewReady"
   | "scanExecutionProgress"
-  | "scanComplete";
+  | "scanComplete"
+  | "scanError";
 
 export interface ScanProgressEvent {
   type: "scanProgress";
@@ -69,12 +67,19 @@ export interface ScanCompleteEvent {
   summary: ScanSummary;
 }
 
+export interface ScanErrorEvent {
+  type: "scanError";
+  sessionId: string;
+  error: string;
+}
+
 export type ScanEvent =
   | ScanProgressEvent
   | ScanPhaseCompleteEvent
   | ScanReviewReadyEvent
   | ScanExecutionProgressEvent
-  | ScanCompleteEvent;
+  | ScanCompleteEvent
+  | ScanErrorEvent;
 
 type ScanEventListener = (event: ScanEvent) => void;
 
@@ -82,6 +87,7 @@ export interface OrchestratorPipeline {
   scanBatch: (
     filePaths: string[],
     options: { force?: boolean; dryRun?: boolean; extensions?: readonly string[] },
+    ctx: TaskContext,
   ) => Promise<ScanResult[]>;
   resolve?: (filePath: string, animeId: string, episodeId: string) => Promise<ScanResult>;
   rename?: (
@@ -240,23 +246,35 @@ export class ScanOrchestrator {
     }
 
     if (this.pipeline.scanBatch) {
-      this.results = await this.pipeline.scanBatch(filePaths, {
-        force: this.options.force,
-        dryRun: true,
-      });
-      for (let i = 0; i < this.results.length; i++) {
-        const result = this.results[i];
-        if (result) {
+      const ctx: TaskContext = {
+        progress: (p) => {
           this.emit({
             type: "scanProgress",
             sessionId: this.sessionId,
-            file: result.file,
-            status: result.status as ScanFileStatus,
-            matched: result.status === "matched" || result.status === "cached",
-            completed: i + 1,
-            total: this.results.length,
+            file: p.file,
+            status: p.status as ScanFileStatus,
+            matched: p.status === "matched" || p.status === "cached",
+            completed: p.completed,
+            total: p.total,
           });
-        }
+        },
+        log: () => {},
+        error: () => {},
+      };
+      try {
+        this.results = await this.pipeline.scanBatch(
+          filePaths,
+          { force: this.options.force, dryRun: true },
+          ctx,
+        );
+      } catch (err) {
+        this.emit({
+          type: "scanError",
+          sessionId: this.sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        this._state = "done";
+        return;
       }
     }
 

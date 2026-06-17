@@ -79,6 +79,7 @@ async function createScanOrchestrator(
   const components = createScanComponents({
     config: configManager,
     cacheService,
+    scanStateService,
     database,
     sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
   });
@@ -89,11 +90,12 @@ async function createScanOrchestrator(
     {
       pipeline: {
         walk: components.walk,
-        scanBatch: async (filePaths, options) =>
+        scanBatch: async (filePaths, options, ctx) =>
           scanner.scanBatch(filePaths, {
             force: options.force,
             dryRun: options.dryRun,
             extensions: options.extensions,
+            ctx,
           }),
       },
       matcher: matcher ?? undefined,
@@ -153,6 +155,7 @@ export function createScanHandlers(dependencies: {
       status: ScanFileStatus;
     }) => void;
     scanComplete: (data: { sessionId: string; summary: ScanSummary }) => void;
+    scanError: (data: { sessionId: string; error: string }) => void;
   };
 }) {
   const {
@@ -208,12 +211,21 @@ export function createScanHandlers(dependencies: {
                 send.scanComplete(event);
                 cleanupSession(sessionId);
                 break;
+              case "scanError":
+                send.scanError(event);
+                cleanupSession(sessionId);
+                break;
             }
           });
 
           await orchestrator.startScan(path);
         } catch (err) {
           console.error("Scan failed:", err);
+          send.scanError({
+            sessionId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          cleanupSession(sessionId);
         }
       })();
 

@@ -60,8 +60,8 @@ export { sanitizeFilename } from "./rename/sanitize";
 export { render } from "./rename/template-engine";
 export type { CreateScanComponentsOptions, ScanComponents } from "./scan/create-scan-components";
 export { createScanComponents } from "./scan/create-scan-components";
-export type { HashCacheOptions, PreparedFile } from "./scan/hash-cache";
-export { computeFileHash, HashCache } from "./scan/hash-cache";
+export type { PreparedFile } from "./scan/hash-cache";
+export { HashCache } from "./scan/hash-cache";
 export type { ManualResolution, MatchDecision, MatchInput } from "./scan/match-pipeline";
 export {
   applyEntryTypeOverride,
@@ -77,16 +77,11 @@ export {
 } from "./scan/match-pipeline";
 export type { PlanResult, RenameExecutorOptions, RenameOptions } from "./scan/rename-executor";
 export { RenameExecutor } from "./scan/rename-executor";
-export type { ScanGroupEntry } from "./scan/rename-plan-aggregator";
-export {
-  aggregateReviewPlan,
-  buildReviewPlan,
-  detectSwaps,
-  groupByAnime,
-} from "./scan/rename-plan-aggregator";
+export { aggregateReviewPlan, buildCanonicalIdMap } from "./scan/rename-plan-aggregator";
 export type {
   OrchestratorPipeline,
   ScanCompleteEvent,
+  ScanErrorEvent,
   ScanEvent,
   ScanExecutionProgressEvent,
   ScanOrchestratorOptions,

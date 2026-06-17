@@ -221,6 +221,10 @@ export type AppRPC = {
         sessionId: string;
         summary: ScanSummary;
       };
+      scanError: {
+        sessionId: string;
+        error: string;
+      };
       enrichmentProgress: {
         animeId: string;
         command: "artwork" | "metadata";

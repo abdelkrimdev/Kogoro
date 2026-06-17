@@ -2,14 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type {
+  CacheService,
   ConfigManager,
-  DatabasePlugin,
   MatcherLike,
   ReviewPlan,
   ScanEvent,
   ScanReviewReadyEvent,
 } from "@kogoro/core";
 import {
+  HashCache,
   LibraryService,
   Matcher,
   OverrideStore,
@@ -33,6 +34,7 @@ import {
   writeTempFile,
 } from "@kogoro/core/testing";
 import type { PluginFactory } from "@kogoro/plugins";
+import { createFailingDbPlugin } from "../fixtures";
 import { createScanHandlers } from "./scan";
 
 function createOrchestratorWithRealScan(
@@ -59,23 +61,18 @@ function createOrchestratorWithRealScan(
     directoryTemplate: SCHEMA_DEFAULTS.template.directory,
   });
 
-  const scanner = new Scanner({ matcher, renamer, overrideStore });
+  const { cacheService } = createMatchCacheService();
+  const hashCache = new HashCache({ cacheService, overrideStore });
+  const scanner = new Scanner({ hashCache, matcher, renamer, overrideStore });
 
   return new ScanOrchestrator({
     pipeline: {
       walk: async (path: string) => walk(path, SCHEMA_DEFAULTS["media-extensions"]),
-      scanBatch: async (filePaths, options) =>
-        scanner.scanBatch(filePaths, { force: options.force, dryRun: options.dryRun }),
+      scanBatch: async (filePaths, options, ctx) =>
+        scanner.scanBatch(filePaths, { force: options.force, dryRun: options.dryRun, ctx }),
     },
     matcher,
     renamer,
-  });
-}
-
-function createFailingDbPlugin(): DatabasePlugin {
-  return createMockDb({
-    searchAnime: () => [],
-    getEpisodes: () => [],
   });
 }
 
@@ -516,6 +513,7 @@ describe("ScanOrchestrator", () => {
             scanReviewReady: () => {},
             scanExecutionProgress: () => {},
             scanComplete: () => {},
+            scanError: () => {},
           },
         });
 
@@ -602,6 +600,7 @@ describe("ScanOrchestrator", () => {
             },
             scanExecutionProgress: () => {},
             scanComplete: () => {},
+            scanError: () => {},
           },
         });
 
@@ -637,6 +636,58 @@ describe("ScanOrchestrator", () => {
         expect(cached?.animeId).toBe(candidate.animeId);
 
         close();
+      });
+    });
+  });
+
+  describe("error handling", () => {
+    test("sends scanError event when orchestrator creation fails", async () => {
+      await withTempDir("scan-error-orchestrator", async (dir) => {
+        const capturedErrors: Array<{ sessionId: string; error: string }> = [];
+
+        const handlers = createScanHandlers({
+          pluginFactory: {
+            primaryDatabase: async () => {
+              throw new Error("Database connection failed");
+            },
+            subtitle: async () => undefined,
+          } as unknown as PluginFactory,
+          configManager: {
+            getTemplate: () => TEMPLATE_PRESETS.standard,
+            get: (key: string) => {
+              if (key === "template.directory") return SCHEMA_DEFAULTS.template.directory;
+              if (key === "primary-db") return "tvdb";
+              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
+              return undefined;
+            },
+            getList: (key: string) => {
+              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
+              return [];
+            },
+            resolveMediaExtensions: () => SCHEMA_DEFAULTS["media-extensions"],
+          } as unknown as ConfigManager,
+          cacheService: {} as unknown as CacheService,
+          libraryService: {} as unknown as LibraryService,
+          scanStateService: {} as unknown as ScanStateService,
+          mergeMatches: () => {},
+          send: {
+            scanProgress: () => {},
+            scanPhaseComplete: () => {},
+            scanReviewReady: () => {},
+            scanExecutionProgress: () => {},
+            scanComplete: () => {},
+            scanError: (data) => capturedErrors.push(data),
+          },
+        });
+
+        const { sessionId } = await handlers.scanStart({ path: dir });
+        await new Promise((r) => setTimeout(r, 100));
+
+        expect(capturedErrors.length).toBe(1);
+        expect(capturedErrors[0]).toMatchObject({
+          sessionId,
+          error: "Database connection failed",
+        });
       });
     });
   });

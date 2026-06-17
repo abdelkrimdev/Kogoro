@@ -114,6 +114,15 @@ export function reduceMessage(
         statusText: text,
       };
     }
+    case "scanError": {
+      const event = data as { error: string };
+      return {
+        ...state,
+        isScanning: false,
+        isBatchScanning: false,
+        statusText: `Scan failed: ${event.error}`,
+      };
+    }
     case "enrichmentProgress": {
       const event = data as {
         command: string;

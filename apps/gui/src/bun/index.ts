@@ -92,6 +92,7 @@ const scanHandlers = createScanHandlers({
     scanReviewReady: (data) => rpc.send.scanReviewReady(data),
     scanExecutionProgress: (data) => rpc.send.scanExecutionProgress(data),
     scanComplete: (data) => rpc.send.scanComplete(data),
+    scanError: (data) => rpc.send.scanError(data),
   },
 });
 

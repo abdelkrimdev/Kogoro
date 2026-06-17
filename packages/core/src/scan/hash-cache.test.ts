@@ -1,42 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { basename } from "node:path";
+import { statSync } from "node:fs";
 import {
   createMatchCacheService,
+  hashFile,
   makeCachedMatch,
   makeMatchResult,
+  overrideKey,
   withTempDir,
   writeTempFile,
 } from "../fixtures";
 import { OverrideStore } from "../match/override-store";
-import { computeFileHash, HashCache } from "./hash-cache";
-
-describe("computeFileHash", () => {
-  test("produces consistent hash for same input", () => {
-    const hash1 = computeFileHash("test.mkv");
-    const hash2 = computeFileHash("test.mkv");
-    expect(hash1).toBe(hash2);
-  });
-
-  test("produces different hashes for different inputs", () => {
-    const hash1 = computeFileHash("file1.mkv");
-    const hash2 = computeFileHash("file2.mkv");
-    expect(hash1).not.toBe(hash2);
-  });
-});
+import { HashCache } from "./hash-cache";
 
 describe("HashCache", () => {
   describe("prepareFile", () => {
-    test("returns empty hash when no cache service", async () => {
-      const hashCache = new HashCache({});
-      const result = await hashCache.prepareFile("/fake/file.mkv");
-
-      expect(result.hash).toBe("");
-      expect(result.cachedMatch).toBeNull();
-      expect(result.override).toBeNull();
-      expect(result.overrideKey).toBeTruthy();
-    });
-
-    test("computes hash and looks up cache when cache service provided", async () => {
+    test("computes hash and looks up cache", async () => {
       await withTempDir("hashcache-prepare", async (_dir) => {
         const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
         const { cacheService } = createMatchCacheService();
@@ -46,7 +24,8 @@ describe("HashCache", () => {
 
         expect(result.hash).toBeTruthy();
         expect(result.cachedMatch).toBeNull();
-        expect(result.overrideKey).toBe(computeFileHash(basename(filePath)));
+        expect(result.overrideKey).toBe(overrideKey(filePath));
+        expect(result.sourceDb).toBe("tvdb");
       });
     });
 
@@ -76,7 +55,7 @@ describe("HashCache", () => {
         const first = await hashCache.prepareFile(filePath);
         cacheService.storeMatchFromResult(first.hash, makeMatchResult(), "tvdb");
 
-        const second = await hashCache.prepareFile(filePath, undefined, true);
+        const second = await hashCache.prepareFile(filePath, true);
         expect(second.cachedMatch).toBeNull();
       });
     });
@@ -84,11 +63,12 @@ describe("HashCache", () => {
     test("returns override when one exists", async () => {
       await withTempDir("hashcache-override", async (dir) => {
         const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
+        const { cacheService } = createMatchCacheService();
         const overrideStore = new OverrideStore(dir);
-        const hashCache = new HashCache({ overrideStore });
+        const hashCache = new HashCache({ cacheService, overrideStore });
 
-        const overrideKey = computeFileHash(basename(filePath));
-        overrideStore.set(overrideKey, { animeId: "tvdb-99" });
+        const key = overrideKey(filePath);
+        overrideStore.set(key, { animeId: "tvdb-99" });
 
         const result = await hashCache.prepareFile(filePath);
         expect(result.override).not.toBeNull();
@@ -110,6 +90,107 @@ describe("HashCache", () => {
         const hashCacheAnidb = new HashCache({ cacheService, sourceDb: "anidb" });
         const resultAnidb = await hashCacheAnidb.prepareFile(filePath);
         expect(resultAnidb.cachedMatch).toBeNull();
+      });
+    });
+
+    test("skips re-hashing when scan state is up to date", async () => {
+      await withTempDir("hashcache-skip-hash", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
+        const { cacheService, scanStateService, close } = createMatchCacheService();
+        const hashCache = new HashCache({ cacheService, scanStateService });
+
+        const first = await hashCache.prepareFile(filePath);
+        expect(first.hash).toBeTruthy();
+
+        const stat = statSync(filePath);
+        const stored = scanStateService.get(filePath);
+        expect(stored).not.toBeNull();
+        expect(stored?.hash).toBe(first.hash);
+        expect(stored?.size).toBe(stat.size);
+        expect(stored?.mtime).toBe(Math.floor(stat.mtimeMs / 1000));
+
+        const second = await hashCache.prepareFile(filePath);
+        expect(second.hash).toBe(first.hash);
+
+        close();
+      });
+    });
+
+    test("stores scan state after hashing", async () => {
+      await withTempDir("hashcache-store-state", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
+        const { cacheService, scanStateService, close } = createMatchCacheService();
+        const hashCache = new HashCache({ cacheService, scanStateService });
+
+        const result = await hashCache.prepareFile(filePath);
+
+        const stat = statSync(filePath);
+        const stored = scanStateService.get(filePath);
+        expect(stored).not.toBeNull();
+        expect(stored?.hash).toBe(result.hash);
+        expect(stored?.size).toBe(stat.size);
+        expect(stored?.mtime).toBe(Math.floor(stat.mtimeMs / 1000));
+
+        close();
+      });
+    });
+
+    test("falls through to full hash when scan state is stale", async () => {
+      await withTempDir("hashcache-stale-state", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
+        const { cacheService, scanStateService, close } = createMatchCacheService();
+        const hashCache = new HashCache({ cacheService, scanStateService });
+
+        scanStateService.set(filePath, 999, 999, "stale-hash");
+
+        const result = await hashCache.prepareFile(filePath);
+        expect(result.hash).toBeTruthy();
+        expect(result.hash).not.toBe("stale-hash");
+
+        const stored = scanStateService.get(filePath);
+        expect(stored?.hash).toBe(result.hash);
+
+        close();
+      });
+    });
+
+    test("returns cached match from scan state hash without re-hashing", async () => {
+      await withTempDir("hashcache-cached-from-state", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
+        const { cacheService, scanStateService, close } = createMatchCacheService();
+
+        const hash = await hashFile(filePath);
+        const stat = statSync(filePath);
+        scanStateService.set(filePath, stat.size, Math.floor(stat.mtimeMs / 1000), hash);
+        cacheService.set(hash, makeCachedMatch({ animeId: "42", episodeId: "200" }));
+
+        const hashCache = new HashCache({ cacheService, scanStateService });
+        const result = await hashCache.prepareFile(filePath);
+
+        expect(result.hash).toBe(hash);
+        expect(result.cachedMatch).not.toBeNull();
+        expect(result.cachedMatch?.animeId).toBe("42");
+        expect(result.cachedMatch?.episodeId).toBe("200");
+
+        close();
+      });
+    });
+
+    test("force bypasses scan state cache and re-hashes", async () => {
+      await withTempDir("hashcache-force-bypass", async (_dir) => {
+        const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
+        const { cacheService, scanStateService, close } = createMatchCacheService();
+
+        const hash = await hashFile(filePath);
+        const stat = statSync(filePath);
+        scanStateService.set(filePath, stat.size, Math.floor(stat.mtimeMs / 1000), hash);
+
+        const hashCache = new HashCache({ cacheService, scanStateService });
+        const result = await hashCache.prepareFile(filePath, true);
+
+        expect(result.hash).toBe(hash);
+
+        close();
       });
     });
   });
@@ -143,28 +224,20 @@ describe("HashCache", () => {
         expect(cacheService.has(resultHash)).toBe(true);
       });
     });
-
-    test("returns hash unchanged when no cache service", async () => {
-      const hashCache = new HashCache({});
-      const resultHash = await hashCache.persistMatch(
-        "/fake/file.mkv",
-        "abc123",
-        makeMatchResult(),
-      );
-      expect(resultHash).toBe("abc123");
-    });
   });
 
   describe("persistOverride", () => {
     test("stores override in override store", async () => {
       await withTempDir("hashcache-persist-override", async (dir) => {
+        const { cacheService } = createMatchCacheService();
         const overrideStore = new OverrideStore(dir);
-        const hashCache = new HashCache({ overrideStore });
+        const hashCache = new HashCache({ cacheService, overrideStore });
 
+        const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
         const match = makeMatchResult();
-        hashCache.persistOverride("hash123", match);
+        hashCache.persistOverride(filePath, match);
 
-        const stored = overrideStore.get("hash123");
+        const stored = overrideStore.get(overrideKey(filePath));
         expect(stored).not.toBeNull();
         expect(stored?.animeId).toBe("1");
         expect(stored?.episodeId).toBe("101");
@@ -172,19 +245,12 @@ describe("HashCache", () => {
       });
     });
 
-    test("does nothing when no override store", () => {
-      const hashCache = new HashCache({});
-      hashCache.persistOverride("hash123", makeMatchResult());
-    });
-
-    test("does nothing when overrideKey is undefined", async () => {
-      await withTempDir("hashcache-no-key", async (dir) => {
-        const overrideStore = new OverrideStore(dir);
-        const hashCache = new HashCache({ overrideStore });
-
-        hashCache.persistOverride(undefined, makeMatchResult());
-
-        expect(overrideStore.list()).toHaveLength(0);
+    test("does nothing when no override store", async () => {
+      await withTempDir("hashcache-no-store", async (dir) => {
+        const { cacheService } = createMatchCacheService();
+        const hashCache = new HashCache({ cacheService });
+        const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv");
+        hashCache.persistOverride(filePath, makeMatchResult());
       });
     });
   });

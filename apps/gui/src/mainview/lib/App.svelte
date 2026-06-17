@@ -185,6 +185,11 @@
         snap = reduceClearAfterComplete(snap);
         return;
       }
+      if (message === "scanError") {
+        snap = reduceMessage(snap, message, data);
+        snap = reduceClearAfterComplete(snap);
+        return;
+      }
       snap = reduceMessage(snap, message, data);
     });
     return unsub;

@@ -1,4 +1,5 @@
 import type { FileRow, ReviewGroup, ReviewPlan, ScanFileStatus } from "@kogoro/core";
+import { createMockDb } from "@kogoro/core/testing";
 import type { EpisodeRow } from "./mainview/state/detail-state";
 import type { LibraryItem, LibraryState } from "./mainview/state/library-state";
 import type { ReviewState, StatusFilter } from "./mainview/state/review-state";
@@ -127,4 +128,11 @@ export function createMockRPC(responses: Record<string, unknown> = {}) {
       return responses[method] ?? null;
     },
   };
+}
+
+export function createFailingDbPlugin() {
+  return createMockDb({
+    searchAnime: () => [],
+    getEpisodes: () => [],
+  });
 }

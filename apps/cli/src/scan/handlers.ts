@@ -15,13 +15,15 @@ import {
   SCHEMA_DEFAULTS,
   type Scanner,
   type ScanResult,
+  type ScanStateService,
   walk,
 } from "@kogoro/core";
 import type { Logger } from "../logger";
 
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
-  cacheService?: CacheService;
+  cacheService: CacheService;
+  scanStateService?: ScanStateService;
   renamer?: Renamer;
   config?: ConfigManager;
   overrideStore?: OverrideStore;
@@ -65,6 +67,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
   const pipeline = createScanComponents({
     config: options.config,
     cacheService: options.cacheService,
+    scanStateService: options.scanStateService,
     database: options.database,
     renamer: options.renamer,
     overrideStore: options.overrideStore,

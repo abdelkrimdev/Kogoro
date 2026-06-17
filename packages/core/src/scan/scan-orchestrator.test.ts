@@ -8,6 +8,7 @@ import {
   withTempDir,
 } from "../fixtures";
 import { hashFile } from "../io/file-hash";
+import type { TaskContext } from "../io/progress";
 import type { ReviewPlan } from "../types";
 import {
   type ScanCompleteEvent,
@@ -36,7 +37,20 @@ function makeScanResult(file: string, overrides?: Partial<ScanResult>): ScanResu
 }
 
 function makeBatchScan(scanFn: (file: string) => Promise<ScanResult>) {
-  return async (filePaths: string[]) => Promise.all(filePaths.map(scanFn));
+  return async (filePaths: string[], _options?: unknown, ctx?: TaskContext) => {
+    const results = await Promise.all(filePaths.map(scanFn));
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (!result) continue;
+      ctx?.progress({
+        completed: i + 1,
+        total: results.length,
+        file: result.file,
+        status: result.status,
+      });
+    }
+    return results;
+  };
 }
 
 describe("ScanOrchestrator", () => {
@@ -1605,8 +1619,8 @@ describe("ScanOrchestrator", () => {
         const orch = new ScanOrchestrator({
           pipeline: {
             walk: async () => [file1],
-            scanBatch: async (filePaths) => {
-              return filePaths.map((filePath) => {
+            scanBatch: async (filePaths, _options, ctx) => {
+              const results = filePaths.map((filePath) => {
                 return makeScanResult(filePath, {
                   hash: hash1,
                   match: makeMatchResult({ anime: { id: "1", titleEn: "JJK", entryType: "tv" } }),
@@ -1622,6 +1636,17 @@ describe("ScanOrchestrator", () => {
                   },
                 });
               });
+              for (let i = 0; i < results.length; i++) {
+                const result = results[i];
+                if (!result) continue;
+                ctx?.progress({
+                  completed: i + 1,
+                  total: results.length,
+                  file: result.file,
+                  status: result.status,
+                });
+              }
+              return results;
             },
             plan: () => ({
               sourcePath: file1,

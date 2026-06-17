@@ -1,23 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
-import { basename, join } from "node:path";
-import { ConfigManager, computeFileHash, OverrideStore, SCHEMA_DEFAULTS } from "@kogoro/core";
+import { join } from "node:path";
+import { ConfigManager, OverrideStore, SCHEMA_DEFAULTS } from "@kogoro/core";
 import {
   createMockDb as _createMockDb,
   createMatchCacheService,
   makeEpisodes,
+  overrideKey,
   withTempDir,
   writeTempFile,
 } from "@kogoro/core/testing";
-import { createStandardMockDb, makeMockLogger, makeThrowingDb } from "../fixtures";
-import { createScanHandlers } from "./handlers";
+import { createTestHandlers, makeMockLogger, makeThrowingDb } from "../fixtures";
 
 describe("scan CLI commands", () => {
   test("directory scan with -y returns JSON with matched files", async () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] Test Anime - 01.mkv", "");
 
-      const handlers = createScanHandlers({ database: createStandardMockDb() });
+      const handlers = createTestHandlers();
       const results = await handlers.scan(dir, { yes: true });
 
       expect(results).toHaveLength(1);
@@ -30,7 +30,7 @@ describe("scan CLI commands", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "content");
 
-      const handlers = createScanHandlers({ database: createStandardMockDb() });
+      const handlers = createTestHandlers();
       const results = await handlers.scan(filePath, { yes: true });
 
       expect(results).toHaveLength(1);
@@ -43,7 +43,7 @@ describe("scan CLI commands", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
-      const handlers = createScanHandlers({ database: createStandardMockDb() });
+      const handlers = createTestHandlers();
       const results = await handlers.scan(filePath, { yes: true, dryRun: true });
 
       expect(results[0]?.status).toBe("matched");
@@ -57,7 +57,7 @@ describe("scan CLI commands", () => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "same content");
       const { cacheService } = createMatchCacheService(dir);
 
-      const handlers = createScanHandlers({ database: createStandardMockDb(), cacheService });
+      const handlers = createTestHandlers({ cacheService });
       const first = await handlers.scan(filePath, { yes: true, dryRun: true });
       expect(first[0]?.status).toBe("matched");
 
@@ -71,7 +71,7 @@ describe("scan CLI commands", () => {
       const filePath = writeTempFile(dir, "[Group] Anime - 01.mkv", "content");
       const { cacheService } = createMatchCacheService(dir);
 
-      const handlers = createScanHandlers({ database: createStandardMockDb(), cacheService });
+      const handlers = createTestHandlers({ cacheService });
       await handlers.scan(filePath, { yes: true, dryRun: true });
       const results = await handlers.scan(filePath, { yes: true, dryRun: true, force: true });
       expect(results[0]?.status).toBe("matched");
@@ -82,7 +82,7 @@ describe("scan CLI commands", () => {
     await withTempDir("scan", async (dir) => {
       const filePath = writeTempFile(dir, "My Anime - 01.mkv", "content");
 
-      const handlers = createScanHandlers({ database: createStandardMockDb() });
+      const handlers = createTestHandlers();
       const results = await handlers.scan(filePath, { yes: true, action: "copy" });
 
       expect(results[0]?.status).toBe("matched");
@@ -106,7 +106,7 @@ describe("scan CLI commands", () => {
         ],
       });
 
-      const handlers = createScanHandlers({ database: ambiguousDb });
+      const handlers = createTestHandlers({ database: ambiguousDb });
       const results = await handlers.scan(filePath, { yes: true, dryRun: true });
 
       expect(results[0]?.status).toBe("matched");
@@ -115,10 +115,10 @@ describe("scan CLI commands", () => {
 
   test("returns matched and failed statuses for mixed files", async () => {
     await withTempDir("scan-mixed", async (dir) => {
-      writeTempFile(dir, "[Group] One Piece - 01.mkv", "");
-      writeTempFile(dir, "[Group] One Piece - 02.mkv", "");
-      writeTempFile(dir, "Some Anime - 01.mkv", "");
-      writeTempFile(dir, "randomfile.mkv", "");
+      writeTempFile(dir, "[Group] One Piece - 01.mkv", "content-a");
+      writeTempFile(dir, "[Group] One Piece - 02.mkv", "content-b");
+      writeTempFile(dir, "Some Anime - 01.mkv", "content-c");
+      writeTempFile(dir, "randomfile.mkv", "content-d");
 
       const mixedDb = _createMockDb({
         searchAnime: (title: string) => {
@@ -150,7 +150,7 @@ describe("scan CLI commands", () => {
         ],
       });
 
-      const handlers = createScanHandlers({ database: mixedDb });
+      const handlers = createTestHandlers({ database: mixedDb });
       const results = await handlers.scan(dir, { yes: true, dryRun: true });
 
       expect(results).toHaveLength(4);
@@ -167,7 +167,7 @@ describe("scan CLI commands", () => {
       mkdirSync(subDir, { recursive: true });
       const filePath = writeTempFile(subDir, "[Group] Test Anime - 01.mkv", "content");
 
-      const handlers = createScanHandlers({ database: createStandardMockDb() });
+      const handlers = createTestHandlers();
       const results = await handlers.scan(dir, { yes: true });
 
       expect(results).toHaveLength(1);
@@ -188,7 +188,7 @@ describe("scan CLI commands", () => {
       const config = new ConfigManager({ configDir });
       config.set("template.preset", "plex");
 
-      const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+      const handlers = createTestHandlers({ config });
       const results = await handlers.scan(filePath, { yes: true, dryRun: true });
 
       expect(results).toHaveLength(1);
@@ -207,7 +207,7 @@ describe("scan CLI commands", () => {
       config.set("template.preset", "plex");
       config.set("template.custom", "{anime} - E{episode:02}");
 
-      const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+      const handlers = createTestHandlers({ config });
       const results = await handlers.scan(filePath, { yes: true, dryRun: true });
 
       expect(results[0]?.status).toBe("matched");
@@ -220,7 +220,7 @@ describe("scan CLI commands", () => {
       writeTempFile(dir, "video.mkv", "content");
       writeTempFile(dir, "text.txt", "content");
 
-      const handlers = createScanHandlers({ database: createStandardMockDb() });
+      const handlers = createTestHandlers();
       const results = await handlers.scan(dir, {
         yes: true,
         dryRun: true,
@@ -237,7 +237,7 @@ describe("scan CLI commands", () => {
       const filePath = writeTempFile(dir, "[Group] Some Show - 01.mkv", "content");
 
       const overrideStore = new OverrideStore(dir);
-      const fileHash = computeFileHash(basename(filePath));
+      const fileHash = overrideKey(filePath);
       overrideStore.set(fileHash, {
         animeId: "99",
         episodeId: "ep-42",
@@ -246,7 +246,7 @@ describe("scan CLI commands", () => {
 
       const throwingDb = makeThrowingDb();
 
-      const handlers = createScanHandlers({ database: throwingDb, overrideStore });
+      const handlers = createTestHandlers({ database: throwingDb, overrideStore });
       const results = await handlers.scan(filePath, { yes: true });
 
       expect(results).toHaveLength(1);
@@ -266,7 +266,7 @@ describe("scan CLI commands", () => {
         getEpisodes: () => episodes,
       });
 
-      const handlers = createScanHandlers({ database: db });
+      const handlers = createTestHandlers({ database: db });
       const results = await handlers.scan(dir, {
         yes: true,
         dryRun: true,
@@ -289,7 +289,7 @@ describe("scan CLI commands", () => {
         getEpisodes: () => episodes,
       });
 
-      const handlers = createScanHandlers({ database: db });
+      const handlers = createTestHandlers({ database: db });
       const results = await handlers.scan(dir, {
         yes: true,
         dryRun: true,
@@ -318,7 +318,7 @@ describe("scan CLI commands", () => {
         const config = new ConfigManager({ configDir });
         config.set("episodeNumbering", "absolute");
 
-        const handlers = createScanHandlers({ database: db, config });
+        const handlers = createTestHandlers({ database: db, config });
         const results = await handlers.scan(dir, { yes: true, dryRun: true });
 
         expect(results).toHaveLength(1);
@@ -337,7 +337,7 @@ describe("scan CLI commands", () => {
           getEpisodes: () => episodes,
         });
 
-        const handlers = createScanHandlers({ database: db });
+        const handlers = createTestHandlers({ database: db });
         const results = await handlers.scan(dir, { yes: true, dryRun: true });
 
         expect(results).toHaveLength(1);
@@ -355,7 +355,7 @@ describe("scan CLI commands", () => {
         const config = new ConfigManager({ configDir });
         config.set("renameAction", "copy");
 
-        const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+        const handlers = createTestHandlers({ config });
         const results = await handlers.scan(filePath, { yes: true });
 
         expect(results).toHaveLength(1);
@@ -374,7 +374,7 @@ describe("scan CLI commands", () => {
         const config = new ConfigManager({ configDir });
         config.set("scanConcurrency", "2");
 
-        const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+        const handlers = createTestHandlers({ config });
         const results = await handlers.scan(dir, { yes: true, dryRun: true });
 
         expect(results).toHaveLength(1);
@@ -392,7 +392,7 @@ describe("scan CLI commands", () => {
         const config = new ConfigManager({ configDir });
         config.set("excludePatterns", ".nfo");
 
-        const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+        const handlers = createTestHandlers({ config });
         const results = await handlers.scan(dir, { yes: true, dryRun: true });
 
         expect(results).toHaveLength(1);
@@ -410,7 +410,7 @@ describe("scan CLI commands", () => {
         const config = new ConfigManager({ configDir });
         config.set("mediaExtensions", ".custom");
 
-        const handlers = createScanHandlers({ database: createStandardMockDb(), config });
+        const handlers = createTestHandlers({ config });
         const results = await handlers.scan(dir, {
           yes: true,
           dryRun: true,
@@ -428,7 +428,7 @@ describe("scan CLI commands", () => {
         writeTempFile(dir, "[Group] Test Anime - 01.mkv", "content");
 
         const { logger, progressLines } = makeMockLogger();
-        const handlers = createScanHandlers({ database: createStandardMockDb() });
+        const handlers = createTestHandlers();
         await handlers.scan(dir, { yes: true }, logger);
 
         expect(progressLines.length).toBeGreaterThanOrEqual(1);

@@ -29,8 +29,6 @@ export function buildCanonicalIdMap(plan: ReviewPlan): Map<string, string> {
   return map;
 }
 
-export type { TopCandidate };
-
 export interface ScanSwapPair {
   files: [string, string];
   episodeA: number;
@@ -84,36 +82,33 @@ function lowestNumericId(ids: string[]): string {
   return ids.sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))[0] ?? "";
 }
 
-function toSwapInputFromScanResult(result: ScanResult): SwapInputEntry | null {
-  if (!result.match?.episode || result.parsed.episode === null) return null;
-
-  const matchEp = result.match.episode;
-  const proposedSeason = result.plan?.targetPath
-    ? extractSeasonFromPath(result.plan.targetPath)
-    : null;
-  const proposedEpisode = result.plan?.targetPath
-    ? extractEpisodeFromPath(result.plan.targetPath)
-    : null;
-
-  return {
-    fileId: result.file,
-    filePath: result.file,
-    animeId: result.match.anime.id,
-    season: result.parsed.season ?? matchEp.season,
-    episode: result.parsed.episode,
-    proposedEpisode: proposedEpisode ?? matchEp.episode,
-    proposedSeason: proposedSeason ?? matchEp.season,
-  };
-}
-
 export function detectSwaps(results: ScanResult[]): ScanSwapPair[] {
   const byAnime = groupByAnime(results);
   const swaps: ScanSwapPair[] = [];
 
   for (const [, group] of byAnime) {
-    const entries = group
-      .map(toSwapInputFromScanResult)
-      .filter((e): e is SwapInputEntry => e !== null);
+    const entries: SwapInputEntry[] = [];
+    for (const r of group) {
+      if (!r.match?.episode || r.parsed.episode === null) continue;
+
+      const matchEp = r.match.episode;
+      const proposedEpisode = r.plan?.targetPath
+        ? extractEpisodeFromPath(r.plan.targetPath)
+        : matchEp.episode;
+      const proposedSeason = r.plan?.targetPath
+        ? extractSeasonFromPath(r.plan.targetPath)
+        : matchEp.season;
+
+      entries.push({
+        fileId: r.file,
+        filePath: r.file,
+        animeId: r.match.anime.id,
+        season: r.parsed.season ?? matchEp.season,
+        episode: r.parsed.episode,
+        proposedEpisode,
+        proposedSeason,
+      });
+    }
 
     const results = detectSwapsCore(entries);
     for (const r of results) {
@@ -231,10 +226,6 @@ export function buildReviewPlan(
   };
 }
 
-function generateFileId(): string {
-  return randomUUID();
-}
-
 function toSwapInputFromRow(row: FileRow): SwapInputEntry | null {
   if (!row.animeId || row.episode === null) return null;
 
@@ -260,7 +251,7 @@ function detectSwapsFromRows(files: FileRow[]): SwapPair[] {
   return results.map((r) => ({ fileAId: r.fileAId, fileBId: r.fileBId }));
 }
 
-function toFileRow(result: ScanResult): FileRow {
+function toFileRow(result: ScanResult, fileId: string): FileRow {
   let status: ScanFileStatus;
   if (result.status === "matched" || result.status === "cached") {
     status = result.plan ? "matched" : "cached";
@@ -269,7 +260,7 @@ function toFileRow(result: ScanResult): FileRow {
   }
 
   return {
-    fileId: generateFileId(),
+    fileId,
     sourcePath: result.file,
     proposedPath: result.plan?.targetPath ?? null,
     status,
@@ -296,7 +287,7 @@ export async function aggregateReviewPlan(
       ambiguousCount++;
     }
 
-    const row = toFileRow(result);
+    const row = toFileRow(result, randomUUID());
     const matchedAnime = result.match?.anime;
     const animeId = matchedAnime?.id ?? `failed-${row.fileId}`;
     const animeTitle = matchedAnime?.titleEn ?? "Unresolved";

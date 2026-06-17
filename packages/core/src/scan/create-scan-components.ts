@@ -4,14 +4,17 @@ import { walk } from "../io/directory-walker";
 import type { CacheService } from "../match/cache-service";
 import { Matcher } from "../match/matcher";
 import { OverrideStore } from "../match/override-store";
+import type { ScanStateService } from "../match/scan-state-service";
 import { Renamer } from "../rename/renamer";
 import type { SanitizeConfig } from "../rename/sanitize";
 import type { DatabasePlugin } from "../types";
+import { HashCache } from "./hash-cache";
 import { Scanner } from "./scanner";
 
 export interface CreateScanComponentsOptions {
   config?: ConfigManager;
-  cacheService?: CacheService;
+  cacheService: CacheService;
+  scanStateService?: ScanStateService;
   database?: DatabasePlugin;
   renamer?: Renamer;
   overrideStore?: OverrideStore;
@@ -41,7 +44,7 @@ function resolveDirectoryTemplate(config?: ConfigManager): string {
 }
 
 export function createScanComponents(options: CreateScanComponentsOptions): ScanComponents {
-  const { config, cacheService, database, sourceDb: sourceDbOverride } = options;
+  const { config, cacheService, scanStateService, database, sourceDb: sourceDbOverride } = options;
 
   const filenameTemplate = resolveFilenameTemplate(config);
   const directoryTemplate = resolveDirectoryTemplate(config);
@@ -61,12 +64,18 @@ export function createScanComponents(options: CreateScanComponentsOptions): Scan
 
   const sourceDb = sourceDbOverride ?? (config?.get("primary-db") as string | undefined) ?? "tvdb";
 
+  const hashCache = new HashCache({
+    cacheService,
+    overrideStore,
+    scanStateService,
+    sourceDb,
+  });
+
   const scanner = new Scanner({
     matcher,
-    cacheService,
+    hashCache,
     renamer,
     overrideStore,
-    sourceDb,
   });
 
   const extensions = config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];

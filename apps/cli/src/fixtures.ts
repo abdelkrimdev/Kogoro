@@ -1,4 +1,13 @@
-import type { DatabasePlugin, EntryType, EpisodeResult, SubtitlePlugin } from "@kogoro/core";
+import type {
+  ConfigManager,
+  DatabasePlugin,
+  EntryType,
+  EpisodeResult,
+  OverrideStore,
+  SubtitlePlugin,
+} from "@kogoro/core";
+import { createMatchCacheService } from "@kogoro/core/testing";
+import { createScanHandlers } from "./scan/handlers";
 
 export function captureStreams() {
   const stdoutMessages: string[] = [];
@@ -196,4 +205,21 @@ export function createMockPlugin(): DatabasePlugin {
       return null;
     },
   };
+}
+
+export function createTestHandlers(overrides?: {
+  database?: ReturnType<typeof createStandardMockDb>;
+  cacheService?: ReturnType<typeof createMatchCacheService>["cacheService"];
+  overrideStore?: OverrideStore;
+  config?: ConfigManager;
+}) {
+  const { cacheService } = overrides?.cacheService
+    ? { cacheService: overrides.cacheService }
+    : createMatchCacheService();
+  return createScanHandlers({
+    database: overrides?.database ?? createStandardMockDb(),
+    cacheService,
+    overrideStore: overrides?.overrideStore,
+    config: overrides?.config,
+  });
 }

@@ -125,7 +125,7 @@
         } | null;
         if (!result) { continue; }
 
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
           const unsub = onMessage((message, data) => {
             if (message === "scanReviewReady") {
               const event = data as { sessionId: string; plan: ReviewPlan };
@@ -133,6 +133,12 @@
                 onBatchFolderComplete(folder.path, event.plan);
                 unsub();
                 resolve();
+              }
+            } else if (message === "scanError") {
+              const event = data as { sessionId: string; error: string };
+              if (event.sessionId === result.sessionId) {
+                unsub();
+                reject(new Error(event.error));
               }
             }
           });
