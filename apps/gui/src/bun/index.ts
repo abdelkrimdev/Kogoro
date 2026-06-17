@@ -53,7 +53,7 @@ const libraryService = new LibraryService(libraryRepo);
 
 const libraryHandlers = createLibraryHandlers({
   libraryService,
-  getSourceDb: () => String(configManager.get("primary-db") ?? "tvdb"),
+  getSourceDb: () => configManager.primaryDb,
 });
 
 const enrichmentHandlers = createEnrichmentHandlers({

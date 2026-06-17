@@ -29,7 +29,7 @@ export interface SubtitleSummary {
 
 function resolveLanguage(cliLang: string | undefined, config?: ConfigManager): string {
   if (cliLang) return cliLang;
-  const fromConfig = config?.get("subtitle-language");
+  const fromConfig = config?.subtitleLanguage;
   if (typeof fromConfig === "string" && fromConfig.trim()) return fromConfig;
   return SCHEMA_DEFAULTS["subtitle-language"];
 }

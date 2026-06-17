@@ -17,6 +17,7 @@ import { registerCache } from "./cache/register";
 import { registerConfig } from "./config/register";
 import { registerDb } from "./database/register";
 import { registerMetadata } from "./metadata/register";
+import { registerOverride } from "./override/register";
 import { registerPlugins } from "./plugins/register";
 import { registerScan } from "./scan/register";
 import { registerSubtitle } from "./subtitle/register";
@@ -108,6 +109,7 @@ export async function run(argv: string[]): Promise<void> {
   registerSubtitle(parser, createSubtitleWithCredentials);
   registerMetadata(parser, createMetadataWithCredentials);
   registerConfig(parser);
+  registerOverride(parser);
   registerDb(parser, createDatabaseCommandsWithCredentials);
   registerCache(parser, { cacheService });
   registerPlugins(parser, config, credentialStore);

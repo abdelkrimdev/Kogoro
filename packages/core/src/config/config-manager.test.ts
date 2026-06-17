@@ -52,37 +52,6 @@ describe("ConfigManager", () => {
     });
   });
 
-  test("getList returns empty array for unset key", async () => {
-    await withTestConfig("config", async (_dir, config) => {
-      const list = config.getList("exclude-patterns");
-      expect(Array.isArray(list)).toBe(true);
-    });
-  });
-
-  test("getList parses comma-separated values for string keys", async () => {
-    await withTestConfig("config", async (_dir, config) => {
-      config.set("excludePatterns", ".part,.crdownload");
-      const list = config.getList("exclude-patterns");
-      expect(list).toEqual([".part", ".crdownload"]);
-    });
-  });
-
-  test("getList trims whitespace around values", async () => {
-    await withTestConfig("config", async (_dir, config) => {
-      config.set("excludePatterns", " .part , .crdownload ");
-      const list = config.getList("exclude-patterns");
-      expect(list).toEqual([".part", ".crdownload"]);
-    });
-  });
-
-  test("getList returns empty array for empty string", async () => {
-    await withTestConfig("config", async (_dir, config) => {
-      config.set("excludePatterns", "");
-      const list = config.getList("exclude-patterns");
-      expect(list).toEqual([]);
-    });
-  });
-
   test("set with valid key persists to disk", async () => {
     await withTestConfig("config", async (_dir, config) => {
       config.set("template.preset", "plex");
@@ -138,62 +107,8 @@ describe("ConfigManager", () => {
     });
   });
 
-  describe("plugin enable/disable", () => {
-    test("isPluginEnabled returns true when plugin is not configured", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        expect(config.isPluginEnabled("tvdb")).toBe(true);
-      });
-    });
-
-    test("isPluginEnabled returns false when plugin is disabled", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        config.set("plugins.tvdb.enabled", "false");
-        expect(config.isPluginEnabled("tvdb")).toBe(false);
-      });
-    });
-
-    test("isPluginEnabled handles case-insensitive false values", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        config.set("plugins.tvdb.enabled", "FALSE");
-        expect(config.isPluginEnabled("tvdb")).toBe(false);
-      });
-    });
-
-    test("isPluginEnabled returns true when plugin is explicitly enabled", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        config.set("plugins.tvdb.enabled", "true");
-        expect(config.isPluginEnabled("tvdb")).toBe(true);
-      });
-    });
-
-    test("getDisabledPlugins returns empty set when no plugins are disabled", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        const disabled = config.getDisabledPlugins();
-        expect(disabled.size).toBe(0);
-      });
-    });
-
-    test("getDisabledPlugins returns only disabled plugins", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        config.set("plugins.tvdb.enabled", "false");
-        config.set("plugins.anidb.enabled", "true");
-        const disabled = config.getDisabledPlugins();
-        expect(disabled.has("tvdb")).toBe(true);
-        expect(disabled.has("anidb")).toBe(false);
-      });
-    });
-
-    test("getDisabledPlugins reads from persisted config", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        config.set("plugins.anidb.enabled", "false");
-
-        const mgr2 = new ConfigManager({ configDir: _dir });
-        const disabled = mgr2.getDisabledPlugins();
-        expect(disabled.has("anidb")).toBe(true);
-      });
-    });
-
-    test("plugins accessor returns plugin toggles", async () => {
+  describe("plugins accessor", () => {
+    test("returns plugin toggles", async () => {
       await withTestConfig("config", async (_dir, config) => {
         config.init();
         expect(config.plugins).toEqual({});

@@ -81,7 +81,7 @@ async function createScanOrchestrator(
     cacheService,
     scanStateService,
     database,
-    sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
+    sourceDb: configManager.primaryDb,
   });
 
   const { matcher, renamer, scanner } = components;
@@ -101,7 +101,7 @@ async function createScanOrchestrator(
       matcher: matcher ?? undefined,
       renamer,
       libraryService,
-      sourceDb: String(configManager.get("primary-db") ?? "tvdb"),
+      sourceDb: configManager.primaryDb,
       cacheService,
       scanStateService,
       force,

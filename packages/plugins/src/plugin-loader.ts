@@ -1,5 +1,6 @@
-import type { ConfigManager, CredentialStore, DatabasePlugin, SubtitlePlugin } from "@kogoro/core";
+import type { CredentialStore, DatabasePlugin, SubtitlePlugin } from "@kogoro/core";
 import { getManifestEntry, type PluginLoadContext } from "./plugin-manifest";
+import { isPluginEnabled } from "./plugin-registry";
 
 function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
   if (obj === null || typeof obj !== "object") return false;
@@ -26,10 +27,10 @@ export class PluginLoader {
 
   async loadDatabase(
     name: string,
-    config: ConfigManager,
+    plugins: Record<string, { enabled: boolean }> | undefined,
     credentialStore: CredentialStore,
   ): Promise<DatabasePlugin | undefined> {
-    if (!config.isPluginEnabled(name)) {
+    if (!isPluginEnabled(name, plugins)) {
       console.warn(`Plugin "${name}" is disabled`);
       return undefined;
     }

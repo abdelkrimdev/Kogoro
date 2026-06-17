@@ -38,9 +38,7 @@ function resolveFilenameTemplate(config?: ConfigManager): string {
 }
 
 function resolveDirectoryTemplate(config?: ConfigManager): string {
-  return (
-    (config?.get("template.directory") as string | undefined) ?? SCHEMA_DEFAULTS.template.directory
-  );
+  return config?.template.directory ?? SCHEMA_DEFAULTS.template.directory;
 }
 
 export function createScanComponents(options: CreateScanComponentsOptions): ScanComponents {
@@ -48,7 +46,7 @@ export function createScanComponents(options: CreateScanComponentsOptions): Scan
 
   const filenameTemplate = resolveFilenameTemplate(config);
   const directoryTemplate = resolveDirectoryTemplate(config);
-  const sanitize = config?.get("sanitize") as SanitizeConfig | undefined;
+  const sanitize = config?.sanitize as SanitizeConfig | undefined;
 
   const renamer =
     options.renamer ??
@@ -62,7 +60,7 @@ export function createScanComponents(options: CreateScanComponentsOptions): Scan
 
   const matcher = database ? new Matcher({ database }) : undefined;
 
-  const sourceDb = sourceDbOverride ?? (config?.get("primary-db") as string | undefined) ?? "tvdb";
+  const sourceDb = sourceDbOverride ?? config?.primaryDb ?? "tvdb";
 
   const hashCache = new HashCache({
     cacheService,
@@ -79,9 +77,7 @@ export function createScanComponents(options: CreateScanComponentsOptions): Scan
   });
 
   const extensions = config?.resolveMediaExtensions() ?? SCHEMA_DEFAULTS["media-extensions"];
-  const excludePatterns = config?.getList("exclude-patterns") ?? [
-    ...SCHEMA_DEFAULTS["exclude-patterns"],
-  ];
+  const excludePatterns = config?.excludePatterns ?? [...SCHEMA_DEFAULTS["exclude-patterns"]];
 
   return {
     matcher,

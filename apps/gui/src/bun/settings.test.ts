@@ -106,7 +106,7 @@ describe("togglePlugin", () => {
     const config = new ConfigManager();
     const result = togglePlugin(config, { plugin: "tvdb", enabled: true });
     expect(result).toEqual({ success: true });
-    expect(config.get("plugins.tvdb.enabled")).toBe(true);
+    expect(config.plugins["tvdb"]?.enabled).toBe(true);
   });
 
   test("disables plugin", () => {
@@ -114,7 +114,7 @@ describe("togglePlugin", () => {
     togglePlugin(config, { plugin: "tvdb", enabled: true });
     const result = togglePlugin(config, { plugin: "tvdb", enabled: false });
     expect(result).toEqual({ success: true });
-    expect(config.get("plugins.tvdb.enabled")).toBe(false);
+    expect(config.plugins["tvdb"]?.enabled).toBe(false);
   });
 });
 

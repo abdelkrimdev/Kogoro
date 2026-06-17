@@ -28,7 +28,7 @@ describe("PluginLoader", () => {
               "loader-tvdb",
               async (_dir, config, credentialStore) => {
                 const loader = new PluginLoader();
-                const plugin = await loader.loadDatabase("tvdb", config, credentialStore);
+                const plugin = await loader.loadDatabase("tvdb", config.plugins, credentialStore);
                 expect(plugin).toBeDefined();
                 expect(plugin?.constructor.name).toBe("TVDBPlugin");
 
@@ -55,8 +55,8 @@ describe("PluginLoader", () => {
               "loader-tvdb-cache",
               async (_dir, config, credentialStore) => {
                 const loader = new PluginLoader();
-                const first = await loader.loadDatabase("tvdb", config, credentialStore);
-                const second = await loader.loadDatabase("tvdb", config, credentialStore);
+                const first = await loader.loadDatabase("tvdb", config.plugins, credentialStore);
+                const second = await loader.loadDatabase("tvdb", config.plugins, credentialStore);
                 expect(first).toBeDefined();
                 expect(first).toBe(second);
               },
@@ -85,7 +85,7 @@ describe("PluginLoader", () => {
               "loader-anidb",
               async (_dir, config, credentialStore) => {
                 const loader = new PluginLoader();
-                const plugin = await loader.loadDatabase("anidb", config, credentialStore);
+                const plugin = await loader.loadDatabase("anidb", config.plugins, credentialStore);
                 expect(plugin).toBeDefined();
                 expect(plugin?.constructor.name).toBe("AniDBPlugin");
               },
@@ -119,7 +119,7 @@ describe("PluginLoader", () => {
           "loader-external",
           async (_dir, config, credentialStore) => {
             const loader = new PluginLoader();
-            const plugin = await loader.loadDatabase("myextdb", config, credentialStore);
+            const plugin = await loader.loadDatabase("myextdb", config.plugins, credentialStore);
             expect(plugin).toBeDefined();
             expect(plugin?.searchAnime).toBeInstanceOf(Function);
             expect(plugin?.getEpisodes).toBeInstanceOf(Function);
@@ -151,8 +151,8 @@ describe("PluginLoader", () => {
           "loader-external-cache",
           async (_dir, config, credentialStore) => {
             const loader = new PluginLoader();
-            const first = await loader.loadDatabase("cached-ext", config, credentialStore);
-            const second = await loader.loadDatabase("cached-ext", config, credentialStore);
+            const first = await loader.loadDatabase("cached-ext", config.plugins, credentialStore);
+            const second = await loader.loadDatabase("cached-ext", config.plugins, credentialStore);
             expect(first).toBe(second);
           },
           null,
@@ -168,7 +168,7 @@ describe("PluginLoader", () => {
           "loader-bad-ctor",
           async (_dir, config, credentialStore) => {
             const loader = new PluginLoader();
-            const plugin = await loader.loadDatabase("badctorext", config, credentialStore);
+            const plugin = await loader.loadDatabase("badctorext", config.plugins, credentialStore);
             expect(plugin).toBeUndefined();
           },
           null,
@@ -188,7 +188,7 @@ describe("PluginLoader", () => {
           "loader-bad-impl",
           async (_dir, config, credentialStore) => {
             const loader = new PluginLoader();
-            const plugin = await loader.loadDatabase("badimpl", config, credentialStore);
+            const plugin = await loader.loadDatabase("badimpl", config.plugins, credentialStore);
             expect(plugin).toBeUndefined();
           },
           null,
@@ -203,7 +203,7 @@ describe("PluginLoader", () => {
           async (_dir, config, credentialStore) => {
             config.set("plugins.tvdb.enabled", "false");
             const loader = new PluginLoader();
-            const plugin = await loader.loadDatabase("tvdb", config, credentialStore);
+            const plugin = await loader.loadDatabase("tvdb", config.plugins, credentialStore);
             expect(plugin).toBeUndefined();
           },
           createMockKeytar({ "kogoro:tvdb": "key" }),

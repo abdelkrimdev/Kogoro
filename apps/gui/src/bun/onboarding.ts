@@ -32,7 +32,7 @@ export async function checkIncompleteOnboarding(
   configManager: ConfigManager,
   credentialStore: CredentialStore,
 ): Promise<CheckIncompleteResult> {
-  const primaryDb = String(configManager.get("primary-db") ?? "tvdb");
+  const primaryDb = configManager.primaryDb;
   try {
     const key = await credentialStore.getCredential(primaryDb);
     if (!key) {

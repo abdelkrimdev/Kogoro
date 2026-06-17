@@ -21,7 +21,7 @@ export class PluginFactory {
   }
 
   async database(name: string): Promise<DatabasePlugin | undefined> {
-    return this.loader.loadDatabase(name, this.config, this.credentialStore);
+    return this.loader.loadDatabase(name, this.config.plugins, this.credentialStore);
   }
 
   async subtitle(name?: string): Promise<SubtitlePlugin | undefined> {
@@ -29,6 +29,6 @@ export class PluginFactory {
   }
 
   list(): PluginInfo[] {
-    return this.registry.list(this.config);
+    return this.registry.list(this.config.plugins);
   }
 }

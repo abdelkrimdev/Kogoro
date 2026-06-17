@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ConfigManager, OverrideStore } from "@kogoro/core";
+import { ConfigManager } from "@kogoro/core";
 import { withTempDir } from "@kogoro/core/testing";
 import { createConfigHandlers } from "./handlers";
 
@@ -117,81 +117,6 @@ describe("Config CLI commands", () => {
       await withTempDir("cli-config", async (dir) => {
         const handlers = createConfigHandlers({ configDir: dir });
         expect(handlers.get("scan-concurrency")).toBe(4);
-      });
-    });
-  });
-
-  describe("config override", () => {
-    test("set stores an override entry", async () => {
-      await withTempDir("cli-config", async (dir) => {
-        const handlers = createConfigHandlers({ overrideDir: dir });
-        const result = handlers.overrideSet("hash1", {
-          animeId: "tvdb-42",
-          episodeId: "ep-5",
-          entryType: "tv",
-        });
-        expect(result).toBe(true);
-
-        const store = new OverrideStore(dir);
-        expect(store.get("hash1")).toEqual({
-          animeId: "tvdb-42",
-          episodeId: "ep-5",
-          entryType: "tv",
-        });
-      });
-    });
-
-    test("list returns all entries", async () => {
-      await withTempDir("cli-config", async (dir) => {
-        const store = new OverrideStore(dir);
-        store.set("hash1", { animeId: "tvdb-1", entryType: "movie" });
-        store.set("hash2", { animeId: "tvdb-2" });
-
-        const handlers = createConfigHandlers({ overrideDir: dir });
-        const items = handlers.overrideList();
-        expect(items).toHaveLength(2);
-        expect(items.find((i) => i.hash === "hash1")?.data.animeId).toBe("tvdb-1");
-      });
-    });
-
-    test("remove deletes an existing entry", async () => {
-      await withTempDir("cli-config", async (dir) => {
-        const store1 = new OverrideStore(dir);
-        store1.set("hash1", { animeId: "tvdb-42" });
-
-        const handlers = createConfigHandlers({ overrideDir: dir });
-        const result = handlers.overrideRemove("hash1");
-        expect(result).toBe(true);
-
-        const store2 = new OverrideStore(dir);
-        expect(store2.get("hash1")).toBeUndefined();
-      });
-    });
-
-    test("remove throws for missing entry", async () => {
-      await withTempDir("cli-config", async (dir) => {
-        const handlers = createConfigHandlers({ overrideDir: dir });
-        expect(() => handlers.overrideRemove("nonexistent")).toThrow("not found");
-      });
-    });
-
-    test("set stores with only animeId", async () => {
-      await withTempDir("cli-config", async (dir) => {
-        const handlers = createConfigHandlers({ overrideDir: dir });
-        handlers.overrideSet("hash1", { animeId: "tvdb-99" });
-
-        const store = new OverrideStore(dir);
-        expect(store.get("hash1")).toEqual({ animeId: "tvdb-99" });
-      });
-    });
-
-    test("set stores with only entryType", async () => {
-      await withTempDir("cli-config", async (dir) => {
-        const handlers = createConfigHandlers({ overrideDir: dir });
-        handlers.overrideSet("hash1", { entryType: "special" });
-
-        const store = new OverrideStore(dir);
-        expect(store.get("hash1")).toEqual({ entryType: "special" });
       });
     });
   });

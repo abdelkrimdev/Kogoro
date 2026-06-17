@@ -1,4 +1,3 @@
-import type { ConfigManager } from "@kogoro/core";
 import { BUILT_IN_MANIFEST } from "./plugin-manifest";
 
 export interface PluginInfo {
@@ -17,11 +16,20 @@ const ALL_BUILT_IN: PluginInfo[] = BUILT_IN_MANIFEST.map((e) => ({
   enabled: true,
 }));
 
+export function isPluginEnabled(
+  name: string,
+  plugins?: Record<string, { enabled: boolean }>,
+): boolean {
+  const plugin = plugins?.[name];
+  if (plugin === undefined) return true;
+  return plugin.enabled;
+}
+
 export class PluginRegistry {
-  list(config: ConfigManager): PluginInfo[] {
+  list(plugins?: Record<string, { enabled: boolean }>): PluginInfo[] {
     return ALL_BUILT_IN.map((p) => ({
       ...p,
-      enabled: config.isPluginEnabled(p.name),
+      enabled: isPluginEnabled(p.name, plugins),
     }));
   }
 

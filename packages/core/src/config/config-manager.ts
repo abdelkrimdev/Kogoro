@@ -11,73 +11,10 @@ import {
   TEMPLATE_PRESETS,
   type TypedConfig,
 } from "./schema";
+import { tomlStringify } from "./toml-serializer";
 
 interface ConfigManagerOptions {
   configDir?: string;
-}
-
-function tomlValue(value: unknown): string {
-  if (typeof value === "string") {
-    if (value.includes('"') || value.includes("\n")) {
-      return JSON.stringify(value);
-    }
-    return `"${value}"`;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (Array.isArray(value)) {
-    const items = value.map((item) => tomlValue(item));
-    return `[${items.join(", ")}]`;
-  }
-  return JSON.stringify(value);
-}
-
-function tomlStringify(config: Config): string {
-  const lines: string[] = [];
-  const { template, plugins, sanitize, ...topLevel } = config;
-
-  for (const [key, value] of Object.entries(topLevel)) {
-    lines.push(`${key} = ${tomlValue(value)}`);
-  }
-
-  if (template) {
-    lines.push("");
-    lines.push("[template]");
-    for (const [key, value] of Object.entries(template)) {
-      lines.push(`${key} = ${tomlValue(value)}`);
-    }
-  }
-
-  if (plugins) {
-    for (const [name, toggle] of Object.entries(plugins)) {
-      lines.push("");
-      lines.push(`[plugins.${name}]`);
-      lines.push(`enabled = ${tomlValue(toggle.enabled)}`);
-    }
-  }
-
-  if (sanitize) {
-    lines.push("");
-    lines.push("[sanitize]");
-    for (const [key, value] of Object.entries(sanitize)) {
-      lines.push(`${key} = ${tomlValue(value)}`);
-    }
-  }
-
-  return `${lines.join("\n")}\n`;
-}
-
-function getNestedValue(obj: unknown, path: string): unknown {
-  const parts = path.split(".");
-  let current: unknown = obj;
-  for (const part of parts) {
-    if (current === null || current === undefined || typeof current !== "object") {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[part];
-  }
-  return current;
 }
 
 function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
@@ -233,20 +170,8 @@ export class ConfigManager {
     writeFileSync(this.configPath, raw);
   }
 
-  get(key: string): unknown {
-    return getNestedValue(this.config, key);
-  }
-
-  getList(key: string): string[] {
-    const val = this.get(key);
-    if (Array.isArray(val)) return val.map((s) => String(s));
-    if (typeof val === "string" && val.trim() !== "") {
-      return val
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-    }
-    return [];
+  get<K extends keyof Config>(key: K): Config[K] {
+    return this.config[key];
   }
 
   set<K extends keyof TypedConfig>(key: K, value: TypedConfig[K]): SetResult;
@@ -268,27 +193,8 @@ export class ConfigManager {
     return { success: false, error: formatSchemaError(result.issues) };
   }
 
-  isPluginEnabled(name: string): boolean {
-    const plugins = this.config.plugins;
-    const plugin = plugins?.[name as keyof typeof plugins];
-    if (plugin === undefined) return true;
-    return plugin.enabled;
-  }
-
-  getDisabledPlugins(): Set<string> {
-    const disabled = new Set<string>();
-    const plugins = this.config.plugins;
-    if (!plugins) return disabled;
-    for (const [name, toggle] of Object.entries(plugins)) {
-      if (!toggle.enabled) {
-        disabled.add(name);
-      }
-    }
-    return disabled;
-  }
-
   resolveMediaExtensions(): readonly string[] {
-    const fromConfig = this.getList("media-extensions");
+    const fromConfig = this.mediaExtensions;
     if (fromConfig.length > 0) return fromConfig;
     return SCHEMA_DEFAULTS["media-extensions"];
   }

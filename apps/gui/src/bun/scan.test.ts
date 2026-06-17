@@ -491,16 +491,9 @@ describe("ScanOrchestrator", () => {
           } as unknown as PluginFactory,
           configManager: {
             getTemplate: () => TEMPLATE_PRESETS.standard,
-            get: (key: string) => {
-              if (key === "template.directory") return SCHEMA_DEFAULTS.template.directory;
-              if (key === "primary-db") return "tvdb";
-              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
-              return undefined;
-            },
-            getList: (key: string) => {
-              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
-              return [];
-            },
+            template: { directory: SCHEMA_DEFAULTS.template.directory },
+            primaryDb: "tvdb",
+            excludePatterns: [...SCHEMA_DEFAULTS["exclude-patterns"]],
             resolveMediaExtensions: () => SCHEMA_DEFAULTS["media-extensions"],
           } as unknown as ConfigManager,
           cacheService,
@@ -576,16 +569,9 @@ describe("ScanOrchestrator", () => {
           } as unknown as PluginFactory,
           configManager: {
             getTemplate: () => TEMPLATE_PRESETS.standard,
-            get: (key: string) => {
-              if (key === "template.directory") return SCHEMA_DEFAULTS.template.directory;
-              if (key === "primary-db") return "tvdb";
-              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
-              return undefined;
-            },
-            getList: (key: string) => {
-              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
-              return [];
-            },
+            template: { directory: SCHEMA_DEFAULTS.template.directory },
+            primaryDb: "tvdb",
+            excludePatterns: [...SCHEMA_DEFAULTS["exclude-patterns"]],
             resolveMediaExtensions: () => SCHEMA_DEFAULTS["media-extensions"],
           } as unknown as ConfigManager,
           cacheService,
@@ -654,16 +640,9 @@ describe("ScanOrchestrator", () => {
           } as unknown as PluginFactory,
           configManager: {
             getTemplate: () => TEMPLATE_PRESETS.standard,
-            get: (key: string) => {
-              if (key === "template.directory") return SCHEMA_DEFAULTS.template.directory;
-              if (key === "primary-db") return "tvdb";
-              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
-              return undefined;
-            },
-            getList: (key: string) => {
-              if (key === "exclude-patterns") return SCHEMA_DEFAULTS["exclude-patterns"];
-              return [];
-            },
+            template: { directory: SCHEMA_DEFAULTS.template.directory },
+            primaryDb: "tvdb",
+            excludePatterns: [...SCHEMA_DEFAULTS["exclude-patterns"]],
             resolveMediaExtensions: () => SCHEMA_DEFAULTS["media-extensions"],
           } as unknown as ConfigManager,
           cacheService: {} as unknown as CacheService,
