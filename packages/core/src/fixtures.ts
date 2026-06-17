@@ -4,6 +4,8 @@ import { basename, join } from "node:path";
 import type { KeytarLike } from "./config/bun-secrets-keytar";
 import { ConfigManager } from "./config/config-manager";
 import { CredentialStore } from "./config/credential-store";
+import type { Config } from "./config/schema";
+import { SCHEMA_DEFAULTS } from "./config/schema";
 import { hashFile } from "./io/file-hash";
 
 export { hashFile } from "./io/file-hash";
@@ -623,4 +625,21 @@ export function createTestHashCache(overrides?: {
     ? { cacheService: overrides.cacheService }
     : createMatchCacheService();
   return new HashCache({ cacheService, overrideStore: overrides?.overrideStore });
+}
+
+export function makeConfig(overrides: Partial<Config> = {}): Config {
+  return {
+    "primary-db": SCHEMA_DEFAULTS["primary-db"],
+    template: SCHEMA_DEFAULTS.template,
+    "media-extensions": [...SCHEMA_DEFAULTS["media-extensions"]],
+    "exclude-patterns": [...SCHEMA_DEFAULTS["exclude-patterns"]],
+    "scan-concurrency": SCHEMA_DEFAULTS["scan-concurrency"],
+    "fetch-concurrency": SCHEMA_DEFAULTS["fetch-concurrency"],
+    "episode-numbering": SCHEMA_DEFAULTS["episode-numbering"],
+    "rename-action": SCHEMA_DEFAULTS["rename-action"],
+    "subtitle-language": SCHEMA_DEFAULTS["subtitle-language"],
+    plugins: SCHEMA_DEFAULTS.plugins,
+    sanitize: SCHEMA_DEFAULTS.sanitize,
+    ...overrides,
+  };
 }

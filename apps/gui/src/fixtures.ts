@@ -1,5 +1,16 @@
-import type { FileRow, ReviewGroup, ReviewPlan, ScanFileStatus } from "@kogoro/core";
-import { createMockDb } from "@kogoro/core/testing";
+import type { FileRow, MatcherLike, ReviewGroup, ReviewPlan, ScanFileStatus } from "@kogoro/core";
+import {
+  HashCache,
+  Matcher,
+  OverrideStore,
+  Renamer,
+  SCHEMA_DEFAULTS,
+  Scanner,
+  ScanOrchestrator,
+  TEMPLATE_PRESETS,
+  walk,
+} from "@kogoro/core";
+import { createMatchCacheService, createMockDb } from "@kogoro/core/testing";
 import type { EpisodeRow } from "./mainview/state/detail-state";
 import type { LibraryItem, LibraryState } from "./mainview/state/library-state";
 import type { ReviewState, StatusFilter } from "./mainview/state/review-state";
@@ -134,5 +145,44 @@ export function createFailingDbPlugin() {
   return createMockDb({
     searchAnime: () => [],
     getEpisodes: () => [],
+  });
+}
+
+export function createOrchestratorWithRealScan(
+  dir: string,
+  matcherOrDb?: MatcherLike | ReturnType<typeof createMockDb>,
+) {
+  let matcher: MatcherLike;
+  if (
+    matcherOrDb &&
+    "match" in matcherOrDb &&
+    typeof matcherOrDb.match === "function" &&
+    "matchBatch" in matcherOrDb
+  ) {
+    matcher = matcherOrDb as MatcherLike;
+  } else {
+    matcher = new Matcher({
+      database: (matcherOrDb as ReturnType<typeof createMockDb>) ?? createMockDb(),
+    });
+  }
+
+  const overrideStore = new OverrideStore(dir);
+  const renamer = new Renamer({
+    filenameTemplate: `${TEMPLATE_PRESETS.standard}.{ext}`,
+    directoryTemplate: SCHEMA_DEFAULTS.template.directory,
+  });
+
+  const { cacheService } = createMatchCacheService();
+  const hashCache = new HashCache({ cacheService, overrideStore });
+  const scanner = new Scanner({ hashCache, matcher, renamer, overrideStore });
+
+  return new ScanOrchestrator({
+    pipeline: {
+      walk: async (path: string) => walk(path, SCHEMA_DEFAULTS["media-extensions"]),
+      scanBatch: async (filePaths, options, ctx) =>
+        scanner.scanBatch(filePaths, { force: options.force, dryRun: options.dryRun, ctx }),
+    },
+    matcher,
+    renamer,
   });
 }

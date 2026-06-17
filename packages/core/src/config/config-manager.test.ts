@@ -62,14 +62,14 @@ describe("ConfigManager", () => {
   });
 
   describe("template presets", () => {
-    test("getTemplate returns default standard preset when nothing configured", async () => {
+    test("returns default standard preset when nothing configured", async () => {
       await withTestConfig("config", async (_dir, config) => {
         const template = config.getTemplate();
         expect(template).toBe(TEMPLATE_PRESETS.standard);
       });
     });
 
-    test("getTemplate resolves named preset from template.preset", async () => {
+    test("resolves named preset from template.preset", async () => {
       await withTestConfig("config", async (_dir, config) => {
         config.set("template.preset", "plex");
         config.init();
@@ -78,7 +78,7 @@ describe("ConfigManager", () => {
       });
     });
 
-    test("getTemplate prefers template.custom over template.preset", async () => {
+    test("prefers template.custom over template.preset", async () => {
       await withTestConfig("config", async (_dir, config) => {
         config.set("template.preset", "plex");
         config.set("template.custom", "{custom} - {template}");
@@ -88,7 +88,7 @@ describe("ConfigManager", () => {
       });
     });
 
-    test("getTemplate falls back to standard preset for unknown preset name", async () => {
+    test("falls back to standard preset for unknown preset name", async () => {
       await withTestConfig("config", async (_dir, config) => {
         config.set("template.preset", "nonexistent");
         config.init();
@@ -117,60 +117,66 @@ describe("ConfigManager", () => {
   });
 
   describe("typed accessor", () => {
-    test("primaryDb returns default value when not set", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        expect(config.primaryDb).toBe("tvdb");
+    describe("primaryDb", () => {
+      test("returns default value when not set", async () => {
+        await withTestConfig("config", async (_dir, config) => {
+          expect(config.primaryDb).toBe("tvdb");
+        });
+      });
+
+      test("reflects value after set", async () => {
+        await withTestConfig("config", async (_dir, config) => {
+          config.set("primaryDb", "anidb");
+          expect(config.primaryDb).toBe("anidb");
+        });
+      });
+
+      test("accepts camelCase key and typed value", async () => {
+        await withTestConfig("config", async (_dir, config) => {
+          const result = config.set("primaryDb", "anidb");
+          expect(result).toEqual({ success: true });
+          expect(config.primaryDb).toBe("anidb");
+        });
       });
     });
 
-    test("primaryDb reflects value after set", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        config.set("primaryDb", "anidb");
-        expect(config.primaryDb).toBe("anidb");
+    describe("template.preset", () => {
+      test("returns default value when not set", async () => {
+        await withTestConfig("config", async (_dir, config) => {
+          expect(config.template.preset).toBe("standard");
+        });
+      });
+
+      test("reflects value after set", async () => {
+        await withTestConfig("config", async (_dir, config) => {
+          config.set("template.preset", "plex");
+          expect(config.template.preset).toBe("plex");
+        });
       });
     });
 
-    test("typed set accepts camelCase key and typed value", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        const result = config.set("primaryDb", "anidb");
-        expect(result).toEqual({ success: true });
-        expect(config.primaryDb).toBe("anidb");
+    describe("scanConcurrency", () => {
+      test("returns default value when not set", async () => {
+        await withTestConfig("config", async (_dir, config) => {
+          expect(config.scanConcurrency).toBe(4);
+        });
+      });
+
+      test("reflects value after set", async () => {
+        await withTestConfig("config", async (_dir, config) => {
+          config.set("scanConcurrency", "8");
+          expect(config.scanConcurrency).toBe(8);
+        });
       });
     });
 
-    test("template.preset returns default value when not set", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        expect(config.template.preset).toBe("standard");
-      });
-    });
-
-    test("template.preset reflects value after set", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        config.set("template.preset", "plex");
-        expect(config.template.preset).toBe("plex");
-      });
-    });
-
-    test("scanConcurrency returns default value when not set", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        expect(config.scanConcurrency).toBe(4);
-      });
-    });
-
-    test("scanConcurrency reflects value after set", async () => {
-      await withTestConfig("config", async (_dir, config) => {
-        config.set("scanConcurrency", "8");
-        expect(config.scanConcurrency).toBe(8);
-      });
-    });
-
-    test("episodeNumbering returns default value when not set", async () => {
+    test("episodeNumbering returns relative by default", async () => {
       await withTestConfig("config", async (_dir, config) => {
         expect(config.episodeNumbering).toBe("relative");
       });
     });
 
-    test("renameAction returns default value when not set", async () => {
+    test("renameAction returns move by default", async () => {
       await withTestConfig("config", async (_dir, config) => {
         expect(config.renameAction).toBe("move");
       });
@@ -178,7 +184,7 @@ describe("ConfigManager", () => {
   });
 
   describe("sanitize config", () => {
-    test("sanitize config is serialized to TOML and persists", async () => {
+    test("serialized to TOML and persists", async () => {
       await withTestConfig("config", async (_dir, config) => {
         config.set("sanitize.action", "strip");
         config.set("sanitize.replacement", "-");

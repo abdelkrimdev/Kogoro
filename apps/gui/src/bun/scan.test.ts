@@ -4,23 +4,16 @@ import { join } from "node:path";
 import type {
   CacheService,
   ConfigManager,
-  MatcherLike,
   ReviewPlan,
   ScanEvent,
   ScanReviewReadyEvent,
 } from "@kogoro/core";
 import {
-  HashCache,
   LibraryService,
-  Matcher,
-  OverrideStore,
-  Renamer,
   SCHEMA_DEFAULTS,
-  Scanner,
   ScanOrchestrator,
   ScanStateService,
   TEMPLATE_PRESETS,
-  walk,
 } from "@kogoro/core";
 import {
   createAmbiguousMatcher,
@@ -34,47 +27,8 @@ import {
   writeTempFile,
 } from "@kogoro/core/testing";
 import type { PluginFactory } from "@kogoro/plugins";
-import { createFailingDbPlugin } from "../fixtures";
+import { createFailingDbPlugin, createOrchestratorWithRealScan } from "../fixtures";
 import { createScanHandlers } from "./scan";
-
-function createOrchestratorWithRealScan(
-  dir: string,
-  matcherOrDb?: MatcherLike | ReturnType<typeof createMockDb>,
-) {
-  let matcher: MatcherLike;
-  if (
-    matcherOrDb &&
-    "match" in matcherOrDb &&
-    typeof matcherOrDb.match === "function" &&
-    "matchBatch" in matcherOrDb
-  ) {
-    matcher = matcherOrDb as MatcherLike;
-  } else {
-    matcher = new Matcher({
-      database: (matcherOrDb as ReturnType<typeof createMockDb>) ?? createMockDb(),
-    });
-  }
-
-  const overrideStore = new OverrideStore(dir);
-  const renamer = new Renamer({
-    filenameTemplate: `${TEMPLATE_PRESETS.standard}.{ext}`,
-    directoryTemplate: SCHEMA_DEFAULTS.template.directory,
-  });
-
-  const { cacheService } = createMatchCacheService();
-  const hashCache = new HashCache({ cacheService, overrideStore });
-  const scanner = new Scanner({ hashCache, matcher, renamer, overrideStore });
-
-  return new ScanOrchestrator({
-    pipeline: {
-      walk: async (path: string) => walk(path, SCHEMA_DEFAULTS["media-extensions"]),
-      scanBatch: async (filePaths, options, ctx) =>
-        scanner.scanBatch(filePaths, { force: options.force, dryRun: options.dryRun, ctx }),
-    },
-    matcher,
-    renamer,
-  });
-}
 
 describe("ScanOrchestrator", () => {
   test("walk discovers media files and scanner matches them", async () => {
@@ -371,7 +325,7 @@ describe("ScanOrchestrator", () => {
     });
   });
   describe("merge on scan complete", () => {
-    test("getMatchResults returns results even when review plan is empty", async () => {
+    test("returns results even when review plan is empty", async () => {
       await withTempDir("orch-empty-plan", async (dir) => {
         const orch = new ScanOrchestrator({
           pipeline: {
@@ -522,7 +476,7 @@ describe("ScanOrchestrator", () => {
       });
     });
 
-    test("resolveMatch caches the resolved match with computed hash", async () => {
+    test("caches the resolved match with computed hash", async () => {
       await withTempDir("resolve-cache", async (dir) => {
         const { matchRepo, scanStateRepo, cacheService, close } = createMatchCacheService(dir);
         const scanStateService = new ScanStateService(scanStateRepo);
@@ -627,7 +581,7 @@ describe("ScanOrchestrator", () => {
   });
 
   describe("error handling", () => {
-    test("sends scanError event when orchestrator creation fails", async () => {
+    test("emits error when orchestrator creation fails", async () => {
       await withTempDir("scan-error-orchestrator", async (dir) => {
         const capturedErrors: Array<{ sessionId: string; error: string }> = [];
 

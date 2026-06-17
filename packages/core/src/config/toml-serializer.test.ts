@@ -1,24 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { Config } from "./schema";
-import { SCHEMA_DEFAULTS } from "./schema";
+import { makeConfig } from "../fixtures";
 import { tomlStringify } from "./toml-serializer";
-
-function makeConfig(overrides: Partial<Config> = {}): Config {
-  return {
-    "primary-db": SCHEMA_DEFAULTS["primary-db"],
-    template: SCHEMA_DEFAULTS.template,
-    "media-extensions": [...SCHEMA_DEFAULTS["media-extensions"]],
-    "exclude-patterns": [...SCHEMA_DEFAULTS["exclude-patterns"]],
-    "scan-concurrency": SCHEMA_DEFAULTS["scan-concurrency"],
-    "fetch-concurrency": SCHEMA_DEFAULTS["fetch-concurrency"],
-    "episode-numbering": SCHEMA_DEFAULTS["episode-numbering"],
-    "rename-action": SCHEMA_DEFAULTS["rename-action"],
-    "subtitle-language": SCHEMA_DEFAULTS["subtitle-language"],
-    plugins: SCHEMA_DEFAULTS.plugins,
-    sanitize: SCHEMA_DEFAULTS.sanitize,
-    ...overrides,
-  };
-}
 
 describe("tomlStringify", () => {
   test("serializes top-level string values", () => {
