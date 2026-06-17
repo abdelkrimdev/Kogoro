@@ -203,11 +203,7 @@ export class ConfigManager {
     return this.config.sanitize;
   }
 
-  get plugins(): {
-    tvdb: { enabled: boolean };
-    anidb: { enabled: boolean };
-    opensubtitles: { enabled: boolean };
-  } {
+  get plugins(): Record<string, { enabled: boolean }> {
     return this.config.plugins;
   }
 

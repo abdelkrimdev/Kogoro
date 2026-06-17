@@ -196,9 +196,7 @@ describe("ConfigManager", () => {
     test("plugins accessor returns plugin toggles", async () => {
       await withTestConfig("config", async (_dir, config) => {
         config.init();
-        expect(config.plugins.tvdb.enabled).toBe(true);
-        expect(config.plugins.anidb.enabled).toBe(true);
-        expect(config.plugins.opensubtitles.enabled).toBe(true);
+        expect(config.plugins).toEqual({});
       });
     });
   });

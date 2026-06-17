@@ -54,11 +54,7 @@ const PluginToggleSchema = v.strictObject({
   enabled: v.optional(v.boolean(), true),
 });
 
-const PluginsConfigSchema = v.strictObject({
-  tvdb: PluginToggleSchema,
-  anidb: PluginToggleSchema,
-  opensubtitles: PluginToggleSchema,
-});
+const PluginsConfigSchema = v.record(v.string(), PluginToggleSchema);
 
 export const ConfigSchema = v.strictObject({
   "primary-db": v.optional(v.string(), "tvdb"),
@@ -84,11 +80,7 @@ export const ConfigSchema = v.strictObject({
   "episode-numbering": v.optional(EpisodeNumberingSchema, "relative"),
   "rename-action": v.optional(RenameActionSchema, "move"),
   "subtitle-language": v.optional(v.string(), "en"),
-  plugins: v.optional(PluginsConfigSchema, {
-    tvdb: { enabled: true },
-    anidb: { enabled: true },
-    opensubtitles: { enabled: true },
-  }),
+  plugins: v.optional(PluginsConfigSchema, {}),
   sanitize: v.optional(SanitizeConfigSchema, {
     action: "strip",
     replacement: "_",

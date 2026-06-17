@@ -164,9 +164,7 @@ describe("ConfigSchema", () => {
       expect(result.output["episode-numbering"]).toBe("relative");
       expect(result.output["rename-action"]).toBe("move");
       expect(result.output["subtitle-language"]).toBe("en");
-      expect(result.output.plugins.tvdb.enabled).toBe(true);
-      expect(result.output.plugins.anidb.enabled).toBe(true);
-      expect(result.output.plugins.opensubtitles.enabled).toBe(true);
+      expect(result.output.plugins).toEqual({});
       expect(result.output.sanitize.action).toBe("strip");
       expect(result.output.sanitize.replacement).toBe("_");
       expect(result.output.sanitize.chars).toBe('\\/:*?"<>|');

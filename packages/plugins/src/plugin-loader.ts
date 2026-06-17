@@ -1,19 +1,5 @@
-import {
-  type ConfigManager,
-  type CredentialStore,
-  type DatabasePlugin,
-  type DebugEntry,
-  HttpClient,
-  type SubtitlePlugin,
-} from "@kogoro/core";
-import { AniDBPlugin } from "./database/anidb-plugin";
-import { TVDBPlugin } from "./database/tvdb-plugin";
-import { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
-
-const RATE_LIMITS = {
-  tvdb: 200,
-  anidb: 2000,
-} as const;
+import type { ConfigManager, CredentialStore, DatabasePlugin, SubtitlePlugin } from "@kogoro/core";
+import { getManifestEntry, type PluginLoadContext } from "./plugin-manifest";
 
 function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
   if (obj === null || typeof obj !== "object") return false;
@@ -31,17 +17,9 @@ function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
   );
 }
 
-function prettifyBody(body: string): string {
-  try {
-    const parsed = JSON.parse(body) as unknown;
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return body;
-  }
-}
-
 export class PluginLoader {
-  private builtinCache: Map<string, DatabasePlugin> = new Map();
+  private databaseCache: Map<string, DatabasePlugin> = new Map();
+  private subtitleCache: Map<string, SubtitlePlugin> = new Map();
   private externalCache: Map<string, DatabasePlugin> = new Map();
 
   constructor(private debug?: boolean) {}
@@ -55,60 +33,37 @@ export class PluginLoader {
       console.warn(`Plugin "${name}" is disabled`);
       return undefined;
     }
-    switch (name) {
-      case "tvdb": {
-        const cached = this.builtinCache.get("tvdb");
-        if (cached) return cached;
-        const apiKey = await credentialStore.getCredential("tvdb");
-        if (!apiKey) {
-          console.error("No TVDB API key configured. Run 'kogoro config init' first.");
-          return undefined;
-        }
-        const httpClient = new HttpClient({
-          minDelay: RATE_LIMITS.tvdb,
-          ...this.debugOptions(),
-        });
-        const plugin = new TVDBPlugin({ apiKey, httpClient });
-        this.builtinCache.set("tvdb", plugin);
-        return plugin;
+    const entry = getManifestEntry(name);
+    if (entry && entry.type === "database") {
+      const cached = this.databaseCache.get(name);
+      if (cached) return cached;
+      const ctx: PluginLoadContext = { credentialStore, debug: this.debug };
+      const plugin = await entry.load(ctx, entry);
+      if (plugin) {
+        this.databaseCache.set(name, plugin as DatabasePlugin);
       }
-      case "anidb": {
-        const cached = this.builtinCache.get("anidb");
-        if (cached) return cached;
-        const credential = await credentialStore.getCredential("anidb");
-        if (!credential) {
-          console.error("No AniDB credentials configured. Run 'kogoro config init' first.");
-          return undefined;
-        }
-        const [client, clientver] = credential.split(":", 2);
-        const httpClient = new HttpClient({
-          minDelay: RATE_LIMITS.anidb,
-          ...this.debugOptions(),
-        });
-        const plugin = new AniDBPlugin({
-          client: client ?? credential,
-          clientver: clientver ?? "1",
-          httpClient,
-        });
-        this.builtinCache.set("anidb", plugin);
-        return plugin;
-      }
-      default:
-        return this.loadExternalDatabasePlugin(name);
+      return plugin as DatabasePlugin | undefined;
     }
+    return this.loadExternalDatabasePlugin(name);
   }
 
   async loadSubtitle(
     name: string,
     credentialStore: CredentialStore,
   ): Promise<SubtitlePlugin | undefined> {
-    const apiKey = await credentialStore.getCredential(name);
-    if (!apiKey) {
-      console.error(`No ${name} API key configured. Run 'kogoro config init' first.`);
-      return undefined;
+    const cached = this.subtitleCache.get(name);
+    if (cached) return cached;
+    const entry = getManifestEntry(name);
+    if (entry && entry.type === "subtitle") {
+      const ctx: PluginLoadContext = { credentialStore, debug: this.debug };
+      const plugin = await entry.load(ctx, entry);
+      if (plugin) {
+        this.subtitleCache.set(name, plugin as SubtitlePlugin);
+      }
+      return plugin as SubtitlePlugin | undefined;
     }
-    const httpClient = new HttpClient(this.debugOptions());
-    return new OpenSubtitlesPlugin({ apiKey, httpClient });
+    console.warn(`Unknown subtitle plugin: "${name}"`);
+    return undefined;
   }
 
   private async loadExternalDatabasePlugin(name: string): Promise<DatabasePlugin | undefined> {
@@ -133,23 +88,5 @@ export class PluginLoader {
       console.warn(`Failed to load external plugin "${name}": ${String(err)}`);
       return undefined;
     }
-  }
-
-  private debugOptions(): { onDebug?: (entry: DebugEntry) => void } {
-    if (!this.debug) return {};
-    return {
-      onDebug: (entry) => {
-        if (entry.type === "request") {
-          console.error(`→ ${entry.method} ${entry.url}`);
-        } else {
-          let bodySuffix = "";
-          if (entry.body) {
-            const prettified = prettifyBody(entry.body);
-            bodySuffix = `\n   ${prettified}`;
-          }
-          console.error(`← ${entry.status} ${entry.url} (${entry.ms}ms)${bodySuffix}`);
-        }
-      },
-    };
   }
 }

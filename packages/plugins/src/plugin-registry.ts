@@ -1,4 +1,5 @@
 import type { ConfigManager } from "@kogoro/core";
+import { BUILT_IN_MANIFEST } from "./plugin-manifest";
 
 export interface PluginInfo {
   name: string;
@@ -8,34 +9,13 @@ export interface PluginInfo {
   enabled: boolean;
 }
 
-const BUILT_IN_DATABASE_PLUGINS: PluginInfo[] = [
-  {
-    name: "tvdb",
-    type: "database",
-    source: "built-in",
-    description: "TheTVDB.com plugin",
-    enabled: true,
-  },
-  {
-    name: "anidb",
-    type: "database",
-    source: "built-in",
-    description: "AniDB plugin",
-    enabled: true,
-  },
-];
-
-const BUILT_IN_SUBTITLE_PLUGINS: PluginInfo[] = [
-  {
-    name: "opensubtitles",
-    type: "subtitle",
-    source: "built-in",
-    description: "OpenSubtitles.com plugin",
-    enabled: true,
-  },
-];
-
-const ALL_BUILT_IN = [...BUILT_IN_DATABASE_PLUGINS, ...BUILT_IN_SUBTITLE_PLUGINS];
+const ALL_BUILT_IN: PluginInfo[] = BUILT_IN_MANIFEST.map((e) => ({
+  name: e.name,
+  type: e.type,
+  source: "built-in" as const,
+  description: e.description,
+  enabled: true,
+}));
 
 export class PluginRegistry {
   list(config: ConfigManager): PluginInfo[] {
