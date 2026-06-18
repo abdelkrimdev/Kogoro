@@ -11,7 +11,6 @@ import {
   HttpClient,
 } from "@kogoro/core";
 
-const BASE_URL = "http://api.anidb.net:9001/httpapi";
 const TITLE_CACHE_FILENAME = "anime-titles.xml";
 const TITLE_CACHE_URL = "https://anidb.net/api/anime-titles.xml.gz";
 const TITLE_CACHE_ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -154,6 +153,7 @@ export class AniDBPlugin implements DatabasePlugin {
   private httpClient: HttpClient;
   private client: string;
   private clientver: string;
+  private baseUrl: string;
   private cacheDir: string;
   private seasonCache = new Map<string, number>();
   private docCache = new Map<string, AnimeDocument>();
@@ -162,12 +162,14 @@ export class AniDBPlugin implements DatabasePlugin {
   constructor(options: {
     client: string;
     clientver: string;
+    baseUrl: string;
     httpClient?: HttpClient;
     cacheDir?: string;
   }) {
     this.httpClient = options.httpClient ?? new HttpClient();
     this.client = options.client;
     this.clientver = options.clientver;
+    this.baseUrl = options.baseUrl;
     this.cacheDir = options.cacheDir ?? join(CONFIG_DIR, "anidb");
   }
 
@@ -235,7 +237,7 @@ export class AniDBPlugin implements DatabasePlugin {
     const cached = this.docCache.get(animeId);
     if (cached) return cached;
     const response = await this.httpClient.fetch(
-      `${BASE_URL}?request=anime&aid=${animeId}&${this.commonParams()}`,
+      `${this.baseUrl}?request=anime&aid=${animeId}&${this.commonParams()}`,
     );
     if (!response.ok) return null;
     const xml = await response.text();

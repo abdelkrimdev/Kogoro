@@ -46,21 +46,20 @@ type AnimeSearchResult = {
   candidates: AnimeSearchCandidate[];
 };
 
-const scanSessions = new Map<
-  string,
-  {
-    orchestrator: ScanOrchestrator;
-    matcher: Matcher | undefined;
-    database: DatabasePlugin | undefined;
-  }
->();
+export type ScanSessionEntry = {
+  orchestrator: ScanOrchestrator;
+  matcher: Matcher | undefined;
+  database: DatabasePlugin | undefined;
+};
 
-function getOrchestrator(sessionId: string): ScanOrchestrator {
-  const session = scanSessions.get(sessionId);
-  if (!session) {
-    throw new Error("Scan session not found");
-  }
-  return session.orchestrator;
+export interface ScanSessionStore {
+  get(sessionId: string): ScanSessionEntry | undefined;
+  set(sessionId: string, entry: ScanSessionEntry): void;
+  delete(sessionId: string): void;
+}
+
+function createInMemoryScanSessionStore(): ScanSessionStore {
+  return new Map<string, ScanSessionEntry>();
 }
 
 export type ScanHandlers = ReturnType<typeof createScanHandlers>;
@@ -72,6 +71,7 @@ async function createScanOrchestrator(
   libraryService: LibraryService,
   cacheService: CacheService,
   scanStateService: ScanStateService,
+  store: ScanSessionStore,
   force?: boolean,
 ): Promise<ScanOrchestrator> {
   const database = await pluginFactory.primaryDatabase();
@@ -109,20 +109,8 @@ async function createScanOrchestrator(
     sessionId,
   );
 
-  scanSessions.set(sessionId, { orchestrator, matcher: matcher ?? undefined, database });
+  store.set(sessionId, { orchestrator, matcher: matcher ?? undefined, database });
   return orchestrator;
-}
-
-function getMatcher(sessionId: string): Matcher | undefined {
-  return scanSessions.get(sessionId)?.matcher;
-}
-
-function getDatabase(sessionId: string): DatabasePlugin | undefined {
-  return scanSessions.get(sessionId)?.database;
-}
-
-function cleanupSession(sessionId: string): void {
-  scanSessions.delete(sessionId);
 }
 
 export function createScanHandlers(dependencies: {
@@ -157,6 +145,7 @@ export function createScanHandlers(dependencies: {
     scanComplete: (data: { sessionId: string; summary: ScanSummary }) => void;
     scanError: (data: { sessionId: string; error: string }) => void;
   };
+  scanSessionStore?: ScanSessionStore;
 }) {
   const {
     pluginFactory,
@@ -166,7 +155,16 @@ export function createScanHandlers(dependencies: {
     scanStateService,
     mergeMatches,
     send,
+    scanSessionStore,
   } = dependencies;
+
+  const store = scanSessionStore ?? createInMemoryScanSessionStore();
+
+  function requireSession(sessionId: string): ScanSessionEntry {
+    const session = store.get(sessionId);
+    if (!session) throw new Error("Scan session not found");
+    return session;
+  }
 
   function mergeCurrentMatches(orchestrator: ScanOrchestrator) {
     const matches = orchestrator.getMatchResults();
@@ -189,6 +187,7 @@ export function createScanHandlers(dependencies: {
             libraryService,
             cacheService,
             scanStateService,
+            store,
             force,
           );
 
@@ -209,11 +208,11 @@ export function createScanHandlers(dependencies: {
               case "scanComplete":
                 mergeCurrentMatches(orchestrator);
                 send.scanComplete(event);
-                cleanupSession(sessionId);
+                store.delete(sessionId);
                 break;
               case "scanError":
                 send.scanError(event);
-                cleanupSession(sessionId);
+                store.delete(sessionId);
                 break;
             }
           });
@@ -225,7 +224,7 @@ export function createScanHandlers(dependencies: {
             sessionId,
             error: err instanceof Error ? err.message : String(err),
           });
-          cleanupSession(sessionId);
+          store.delete(sessionId);
         }
       })();
 
@@ -233,24 +232,26 @@ export function createScanHandlers(dependencies: {
     },
 
     async approvePlan(params: { sessionId: string }) {
-      const orchestrator = getOrchestrator(params.sessionId);
+      const { orchestrator } = requireSession(params.sessionId);
       await orchestrator.approvePlan();
       return undefined;
     },
 
     async approveGroup(params: { sessionId: string; animeId: string }) {
-      getOrchestrator(params.sessionId).approveGroup(params.animeId);
+      const { orchestrator } = requireSession(params.sessionId);
+      orchestrator.approveGroup(params.animeId);
       return undefined;
     },
 
     async rejectGroup(params: { sessionId: string; animeId: string }) {
-      getOrchestrator(params.sessionId).rejectGroup(params.animeId);
+      const { orchestrator } = requireSession(params.sessionId);
+      orchestrator.rejectGroup(params.animeId);
       return undefined;
     },
 
     async cancelScan(params: { sessionId: string }) {
-      const session = scanSessions.get(params.sessionId);
-      cleanupSession(params.sessionId);
+      const session = store.get(params.sessionId);
+      store.delete(params.sessionId);
       session?.orchestrator.cancel();
       return undefined;
     },
@@ -260,9 +261,9 @@ export function createScanHandlers(dependencies: {
       fileAId: string;
       fileBId: string;
     }): Promise<SwapFilesResult> {
-      const orch = getOrchestrator(params.sessionId);
-      orch.swapFiles(params.fileAId, params.fileBId);
-      const plan = orch.getPlan();
+      const { orchestrator } = requireSession(params.sessionId);
+      orchestrator.swapFiles(params.fileAId, params.fileBId);
+      const plan = orchestrator.getPlan();
       if (!plan) throw new Error("No plan available after swap");
       return { plan };
     },
@@ -272,7 +273,7 @@ export function createScanHandlers(dependencies: {
       fileId: string;
     }): Promise<ResolveCandidateResult> {
       const { sessionId, fileId } = params;
-      const orchestrator = getOrchestrator(sessionId);
+      const { orchestrator, matcher } = requireSession(sessionId);
       const plan = orchestrator.getPlan();
       if (!plan) return { candidates: [] };
 
@@ -288,7 +289,6 @@ export function createScanHandlers(dependencies: {
       }
       if (!sourcePath) return { candidates: [] };
 
-      const matcher = getMatcher(sessionId);
       if (!matcher) return { candidates: [] };
 
       const { best } = await probeMatches(matcher, sourcePath);
@@ -310,7 +310,7 @@ export function createScanHandlers(dependencies: {
       sessionId: string;
       title: string;
     }): Promise<AnimeSearchResult> {
-      const db = getDatabase(params.sessionId);
+      const db = store.get(params.sessionId)?.database;
       if (!db) return { candidates: [] };
 
       const results = await db.searchAnime(params.title);
@@ -329,11 +329,8 @@ export function createScanHandlers(dependencies: {
       animeId: string;
       episodeId: string;
     }) {
-      await getOrchestrator(params.sessionId).resolveMatch(
-        params.fileId,
-        params.animeId,
-        params.episodeId,
-      );
+      const { orchestrator } = requireSession(params.sessionId);
+      await orchestrator.resolveMatch(params.fileId, params.animeId, params.episodeId);
       return undefined;
     },
   };

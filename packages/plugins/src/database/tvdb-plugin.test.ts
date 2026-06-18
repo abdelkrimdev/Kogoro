@@ -8,6 +8,8 @@ import {
 } from "@kogoro/core/testing";
 import { TVDBPlugin } from "./tvdb-plugin";
 
+const BASE_URL = "https://api4.thetvdb.com/v4";
+
 function mockFetch(
   data: unknown,
   status = 200,
@@ -54,7 +56,10 @@ function mockFetchWithRoutes(
 
 describe("TVDBPlugin", () => {
   test("satisfies DatabasePlugin contract", () => {
-    const plugin: DatabasePlugin = new TVDBPlugin({ apiKey: "test-key" });
+    const plugin: DatabasePlugin = new TVDBPlugin({
+      apiKey: "test-key",
+      baseUrl: BASE_URL,
+    });
     expect(plugin.searchAnime).toBeInstanceOf(Function);
     expect(plugin.getAnime).toBeInstanceOf(Function);
     expect(plugin.getEpisodes).toBeInstanceOf(Function);
@@ -78,6 +83,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch(searchResponse)),
       });
       const results: AnimeResult[] = await plugin.searchAnime("Jujutsu Kaisen");
@@ -96,6 +102,7 @@ describe("TVDBPlugin", () => {
     test("returns empty array for no results", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch([])),
       });
       const results = await plugin.searchAnime("Nonexistent Anime");
@@ -116,6 +123,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch(searchResponse)),
       });
       const results = await plugin.searchAnime("barakamon");
@@ -133,6 +141,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch(searchResponse)),
       });
       const results = await plugin.searchAnime("Attack on Titan");
@@ -151,6 +160,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch(searchResponse)),
       });
       const results = await plugin.searchAnime("Oshi no Ko");
@@ -170,6 +180,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch(searchResponse)),
       });
       const results = await plugin.searchAnime("Oshi no Ko");
@@ -208,6 +219,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(
           mockFetchWithRoutes({
             "/episodes/default/eng": episodesResponse,
@@ -230,6 +242,7 @@ describe("TVDBPlugin", () => {
     test("returns empty array when no episodes exist", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch({ id: 99999, name: "Unknown" })),
       });
       const results = await plugin.getEpisodes("99999");
@@ -249,6 +262,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(
           mockFetchWithRoutes({
             "/episodes/default/eng": episodesResponse,
@@ -315,6 +329,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(fetch),
       });
       const results = await plugin.getEpisodes("12345");
@@ -366,6 +381,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(fetch),
       });
       const results = await plugin.getEpisodes("12345");
@@ -408,6 +424,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(fetch),
       });
       const results = await plugin.getEpisodes("12345");
@@ -451,6 +468,7 @@ describe("TVDBPlugin", () => {
 
         const plugin = new TVDBPlugin({
           apiKey: "test-key",
+          baseUrl: BASE_URL,
           httpClient: createMockHttpClient(
             mockFetchWithRoutes({
               "/episodes/default/eng": engEpisodesResponse,
@@ -481,6 +499,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch(artworkResponse)),
       });
       const results = await plugin.getArtwork("12345", "poster");
@@ -500,6 +519,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch(artworkResponse)),
       });
       const results = await plugin.getArtwork("12345", "fanart");
@@ -516,6 +536,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch(artworkResponse)),
       });
       const results = await plugin.getArtwork("12345", "poster");
@@ -529,6 +550,7 @@ describe("TVDBPlugin", () => {
     test("returns empty array when no artwork exists", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockFetch({ artworks: [] })),
       });
       const results = await plugin.getArtwork("12345", "poster");
@@ -562,6 +584,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(
           mockFetchWithRoutes({
             "/series/12345/translations/eng": enTranslation,
@@ -614,6 +637,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(fetch),
       });
       const result = await plugin.getAnime("12345");
@@ -627,6 +651,7 @@ describe("TVDBPlugin", () => {
     test("returns null when anime ID does not exist", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockJsonFetch({ error: "Unauthorized" }, 404)),
       });
       const result = await plugin.getAnime("99999");
@@ -638,6 +663,7 @@ describe("TVDBPlugin", () => {
     test("returns empty array on login failure", async () => {
       const plugin = new TVDBPlugin({
         apiKey: "bad-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockJsonFetch({ error: "Unauthorized" }, 401)),
       });
       const results = await plugin.searchAnime("Jujutsu Kaisen");
@@ -663,6 +689,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(fetch),
       });
       const searchResults = await plugin.searchAnime("Unknown");
@@ -689,6 +716,7 @@ describe("TVDBPlugin", () => {
 
       const plugin = new TVDBPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(fetch),
       });
       await plugin.searchAnime("One");

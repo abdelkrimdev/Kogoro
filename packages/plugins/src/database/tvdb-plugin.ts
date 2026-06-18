@@ -8,8 +8,6 @@ import {
   HttpClient,
 } from "@kogoro/core";
 
-const BASE_URL = "https://api4.thetvdb.com/v4";
-
 interface TVDBSearchResult {
   id: string;
   slug?: string;
@@ -95,20 +93,23 @@ function findAlias(aliases: TVDBAlias[] | undefined, lang: string): string | und
 export class TVDBPlugin implements DatabasePlugin {
   private token: string | null = null;
   private apiKey: string;
+  private baseUrl: string;
   private httpClient: HttpClient;
 
   constructor(options: {
     apiKey: string;
+    baseUrl: string;
     httpClient?: HttpClient;
   }) {
     this.apiKey = options.apiKey;
+    this.baseUrl = options.baseUrl;
     this.httpClient = options.httpClient ?? new HttpClient();
   }
 
   private async ensureToken(): Promise<string | null> {
     if (this.token) return this.token;
 
-    const response = await this.httpClient.fetch(`${BASE_URL}/login`, {
+    const response = await this.httpClient.fetch(`${this.baseUrl}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ apikey: this.apiKey }),
@@ -127,7 +128,7 @@ export class TVDBPlugin implements DatabasePlugin {
     const token = await this.ensureToken();
     if (!token) return null;
 
-    return this.httpClient.fetch(`${BASE_URL}${path}`, {
+    return this.httpClient.fetch(`${this.baseUrl}${path}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,

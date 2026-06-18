@@ -1,7 +1,5 @@
 import { HttpClient, type SubtitlePlugin, type SubtitleResult } from "@kogoro/core";
 
-const BASE_URL = "https://api.opensubtitles.com/api/v1";
-
 interface OSSearchAttributes {
   subtitle_id: number;
   language: string;
@@ -30,6 +28,7 @@ export class OpenSubtitlesPlugin implements SubtitlePlugin {
   constructor(
     private options: {
       apiKey: string;
+      baseUrl: string;
       httpClient?: HttpClient;
     },
   ) {
@@ -49,12 +48,15 @@ export class OpenSubtitlesPlugin implements SubtitlePlugin {
     if (season !== undefined) params.set("season_number", String(season));
     if (episode !== undefined) params.set("episode_number", String(episode));
 
-    const response = await this.httpClient.fetch(`${BASE_URL}/subtitles?${params.toString()}`, {
-      headers: {
-        "Api-Key": this.options.apiKey,
-        "User-Agent": "Kogoro/0.1.0",
+    const response = await this.httpClient.fetch(
+      `${this.options.baseUrl}/subtitles?${params.toString()}`,
+      {
+        headers: {
+          "Api-Key": this.options.apiKey,
+          "User-Agent": "Kogoro/0.1.0",
+        },
       },
-    });
+    );
 
     if (!response.ok) return [];
 
@@ -72,7 +74,7 @@ export class OpenSubtitlesPlugin implements SubtitlePlugin {
   }
 
   async download(fileId: number): Promise<string> {
-    const response = await this.httpClient.fetch(`${BASE_URL}/download`, {
+    const response = await this.httpClient.fetch(`${this.options.baseUrl}/download`, {
       method: "POST",
       headers: {
         "Api-Key": this.options.apiKey,

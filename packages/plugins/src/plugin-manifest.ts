@@ -18,6 +18,7 @@ export interface PluginManifestEntry {
   name: string;
   type: "database" | "subtitle";
   description: string;
+  baseUrl: string;
   rateLimit?: number;
   credentialKey: string;
   load: (
@@ -61,7 +62,7 @@ async function loadTvdb(
     minDelay: entry.rateLimit,
     ...debugOptions(ctx.debug),
   });
-  return new TVDBPlugin({ apiKey, httpClient });
+  return new TVDBPlugin({ apiKey, baseUrl: entry.baseUrl, httpClient });
 }
 
 async function loadAnidb(
@@ -81,6 +82,7 @@ async function loadAnidb(
   return new AniDBPlugin({
     client: client ?? credential,
     clientver: clientver ?? "1",
+    baseUrl: entry.baseUrl,
     httpClient,
   });
 }
@@ -95,7 +97,7 @@ async function loadOpenSubtitles(
     return undefined;
   }
   const httpClient = new HttpClient(debugOptions(ctx.debug));
-  return new OpenSubtitlesPlugin({ apiKey, httpClient });
+  return new OpenSubtitlesPlugin({ apiKey, baseUrl: entry.baseUrl, httpClient });
 }
 
 export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
@@ -103,6 +105,7 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     name: "tvdb",
     type: "database",
     description: "TheTVDB.com plugin",
+    baseUrl: "https://api4.thetvdb.com/v4",
     rateLimit: 200,
     credentialKey: "tvdb",
     load: loadTvdb,
@@ -111,6 +114,7 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     name: "anidb",
     type: "database",
     description: "AniDB plugin",
+    baseUrl: "http://api.anidb.net:9001/httpapi",
     rateLimit: 2000,
     credentialKey: "anidb",
     load: loadAnidb,
@@ -119,6 +123,7 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     name: "opensubtitles",
     type: "subtitle",
     description: "OpenSubtitles.com plugin",
+    baseUrl: "https://api.opensubtitles.com/api/v1",
     credentialKey: "opensubtitles",
     load: loadOpenSubtitles,
   },

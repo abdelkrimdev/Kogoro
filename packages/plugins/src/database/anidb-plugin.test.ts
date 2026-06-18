@@ -5,6 +5,8 @@ import type { DatabasePlugin } from "@kogoro/core";
 import { createMockHttpClient, createSequenceHttpClient, withTempDir } from "@kogoro/core/testing";
 import { AniDBPlugin } from "./anidb-plugin";
 
+const BASE_URL = "http://api.anidb.net:9001/httpapi";
+
 function mockHttpClient(data: string, status = 200) {
   return createMockHttpClient(async (_url: string | URL, _init?: RequestInit) => {
     return new Response(data, {
@@ -34,6 +36,7 @@ describe("AniDBPlugin", () => {
         const plugin = new AniDBPlugin({
           client: "kogoro",
           clientver: "1",
+          baseUrl: BASE_URL,
           cacheDir: dir,
         });
         const results = await plugin.searchAnime("Jujutsu Kaisen");
@@ -51,6 +54,7 @@ describe("AniDBPlugin", () => {
         const plugin = new AniDBPlugin({
           client: "kogoro",
           clientver: "1",
+          baseUrl: BASE_URL,
           cacheDir: dir,
         });
         const results = await plugin.searchAnime("Nonexistent Anime");
@@ -64,6 +68,7 @@ describe("AniDBPlugin", () => {
         const plugin = new AniDBPlugin({
           client: "kogoro",
           clientver: "1",
+          baseUrl: BASE_URL,
           cacheDir: dir,
         });
         const results = await plugin.searchAnime("attack on titan");
@@ -78,6 +83,7 @@ describe("AniDBPlugin", () => {
         const plugin = new AniDBPlugin({
           client: "kogoro",
           clientver: "1",
+          baseUrl: BASE_URL,
           cacheDir: dir,
         });
         const results = await plugin.searchAnime("Titan");
@@ -99,6 +105,7 @@ describe("AniDBPlugin", () => {
         const plugin = new AniDBPlugin({
           client: "kogoro",
           clientver: "1",
+          baseUrl: BASE_URL,
           cacheDir: dir,
         });
         const results = await plugin.searchAnime("Zom 100 Bucket List of the Dead");
@@ -121,6 +128,7 @@ describe("AniDBPlugin", () => {
         const plugin = new AniDBPlugin({
           client: "kogoro",
           clientver: "1",
+          baseUrl: BASE_URL,
           cacheDir: dir,
         });
         const results = await plugin.searchAnime(
@@ -146,6 +154,7 @@ describe("AniDBPlugin", () => {
         const plugin = new AniDBPlugin({
           client: "kogoro",
           clientver: "1",
+          baseUrl: BASE_URL,
           cacheDir: dir,
         });
         const results = await plugin.searchAnime("Jujutsu");
@@ -159,6 +168,7 @@ describe("AniDBPlugin", () => {
         const plugin = new AniDBPlugin({
           client: "kogoro",
           clientver: "1",
+          baseUrl: BASE_URL,
           cacheDir: dir,
           httpClient: mockHttpClient("", 500),
         });
@@ -204,6 +214,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(animeXml),
       });
       const results = await plugin.getEpisodes("12345");
@@ -222,6 +233,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient("", 404),
       });
       const results = await plugin.getEpisodes("99999");
@@ -240,6 +252,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(xmlWithoutEpisodes),
       });
       const results = await plugin.getEpisodes("12345");
@@ -283,21 +296,25 @@ describe("AniDBPlugin", () => {
       const moviePlugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(movieXml),
       });
       const ovaPlugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(ovaXml),
       });
       const specialPlugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(specialXml),
       });
       const tvSpecialPlugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(tvSpecialXml),
       });
 
@@ -319,6 +336,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(xml),
       });
       const results = await plugin.getEpisodes("12345");
@@ -349,6 +367,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: createSequenceHttpClient(
           new Response(currentXml, { headers: { "Content-Type": "application/xml" } }),
           new Response(prequelXml, { headers: { "Content-Type": "application/xml" } }),
@@ -393,6 +412,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: createSequenceHttpClient(
           new Response(currentXml, { headers: { "Content-Type": "application/xml" } }),
           new Response(parentXml, { headers: { "Content-Type": "application/xml" } }),
@@ -417,6 +437,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(multiSeasonXml),
       });
       const results = await plugin.getEpisodes("12345");
@@ -439,6 +460,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(xml),
       });
       const results = await plugin.getEpisodes("12345");
@@ -457,6 +479,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(errorXml),
       });
       await expect(plugin.getEpisodes("12345")).rejects.toThrow("AniDB error 500: Banned");
@@ -483,6 +506,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(animeWithPictureXml),
       });
       const results = await plugin.getArtwork("12345", "poster");
@@ -495,6 +519,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(animeWithoutPictureXml),
       });
       const results = await plugin.getArtwork("67890", "poster");
@@ -505,6 +530,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(animeWithPictureXml),
       });
       const fanartResults = await plugin.getArtwork("12345", "fanart");
@@ -517,6 +543,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient("", 404),
       });
       const results = await plugin.getArtwork("99999", "poster");
@@ -529,6 +556,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(errorXml),
       });
       await expect(plugin.getArtwork("99999", "poster")).rejects.toThrow(
@@ -554,6 +582,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(animeXml),
       });
       const result = await plugin.getAnime("12345");
@@ -570,6 +599,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient("", 404),
       });
       const result = await plugin.getAnime("99999");
@@ -582,6 +612,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: mockHttpClient(errorXml),
       });
       await expect(plugin.getAnime("12345")).rejects.toThrow(
@@ -616,6 +647,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: createSequenceHttpClient(
           new Response(sequelXml, { headers: { "Content-Type": "application/xml" } }),
           new Response(prequelXml, { headers: { "Content-Type": "application/xml" } }),
@@ -661,6 +693,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: createSequenceHttpClient(
           new Response(currentXml, { headers: { "Content-Type": "application/xml" } }),
           new Response(parentXml, { headers: { "Content-Type": "application/xml" } }),
@@ -694,6 +727,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: createSequenceHttpClient(
           new Response(sequelXml, { headers: { "Content-Type": "application/xml" } }),
           new Response(prequelXml, { headers: { "Content-Type": "application/xml" } }),
@@ -726,6 +760,7 @@ describe("AniDBPlugin", () => {
       const plugin = new AniDBPlugin({
         client: "kogoro",
         clientver: "1",
+        baseUrl: "http://api.anidb.net:9001/httpapi",
         httpClient: createSequenceHttpClient(
           new Response(sequelXml, { headers: { "Content-Type": "application/xml" } }),
           new Response(prequelXml, { headers: { "Content-Type": "application/xml" } }),
@@ -740,6 +775,7 @@ describe("AniDBPlugin", () => {
     const plugin: DatabasePlugin = new AniDBPlugin({
       client: "kogoro",
       clientver: "1",
+      baseUrl: "http://api.anidb.net:9001/httpapi",
     });
     expect(plugin.searchAnime).toBeInstanceOf(Function);
     expect(plugin.getEpisodes).toBeInstanceOf(Function);

@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createCallCounter, createMockHttpClient, mockJsonFetch } from "@kogoro/core/testing";
 import { OpenSubtitlesPlugin } from "./opensubtitles-plugin";
 
+const BASE_URL = "https://api.opensubtitles.com/api/v1";
+
 describe("OpenSubtitlesPlugin", () => {
   describe("search", () => {
     test("returns subtitle results for a query", async () => {
@@ -22,6 +24,7 @@ describe("OpenSubtitlesPlugin", () => {
 
       const plugin = new OpenSubtitlesPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockJsonFetch(searchResponse)),
       });
 
@@ -37,6 +40,7 @@ describe("OpenSubtitlesPlugin", () => {
 
       const plugin = new OpenSubtitlesPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockJsonFetch(searchResponse)),
       });
 
@@ -47,6 +51,7 @@ describe("OpenSubtitlesPlugin", () => {
     test("returns empty array on API error", async () => {
       const plugin = new OpenSubtitlesPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockJsonFetch(null, 500)),
       });
 
@@ -66,6 +71,7 @@ describe("OpenSubtitlesPlugin", () => {
       const calls = createCallCounter();
       const plugin = new OpenSubtitlesPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(async (_url: string | URL, _init?: RequestInit) => {
           calls.inc();
           if (calls.get() === 1) {
@@ -86,6 +92,7 @@ describe("OpenSubtitlesPlugin", () => {
     test("returns empty string on API error", async () => {
       const plugin = new OpenSubtitlesPlugin({
         apiKey: "test-key",
+        baseUrl: BASE_URL,
         httpClient: createMockHttpClient(mockJsonFetch(null, 500)),
       });
 
