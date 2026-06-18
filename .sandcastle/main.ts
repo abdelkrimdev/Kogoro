@@ -1,7 +1,7 @@
 // Parallel Planner with Review — four-phase orchestration loop
 //
 // This template drives a multi-phase workflow:
-//   Phase 1 (Plan):             An opus agent analyzes open issues, builds a
+//   Phase 1 (Plan):             A planning agent analyzes open issues, builds a
 //                               dependency graph, and outputs a <plan> JSON
 //                               listing unblocked issues with branch names.
 //   Phase 2 (Execute + Review): For each issue, a sandbox is created via
@@ -21,6 +21,7 @@
 // Or add to package.json:
 //   "scripts": { "sandcastle": "npx tsx .sandcastle/main.ts" }
 
+/// <reference types="node" />
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 
@@ -53,7 +54,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   // Phase 1: Plan
   //
-  // The planning agent (opus, for deeper reasoning) reads the open issue list,
+  // The planning agent reads the open issue list,
   // builds a dependency graph, and selects the issues that can be worked in
   // parallel right now (i.e., no blocking dependencies on other open issues).
   //
@@ -66,7 +67,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // One iteration is enough: the planner just needs to read and reason,
     // not write code.
     maxIterations: 1,
-    agent: sandcastle.opencode("deepseek/deepseek-v4-pro"),
+    agent: sandcastle.opencode((process.env.PLANNER_MODEL ?? "opencode-go/mimo-v2.5")),
     promptFile: "./.sandcastle/plan-prompt.md",
   });
 
@@ -120,7 +121,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
-          agent: sandcastle.opencode("deepseek/deepseek-v4-pro"),
+          agent: sandcastle.opencode((process.env.IMPLEMENTER_MODEL ?? "opencode-go/mimo-v2.5")),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -134,7 +135,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
-            agent: sandcastle.opencode("deepseek/deepseek-v4-pro"),
+            agent: sandcastle.opencode((process.env.REVIEWER_MODEL ?? "opencode-go/mimo-v2.5")),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
@@ -205,7 +206,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: docker(),
     name: "merger",
     maxIterations: 1,
-    agent: sandcastle.opencode("deepseek/deepseek-v4-pro"),
+    agent: sandcastle.opencode((process.env.MERGER_MODEL ?? "opencode-go/mimo-v2.5")),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.
