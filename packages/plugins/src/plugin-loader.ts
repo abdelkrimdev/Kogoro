@@ -54,10 +54,10 @@ export class PluginLoader {
       console.warn(`Plugin "${name}" is disabled`);
       return undefined;
     }
+    const cached = this.databaseCache.get(name);
+    if (cached) return cached;
     const entry = getManifestEntry(name);
     if (entry && entry.type === "database") {
-      const cached = this.databaseCache.get(name);
-      if (cached) return cached;
       const ctx: PluginLoadContext = { credentialStore, debug: this.debug };
       const plugin = await entry.load(ctx, entry);
       if (plugin) {
