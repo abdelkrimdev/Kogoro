@@ -35,51 +35,38 @@
     watched: ep.watched,
   }))));
 
+  const STATUS_COLOR: Record<string, string> = {
+    watching: "text-primary-500-400",
+    completed: "text-success-500-400",
+    plan_to_watch: "text-surface-600-400",
+    on_hold: "text-warning-500-400",
+    dropped: "text-error-500-400",
+  };
+
+  const STATUS_BADGE: Record<string, string> = {
+    watching: "badge preset-tonal-primary",
+    completed: "badge preset-tonal-success",
+    plan_to_watch: "badge preset-tonal-surface",
+    on_hold: "badge preset-tonal-warning",
+    dropped: "badge preset-tonal-error",
+  };
+
+  const ENTRY_TYPE_BADGE: Record<string, string> = {
+    movie: "badge preset-tonal-secondary",
+    ova: "badge preset-tonal-warning",
+    special: "badge preset-tonal-error",
+  };
+
   function statusColorClass(status: string): string {
-    switch (status) {
-      case "watching":
-        return "text-primary-500-400";
-      case "completed":
-        return "text-success-500-400";
-      case "plan_to_watch":
-        return "text-surface-600-400";
-      case "on_hold":
-        return "text-warning-500-400";
-      case "dropped":
-        return "text-error-500-400";
-      default:
-        return "text-surface-600-400";
-    }
+    return STATUS_COLOR[status] ?? "text-surface-600-400";
   }
 
   function statusBadgeClass(status: string): string {
-    switch (status) {
-      case "watching":
-        return "badge preset-tonal-primary";
-      case "completed":
-        return "badge preset-tonal-success";
-      case "plan_to_watch":
-        return "badge preset-tonal-surface";
-      case "on_hold":
-        return "badge preset-tonal-warning";
-      case "dropped":
-        return "badge preset-tonal-error";
-      default:
-        return "badge preset-tonal-surface";
-    }
+    return STATUS_BADGE[status] ?? "badge preset-tonal-surface";
   }
 
   function entryTypeBadgeClass(entryType: string): string {
-    switch (entryType) {
-      case "movie":
-        return "badge preset-tonal-secondary";
-      case "ova":
-        return "badge preset-tonal-warning";
-      case "special":
-        return "badge preset-tonal-error";
-      default:
-        return "badge preset-tonal-primary";
-    }
+    return ENTRY_TYPE_BADGE[entryType] ?? "badge preset-tonal-primary";
   }
 
   async function handleStatusChange(newStatus: string) {

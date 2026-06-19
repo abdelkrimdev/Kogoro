@@ -7,6 +7,14 @@ export interface EpisodeRow {
   missing: boolean;
 }
 
+export interface EpisodeGroupEpisode {
+  id: string;
+  episodeNumber: number;
+  titleEn: string;
+  filePath: string;
+  watched: boolean;
+}
+
 export interface EpisodeGroupRow {
   id: string;
   entryType: string;
@@ -15,13 +23,7 @@ export interface EpisodeGroupRow {
   synopsis?: string;
   rating?: number;
   coverArt?: string;
-  episodes: Array<{
-    id: string;
-    episodeNumber: number;
-    titleEn: string;
-    filePath: string;
-    watched: boolean;
-  }>;
+  episodes: EpisodeGroupEpisode[];
 }
 
 export function getAnimeDirectory(episodes: EpisodeRow[]): string | null {

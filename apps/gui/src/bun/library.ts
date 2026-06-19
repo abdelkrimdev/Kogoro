@@ -75,6 +75,10 @@ interface LibraryHandlerOptions {
 
 export type LibraryHandlers = ReturnType<typeof createLibraryHandlers>;
 
+function totalEpisodeCount(groups: LibraryAnimeDetail["groups"]): number {
+  return groups.reduce((sum, g) => sum + g.episodes.length, 0);
+}
+
 export function createLibraryHandlers(options: LibraryHandlerOptions) {
   const svc = options.libraryService;
 
@@ -119,7 +123,6 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
         }),
       );
 
-      const totalEpisodes = groups.reduce((sum, g) => sum + g.episodes.length, 0);
       const coverArt = anime.coverArtPath ? await toDataUrl(anime.coverArtPath) : undefined;
 
       return {
@@ -133,7 +136,7 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
           genres: anime.genres,
         },
         groups,
-        filesOnDisk: totalEpisodes,
+        filesOnDisk: totalEpisodeCount(groups),
       };
     },
 
