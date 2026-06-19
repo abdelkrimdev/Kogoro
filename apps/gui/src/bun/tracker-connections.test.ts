@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { CredentialStore } from "@kogoro/core";
-import { createMockKeytar } from "@kogoro/core/testing";
+import { CredentialStore, LibraryService } from "@kogoro/core";
+import { createLibraryRepository, createMockKeytar } from "@kogoro/core/testing";
 import {
   connectTracker,
   disconnectTracker,
@@ -128,6 +128,12 @@ describe("connectTracker", () => {
 describe("disconnectTracker", () => {
   const originalEnv = process.env;
 
+  function createTestLibraryService() {
+    const { repo, close } = createLibraryRepository();
+    const service = new LibraryService(repo);
+    return { service, close };
+  }
+
   beforeEach(() => {
     process.env = { ...originalEnv };
     for (const k of Object.keys(process.env)) {
@@ -141,30 +147,132 @@ describe("disconnectTracker", () => {
 
   test("deletes anilist credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
-    await store.setCredential("anilist", "token");
-    const result = await disconnectTracker(store, { name: "anilist" });
-    expect(result.success).toBe(true);
-    expect(await store.getCredential("anilist")).toBeUndefined();
+    const { service, close } = createTestLibraryService();
+    try {
+      await store.setCredential("anilist", "token");
+      const result = await disconnectTracker(store, service, { name: "anilist" });
+      expect(result.success).toBe(true);
+      expect(await store.getCredential("anilist")).toBeUndefined();
+    } finally {
+      close();
+    }
   });
 
   test("deletes kitsu credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
-    await store.setCredential("kitsu", "user:pass");
-    const result = await disconnectTracker(store, { name: "kitsu" });
-    expect(result.success).toBe(true);
-    expect(await store.getCredential("kitsu")).toBeUndefined();
+    const { service, close } = createTestLibraryService();
+    try {
+      await store.setCredential("kitsu", "user:pass");
+      const result = await disconnectTracker(store, service, { name: "kitsu" });
+      expect(result.success).toBe(true);
+      expect(await store.getCredential("kitsu")).toBeUndefined();
+    } finally {
+      close();
+    }
   });
 
   test("returns error for unknown tracker", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
-    const result = await disconnectTracker(store, { name: "mal" });
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("mal");
+    const { service, close } = createTestLibraryService();
+    try {
+      const result = await disconnectTracker(store, service, { name: "mal" });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("mal");
+    } finally {
+      close();
+    }
   });
 
   test("succeeds when no credential exists", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
-    const result = await disconnectTracker(store, { name: "anilist" });
-    expect(result.success).toBe(true);
+    const { service, close } = createTestLibraryService();
+    try {
+      const result = await disconnectTracker(store, service, { name: "anilist" });
+      expect(result.success).toBe(true);
+    } finally {
+      close();
+    }
+  });
+
+  test("removes all tracker mappings for disconnected source", async () => {
+    const store = new CredentialStore({ keytar: createMockKeytar() });
+    const { service, close } = createTestLibraryService();
+    try {
+      await store.setCredential("anilist", "token");
+
+      const anime = service.upsertAnime({
+        externalId: "tvdb-12345",
+        sourceDb: "tvdb",
+        title: "Jujutsu Kaisen",
+        episodeCount: 24,
+      });
+
+      const group = service.upsertEpisodeGroup({
+        animeId: anime.id,
+        entryType: "tv",
+        seasonNumber: 1,
+        watchStatus: "watching",
+      });
+
+      service.upsertGroupTrackerMapping({
+        groupId: group.id,
+        source: "anilist",
+        externalId: "anilist-67890",
+      });
+      service.upsertGroupTrackerMapping({
+        groupId: group.id,
+        source: "kitsu",
+        externalId: "kitsu-11111",
+      });
+
+      const result = await disconnectTracker(store, service, { name: "anilist" });
+      expect(result.success).toBe(true);
+      expect(await store.getCredential("anilist")).toBeUndefined();
+
+      const remainingMappings = service.getTrackerMappingsByGroupId(group.id);
+      expect(remainingMappings).toHaveLength(1);
+      expect(remainingMappings[0]?.source).toBe("kitsu");
+    } finally {
+      close();
+    }
+  });
+
+  test("preserves library data when disconnecting", async () => {
+    const store = new CredentialStore({ keytar: createMockKeytar() });
+    const { service, close } = createTestLibraryService();
+    try {
+      await store.setCredential("anilist", "token");
+
+      const anime = service.upsertAnime({
+        externalId: "tvdb-12345",
+        sourceDb: "tvdb",
+        title: "Jujutsu Kaisen",
+        episodeCount: 24,
+      });
+
+      const group = service.upsertEpisodeGroup({
+        animeId: anime.id,
+        entryType: "tv",
+        seasonNumber: 1,
+        watchStatus: "watching",
+      });
+
+      service.upsertGroupTrackerMapping({
+        groupId: group.id,
+        source: "anilist",
+        externalId: "anilist-67890",
+      });
+
+      await disconnectTracker(store, service, { name: "anilist" });
+
+      const animeAfter = service.getAnime(anime.id);
+      expect(animeAfter).not.toBeNull();
+      expect(animeAfter?.title).toBe("Jujutsu Kaisen");
+
+      const groupsAfter = service.getEpisodeGroupsByAnimeId(anime.id);
+      expect(groupsAfter).toHaveLength(1);
+    } finally {
+      close();
+    }
   });
 });

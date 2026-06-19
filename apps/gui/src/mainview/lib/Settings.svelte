@@ -190,6 +190,10 @@
     disconnectDialogTracker = trackerName;
   }
 
+  const disconnectTrackerDisplayName = $derived(
+    trackerStatus.find((t) => t.name === disconnectDialogTracker)?.displayName ?? disconnectDialogTracker ?? "",
+  );
+
   async function handleDisconnect() {
     if (!disconnectDialogTracker) return;
     try {
@@ -569,9 +573,9 @@
       <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-sm p-0 shadow-xl">
           <div class="p-4">
-            <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Disconnect Tracker</Dialog.Title>
+            <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Disconnect {disconnectTrackerDisplayName}?</Dialog.Title>
             <Dialog.Description class="text-sm text-surface-600-400">
-              Disconnecting will remove tracker mappings. Your library data stays. Continue?
+              Your library data will be preserved. Tracker mappings will be removed and you will need to re-import if you reconnect later.
             </Dialog.Description>
           </div>
           <div class="p-4 border-t border-surface-300-700 flex justify-end gap-3">

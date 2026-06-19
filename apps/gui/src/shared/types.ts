@@ -214,7 +214,7 @@ export type AppRPC = {
         response: AwaitedReturnType<typeof connectTracker>;
       };
       disconnectTracker: {
-        params: Parameters<typeof disconnectTracker>[1];
+        params: Parameters<typeof disconnectTracker>[2];
         response: AwaitedReturnType<typeof disconnectTracker>;
       };
       getDashboardData: {
