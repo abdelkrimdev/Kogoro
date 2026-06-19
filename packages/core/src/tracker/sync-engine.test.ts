@@ -234,6 +234,71 @@ describe("SyncEngine", () => {
       }
     });
 
+    test("does not flag conflict for already-pushed events", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      try {
+        const libraryService = new LibraryService(libraryRepo);
+
+        const anime = libraryService.upsertAnime({
+          externalId: "tracker-1",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = libraryService.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        libraryService.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "tl-1",
+        });
+
+        const event1 = eventRepo.append({
+          entityType: "group",
+          entityId: group.id,
+          eventType: "status_change",
+          oldValue: "watching",
+          newValue: "completed",
+        });
+
+        eventRepo.markPushedForSource([event1.id], "anilist");
+
+        const tracker = createMockTracker({
+          async getUserList() {
+            return [
+              {
+                trackerId: "tl-1",
+                title: "Attack on Titan",
+                entryType: "tv",
+                watchStatus: "completed",
+                episodesWatched: 25,
+                totalEpisodes: 25,
+              },
+            ];
+          },
+        });
+
+        const syncEngine = new SyncEngine(libraryService, eventRepo, tracker, "anilist");
+        const result = await syncEngine.pull();
+
+        expect(result.applied).toBe(1);
+        expect(result.conflicts).toHaveLength(0);
+
+        const updatedGroup = libraryService.getEpisodeGroup(group.id);
+        expect(updatedGroup?.watchStatus).toBe("completed");
+      } finally {
+        closeLibrary();
+        closeEvent();
+      }
+    });
+
     test("handles multiple entries from tracker", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();

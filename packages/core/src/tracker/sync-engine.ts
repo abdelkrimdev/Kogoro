@@ -52,11 +52,13 @@ export class SyncEngine {
       const mapping = mappingsByExternalId.get(entry.trackerId);
       if (!mapping) continue;
 
-      const localEvents = this.eventRepo.getAllForEntity("group", mapping.groupId);
-      const hasLocalChanges = localEvents.length > 0;
+      const unpushedEvents = this.eventRepo
+        .getUnpushed(this.source)
+        .filter((e) => e.entityType === "group" && e.entityId === mapping.groupId);
+      const hasLocalChanges = unpushedEvents.length > 0;
 
       if (hasLocalChanges) {
-        const lastEvent = localEvents[localEvents.length - 1];
+        const lastEvent = unpushedEvents[unpushedEvents.length - 1];
         conflicts.push({
           groupId: mapping.groupId,
           tracker: this.source,
