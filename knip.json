@@ -1,6 +1,5 @@
 {
   "$schema": "https://unjs.github.io/knip/schema.json",
-  "ignore": [".sandcastle/**"],
   "workspaces": {
     "apps/cli": {
       "entry": [

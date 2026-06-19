@@ -2,6 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { EventRepository } from "./event-repository";
 import { createEventDb } from "./test-utils";
 
+function at<T>(arr: T[], i: number): T {
+  return arr[i] as T;
+}
+
 describe("EventRepository", () => {
   describe("append", () => {
     test("creates event with all fields and pushed=empty", () => {
@@ -78,9 +82,9 @@ describe("EventRepository", () => {
 
         const result = repo.replay();
         expect(result).toHaveLength(2);
-        expect(result[0]!.entityType).toBe("group");
-        expect(result[1]!.entityType).toBe("episode");
-        expect(result[0]!.timestamp <= result[1]!.timestamp).toBe(true);
+        expect(at(result, 0).entityType).toBe("group");
+        expect(at(result, 1).entityType).toBe("episode");
+        expect(at(result, 0).timestamp <= at(result, 1).timestamp).toBe(true);
       } finally {
         sqlite.close();
       }
@@ -127,8 +131,8 @@ describe("EventRepository", () => {
 
         const result = repo.getAllForEntity("group", 1);
         expect(result).toHaveLength(1);
-        expect(result[0]!.entityId).toBe(1);
-        expect(result[0]!.entityType).toBe("group");
+        expect(at(result, 0).entityId).toBe(1);
+        expect(at(result, 0).entityType).toBe("group");
       } finally {
         sqlite.close();
       }
@@ -155,8 +159,8 @@ describe("EventRepository", () => {
 
         const result = repo.getAllForEntity("group", 1);
         expect(result).toHaveLength(2);
-        expect(result[0]!.newValue).toBe("watching");
-        expect(result[1]!.newValue).toBe("completed");
+        expect(at(result, 0).newValue).toBe("watching");
+        expect(at(result, 1).newValue).toBe("completed");
       } finally {
         sqlite.close();
       }
@@ -212,7 +216,7 @@ describe("EventRepository", () => {
 
         const result = repo.getUnpushed();
         expect(result).toHaveLength(1);
-        expect(result[0]!.entityId).toBe(2);
+        expect(at(result, 0).entityId).toBe(2);
       } finally {
         sqlite.close();
       }
@@ -240,7 +244,7 @@ describe("EventRepository", () => {
 
         const malUnpushed = repo.getUnpushed("mal");
         expect(malUnpushed).toHaveLength(1);
-        expect(malUnpushed[0]!.entityId).toBe(2);
+        expect(at(malUnpushed, 0).entityId).toBe(2);
 
         const anilistUnpushed = repo.getUnpushed("anilist");
         expect(anilistUnpushed).toHaveLength(2);
@@ -268,7 +272,7 @@ describe("EventRepository", () => {
         expect(unpushed).toHaveLength(0);
 
         const all = repo.replay();
-        expect(all[0]!.pushed).toEqual(["mal", "anilist"]);
+        expect(at(all, 0).pushed).toEqual(["mal", "anilist"]);
       } finally {
         sqlite.close();
       }
@@ -296,7 +300,7 @@ describe("EventRepository", () => {
         expect(anilistUnpushed).toHaveLength(1);
 
         const all = repo.replay();
-        expect(all[0]!.pushed).toEqual(["mal"]);
+        expect(at(all, 0).pushed).toEqual(["mal"]);
       } finally {
         sqlite.close();
       }
@@ -317,7 +321,7 @@ describe("EventRepository", () => {
         repo.markPushedForSource([e1.id], "mal");
 
         const all = repo.replay();
-        expect(all[0]!.pushed).toEqual(["mal"]);
+        expect(at(all, 0).pushed).toEqual(["mal"]);
       } finally {
         sqlite.close();
       }
@@ -349,8 +353,8 @@ describe("EventRepository", () => {
         repo.dropForSource("mal");
 
         const all = repo.replay();
-        expect(all[0]!.pushed).toEqual(["anilist"]);
-        expect(all[1]!.pushed).toEqual([]);
+        expect(at(all, 0).pushed).toEqual(["anilist"]);
+        expect(at(all, 1).pushed).toEqual([]);
 
         const malUnpushed = repo.getUnpushed("mal");
         expect(malUnpushed).toHaveLength(2);

@@ -2,11 +2,12 @@
   import { Check } from '@lucide/svelte';
   import { Dialog, Portal, Steps } from '@skeletonlabs/skeleton-svelte';
   import type { KeyringCheckResult } from "@kogoro/core";
-  import { TEMPLATE_PRESETS } from "../shared";
+  import { TEMPLATE_PRESETS, type RPCClient } from "../shared";
   import KeyringNotice from "./KeyringNotice.svelte";
+  import ImportPreview from "./ImportPreview.svelte";
 
   interface Props {
-    rpc: { request: (method: string, params: unknown) => Promise<unknown> };
+    rpc: RPCClient;
     keyringResult: KeyringCheckResult | null;
     onComplete: () => void;
   }
@@ -34,6 +35,9 @@
   let connectDialogFields = $state<Array<{ name: string; label: string; type: "text" | "password"; placeholder?: string }>>([]);
   let connectDialogValues = $state<Record<string, string>>({});
   let connectingInProgress = $state(false);
+
+  let importPreviewTracker = $state<string | null>(null);
+  let importPreviewDisplayName = $state<string>("");
 
   const stepIsValid = $derived.by(() => {
     if (step === 1) return apiKey.length > 0;
@@ -123,14 +127,27 @@
         values: connectDialogValues,
       })) as { success: boolean; error?: string };
       if (result.success) {
+        const connectedName = connectDialogTracker;
+        const connectedTracker = trackerStatus.find((t) => t.name === connectedName);
         connectDialogTracker = null;
         await loadTrackerStatus();
+        importPreviewTracker = connectedName;
+        importPreviewDisplayName = connectedTracker?.displayName ?? connectedName;
       }
     } catch {
       // Connection is optional during onboarding
     } finally {
       connectingInProgress = false;
     }
+  }
+
+  function onImportPreviewComplete() {
+    importPreviewTracker = null;
+    onComplete();
+  }
+
+  function onImportPreviewCancel() {
+    importPreviewTracker = null;
   }
 </script>
 
@@ -233,36 +250,48 @@
         </Steps.Content>
 
         <Steps.Content index={3}>
-          <div class="space-y-4">
-            <h2 class="text-xl font-bold text-surface-950-50">Connect a Tracker</h2>
-            <p class="text-surface-700-300 text-sm">Optionally connect your tracker accounts to import your anime list.</p>
-            <div class="space-y-2">
-              {#each trackerStatus as tracker}
-                <div class="card preset-outlined-surface-300-700 flex items-center justify-between p-3">
-                  <div class="flex items-center gap-3">
-                    <span class="font-medium text-sm text-surface-950-50">{tracker.displayName}</span>
-                    {#if tracker.connected}
-                      <span class="badge preset-tonal-success text-xs">Connected</span>
-                    {:else}
-                      <span class="badge preset-tonal-surface text-xs">Not connected</span>
+          {#if importPreviewTracker}
+            <div class="h-[500px]">
+              <ImportPreview
+                {rpc}
+                trackerName={importPreviewTracker}
+                trackerDisplayName={importPreviewDisplayName}
+                onComplete={onImportPreviewComplete}
+                onCancel={onImportPreviewCancel}
+              />
+            </div>
+          {:else}
+            <div class="space-y-4">
+              <h2 class="text-xl font-bold text-surface-950-50">Connect a Tracker</h2>
+              <p class="text-surface-700-300 text-sm">Optionally connect your tracker accounts to import your anime list.</p>
+              <div class="space-y-2">
+                {#each trackerStatus as tracker}
+                  <div class="card preset-outlined-surface-300-700 flex items-center justify-between p-3">
+                    <div class="flex items-center gap-3">
+                      <span class="font-medium text-sm text-surface-950-50">{tracker.displayName}</span>
+                      {#if tracker.connected}
+                        <span class="badge preset-tonal-success text-xs">Connected</span>
+                      {:else}
+                        <span class="badge preset-tonal-surface text-xs">Not connected</span>
+                      {/if}
+                    </div>
+                    {#if !tracker.connected}
+                      <button
+                        type="button"
+                        class="btn btn-sm preset-filled-primary-500 rounded-lg"
+                        onclick={() => openConnectDialog(tracker.name)}
+                      >
+                        Connect
+                      </button>
                     {/if}
                   </div>
-                  {#if !tracker.connected}
-                    <button
-                      type="button"
-                      class="btn btn-sm preset-filled-primary-500 rounded-lg"
-                      onclick={() => openConnectDialog(tracker.name)}
-                    >
-                      Connect
-                    </button>
-                  {/if}
-                </div>
-              {/each}
+                {/each}
+              </div>
+              {#if error}
+                <p class="text-error-500-400 text-sm">{error}</p>
+              {/if}
             </div>
-            {#if error}
-              <p class="text-error-500-400 text-sm">{error}</p>
-            {/if}
-          </div>
+          {/if}
         </Steps.Content>
 
         <Steps.Content index={4}>
@@ -275,7 +304,7 @@
           </div>
         </Steps.Content>
 
-        {#if step < 4}
+        {#if step < 4 && !importPreviewTracker}
           <div class="flex justify-between mt-8">
             <Steps.PrevTrigger class="btn preset-outlined-surface-300-700 rounded-lg font-medium">
               Back

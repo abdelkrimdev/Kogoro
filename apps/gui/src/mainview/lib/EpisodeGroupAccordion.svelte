@@ -13,9 +13,15 @@
 
   let { group, rpc, defaultOpen = false }: Props = $props();
 
-  let expanded = $state(defaultOpen);
-  let watchStatus = $state(group.watchStatus);
-  let localEpisodes = $state(group.episodes);
+  let expanded = $state(false);
+  let watchStatus = $state("");
+  let localEpisodes = $state<typeof group.episodes>([]);
+
+  $effect(() => {
+    expanded = defaultOpen;
+    watchStatus = group.watchStatus;
+    localEpisodes = group.episodes;
+  });
 
   const WATCH_STATUS_OPTIONS = [
     { value: "watching", label: "Watching" },
@@ -142,8 +148,9 @@
 
           <div class="flex-1 space-y-3">
             <div class="flex items-center gap-3">
-              <label class="text-sm text-surface-700-300">Status:</label>
+              <label for={`status-${group.id}`} class="text-sm text-surface-700-300">Status:</label>
               <select
+                id={`status-${group.id}`}
                 class="select preset-outlined-surface-300-700 rounded-lg text-sm py-1 px-2"
                 value={watchStatus}
                 onchange={(e) => handleStatusChange((e.target as HTMLSelectElement).value)}
