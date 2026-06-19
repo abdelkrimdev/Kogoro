@@ -123,11 +123,12 @@ describe("getAnimeDetail handler", () => {
       expect(result?.anime.titleEn).toBe("Jujutsu Kaisen");
       expect(result?.anime.titleJa).toBe("呪術廻戦");
       expect(result?.anime.coverArt).toStartWith("data:image/jpeg;base64,");
-      expect(result?.episodes).toHaveLength(2);
-      expect(result?.episodes[0]?.episode).toBe(1);
-      expect(result?.episodes[0]?.titleEn).toBe("Ryomen Sukuna");
-      expect(result?.episodes[1]?.episode).toBe(2);
-      expect(result?.episodes[1]?.titleEn).toBe("Cursed Womb Must Die");
+      expect(result?.groups).toHaveLength(1);
+      expect(result?.groups[0]?.episodes).toHaveLength(2);
+      expect(result?.groups[0]?.episodes[0]?.episodeNumber).toBe(1);
+      expect(result?.groups[0]?.episodes[0]?.titleEn).toBe("Ryomen Sukuna");
+      expect(result?.groups[0]?.episodes[1]?.episodeNumber).toBe(2);
+      expect(result?.groups[0]?.episodes[1]?.titleEn).toBe("Cursed Womb Must Die");
       expect(result?.filesOnDisk).toBe(2);
       close();
     });

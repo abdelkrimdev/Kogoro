@@ -76,6 +76,14 @@ export type AppRPC = {
         params: Parameters<LibraryHandlers["setWatchStatus"]>[0];
         response: AwaitedReturnType<LibraryHandlers["setWatchStatus"]>;
       };
+      updateGroupStatus: {
+        params: Parameters<LibraryHandlers["updateGroupStatus"]>[0];
+        response: AwaitedReturnType<LibraryHandlers["updateGroupStatus"]>;
+      };
+      toggleEpisodeWatched: {
+        params: Parameters<LibraryHandlers["toggleEpisodeWatched"]>[0];
+        response: AwaitedReturnType<LibraryHandlers["toggleEpisodeWatched"]>;
+      };
       getSettingsData: {
         params: Record<string, never>;
         response: AwaitedReturnType<typeof buildSettingsFormData>;

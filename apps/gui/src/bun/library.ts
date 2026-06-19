@@ -18,14 +18,23 @@ export interface LibraryAnimeDetail {
     sourceDb: string;
     totalEpisodes: number;
     coverArt?: string;
+    genres?: string[];
   };
-  episodes: Array<{
+  groups: Array<{
     id: string;
-    season: number;
-    episode: number;
-    titleEn: string;
-    filePath: string;
-    missing: boolean;
+    entryType: string;
+    seasonNumber?: number;
+    watchStatus: string;
+    synopsis?: string;
+    rating?: number;
+    coverArt?: string;
+    episodes: Array<{
+      id: string;
+      episodeNumber: number;
+      titleEn: string;
+      filePath: string;
+      watched: boolean;
+    }>;
   }>;
   filesOnDisk: number;
 }
@@ -87,17 +96,30 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       const anime = svc.getAnime(Number(params.id));
       if (!anime) return null;
 
-      const dbEpisodes = svc.getEpisodesByAnimeId(anime.id);
+      const dbGroups = svc.getEpisodeGroupsByAnimeId(anime.id);
+      const groups: LibraryAnimeDetail["groups"] = await Promise.all(
+        dbGroups.map(async (group) => {
+          const dbEpisodes = svc.getEpisodesByGroupId(group.id);
+          return {
+            id: String(group.id),
+            entryType: group.entryType,
+            seasonNumber: group.seasonNumber,
+            watchStatus: group.watchStatus,
+            synopsis: group.synopsis,
+            rating: group.rating,
+            coverArt: group.coverArtPath ? await toDataUrl(group.coverArtPath) : undefined,
+            episodes: dbEpisodes.map((ep) => ({
+              id: String(ep.id),
+              episodeNumber: ep.episodeNumber,
+              titleEn: ep.title ?? `Episode ${ep.episodeNumber}`,
+              filePath: ep.filePath,
+              watched: ep.watched,
+            })),
+          };
+        }),
+      );
 
-      const allEpisodes: LibraryAnimeDetail["episodes"] = dbEpisodes.map((dbEp) => ({
-        id: String(dbEp.id),
-        season: dbEp.season ?? 1,
-        episode: dbEp.episodeNumber,
-        titleEn: dbEp.title ?? `Episode ${dbEp.episodeNumber}`,
-        filePath: dbEp.filePath,
-        missing: false,
-      }));
-
+      const totalEpisodes = groups.reduce((sum, g) => sum + g.episodes.length, 0);
       const coverArt = anime.coverArtPath ? await toDataUrl(anime.coverArtPath) : undefined;
 
       return {
@@ -108,9 +130,10 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
           sourceDb: anime.sourceDb,
           totalEpisodes: anime.episodeCount,
           coverArt,
+          genres: anime.genres,
         },
-        episodes: allEpisodes,
-        filesOnDisk: dbEpisodes.length,
+        groups,
+        filesOnDisk: totalEpisodes,
       };
     },
 
@@ -132,6 +155,25 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
 
     async getLibraryStats(): Promise<LibraryStats> {
       return svc.getStats();
+    },
+
+    async updateGroupStatus(params: {
+      groupId: string;
+      status: string;
+    }): Promise<{ success: boolean }> {
+      const result = svc.setGroupWatchStatus(
+        Number(params.groupId),
+        params.status as "watching" | "completed" | "plan_to_watch" | "on_hold" | "dropped",
+      );
+      return { success: result !== null };
+    },
+
+    async toggleEpisodeWatched(params: {
+      episodeId: string;
+      watched: boolean;
+    }): Promise<{ success: boolean }> {
+      const result = svc.setEpisodeWatched(Number(params.episodeId), params.watched);
+      return { success: result !== null };
     },
 
     rebuild(): LibraryRebuildResult {
