@@ -1,5 +1,6 @@
 import type { LibraryService } from "../library/library-service";
 import type { TrackerAnime, TrackerPlugin, TrackerWatchStatus } from "../types";
+import { mapTrackerStatus } from "./tracker-utils";
 
 export type TrackerSource = "mal" | "anilist" | "kitsu";
 
@@ -23,19 +24,6 @@ export interface ImportPreview {
 export interface ImportResult {
   imported: number;
   skipped: number;
-}
-
-function mapTrackerStatus(
-  status: TrackerWatchStatus,
-): "watching" | "completed" | "plan_to_watch" | "on_hold" | "dropped" {
-  switch (status) {
-    case "plan-to-watch":
-      return "plan_to_watch";
-    case "on-hold":
-      return "on_hold";
-    default:
-      return status;
-  }
 }
 
 export class TrackerImportService {

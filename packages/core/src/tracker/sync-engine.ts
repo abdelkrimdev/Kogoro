@@ -2,6 +2,7 @@ import type { Event, EventRepository } from "../events/event-repository";
 import type { LibraryService } from "../library/library-service";
 import type { TrackerPlugin, TrackerWatchStatus } from "../types";
 import type { TrackerSource } from "./tracker-import";
+import { mapLocalStatusToTracker, mapTrackerStatus } from "./tracker-utils";
 
 export interface SyncConflict {
   groupId: number;
@@ -172,28 +173,4 @@ function buildChangesFromEvent(event: Event): { watchStatus?: TrackerWatchStatus
     return { watchStatus: mapLocalStatusToTracker(event.newValue) };
   }
   return null;
-}
-
-function mapLocalStatusToTracker(status: string): TrackerWatchStatus {
-  switch (status) {
-    case "plan_to_watch":
-      return "plan-to-watch";
-    case "on_hold":
-      return "on-hold";
-    default:
-      return status as TrackerWatchStatus;
-  }
-}
-
-function mapTrackerStatus(
-  status: TrackerWatchStatus,
-): "watching" | "completed" | "plan_to_watch" | "on_hold" | "dropped" {
-  switch (status) {
-    case "plan-to-watch":
-      return "plan_to_watch";
-    case "on-hold":
-      return "on_hold";
-    default:
-      return status;
-  }
 }

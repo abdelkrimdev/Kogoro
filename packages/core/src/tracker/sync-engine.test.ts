@@ -1,37 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { createEventRepository, createLibraryRepository } from "../fixtures";
+import { createEventRepository, createLibraryRepository, createMockTracker } from "../fixtures";
 import { LibraryService } from "../library/library-service";
-import type { TrackerPlugin } from "../types";
+import type { SyncConflict } from "./sync-engine";
 import { SyncEngine } from "./sync-engine";
-
-function createMockTracker(overrides: Partial<TrackerPlugin> = {}): TrackerPlugin {
-  return {
-    async authenticate() {
-      return "mock-token";
-    },
-    async getUserList() {
-      return [];
-    },
-    async getEntry(trackerId: string) {
-      return {
-        trackerId,
-        title: "Test",
-        watchStatus: "watching",
-        episodesWatched: 0,
-        totalEpisodes: 12,
-      };
-    },
-    async updateEntry() {},
-    async getAnimeDetails(trackerId: string) {
-      return {
-        trackerId,
-        title: "Test",
-        entryType: "tv",
-      };
-    },
-    ...overrides,
-  };
-}
 
 describe("SyncEngine", () => {
   describe("pull", () => {
@@ -613,7 +584,7 @@ describe("SyncEngine", () => {
         const tracker = createMockTracker();
         const syncEngine = new SyncEngine(libraryService, eventRepo, tracker, "anilist");
 
-        const conflict: import("./sync-engine").SyncConflict = {
+        const conflict: SyncConflict = {
           groupId: group.id,
           tracker: "anilist",
           localChange: {
@@ -680,7 +651,7 @@ describe("SyncEngine", () => {
         const tracker = createMockTracker();
         const syncEngine = new SyncEngine(libraryService, eventRepo, tracker, "anilist");
 
-        const conflict: import("./sync-engine").SyncConflict = {
+        const conflict: SyncConflict = {
           groupId: group.id,
           tracker: "anilist",
           localChange: {
