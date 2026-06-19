@@ -3,13 +3,13 @@ import { createMockRPC } from "../../fixtures";
 import { createSidebarState, NAV_ITEMS } from "./nav";
 
 describe("NAV_ITEMS", () => {
-  it("contains three navigation entries", () => {
-    expect(NAV_ITEMS).toHaveLength(3);
+  it("contains four navigation entries", () => {
+    expect(NAV_ITEMS).toHaveLength(4);
   });
 
-  it("maps scan view to Scan label", () => {
-    expect(NAV_ITEMS[0]?.view).toBe("scan");
-    expect(NAV_ITEMS[0]?.label).toBe("Scan");
+  it("maps dashboard view to Dashboard label", () => {
+    expect(NAV_ITEMS[0]?.view).toBe("dashboard");
+    expect(NAV_ITEMS[0]?.label).toBe("Dashboard");
   });
 
   it("maps library view to Library label", () => {
@@ -17,9 +17,14 @@ describe("NAV_ITEMS", () => {
     expect(NAV_ITEMS[1]?.label).toBe("Library");
   });
 
+  it("maps scan view to Scan label", () => {
+    expect(NAV_ITEMS[2]?.view).toBe("scan");
+    expect(NAV_ITEMS[2]?.label).toBe("Scan");
+  });
+
   it("maps settings view to Settings label", () => {
-    expect(NAV_ITEMS[2]?.view).toBe("settings");
-    expect(NAV_ITEMS[2]?.label).toBe("Settings");
+    expect(NAV_ITEMS[3]?.view).toBe("settings");
+    expect(NAV_ITEMS[3]?.label).toBe("Settings");
   });
 
   it("each item has a non-null icon component", () => {

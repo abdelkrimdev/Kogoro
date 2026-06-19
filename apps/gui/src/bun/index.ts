@@ -13,6 +13,7 @@ import {
 import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow, PATHS, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
+import { createDashboardHandlers } from "./dashboard";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
 import {
@@ -55,6 +56,8 @@ const libraryHandlers = createLibraryHandlers({
   libraryService,
   getSourceDb: () => configManager.primaryDb,
 });
+
+const dashboardHandlers = createDashboardHandlers({ libraryService });
 
 const enrichmentHandlers = createEnrichmentHandlers({
   pluginFactory,
@@ -148,6 +151,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       removeWatchedFolder: async (params) => removeWatchedFolderHandler(params),
       markWatchedFolderScanned: async (params) => markWatchedFolderScannedHandler(params),
       checkKeyring: async () => checkKeyringStatus(),
+      getDashboardData: async () => dashboardHandlers.getDashboardData(),
     },
     messages: {
       windowWillClose: (data) => {

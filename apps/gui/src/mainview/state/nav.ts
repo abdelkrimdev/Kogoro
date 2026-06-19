@@ -1,7 +1,14 @@
-import { LayoutGrid, Search, Settings } from "@lucide/svelte";
+import { LayoutDashboard, LayoutGrid, Search, Settings } from "@lucide/svelte";
 import type { RPCClient } from "../shared";
 
-export type View = "onboarding" | "scan" | "library" | "details" | "settings" | "review";
+export type View =
+  | "onboarding"
+  | "dashboard"
+  | "scan"
+  | "library"
+  | "details"
+  | "settings"
+  | "review";
 
 interface NavItem {
   view: View;
@@ -10,8 +17,9 @@ interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { view: "scan", label: "Scan", icon: Search },
+  { view: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { view: "library", label: "Library", icon: LayoutGrid },
+  { view: "scan", label: "Scan", icon: Search },
   { view: "settings", label: "Settings", icon: Settings },
 ];
 
