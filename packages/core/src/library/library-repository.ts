@@ -490,6 +490,32 @@ export class LibraryRepository {
     return rows.map(this.rowToEpisodeGroup);
   }
 
+  getAllEpisodeGroups(): EpisodeGroup[] {
+    const rows = this.db.select().from(episodeGroups).all();
+    return rows.map(this.rowToEpisodeGroup);
+  }
+
+  getAllTrackerMappings(): GroupTrackerMapping[] {
+    const rows = this.db.select().from(groupTrackerMappings).all();
+    return rows.map(this.rowToGroupTrackerMapping);
+  }
+
+  getFilesOnDiskByGroupId(groupId: number): number {
+    const row = this.db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(episodes)
+      .where(eq(episodes.groupId, groupId))
+      .get();
+    return row?.count ?? 0;
+  }
+
+  updateLibraryState(
+    animeId: number,
+    libraryState: "on_disk" | "partially_on_disk" | "not_on_disk",
+  ): void {
+    this.db.update(anime).set({ libraryState }).where(eq(anime.id, animeId)).run();
+  }
+
   findEpisodeGroup(
     animeId: number,
     entryType: EntryType,
