@@ -6,3 +6,4 @@ export { BUILT_IN_MANIFEST, type PluginManifestEntry } from "./plugin-manifest";
 export { type PluginInfo, PluginRegistry } from "./plugin-registry";
 export { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
 export { AniListPlugin } from "./tracker/anilist-plugin";
+export { KitsuPlugin } from "./tracker/kitsu-plugin";

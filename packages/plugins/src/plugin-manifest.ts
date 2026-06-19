@@ -10,6 +10,7 @@ import { AniDBPlugin } from "./database/anidb-plugin";
 import { TVDBPlugin } from "./database/tvdb-plugin";
 import { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
 import { AniListPlugin } from "./tracker/anilist-plugin";
+import { KitsuPlugin } from "./tracker/kitsu-plugin";
 
 export interface PluginLoadContext {
   credentialStore: CredentialStore;
@@ -114,6 +115,28 @@ async function loadAnilist(
   return new AniListPlugin({ token: token ?? undefined, httpClient });
 }
 
+async function loadKitsu(
+  ctx: PluginLoadContext,
+  entry: PluginManifestEntry,
+): Promise<TrackerPlugin | undefined> {
+  const credential = await ctx.credentialStore.getCredential(entry.credentialKey);
+  if (!credential) {
+    console.error(`No ${entry.name} credentials configured. Run 'kogoro config init' first.`);
+    return undefined;
+  }
+  const [username, password] = credential.split(":", 2);
+  const httpClient = new HttpClient({
+    minDelay: entry.rateLimit,
+    ...debugOptions(ctx.debug),
+  });
+  return new KitsuPlugin({
+    baseUrl: entry.baseUrl,
+    httpClient,
+    username: username ?? credential,
+    password: password ?? "",
+  });
+}
+
 export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
   {
     name: "tvdb",
@@ -149,6 +172,15 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     rateLimit: 667,
     credentialKey: "anilist",
     load: loadAnilist,
+  },
+  {
+    name: "kitsu",
+    type: "tracker",
+    description: "Kitsu.io tracker plugin",
+    baseUrl: "https://kitsu.io/api/edge",
+    rateLimit: 500,
+    credentialKey: "kitsu",
+    load: loadKitsu,
   },
 ];
 

@@ -18,11 +18,12 @@ describe("PluginRegistry", () => {
       expect(subPlugins.some((p) => p.name === "opensubtitles")).toBe(true);
     });
 
-    test("returns built-in tracker plugin", () => {
+    test("returns built-in tracker plugins", () => {
       const registry = new PluginRegistry();
       const plugins = registry.list();
       const trackerPlugins = plugins.filter((p) => p.type === "tracker");
       expect(trackerPlugins.some((p) => p.name === "anilist")).toBe(true);
+      expect(trackerPlugins.some((p) => p.name === "kitsu")).toBe(true);
     });
 
     test("marks disabled plugins", () => {
