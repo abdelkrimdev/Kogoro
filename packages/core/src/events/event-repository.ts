@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { events } from "./schema";
 
 export interface Event {
@@ -22,7 +22,7 @@ export interface AppendEventInput {
 }
 
 type EventsSchema = { events: typeof events };
-type EventsDb = BaseSQLiteDatabase<"sync", void, EventsSchema>;
+type EventsDb = BunSQLiteDatabase<EventsSchema>;
 
 export class EventRepository {
   constructor(private db: EventsDb) {}
@@ -62,21 +62,10 @@ export class EventRepository {
   }
 
   getUnpushed(source?: string): Event[] {
-    if (source) {
-      const rows = this.db
-        .select()
-        .from(events)
-        .where(sql`json_extract(${events.pushed}, '$') NOT LIKE ${`%"${source}"%`}`)
-        .orderBy(events.timestamp)
-        .all();
-      return rows.map(this.rowToEvent);
-    }
-    const rows = this.db
-      .select()
-      .from(events)
-      .where(eq(events.pushed, "[]"))
-      .orderBy(events.timestamp)
-      .all();
+    const condition = source
+      ? sql`json_extract(${events.pushed}, '$') NOT LIKE ${`%"${source}"%`}`
+      : eq(events.pushed, "[]");
+    const rows = this.db.select().from(events).where(condition).orderBy(events.timestamp).all();
     return rows.map(this.rowToEvent);
   }
 
