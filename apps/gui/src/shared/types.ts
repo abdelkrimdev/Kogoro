@@ -29,6 +29,7 @@ import type {
   getTrackerConnectionFields,
   getTrackerStatus,
 } from "../bun/tracker-connections";
+import type { createTrackerImportHandlers } from "../bun/tracker-import";
 import type {
   addWatchedFolderHandler,
   getWatchedFoldersHandler,
@@ -216,6 +217,18 @@ export type AppRPC = {
       disconnectTracker: {
         params: Parameters<typeof disconnectTracker>[1];
         response: AwaitedReturnType<typeof disconnectTracker>;
+      };
+      getImportPreview: {
+        params: { trackerName: string };
+        response: AwaitedReturnType<
+          ReturnType<typeof createTrackerImportHandlers>["getImportPreview"]
+        >;
+      };
+      confirmImport: {
+        params: { trackerName: string };
+        response: AwaitedReturnType<
+          ReturnType<typeof createTrackerImportHandlers>["confirmImport"]
+        >;
       };
       getDashboardData: {
         params: Record<string, never>;
