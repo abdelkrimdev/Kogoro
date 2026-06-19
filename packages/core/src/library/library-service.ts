@@ -11,6 +11,15 @@ import type {
 } from "./library-repository";
 import { computeLibraryState, type GroupFilesOnDisk } from "./library-state";
 
+function groupCompositeKey(
+  animeExternalId: string,
+  sourceDb: string,
+  entryType: string,
+  seasonNumber: number | undefined,
+): string {
+  return `${animeExternalId}:${sourceDb}:${entryType}:${seasonNumber ?? "null"}`;
+}
+
 export class LibraryService {
   constructor(private library: LibraryRepository) {}
 
@@ -120,18 +129,11 @@ export class LibraryService {
 
       const oldGroups = tx.getAllEpisodeGroups();
       const oldAnimeById = new Map<number, { externalId: string; sourceDb: string }>();
-      const allAnime = tx.listAnime();
-      for (const a of allAnime) {
+      for (const a of tx.listAnime()) {
         oldAnimeById.set(a.id, { externalId: a.externalId, sourceDb: a.sourceDb });
       }
 
-      const groupCompositeKey = (
-        animeExternalId: string,
-        sourceDb: string,
-        entryType: string,
-        seasonNumber: number | undefined,
-      ) => `${animeExternalId}:${sourceDb}:${entryType}:${seasonNumber ?? "null"}`;
-
+      const oldGroupById = new Map<number, EpisodeGroup>();
       const groupStateByKey = new Map<
         string,
         {
@@ -142,6 +144,7 @@ export class LibraryService {
         }
       >();
       for (const group of oldGroups) {
+        oldGroupById.set(group.id, group);
         const animeInfo = oldAnimeById.get(group.animeId);
         if (!animeInfo) continue;
         const key = groupCompositeKey(
@@ -158,26 +161,28 @@ export class LibraryService {
         });
       }
 
-      const oldMappings = tx.getAllTrackerMappings();
       const mappingsByKey = new Map<string, GroupTrackerMapping[]>();
-      for (const mapping of oldMappings) {
-        const group = oldGroups.find((g) => g.id === mapping.groupId);
+      for (const mapping of tx.getAllTrackerMappings()) {
+        const group = oldGroupById.get(mapping.groupId);
         if (!group) continue;
         const animeInfo = oldAnimeById.get(group.animeId);
         if (!animeInfo) continue;
-        const compositeKey = groupCompositeKey(
+        const key = groupCompositeKey(
           animeInfo.externalId,
           animeInfo.sourceDb,
           group.entryType,
           group.seasonNumber,
         );
-        const existing = mappingsByKey.get(compositeKey);
-        if (existing) {
-          existing.push({ groupId: 0, source: mapping.source, externalId: mapping.externalId });
+        const entry = mappingsByKey.get(key);
+        const mapped: GroupTrackerMapping = {
+          groupId: 0,
+          source: mapping.source,
+          externalId: mapping.externalId,
+        };
+        if (entry) {
+          entry.push(mapped);
         } else {
-          mappingsByKey.set(compositeKey, [
-            { groupId: 0, source: mapping.source, externalId: mapping.externalId },
-          ]);
+          mappingsByKey.set(key, [mapped]);
         }
       }
 
@@ -425,7 +430,7 @@ export class LibraryService {
     return this.library.getAllTrackerMappings();
   }
 
-  computeAndPersistLibraryState(animeId: number, repo?: LibraryRepository): void {
+  private computeAndPersistLibraryState(animeId: number, repo?: LibraryRepository): void {
     const r = repo ?? this.library;
     const groups = r.getEpisodeGroupsByAnimeId(animeId);
     const groupFiles: GroupFilesOnDisk[] = groups.map((g) => ({
