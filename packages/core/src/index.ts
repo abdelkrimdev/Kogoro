@@ -114,4 +114,10 @@ export type {
   SubtitlePlugin,
   SubtitleResult,
   SwapPair,
+  TrackerAnime,
+  TrackerAnimeDetails,
+  TrackerEntry,
+  TrackerEntryChanges,
+  TrackerPlugin,
+  TrackerWatchStatus,
 } from "./types";

@@ -256,6 +256,100 @@ describe("PluginFactory", () => {
     });
   });
 
+  describe("tracker", () => {
+    test("loads external tracker plugin via dynamic import", async () => {
+      mock.module("kogoro-tracker-myanimelist", () => ({
+        default: class ExternalTrackerPlugin {
+          async authenticate() {
+            return "token";
+          }
+          async getUserList() {
+            return [];
+          }
+          async getEntry() {
+            return {
+              trackerId: "1",
+              title: "Test",
+              watchStatus: "watching",
+              episodesWatched: 0,
+              totalEpisodes: 0,
+            };
+          }
+          async updateEntry() {}
+          async getAnimeDetails() {
+            return { trackerId: "1", title: "Test", entryType: "tv" };
+          }
+        },
+      }));
+
+      await withTestConfig(
+        "factory-tracker-test",
+        async (_dir, config, credentialStore) => {
+          const factory = new PluginFactory(config, credentialStore);
+          const plugin = await factory.tracker("myanimelist");
+          expect(plugin).toBeDefined();
+          expect(plugin?.authenticate).toBeInstanceOf(Function);
+          expect(plugin?.getUserList).toBeInstanceOf(Function);
+          expect(plugin?.getEntry).toBeInstanceOf(Function);
+          expect(plugin?.updateEntry).toBeInstanceOf(Function);
+          expect(plugin?.getAnimeDetails).toBeInstanceOf(Function);
+        },
+        null,
+      );
+    });
+
+    test("returns undefined for disabled tracker plugins", async () => {
+      await withTestConfig(
+        "factory-tracker-disabled",
+        async (_dir, config, credentialStore) => {
+          config.set("plugins.myanimelist.enabled", "false");
+          const factory = new PluginFactory(config, credentialStore);
+          const plugin = await factory.tracker("myanimelist");
+          expect(plugin).toBeUndefined();
+        },
+        null,
+      );
+    });
+
+    test("caches external tracker plugin instance", async () => {
+      mock.module("kogoro-tracker-cached-ftrk", () => ({
+        default: class CachedTrackerPlugin {
+          id = Math.random();
+          async authenticate() {
+            return "token";
+          }
+          async getUserList() {
+            return [];
+          }
+          async getEntry() {
+            return {
+              trackerId: "1",
+              title: "Test",
+              watchStatus: "watching",
+              episodesWatched: 0,
+              totalEpisodes: 0,
+            };
+          }
+          async updateEntry() {}
+          async getAnimeDetails() {
+            return { trackerId: "1", title: "Test", entryType: "tv" };
+          }
+        },
+      }));
+
+      await withTestConfig(
+        "factory-tracker-cache",
+        async (_dir, config, credentialStore) => {
+          const factory = new PluginFactory(config, credentialStore);
+          const first = await factory.tracker("cached-ftrk");
+          const second = await factory.tracker("cached-ftrk");
+          expect(first).toBe(second);
+        },
+        null,
+      );
+    });
+  });
+
   describe("disabled plugins", () => {
     test("returns undefined for disabled plugins", async () => {
       await withTestConfig(

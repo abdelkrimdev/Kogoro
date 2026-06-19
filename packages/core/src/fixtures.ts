@@ -29,7 +29,13 @@ import { ScanStateService } from "./match/scan-state-service";
 import { createMatchCacheDb as createMatchCacheDbInstance } from "./match/test-utils";
 import type { ParsedResult, ParsedTags } from "./parse/parser";
 import { HashCache } from "./scan/hash-cache";
-import type { AnimeResult, ArtworkResult, DatabasePlugin, EpisodeResult } from "./types";
+import type {
+  AnimeResult,
+  ArtworkResult,
+  DatabasePlugin,
+  EpisodeResult,
+  TrackerPlugin,
+} from "./types";
 
 export interface EnrichmentSend {
   enrichmentProgress?: (data: {
@@ -568,6 +574,35 @@ export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {
     async getAnime() {
       return null;
     },
+  };
+}
+
+export function createMockTracker(overrides: Partial<TrackerPlugin> = {}): TrackerPlugin {
+  return {
+    async authenticate() {
+      return "mock-token";
+    },
+    async getUserList() {
+      return [];
+    },
+    async getEntry(trackerId: string) {
+      return {
+        trackerId,
+        title: "Test Anime",
+        watchStatus: "watching",
+        episodesWatched: 5,
+        totalEpisodes: 12,
+      };
+    },
+    async updateEntry() {},
+    async getAnimeDetails(trackerId: string) {
+      return {
+        trackerId,
+        title: "Test Anime",
+        entryType: "tv",
+      };
+    },
+    ...overrides,
   };
 }
 

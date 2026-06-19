@@ -4,6 +4,7 @@ import {
   type DebugEntry,
   HttpClient,
   type SubtitlePlugin,
+  type TrackerPlugin,
 } from "@kogoro/core";
 import { AniDBPlugin } from "./database/anidb-plugin";
 import { TVDBPlugin } from "./database/tvdb-plugin";
@@ -16,7 +17,7 @@ export interface PluginLoadContext {
 
 export interface PluginManifestEntry {
   name: string;
-  type: "database" | "subtitle";
+  type: "database" | "subtitle" | "tracker";
   description: string;
   baseUrl: string;
   rateLimit?: number;
@@ -24,7 +25,7 @@ export interface PluginManifestEntry {
   load: (
     ctx: PluginLoadContext,
     entry: PluginManifestEntry,
-  ) => Promise<DatabasePlugin | SubtitlePlugin | undefined>;
+  ) => Promise<DatabasePlugin | SubtitlePlugin | TrackerPlugin | undefined>;
 }
 
 function debugOptions(debug?: boolean): { onDebug?: (entry: DebugEntry) => void } {

@@ -138,3 +138,57 @@ export interface ScanSummary {
   renameFailed: number;
   renameFailures: Array<{ file: string; reason: string }>;
 }
+
+export type TrackerWatchStatus = "watching" | "completed" | "plan-to-watch" | "on-hold" | "dropped";
+
+export interface TrackerAnime {
+  trackerId: string;
+  title: string;
+  alternativeTitles?: string[];
+  image?: string;
+  year?: number;
+  entryType: EntryType;
+  watchStatus: TrackerWatchStatus;
+  episodesWatched: number;
+  totalEpisodes: number;
+  score?: number;
+}
+
+export interface TrackerEntry {
+  trackerId: string;
+  title: string;
+  watchStatus: TrackerWatchStatus;
+  episodesWatched: number;
+  totalEpisodes: number;
+  score?: number;
+  notes?: string;
+}
+
+export interface TrackerEntryChanges {
+  watchStatus?: TrackerWatchStatus;
+  episodesWatched?: number;
+  score?: number;
+  notes?: string;
+}
+
+export interface TrackerAnimeDetails {
+  trackerId: string;
+  title: string;
+  alternativeTitles?: string[];
+  image?: string;
+  year?: number;
+  entryType: EntryType;
+  synopsis?: string;
+  rating?: number;
+  genres?: string[];
+  studio?: string;
+  totalEpisodes?: number;
+}
+
+export interface TrackerPlugin {
+  authenticate(): Promise<string>;
+  getUserList(): Promise<TrackerAnime[]>;
+  getEntry(trackerId: string): Promise<TrackerEntry>;
+  updateEntry(trackerId: string, changes: TrackerEntryChanges): Promise<void>;
+  getAnimeDetails(trackerId: string): Promise<TrackerAnimeDetails>;
+}
