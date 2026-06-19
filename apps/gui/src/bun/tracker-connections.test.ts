@@ -9,19 +9,6 @@ import {
 } from "./tracker-connections";
 
 describe("getTrackerStatus", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-    for (const k of Object.keys(process.env)) {
-      if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
-    }
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
   test("returns not-connected status when no credentials stored", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const status = await getTrackerStatus(store);
@@ -58,9 +45,8 @@ describe("getTrackerConnectionFields", () => {
   test("returns token field for anilist", () => {
     const fields = getTrackerConnectionFields("anilist");
     expect(fields).toHaveLength(1);
-    const tokenField = fields.slice(0, 1)[0];
-    expect(tokenField?.name).toBe("token");
-    expect(tokenField?.type).toBe("password");
+    expect(fields[0]?.name).toBe("token");
+    expect(fields[0]?.type).toBe("password");
   });
 
   test("returns username and password fields for kitsu", () => {

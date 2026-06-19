@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Check } from '@lucide/svelte';
-  import { Steps } from '@skeletonlabs/skeleton-svelte';
+  import { Dialog, Portal, Steps } from '@skeletonlabs/skeleton-svelte';
   import type { KeyringCheckResult } from "@kogoro/core";
   import { TEMPLATE_PRESETS } from "../shared";
   import KeyringNotice from "./KeyringNotice.svelte";
@@ -301,41 +301,44 @@
   </div>
 </div>
 
-{#if connectDialogTracker}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/60 backdrop-blur-sm">
-    <div class="card preset-outlined-surface-300-700 w-full max-w-sm p-4 shadow-xl">
-      <h3 class="text-lg font-semibold text-surface-950-50 mb-2">Connect {connectDialogTracker}</h3>
-      <p class="text-sm text-surface-600-400 mb-4">Enter your credentials to connect this tracker.</p>
-      <div class="space-y-3">
-        {#each connectDialogFields as field}
-          <label class="label">
-            <span class="label-text">{field.label}</span>
-            <input
-              type={field.type}
-              placeholder={field.placeholder ?? ""}
-              oninput={(e) => { connectDialogValues[field.name] = (e.target as HTMLInputElement).value; }}
-              class="input"
-            />
-          </label>
-        {/each}
-      </div>
-      <div class="flex justify-end gap-3 mt-4">
-        <button
-          type="button"
-          class="btn preset-tonal-surface rounded-lg font-medium"
-          onclick={() => { connectDialogTracker = null; }}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          class="btn preset-filled-primary-500 rounded-lg font-medium"
-          onclick={handleConnect}
-          disabled={connectingInProgress}
-        >
-          {connectingInProgress ? "Connecting..." : "Connect"}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<Dialog open={!!connectDialogTracker} onOpenChange={(details) => { if (!details.open) connectDialogTracker = null; }}>
+  <Portal>
+    <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-950/60 backdrop-blur-sm" />
+    <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-sm p-0 shadow-xl">
+        <div class="p-4">
+          <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Connect {connectDialogTracker ?? ""}</Dialog.Title>
+          <Dialog.Description class="text-sm text-surface-600-400 mb-4">
+            Enter your credentials to connect this tracker.
+          </Dialog.Description>
+          <div class="space-y-3">
+            {#each connectDialogFields as field}
+              <label class="label">
+                <span class="label-text">{field.label}</span>
+                <input
+                  type={field.type}
+                  placeholder={field.placeholder ?? ""}
+                  oninput={(e) => { connectDialogValues[field.name] = (e.target as HTMLInputElement).value; }}
+                  class="input"
+                />
+              </label>
+            {/each}
+          </div>
+        </div>
+        <div class="p-4 border-t border-surface-300-700 flex justify-end gap-3">
+          <Dialog.CloseTrigger class="btn preset-tonal-surface rounded-lg font-medium">
+            Cancel
+          </Dialog.CloseTrigger>
+          <button
+            type="button"
+            class="btn preset-filled-primary-500 rounded-lg font-medium"
+            onclick={handleConnect}
+            disabled={connectingInProgress}
+          >
+            {connectingInProgress ? "Connecting..." : "Connect"}
+          </button>
+        </div>
+      </Dialog.Content>
+    </Dialog.Positioner>
+  </Portal>
+</Dialog>
