@@ -110,51 +110,53 @@ export class PluginLoader {
     return this.loadExternalTrackerPlugin(name);
   }
 
-  private async loadExternalDatabasePlugin(name: string): Promise<DatabasePlugin | undefined> {
-    const cached = this.externalCache.get(name);
+  private async loadExternalPlugin<T>(
+    name: string,
+    importPrefix: string,
+    typeGuard: (obj: unknown) => obj is T,
+    cache: Map<string, T>,
+    displayName: string,
+  ): Promise<T | undefined> {
+    const cached = cache.get(name);
     if (cached) return cached;
 
     try {
-      const mod = await import(`kogoro-plugin-${name}`);
+      const mod = await import(`${importPrefix}${name}`);
       const PluginConstructor = mod.default as new (options: Record<string, unknown>) => unknown;
       if (typeof PluginConstructor !== "function") {
         console.warn(`Plugin "${name}" does not export a constructor as default`);
         return undefined;
       }
       const instance = new PluginConstructor(this.debug ? { debug: true } : {});
-      if (!isDatabasePlugin(instance)) {
-        console.warn(`Plugin "${name}" does not implement DatabasePlugin interface`);
+      if (!typeGuard(instance)) {
+        console.warn(`Plugin "${name}" does not implement ${displayName} interface`);
         return undefined;
       }
-      this.externalCache.set(name, instance);
+      cache.set(name, instance);
       return instance;
     } catch (err) {
-      console.warn(`Failed to load external plugin "${name}": ${String(err)}`);
+      console.warn(`Failed to load external ${displayName} plugin "${name}": ${String(err)}`);
       return undefined;
     }
   }
 
-  private async loadExternalTrackerPlugin(name: string): Promise<TrackerPlugin | undefined> {
-    const cached = this.externalTrackerCache.get(name);
-    if (cached) return cached;
+  private async loadExternalDatabasePlugin(name: string): Promise<DatabasePlugin | undefined> {
+    return this.loadExternalPlugin(
+      name,
+      "kogoro-plugin-",
+      isDatabasePlugin,
+      this.externalCache,
+      "DatabasePlugin",
+    );
+  }
 
-    try {
-      const mod = await import(`kogoro-tracker-${name}`);
-      const PluginConstructor = mod.default as new (options: Record<string, unknown>) => unknown;
-      if (typeof PluginConstructor !== "function") {
-        console.warn(`Plugin "${name}" does not export a constructor as default`);
-        return undefined;
-      }
-      const instance = new PluginConstructor(this.debug ? { debug: true } : {});
-      if (!isTrackerPlugin(instance)) {
-        console.warn(`Plugin "${name}" does not implement TrackerPlugin interface`);
-        return undefined;
-      }
-      this.externalTrackerCache.set(name, instance);
-      return instance;
-    } catch (err) {
-      console.warn(`Failed to load external tracker plugin "${name}": ${String(err)}`);
-      return undefined;
-    }
+  private async loadExternalTrackerPlugin(name: string): Promise<TrackerPlugin | undefined> {
+    return this.loadExternalPlugin(
+      name,
+      "kogoro-tracker-",
+      isTrackerPlugin,
+      this.externalTrackerCache,
+      "TrackerPlugin",
+    );
   }
 }
