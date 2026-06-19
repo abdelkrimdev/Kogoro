@@ -225,7 +225,14 @@ export type AppRPC = {
         >;
       };
       confirmImport: {
-        params: { trackerName: string };
+        params: {
+          trackerName: string;
+          selections?: Array<{
+            trackerId: string;
+            groupId?: number;
+            resolution?: "keepLocal" | "acceptTracker";
+          }>;
+        };
         response: AwaitedReturnType<
           ReturnType<typeof createTrackerImportHandlers>["confirmImport"]
         >;

@@ -3,6 +3,7 @@ import { HttpClient } from "@kogoro/core/io/http-client";
 import {
   type ImportPreview,
   type ImportResult,
+  type ImportSelection,
   TrackerImportService,
 } from "@kogoro/core/tracker-import";
 import { AniListPlugin, KitsuPlugin } from "@kogoro/plugins";
@@ -70,8 +71,9 @@ export function createTrackerImportHandlers(options: TrackerImportHandlerOptions
 
     async confirmImport(params: {
       trackerName: string;
+      selections?: ImportSelection[];
     }): Promise<{ result: ImportResult | null; error?: string }> {
-      const { trackerName } = params;
+      const { trackerName, selections } = params;
 
       const tracker = await createTrackerPlugin(trackerName, credentialStore);
       if (!tracker) {
@@ -85,7 +87,18 @@ export function createTrackerImportHandlers(options: TrackerImportHandlerOptions
       );
 
       try {
-        const result = await service.confirmImport();
+        if (selections) {
+          for (const selection of selections) {
+            if (selection.groupId) {
+              service.linkEntry(selection.trackerId, selection.groupId);
+            }
+            if (selection.resolution) {
+              service.resolveConflict(selection.trackerId, selection.resolution);
+            }
+          }
+        }
+
+        const result = await service.confirmImport(selections);
         return { result };
       } catch (err) {
         return {

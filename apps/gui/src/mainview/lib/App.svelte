@@ -25,6 +25,7 @@
   import Detail from "./Detail.svelte";
   import Settings from "./Settings.svelte";
   import Scan from "./Scan.svelte";
+  import ImportPreview from "./ImportPreview.svelte";
   import Footer from "./Footer.svelte";
 
   interface Props {
@@ -78,6 +79,8 @@
 
   let currentView = $state<View>("dashboard");
   let currentDetailId = $state<string | null>(null);
+  let importPreviewTracker = $state<string | null>(null);
+  let importPreviewDisplayName = $state<string>("");
   let isLoading = $state(true);
   let incompleteConfig = $state<{ incomplete: boolean; missingKey?: string } | null>(null);
   let keyringResult = $state<KeyringCheckResult | null>(null);
@@ -110,6 +113,22 @@
 
   function onRerunOnboarding() {
     currentView = "onboarding";
+  }
+
+  function onOpenImportPreview(trackerName: string, displayName: string) {
+    importPreviewTracker = trackerName;
+    importPreviewDisplayName = displayName;
+    currentView = "import-preview";
+  }
+
+  function onImportPreviewComplete() {
+    importPreviewTracker = null;
+    currentView = "library";
+  }
+
+  function onImportPreviewCancel() {
+    importPreviewTracker = null;
+    currentView = "settings";
   }
 
   function onViewResults() {
@@ -280,8 +299,16 @@
           </div>
         {:else if currentView === "settings"}
           <div class="flex-1 min-h-0 overflow-auto">
-            <Settings {rpc} {keyringResult} {onRerunOnboarding} />
+            <Settings {rpc} {keyringResult} {onRerunOnboarding} onOpenImportPreview={onOpenImportPreview} />
           </div>
+        {:else if currentView === "import-preview" && importPreviewTracker}
+          <ImportPreview
+            {rpc}
+            trackerName={importPreviewTracker}
+            trackerDisplayName={importPreviewDisplayName}
+            onComplete={onImportPreviewComplete}
+            onCancel={onImportPreviewCancel}
+          />
         {:else if currentView === "details" && currentDetailId}
           <div class="flex-1 min-h-0 overflow-auto">
             <Detail {rpc} animeId={currentDetailId} onBack={backToLibrary} />

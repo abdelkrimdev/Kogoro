@@ -16,9 +16,10 @@
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
     keyringResult: KeyringCheckResult | null;
     onRerunOnboarding?: () => void;
+    onOpenImportPreview?: (trackerName: string, displayName: string) => void;
   }
 
-  let { rpc, keyringResult, onRerunOnboarding }: Props = $props();
+  let { rpc, keyringResult, onRerunOnboarding, onOpenImportPreview }: Props = $props();
 
   const toaster = createToaster();
 
@@ -438,6 +439,13 @@
           </div>
           <div class="flex items-center gap-2">
             {#if tracker.connected}
+              <button
+                type="button"
+                class="btn btn-sm preset-tonal-primary rounded-lg"
+                onclick={() => onOpenImportPreview?.(tracker.name, tracker.displayName)}
+              >
+                Import
+              </button>
               <button
                 type="button"
                 class="btn btn-sm preset-outlined-error-500 rounded-lg"

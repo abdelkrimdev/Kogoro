@@ -1,5 +1,6 @@
 ---
 "@kogoro/gui": minor
+"@kogoro/core": minor
 ---
 
-Tracker import UI: RPC handlers for importing anime from connected trackers with preview and confirmation
+Tracker import preview screen: review and confirm matches before importing from connected trackers

@@ -8,7 +8,8 @@ export type View =
   | "library"
   | "details"
   | "settings"
-  | "review";
+  | "review"
+  | "import-preview";
 
 interface NavItem {
   view: View;

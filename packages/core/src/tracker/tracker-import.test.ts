@@ -46,6 +46,7 @@ describe("TrackerImportService", () => {
         expect(preview.totalEntries).toBe(0);
         expect(preview.matched).toHaveLength(0);
         expect(preview.unmatched).toHaveLength(0);
+        expect(preview.conflicts).toHaveLength(0);
         expect(preview.statusCounts).toEqual({
           watching: 0,
           completed: 0,
@@ -134,8 +135,11 @@ describe("TrackerImportService", () => {
         expect(preview.matched).toHaveLength(1);
         expect(preview.matched[0]?.title).toBe("Attack on Titan");
         expect(preview.matched[0]?.existingAnimeId).toBeDefined();
+        expect(preview.matched[0]?.matchStatus).toBe("matched");
         expect(preview.unmatched).toHaveLength(1);
         expect(preview.unmatched[0]?.title).toBe("Death Note");
+        expect(preview.unmatched[0]?.matchStatus).toBe("unmatched");
+        expect(preview.conflicts).toHaveLength(0);
       } finally {
         close();
       }
@@ -342,6 +346,186 @@ describe("TrackerImportService", () => {
 
         const groups = libraryService.getEpisodeGroupsByAnimeId(animeList[0]?.id ?? 0);
         expect(groups).toHaveLength(2);
+      } finally {
+        close();
+      }
+    });
+
+    it("detects conflicts when watch status differs", async () => {
+      const { repo, close } = createLibraryRepository();
+      try {
+        const libraryService = new LibraryService(repo);
+
+        const anime = libraryService.upsertAnime({
+          externalId: "tvdb-123",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = libraryService.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "completed",
+            episodesWatched: 25,
+            totalEpisodes: 25,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        const preview = await service.getImportPreview();
+
+        expect(preview.totalEntries).toBe(1);
+        expect(preview.matched).toHaveLength(0);
+        expect(preview.unmatched).toHaveLength(0);
+        expect(preview.conflicts).toHaveLength(1);
+        expect(preview.conflicts[0]?.title).toBe("Attack on Titan");
+        expect(preview.conflicts[0]?.matchStatus).toBe("conflict");
+        expect(preview.conflicts[0]?.existingGroupId).toBe(group.id);
+        expect(preview.conflicts[0]?.localWatchStatus).toBe("watching");
+        expect(preview.conflicts[0]?.watchStatus).toBe("completed");
+      } finally {
+        close();
+      }
+    });
+
+    it("resolves conflict by keeping local status", async () => {
+      const { repo, close } = createLibraryRepository();
+      try {
+        const libraryService = new LibraryService(repo);
+
+        const anime = libraryService.upsertAnime({
+          externalId: "tvdb-123",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = libraryService.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "completed",
+            episodesWatched: 25,
+            totalEpisodes: 25,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        service.resolveConflict("tl-1", "keepLocal");
+        const result = await service.confirmImport();
+
+        expect(result.imported).toBe(1);
+
+        const updatedGroup = libraryService.getEpisodeGroup(group.id);
+        expect(updatedGroup?.watchStatus).toBe("watching");
+      } finally {
+        close();
+      }
+    });
+
+    it("resolves conflict by accepting tracker status", async () => {
+      const { repo, close } = createLibraryRepository();
+      try {
+        const libraryService = new LibraryService(repo);
+
+        const anime = libraryService.upsertAnime({
+          externalId: "tvdb-123",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = libraryService.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "completed",
+            episodesWatched: 25,
+            totalEpisodes: 25,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        service.resolveConflict("tl-1", "acceptTracker");
+        const result = await service.confirmImport();
+
+        expect(result.imported).toBe(1);
+
+        const updatedGroup = libraryService.getEpisodeGroup(group.id);
+        expect(updatedGroup?.watchStatus).toBe("completed");
+      } finally {
+        close();
+      }
+    });
+
+    it("links unmatched entry to existing group", async () => {
+      const { repo, close } = createLibraryRepository();
+      try {
+        const libraryService = new LibraryService(repo);
+
+        const anime = libraryService.upsertAnime({
+          externalId: "tvdb-123",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = libraryService.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Shingeki no Kyojin",
+            entryType: "tv",
+            watchStatus: "completed",
+            episodesWatched: 25,
+            totalEpisodes: 25,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        service.linkEntry("tl-1", group.id);
+        const result = await service.confirmImport();
+
+        expect(result.imported).toBe(1);
+
+        const updatedGroup = libraryService.getEpisodeGroup(group.id);
+        expect(updatedGroup?.watchStatus).toBe("completed");
+
+        const mappings = libraryService.getTrackerMappingsByGroupId(group.id);
+        expect(mappings).toHaveLength(1);
+        expect(mappings[0]?.externalId).toBe("tl-1");
       } finally {
         close();
       }
