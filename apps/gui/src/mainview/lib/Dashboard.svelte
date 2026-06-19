@@ -1,44 +1,12 @@
 <script lang="ts">
   import { LayoutDashboard, Folder, Search, Settings, LoaderCircle } from "@lucide/svelte";
   import { onMount } from "svelte";
+  import type { DashboardData } from "../../shared/types";
+  import type { RPCClient } from "../shared";
   import type { View } from "../state/nav";
 
-  interface CurrentlyWatching {
-    id: string;
-    title: string;
-    groupName: string;
-    coverArt?: string;
-    watchedEpisodes: number;
-    totalEpisodes: number;
-  }
-
-  interface ContinueWatching {
-    id: string;
-    title: string;
-    groupName: string;
-    coverArt?: string;
-    nextEpisode: string;
-    watchedEpisodes: number;
-    totalEpisodes: number;
-    animeId: string;
-  }
-
-  interface LibraryStats {
-    totalAnime: number;
-    totalEpisodes: number;
-    onDisk: number;
-    partiallyOnDisk: number;
-    notOnDisk: number;
-  }
-
-  interface DashboardData {
-    currentlyWatching: CurrentlyWatching[];
-    libraryStats: LibraryStats;
-    continueWatching: ContinueWatching[];
-  }
-
   interface Props {
-    rpc: { request: (method: string, params: unknown) => Promise<unknown> };
+    rpc: RPCClient;
     onNavigate?: (view: View) => void;
     onOpenAnime?: (id: string) => void;
   }

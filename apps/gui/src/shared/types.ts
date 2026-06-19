@@ -31,7 +31,12 @@ import type {
 } from "../bun/watched-folders";
 
 export type { ReviewPlan, ScanFileStatus, ScanState, ScanSummary } from "@kogoro/core";
-export type { DashboardData } from "../bun/dashboard";
+export type {
+  DashboardContinueWatching,
+  DashboardCurrentlyWatching,
+  DashboardData,
+  DashboardStats,
+} from "../bun/dashboard";
 export type { LibraryAnimeDetail as AnimeDetail } from "../bun/library";
 export type { ResolveCandidateEntry as ResolveCandidate } from "../bun/scan";
 export type { ThemeMode } from "../bun/state";

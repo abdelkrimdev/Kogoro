@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
 import type { LibraryService } from "@kogoro/core";
+import { toDataUrl } from "./image-utils";
 
-interface DashboardCurrentlyWatching {
+export interface DashboardCurrentlyWatching {
   id: string;
   title: string;
   groupName: string;
@@ -11,7 +10,7 @@ interface DashboardCurrentlyWatching {
   totalEpisodes: number;
 }
 
-interface DashboardContinueWatching {
+export interface DashboardContinueWatching {
   id: string;
   title: string;
   groupName: string;
@@ -22,7 +21,7 @@ interface DashboardContinueWatching {
   animeId: string;
 }
 
-interface DashboardStats {
+export interface DashboardStats {
   totalAnime: number;
   totalEpisodes: number;
   onDisk: number;
@@ -37,24 +36,6 @@ export interface DashboardData {
 }
 
 type LibraryStats = { animeCount: number; episodeCount: number };
-
-const MIME: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-};
-
-async function toDataUrl(filePath: string): Promise<string | undefined> {
-  try {
-    const buf = await readFile(filePath);
-    const mime = MIME[extname(filePath).toLowerCase()] ?? "image/jpeg";
-    return `data:${mime};base64,${buf.toString("base64")}`;
-  } catch {
-    return undefined;
-  }
-}
 
 function entryTypeLabel(entryType: string, seasonNumber?: number): string {
   switch (entryType) {
@@ -85,8 +66,8 @@ export function createDashboardHandlers(options: { libraryService: LibraryServic
       let partiallyOnDisk = 0;
       let notOnDisk = 0;
 
-      for (const a of animeList) {
-        switch (a.libraryState) {
+      for (const anime of animeList) {
+        switch (anime.libraryState) {
           case "on_disk":
             onDisk++;
             break;
@@ -102,43 +83,39 @@ export function createDashboardHandlers(options: { libraryService: LibraryServic
       const currentlyWatching: DashboardCurrentlyWatching[] = [];
       const continueWatching: DashboardContinueWatching[] = [];
 
-      for (const a of animeList) {
-        const groups = svc.getEpisodeGroupsByAnimeId(a.id);
-        const coverArt = a.coverArtPath ? await toDataUrl(a.coverArtPath) : undefined;
-
-        for (const group of groups) {
-          if (group.watchStatus !== "watching") continue;
-
-          const episodes = svc.getEpisodesByGroupId(group.id);
-          const watchedCount = episodes.filter((ep) => ep.watched).length;
-
-          currentlyWatching.push({
-            id: String(group.id),
-            title: a.title,
-            groupName: entryTypeLabel(group.entryType, group.seasonNumber),
-            coverArt,
-            watchedEpisodes: watchedCount,
-            totalEpisodes: episodes.length,
-          });
-        }
+      for (const anime of animeList) {
+        const groups = svc.getEpisodeGroupsByAnimeId(anime.id);
+        const coverArt = anime.coverArtPath ? await toDataUrl(anime.coverArtPath) : undefined;
 
         for (const group of groups) {
           const episodes = svc.getEpisodesByGroupId(group.id);
           const watchedCount = episodes.filter((ep) => ep.watched).length;
-          const unwatchedEpisodes = episodes.filter((ep) => !ep.watched);
-          const hasFilesOnDisk = episodes.some((ep) => ep.filePath.length > 0);
+          const groupName = entryTypeLabel(group.entryType, group.seasonNumber);
 
-          if (unwatchedEpisodes.length > 0 && hasFilesOnDisk && watchedCount > 0) {
-            const nextEp = unwatchedEpisodes[0];
-            continueWatching.push({
+          if (group.watchStatus === "watching") {
+            currentlyWatching.push({
               id: String(group.id),
-              title: a.title,
-              groupName: entryTypeLabel(group.entryType, group.seasonNumber),
+              title: anime.title,
+              groupName,
               coverArt,
-              nextEpisode: nextEp?.title ?? `Episode ${nextEp?.episodeNumber}`,
               watchedEpisodes: watchedCount,
               totalEpisodes: episodes.length,
-              animeId: String(a.id),
+            });
+          }
+
+          const nextUnwatched = episodes.find((ep) => !ep.watched);
+          const hasFilesOnDisk = episodes.some((ep) => ep.filePath.length > 0);
+
+          if (nextUnwatched && hasFilesOnDisk && watchedCount > 0) {
+            continueWatching.push({
+              id: String(group.id),
+              title: anime.title,
+              groupName,
+              coverArt,
+              nextEpisode: nextUnwatched.title ?? `Episode ${nextUnwatched.episodeNumber}`,
+              watchedEpisodes: watchedCount,
+              totalEpisodes: episodes.length,
+              animeId: String(anime.id),
             });
             break;
           }

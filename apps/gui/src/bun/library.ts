@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
 import type { LibraryService } from "@kogoro/core";
+import { toDataUrl } from "./image-utils";
 
 interface LibraryAnimeItem {
   id: string;
@@ -40,24 +39,6 @@ type LibraryStats = { animeCount: number; episodeCount: number };
 type WatchStatusSetResult = { success: boolean };
 
 type LibraryRebuildResult = { success: boolean; error?: string };
-
-const MIME: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-};
-
-async function toDataUrl(filePath: string): Promise<string | undefined> {
-  try {
-    const buf = await readFile(filePath);
-    const mime = MIME[extname(filePath).toLowerCase()] ?? "image/jpeg";
-    return `data:${mime};base64,${buf.toString("base64")}`;
-  } catch {
-    return undefined;
-  }
-}
 
 interface LibraryHandlerOptions {
   libraryService: LibraryService;
