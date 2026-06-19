@@ -11,6 +11,7 @@ import { TVDBPlugin } from "./database/tvdb-plugin";
 import { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
 import { AniListPlugin } from "./tracker/anilist-plugin";
 import { KitsuPlugin } from "./tracker/kitsu-plugin";
+import { MyAnimeListPlugin } from "./tracker/myanimelist-plugin";
 
 export interface PluginLoadContext {
   credentialStore: CredentialStore;
@@ -137,6 +138,20 @@ async function loadKitsu(
   });
 }
 
+async function loadMyAnimeList(
+  ctx: PluginLoadContext,
+  entry: PluginManifestEntry,
+): Promise<TrackerPlugin | undefined> {
+  const httpClient = new HttpClient({
+    minDelay: entry.rateLimit,
+    ...debugOptions(ctx.debug),
+  });
+  return new MyAnimeListPlugin({
+    credentialStore: ctx.credentialStore,
+    httpClient,
+  });
+}
+
 export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
   {
     name: "tvdb",
@@ -181,6 +196,15 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     rateLimit: 500,
     credentialKey: "kitsu",
     load: loadKitsu,
+  },
+  {
+    name: "myanimelist",
+    type: "tracker",
+    description: "MyAnimeList.net plugin",
+    baseUrl: "https://api.myanimelist.net/v2",
+    rateLimit: 500,
+    credentialKey: "mal",
+    load: loadMyAnimeList,
   },
 ];
 
