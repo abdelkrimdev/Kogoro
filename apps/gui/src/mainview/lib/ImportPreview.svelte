@@ -130,38 +130,13 @@
     closeLinkModal();
   }
 
-  function filteredLibraryAnime() {
-    if (!librarySearch) return libraryAnime;
-    const q = librarySearch.toLowerCase();
-    return libraryAnime.filter((a) => a.title.toLowerCase().includes(q));
-  }
+  const filteredLibraryAnime = $derived(
+    librarySearch
+      ? libraryAnime.filter((a) => a.title.toLowerCase().includes(librarySearch.toLowerCase()))
+      : libraryAnime,
+  );
 
-  async function handleImportAll() {
-    importing = true;
-    error = null;
-    try {
-      const selections = buildSelections();
-      const response = (await rpc.request("confirmImport", {
-        trackerName,
-        selections: selections.length > 0 ? selections : undefined,
-      })) as { result: ImportResult | null; error?: string };
-
-      if (response.error) {
-        error = response.error;
-        return;
-      }
-      result = response.result;
-      if (!error) {
-        onComplete();
-      }
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
-    } finally {
-      importing = false;
-    }
-  }
-
-  async function handleConfirmImport() {
+  async function handleImport() {
     importing = true;
     error = null;
     try {
@@ -229,7 +204,6 @@
         </button>
       </div>
     {:else if preview}
-      <!-- Summary header -->
       <div class="card preset-outlined-surface-300-700 p-4">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
@@ -263,7 +237,6 @@
         {/if}
       </div>
 
-      <!-- Entry list -->
       {#if preview.totalEntries === 0}
         <div class="card preset-tonal-surface p-8 text-center">
           <Search class="size-8 text-surface-600-400 mx-auto mb-2" />
@@ -382,7 +355,7 @@
         <button
           type="button"
           class="btn preset-filled-primary-500 rounded-lg font-medium"
-          onclick={handleImportAll}
+          onclick={handleImport}
           disabled={importing}
         >
           {#if importing}
@@ -394,7 +367,7 @@
           <button
             type="button"
             class="btn preset-tonal-primary rounded-lg font-medium"
-            onclick={handleConfirmImport}
+            onclick={handleImport}
             disabled={importing}
           >
             {#if importing}
@@ -428,11 +401,11 @@
           />
         </div>
         <div class="flex-1 min-h-0 overflow-auto p-2">
-          {#if filteredLibraryAnime().length === 0}
+          {#if filteredLibraryAnime.length === 0}
             <p class="text-center text-surface-600-400 text-sm p-4">No matching anime found.</p>
           {:else}
             <div class="space-y-1">
-              {#each filteredLibraryAnime() as anime (anime.id)}
+              {#each filteredLibraryAnime as anime (anime.id)}
                 <div class="rounded-lg p-2 hover:bg-surface-200-800 transition-colors">
                   <p class="font-medium text-sm text-surface-950-50">{anime.title}</p>
                   <div class="flex gap-1 mt-1 flex-wrap">

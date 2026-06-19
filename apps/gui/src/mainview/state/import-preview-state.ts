@@ -24,16 +24,6 @@ export interface PreviewSummary {
   conflictCount: number;
 }
 
-export interface LinkSelection {
-  trackerId: string;
-  groupId: number;
-}
-
-export interface ConflictSelection {
-  trackerId: string;
-  resolution: "keepLocal" | "acceptTracker";
-}
-
 export interface ImportPreviewState {
   loading: boolean;
   error: string | null;
@@ -52,30 +42,8 @@ export interface ImportPreviewState {
   reset: () => void;
 }
 
-function mapPreviewEntry(entry: {
-  trackerId: string;
-  title: string;
-  entryType: string;
-  watchStatus: string;
-  episodesWatched: number;
-  totalEpisodes: number;
-  matchStatus: string;
-  existingAnimeId?: number;
-  existingGroupId?: number;
-  localWatchStatus?: string;
-}): PreviewEntry {
-  return {
-    trackerId: entry.trackerId,
-    title: entry.title,
-    entryType: entry.entryType,
-    watchStatus: entry.watchStatus,
-    episodesWatched: entry.episodesWatched,
-    totalEpisodes: entry.totalEpisodes,
-    matchStatus: entry.matchStatus as MatchStatus,
-    existingAnimeId: entry.existingAnimeId,
-    existingGroupId: entry.existingGroupId,
-    localWatchStatus: entry.localWatchStatus,
-  };
+function mapPreviewEntry(entry: ImportPreview["matched"][number]): PreviewEntry {
+  return { ...entry, matchStatus: entry.matchStatus as MatchStatus };
 }
 
 function buildSummary(preview: ImportPreview): PreviewSummary {

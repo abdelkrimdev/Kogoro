@@ -17,7 +17,6 @@ export interface ImportPreviewEntry {
   existingAnimeId?: number;
   existingGroupId?: number;
   localWatchStatus?: string;
-  localEpisodesWatched?: number;
 }
 
 export interface ImportPreview {
@@ -177,7 +176,7 @@ export class TrackerImportService {
       if (existingAnime) {
         this.importToExistingAnime(existingAnime, entry, selection);
       } else {
-        this.importAsNewAnime(entry, selection);
+        this.importAsNewAnime(entry);
       }
 
       imported++;
@@ -274,9 +273,7 @@ export class TrackerImportService {
       });
     } else {
       const resolution = this.conflictResolutions.get(trackerEntry.trackerId);
-      if (resolution === "keepLocal") {
-        // Keep local status, don't update
-      } else {
+      if (resolution !== "keepLocal") {
         this.library.setGroupWatchStatus(
           targetGroup.id,
           mapTrackerStatus(trackerEntry.watchStatus),
@@ -291,7 +288,7 @@ export class TrackerImportService {
     });
   }
 
-  private importAsNewAnime(trackerEntry: TrackerAnime, _selection?: ImportSelection): void {
+  private importAsNewAnime(trackerEntry: TrackerAnime): void {
     const anime = this.library.upsertAnime({
       externalId: `tracker-${trackerEntry.trackerId}`,
       sourceDb: this.source,
