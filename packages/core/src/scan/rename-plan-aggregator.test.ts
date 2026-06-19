@@ -315,7 +315,6 @@ describe("buildReviewPlan", () => {
         externalId: "1",
         sourceDb: "tvdb",
         title: "Jujutsu Kaisen",
-        entryType: "tv",
         episodeCount: 24,
       });
 
@@ -678,7 +677,6 @@ describe("aggregateReviewPlan", () => {
         externalId: "100",
         sourceDb: "tvdb",
         title: "Jujutsu Kaisen",
-        entryType: "tv",
         episodeCount: 24,
       });
 

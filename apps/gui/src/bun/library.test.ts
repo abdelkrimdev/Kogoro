@@ -13,39 +13,59 @@ function seedLibrary(repo: LibraryRepository, coverDir?: string) {
     sourceDb: "tvdb",
     title: "Jujutsu Kaisen",
     titleJapanese: "呪術廻戦",
-    entryType: "tv",
     episodeCount: 24,
     coverArtPath: coverDir ? join(coverDir, "jjk.jpg") : undefined,
   });
+
+  const jjkGroup = repo.upsertEpisodeGroup({
+    animeId: jjk.id,
+    entryType: "tv",
+    seasonNumber: 1,
+    watchStatus: "plan_to_watch",
+  });
+
   repo.addEpisode({
     animeId: jjk.id,
+    groupId: jjkGroup.id,
     episodeNumber: 1,
     filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
     title: "Ryomen Sukuna",
     season: 1,
+    watched: false,
   });
   repo.addEpisode({
     animeId: jjk.id,
+    groupId: jjkGroup.id,
     episodeNumber: 2,
     filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
     title: "Cursed Womb Must Die",
     season: 1,
+    watched: false,
   });
 
   const aot = repo.upsertAnime({
     externalId: "tvdb-67890",
     sourceDb: "tvdb",
     title: "Attack on Titan",
-    entryType: "tv",
     episodeCount: 25,
     coverArtPath: coverDir ? join(coverDir, "aot.jpg") : undefined,
   });
+
+  const aotGroup = repo.upsertEpisodeGroup({
+    animeId: aot.id,
+    entryType: "tv",
+    seasonNumber: 1,
+    watchStatus: "plan_to_watch",
+  });
+
   repo.addEpisode({
     animeId: aot.id,
+    groupId: aotGroup.id,
     episodeNumber: 1,
     filePath: "/media/Attack on Titan/S01E01.mkv",
     title: "To You, in 2000 Years",
     season: 1,
+    watched: false,
   });
 }
 
@@ -64,7 +84,6 @@ describe("getLibrary handler", () => {
 
       expect(result).toHaveLength(2);
       expect(result[0]?.titleEn).toBe("Attack on Titan");
-      expect(result[0]?.entryType).toBe("tv");
       expect(result[0]?.episodeCount).toBe(25);
       expect(result[0]?.coverArt).toStartWith("data:image/jpeg;base64,");
       expect(result[1]?.titleEn).toBe("Jujutsu Kaisen");
@@ -103,7 +122,6 @@ describe("getAnimeDetail handler", () => {
       expect(result).not.toBeNull();
       expect(result?.anime.titleEn).toBe("Jujutsu Kaisen");
       expect(result?.anime.titleJa).toBe("呪術廻戦");
-      expect(result?.anime.entryType).toBe("tv");
       expect(result?.anime.coverArt).toStartWith("data:image/jpeg;base64,");
       expect(result?.episodes).toHaveLength(2);
       expect(result?.episodes[0]?.episode).toBe(1);
@@ -205,37 +223,57 @@ describe("rebuild", () => {
           externalId: "tvdb-12345",
           sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
-          entryType: "tv",
           episodeCount: 2,
         });
+
+        const jjkGroup = repo.upsertEpisodeGroup({
+          animeId: jjk.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
         repo.addEpisode({
           animeId: jjk.id,
+          groupId: jjkGroup.id,
           episodeNumber: 1,
           filePath: ep1Path,
           title: "Ryomen Sukuna",
           season: 1,
+          watched: false,
         });
         repo.addEpisode({
           animeId: jjk.id,
+          groupId: jjkGroup.id,
           episodeNumber: 2,
           filePath: ep2Path,
           title: "Cursed Womb Must Die",
           season: 1,
+          watched: false,
         });
 
         const aot = repo.upsertAnime({
           externalId: "tvdb-67890",
           sourceDb: "tvdb",
           title: "Attack on Titan",
-          entryType: "tv",
           episodeCount: 1,
         });
+
+        const aotGroup = repo.upsertEpisodeGroup({
+          animeId: aot.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
         repo.addEpisode({
           animeId: aot.id,
+          groupId: aotGroup.id,
           episodeNumber: 1,
           filePath: ep3Path,
           title: "To You, in 2000 Years",
           season: 1,
+          watched: false,
         });
 
         const libraryService = new LibraryService(repo);

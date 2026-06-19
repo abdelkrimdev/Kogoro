@@ -27,7 +27,12 @@ export { hashFile } from "./io/file-hash";
 export type { DebugEntry } from "./io/http-client";
 export { HttpClient } from "./io/http-client";
 export type { ProgressEvent, TaskContext } from "./io/progress";
-export type { LibraryAnime, LibraryEpisode, WatchStatus } from "./library/library-repository";
+export type {
+  EpisodeGroup,
+  GroupTrackerMapping,
+  LibraryAnime,
+  LibraryEpisode,
+} from "./library/library-repository";
 export { LibraryRepository } from "./library/library-repository";
 export { LibraryService } from "./library/library-service";
 export { CacheService } from "./match/cache-service";

@@ -258,7 +258,6 @@ describe("ScanOrchestrator", () => {
         const animeList = libraryRepo.listAnime();
         expect(animeList).toHaveLength(1);
         expect(animeList[0]?.title).toBe("My Anime");
-        expect(animeList[0]?.entryType).toBe("tv");
 
         const episodes = libraryRepo.getEpisodesByAnimeId(animeList[0]?.id ?? 0);
         expect(episodes).toHaveLength(1);

@@ -1,12 +1,13 @@
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { stripTypeDir } from "../config/schema";
-import type { MatchEntry } from "../types";
+import type { EntryType, MatchEntry } from "../types";
 import type {
+  EpisodeGroup,
+  GroupTrackerMapping,
   LibraryAnime,
   LibraryEpisode,
   LibraryRepository,
-  WatchStatus,
 } from "./library-repository";
 
 export class LibraryService {
@@ -30,18 +31,6 @@ export class LibraryService {
 
   getEpisodesByAnimeId(animeId: number): LibraryEpisode[] {
     return this.library.getEpisodesByAnimeId(animeId);
-  }
-
-  getWatchStatus(episodeId: number): WatchStatus | null {
-    return this.library.getWatchStatus(episodeId);
-  }
-
-  getWatchStatusByAnimeId(animeId: number): WatchStatus[] {
-    return this.library.getWatchStatusByAnimeId(animeId);
-  }
-
-  setWatchStatus(episodeId: number, watched: boolean, notes?: string): WatchStatus {
-    return this.library.setWatchStatus(episodeId, watched, notes);
   }
 
   getStats(): { animeCount: number; episodeCount: number } {
@@ -81,9 +70,10 @@ export class LibraryService {
       sourceDb: existing.sourceDb,
       title: existing.title,
       titleJapanese: existing.titleJapanese,
-      entryType: existing.entryType,
       episodeCount: existing.episodeCount,
       coverArtPath,
+      genres: existing.genres,
+      libraryState: existing.libraryState,
     });
   }
 
@@ -122,11 +112,9 @@ export class LibraryService {
         oldEpisodeKey.set(key, row.episodeId);
       }
 
-      const oldStatuses = new Map<number, { watched: boolean; notes: string | null }>();
+      const oldWatched = new Map<number, boolean>();
       for (const row of oldState) {
-        if (row.watched !== null) {
-          oldStatuses.set(row.episodeId, { watched: row.watched, notes: row.notes });
-        }
+        oldWatched.set(row.episodeId, row.watched);
       }
 
       tx.deleteAll();
@@ -134,12 +122,13 @@ export class LibraryService {
       const now = new Date().toISOString();
       const animeIds = new Set<number>();
 
+      const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
+
       for (const match of matches) {
         const libraryAnime = tx.upsertAnime({
           externalId: match.animeId,
           sourceDb: match.sourceDb,
           title: match.animeTitle,
-          entryType: match.entryType,
           episodeCount: 0,
           lastSynced: now,
         });
@@ -148,8 +137,25 @@ export class LibraryService {
         animeIds.add(animeId);
 
         if (match.episode !== null && match.filePath) {
+          const seasonNum = match.season ?? 1;
+          const groupKey = `${animeId}:${match.entryType}:${seasonNum}`;
+
+          let groupEntry = groupKeyToGroup.get(groupKey);
+          if (!groupEntry) {
+            const group = tx.upsertEpisodeGroup({
+              animeId,
+              entryType: match.entryType as EntryType,
+              seasonNumber: seasonNum,
+              watchStatus: "plan_to_watch",
+              lastSynced: now,
+            });
+            groupEntry = { animeId, groupId: group.id };
+            groupKeyToGroup.set(groupKey, groupEntry);
+          }
+
           const epResult = tx.upsertEpisodeFromMatch({
             animeId,
+            groupId: groupEntry.groupId,
             episode: match.episode,
             filePath: match.filePath,
             title: match.title,
@@ -159,9 +165,9 @@ export class LibraryService {
           const oldKey = `${match.animeId}:${match.sourceDb}:${match.season ?? 1}:${match.episode}`;
           const oldEpId = oldEpisodeKey.get(oldKey);
           if (oldEpId !== undefined) {
-            const oldStatus = oldStatuses.get(oldEpId);
-            if (oldStatus) {
-              tx.migrateWatchStatus(epResult.id, oldStatus.watched, oldStatus.notes, now);
+            const oldWatchedValue = oldWatched.get(oldEpId);
+            if (oldWatchedValue !== undefined) {
+              tx.migrateEpisodeWatched(epResult.id, oldWatchedValue);
             }
           }
         }
@@ -202,6 +208,8 @@ export class LibraryService {
 
       this.deleteAnimeFromOtherSourceDbs(tx, sourceDbs);
 
+      const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
+
       for (const [, group] of grouped) {
         const first = group[0];
         if (!first) continue;
@@ -220,7 +228,6 @@ export class LibraryService {
               externalId: canonicalId,
               sourceDb: first.sourceDb,
               title: first.animeTitle,
-              entryType: first.entryType,
               episodeCount: 0,
             });
           }
@@ -229,15 +236,43 @@ export class LibraryService {
             externalId: canonicalId,
             sourceDb: first.sourceDb,
             title: first.animeTitle,
-            entryType: first.entryType,
             episodeCount: 0,
           });
         }
 
         for (const match of group) {
           if (match.episode !== null && match.filePath) {
+            const seasonNum = match.season ?? 1;
+            const groupKey = `${libraryAnime.id}:${match.entryType}:${seasonNum}`;
+
+            let groupEntry = groupKeyToGroup.get(groupKey);
+            if (!groupEntry) {
+              const existingGroup = tx.findEpisodeGroup(
+                libraryAnime.id,
+                match.entryType,
+                seasonNum,
+              );
+              const group = existingGroup
+                ? tx.upsertEpisodeGroup({
+                    animeId: libraryAnime.id,
+                    entryType: match.entryType as EntryType,
+                    seasonNumber: seasonNum,
+                    watchStatus: existingGroup.watchStatus,
+                    lastSynced: new Date().toISOString(),
+                  })
+                : tx.upsertEpisodeGroup({
+                    animeId: libraryAnime.id,
+                    entryType: match.entryType as EntryType,
+                    seasonNumber: seasonNum,
+                    watchStatus: "plan_to_watch",
+                  });
+              groupEntry = { animeId: libraryAnime.id, groupId: group.id };
+              groupKeyToGroup.set(groupKey, groupEntry);
+            }
+
             tx.upsertEpisodeFromMatch({
               animeId: libraryAnime.id,
+              groupId: groupEntry.groupId,
               episode: match.episode,
               filePath: match.filePath,
               title: match.title,
@@ -249,6 +284,48 @@ export class LibraryService {
         tx.updateEpisodeCount(libraryAnime.id);
       }
     });
+  }
+
+  // Episode Groups
+
+  getEpisodeGroupsByAnimeId(animeId: number): EpisodeGroup[] {
+    return this.library.getEpisodeGroupsByAnimeId(animeId);
+  }
+
+  getEpisodeGroup(id: number): EpisodeGroup | null {
+    return this.library.getEpisodeGroup(id);
+  }
+
+  upsertEpisodeGroup(data: Omit<EpisodeGroup, "id" | "lastSynced">): EpisodeGroup {
+    return this.library.upsertEpisodeGroup(data);
+  }
+
+  // Tracker Mappings
+
+  getTrackerMappingsByGroupId(groupId: number): GroupTrackerMapping[] {
+    return this.library.getTrackerMappingsByGroupId(groupId);
+  }
+
+  upsertGroupTrackerMapping(mapping: GroupTrackerMapping): void {
+    this.library.upsertGroupTrackerMapping(mapping);
+  }
+
+  findGroupByTrackerExternalId(source: string, externalId: string): { groupId: number } | null {
+    return this.library.findGroupByTrackerExternalId(source, externalId);
+  }
+
+  // Watched status (now on episodes directly)
+
+  setEpisodeWatched(episodeId: number, watched: boolean): LibraryEpisode | null {
+    return this.library.setEpisodeWatched(episodeId, watched);
+  }
+
+  getEpisodeWatchStatus(episodeId: number): boolean | null {
+    return this.library.getEpisodeWatchStatus(episodeId);
+  }
+
+  getEpisodeWatchStatusByAnimeId(animeId: number): Array<{ episodeId: number; watched: boolean }> {
+    return this.library.getEpisodeWatchStatusByAnimeId(animeId);
   }
 
   private deleteAnimeFromOtherSourceDbs(tx: LibraryRepository, newSourceDbs: Set<string>): void {

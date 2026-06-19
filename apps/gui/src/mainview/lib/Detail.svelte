@@ -1,7 +1,6 @@
 <script lang="ts">
   import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, LoaderCircle } from '@lucide/svelte';
   import Checkbox from "./Checkbox.svelte";
-  import { ENTRY_LABELS, typeBadgeClass } from "../shared";
   import type { AnimeDetail } from "../../shared/types";
   import { getAnimeDirectory } from "../state/detail-state";
   import {
@@ -232,9 +231,6 @@
               <p class="text-surface-700-300 text-sm mt-1">{detail.anime.titleJa}</p>
             {/if}
             <div class="flex flex-wrap items-center gap-3 mt-3">
-              <span class="{typeBadgeClass(detail.anime.entryType)} text-xs">
-                {ENTRY_LABELS[detail.anime.entryType] ?? detail.anime.entryType}
-              </span>
               <span class="text-sm text-surface-700-300">{sourceDbLabel(detail.anime.sourceDb)}</span>
               <span class="text-sm text-surface-600-400">·</span>
               <span class="text-sm text-surface-700-300">{detail.anime.totalEpisodes} episodes</span>

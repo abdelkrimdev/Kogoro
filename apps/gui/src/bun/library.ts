@@ -5,7 +5,6 @@ import type { LibraryService } from "@kogoro/core";
 interface LibraryAnimeItem {
   id: string;
   titleEn: string;
-  entryType: string;
   episodeCount: number;
   filesOnDisk: number;
   coverArt?: string;
@@ -16,7 +15,6 @@ export interface LibraryAnimeDetail {
     id: string;
     titleEn: string;
     titleJa?: string;
-    entryType: string;
     sourceDb: string;
     totalEpisodes: number;
     coverArt?: string;
@@ -35,8 +33,6 @@ export interface LibraryAnimeDetail {
 type WatchStatusEntry = {
   episodeId: string;
   watched: boolean;
-  notes?: string;
-  updatedAt: string;
 };
 
 type LibraryStats = { animeCount: number; episodeCount: number };
@@ -80,7 +76,6 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
         animeList.map(async (a) => ({
           id: String(a.id),
           titleEn: a.title,
-          entryType: a.entryType,
           episodeCount: a.episodeCount,
           filesOnDisk: a.filesOnDisk ?? a.episodeCount,
           coverArt: a.coverArtPath ? await toDataUrl(a.coverArtPath) : undefined,
@@ -110,7 +105,6 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
           id: String(anime.id),
           titleEn: anime.title,
           titleJa: anime.titleJapanese,
-          entryType: anime.entryType,
           sourceDb: anime.sourceDb,
           totalEpisodes: anime.episodeCount,
           coverArt,
@@ -121,21 +115,18 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
     },
 
     async getWatchStatusByAnime(params: { animeId: string }): Promise<WatchStatusEntry[]> {
-      const statuses = svc.getWatchStatusByAnimeId(Number(params.animeId));
+      const statuses = svc.getEpisodeWatchStatusByAnimeId(Number(params.animeId));
       return statuses.map((s) => ({
         episodeId: String(s.episodeId),
         watched: s.watched,
-        notes: s.notes,
-        updatedAt: s.updatedAt,
       }));
     },
 
     async setWatchStatus(params: {
       episodeId: string;
       watched: boolean;
-      notes?: string;
     }): Promise<WatchStatusSetResult> {
-      svc.setWatchStatus(Number(params.episodeId), params.watched, params.notes);
+      svc.setEpisodeWatched(Number(params.episodeId), params.watched);
       return { success: true };
     },
 

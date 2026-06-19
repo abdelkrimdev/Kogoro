@@ -6,7 +6,7 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { journal, migrations } from "../../drizzle/embedded-migrations";
 import { LibraryRepository } from "../library/library-repository";
-import { anime, episodes, watchStatus } from "../library/schema";
+import { anime, episodeGroups, episodes, groupTrackerMappings } from "../library/schema";
 import { MatchRepository } from "../match/match-repository";
 import { ScanStateRepository } from "../match/scan-state-repository";
 import { matches, scanState } from "../match/schema";
@@ -49,7 +49,7 @@ export function createMatchCacheConnection(dbPath: string): MatchCacheConnection
 export function createLibraryConnection(dbPath: string): LibraryRepository {
   const sqlite = new Database(dbPath);
   sqlite.run("PRAGMA foreign_keys = ON");
-  const db = drizzle(sqlite, { schema: { anime, episodes, watchStatus } });
+  const db = drizzle(sqlite, { schema: { anime, episodeGroups, episodes, groupTrackerMappings } });
   migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   return new LibraryRepository(db);
 }

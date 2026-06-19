@@ -1,7 +1,7 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type { EntryType } from "../types";
-import { anime, episodes, watchStatus } from "./schema";
+import { anime, episodeGroups, episodes, groupTrackerMappings } from "./schema";
 
 export interface LibraryAnime {
   id: number;
@@ -9,33 +9,48 @@ export interface LibraryAnime {
   sourceDb: string;
   title: string;
   titleJapanese?: string;
-  entryType: EntryType;
   episodeCount: number;
   filesOnDisk?: number;
   coverArtPath?: string;
+  genres?: string[];
+  libraryState?: "on_disk" | "partially_on_disk" | "not_on_disk";
   lastSynced: string;
 }
 
 export interface LibraryEpisode {
   id: number;
   animeId: number;
+  groupId: number;
   episodeNumber: number;
   filePath: string;
   title?: string;
   season?: number;
+  watched: boolean;
 }
 
-export interface WatchStatus {
-  episodeId: number;
-  watched: boolean;
-  notes?: string;
-  updatedAt: string;
+export interface EpisodeGroup {
+  id: number;
+  animeId: number;
+  entryType: EntryType;
+  seasonNumber?: number;
+  watchStatus: "watching" | "completed" | "plan_to_watch" | "on_hold" | "dropped";
+  synopsis?: string;
+  rating?: number;
+  coverArtPath?: string;
+  lastSynced: string;
+}
+
+export interface GroupTrackerMapping {
+  groupId: number;
+  source: "mal" | "anilist" | "kitsu";
+  externalId: string;
 }
 
 type LibrarySchema = {
   anime: typeof anime;
+  episodeGroups: typeof episodeGroups;
   episodes: typeof episodes;
-  watchStatus: typeof watchStatus;
+  groupTrackerMappings: typeof groupTrackerMappings;
 };
 type LibraryDb = BaseSQLiteDatabase<"sync", void, LibrarySchema>;
 
@@ -60,9 +75,10 @@ export class LibraryRepository {
         .set({
           title: animeData.title,
           titleJapanese: animeData.titleJapanese ?? null,
-          entryType: animeData.entryType,
           episodeCount: animeData.episodeCount,
           coverArtPath: animeData.coverArtPath ?? null,
+          genres: animeData.genres ?? null,
+          libraryState: animeData.libraryState ?? "not_on_disk",
           lastSynced: now,
         })
         .where(eq(anime.id, existing.id))
@@ -77,9 +93,10 @@ export class LibraryRepository {
         sourceDb: animeData.sourceDb,
         title: animeData.title,
         titleJapanese: animeData.titleJapanese ?? null,
-        entryType: animeData.entryType,
         episodeCount: animeData.episodeCount,
         coverArtPath: animeData.coverArtPath ?? null,
+        genres: animeData.genres ?? null,
+        libraryState: animeData.libraryState ?? "not_on_disk",
         lastSynced: now,
       })
       .returning()
@@ -119,9 +136,10 @@ export class LibraryRepository {
         sourceDb: anime.sourceDb,
         title: anime.title,
         titleJapanese: anime.titleJapanese,
-        entryType: anime.entryType,
         episodeCount: anime.episodeCount,
         coverArtPath: anime.coverArtPath,
+        genres: anime.genres,
+        libraryState: anime.libraryState,
         lastSynced: anime.lastSynced,
         filesOnDisk: sql<number>`cast(count(${episodes.id}) as int)`,
       })
@@ -153,7 +171,12 @@ export class LibraryRepository {
     if (existing) {
       this.db
         .update(episodes)
-        .set({ filePath: episodeData.filePath, title: episodeData.title ?? null })
+        .set({
+          filePath: episodeData.filePath,
+          title: episodeData.title ?? null,
+          groupId: episodeData.groupId,
+          watched: episodeData.watched,
+        })
         .where(eq(episodes.id, existing.id))
         .run();
       return this.getEpisode(existing.id) as LibraryEpisode;
@@ -163,10 +186,12 @@ export class LibraryRepository {
       .insert(episodes)
       .values({
         animeId: episodeData.animeId,
+        groupId: episodeData.groupId,
         episodeNumber: episodeData.episodeNumber,
         filePath: episodeData.filePath,
         title: episodeData.title ?? null,
         season: episodeData.season ?? 1,
+        watched: episodeData.watched,
       })
       .returning()
       .get();
@@ -193,53 +218,27 @@ export class LibraryRepository {
     this.db.delete(episodes).where(eq(episodes.animeId, animeId)).run();
   }
 
-  setWatchStatus(episodeId: number, watched: boolean, notes?: string): WatchStatus {
-    const now = new Date().toISOString();
-    this.db
-      .insert(watchStatus)
-      .values({ episodeId, watched, notes: notes ?? null, updatedAt: now })
-      .onConflictDoUpdate({
-        target: watchStatus.episodeId,
-        set: { watched, notes: notes ?? null, updatedAt: now },
-      })
-      .run();
-    return { episodeId, watched, notes, updatedAt: now };
+  setEpisodeWatched(episodeId: number, watched: boolean): LibraryEpisode | null {
+    this.db.update(episodes).set({ watched }).where(eq(episodes.id, episodeId)).run();
+    return this.getEpisode(episodeId);
   }
 
-  getWatchStatus(episodeId: number): WatchStatus | null {
+  getEpisodeWatchStatus(episodeId: number): boolean | null {
     const row = this.db
-      .select()
-      .from(watchStatus)
-      .where(eq(watchStatus.episodeId, episodeId))
+      .select({ watched: episodes.watched })
+      .from(episodes)
+      .where(eq(episodes.id, episodeId))
       .get();
-    return row
-      ? {
-          episodeId: row.episodeId,
-          watched: row.watched,
-          notes: row.notes ?? undefined,
-          updatedAt: row.updatedAt,
-        }
-      : null;
+    return row ? row.watched : null;
   }
 
-  getWatchStatusByAnimeId(animeId: number): WatchStatus[] {
+  getEpisodeWatchStatusByAnimeId(animeId: number): Array<{ episodeId: number; watched: boolean }> {
     const rows = this.db
-      .select({
-        episodeId: watchStatus.episodeId,
-        watched: watchStatus.watched,
-        notes: watchStatus.notes,
-        updatedAt: watchStatus.updatedAt,
-      })
-      .from(watchStatus)
-      .innerJoin(episodes, eq(watchStatus.episodeId, episodes.id))
+      .select({ episodeId: episodes.id, watched: episodes.watched })
+      .from(episodes)
       .where(eq(episodes.animeId, animeId))
       .all();
-    return rows.map((row) => ({
-      episodeId: row.episodeId,
-      watched: row.watched,
-      notes: row.notes ?? undefined,
-      updatedAt: row.updatedAt,
-    }));
+    return rows;
   }
 
   updateEpisodeCount(animeId: number): void {
@@ -268,8 +267,9 @@ export class LibraryRepository {
   }
 
   deleteAll(): void {
-    this.db.delete(watchStatus).run();
+    this.db.delete(groupTrackerMappings).run();
     this.db.delete(episodes).run();
+    this.db.delete(episodeGroups).run();
     this.db.delete(anime).run();
   }
 
@@ -279,8 +279,7 @@ export class LibraryRepository {
     animeSourceDb: string;
     season: number | null;
     episodeNumber: number;
-    watched: boolean | null;
-    notes: string | null;
+    watched: boolean;
   }> {
     return this.db
       .select({
@@ -289,17 +288,16 @@ export class LibraryRepository {
         animeSourceDb: anime.sourceDb,
         season: episodes.season,
         episodeNumber: episodes.episodeNumber,
-        watched: watchStatus.watched,
-        notes: watchStatus.notes,
+        watched: episodes.watched,
       })
       .from(episodes)
       .innerJoin(anime, eq(episodes.animeId, anime.id))
-      .leftJoin(watchStatus, eq(watchStatus.episodeId, episodes.id))
       .all();
   }
 
   upsertEpisodeFromMatch(match: {
     animeId: number;
+    groupId: number;
     episode: number;
     filePath: string;
     title?: string | null;
@@ -309,6 +307,7 @@ export class LibraryRepository {
       .insert(episodes)
       .values({
         animeId: match.animeId,
+        groupId: match.groupId,
         episodeNumber: match.episode,
         filePath: match.filePath,
         title: match.title ?? null,
@@ -316,27 +315,15 @@ export class LibraryRepository {
       })
       .onConflictDoUpdate({
         target: [episodes.animeId, episodes.episodeNumber, episodes.season],
-        set: { filePath: match.filePath, title: match.title ?? null },
+        set: { filePath: match.filePath, title: match.title ?? null, groupId: match.groupId },
       })
       .returning()
       .get();
     return { id: result.id };
   }
 
-  migrateWatchStatus(
-    newEpisodeId: number,
-    watched: boolean,
-    notes: string | null,
-    updatedAt: string,
-  ): void {
-    this.db
-      .insert(watchStatus)
-      .values({ episodeId: newEpisodeId, watched, notes, updatedAt })
-      .onConflictDoUpdate({
-        target: watchStatus.episodeId,
-        set: { watched, notes, updatedAt },
-      })
-      .run();
+  migrateEpisodeWatched(episodeId: number, watched: boolean): void {
+    this.db.update(episodes).set({ watched }).where(eq(episodes.id, episodeId)).run();
   }
 
   transaction<T>(fn: (repo: LibraryRepository) => T): T {
@@ -355,13 +342,14 @@ export class LibraryRepository {
     episodeTitle: string | null;
     season: number | null;
     sourceDb: string;
+    groupId: number;
   }> {
     const rows = this.db
       .select({
         externalId: anime.externalId,
         sourceDb: anime.sourceDb,
         title: anime.title,
-        entryType: anime.entryType,
+        groupId: episodes.groupId,
         episodeNumber: episodes.episodeNumber,
         filePath: episodes.filePath,
         episodeTitle: episodes.title,
@@ -369,18 +357,20 @@ export class LibraryRepository {
       })
       .from(anime)
       .innerJoin(episodes, eq(episodes.animeId, anime.id))
+      .innerJoin(episodeGroups, eq(episodeGroups.id, episodes.groupId))
       .orderBy(anime.title, episodes.season, episodes.episodeNumber)
       .all();
 
     return rows.map((row) => ({
       animeId: row.externalId,
       animeTitle: row.title,
-      entryType: row.entryType as EntryType,
+      entryType: "tv" as EntryType,
       episode: row.episodeNumber,
       filePath: row.filePath,
       episodeTitle: row.episodeTitle ?? null,
       season: row.season ?? null,
       sourceDb: row.sourceDb,
+      groupId: row.groupId,
     }));
   }
 
@@ -429,15 +419,157 @@ export class LibraryRepository {
     return row?.count ?? 0;
   }
 
+  // Episode Groups
+
+  upsertEpisodeGroup(
+    groupData: Omit<EpisodeGroup, "id" | "lastSynced"> & { lastSynced?: string },
+  ): EpisodeGroup {
+    const now = groupData.lastSynced ?? new Date().toISOString();
+    const seasonCondition =
+      groupData.seasonNumber == null
+        ? isNull(episodeGroups.seasonNumber)
+        : eq(episodeGroups.seasonNumber, groupData.seasonNumber);
+    const existing = this.db
+      .select({ id: episodeGroups.id })
+      .from(episodeGroups)
+      .where(
+        and(
+          eq(episodeGroups.animeId, groupData.animeId),
+          eq(episodeGroups.entryType, groupData.entryType),
+          seasonCondition,
+        ),
+      )
+      .get();
+
+    if (existing) {
+      this.db
+        .update(episodeGroups)
+        .set({
+          watchStatus: groupData.watchStatus,
+          synopsis: groupData.synopsis ?? null,
+          rating: groupData.rating ?? null,
+          coverArtPath: groupData.coverArtPath ?? null,
+          lastSynced: now,
+        })
+        .where(eq(episodeGroups.id, existing.id))
+        .run();
+      return this.getEpisodeGroup(existing.id) as EpisodeGroup;
+    }
+
+    const result = this.db
+      .insert(episodeGroups)
+      .values({
+        animeId: groupData.animeId,
+        entryType: groupData.entryType,
+        seasonNumber: groupData.seasonNumber ?? null,
+        watchStatus: groupData.watchStatus,
+        synopsis: groupData.synopsis ?? null,
+        rating: groupData.rating ?? null,
+        coverArtPath: groupData.coverArtPath ?? null,
+        lastSynced: now,
+      })
+      .returning()
+      .get();
+
+    return this.rowToEpisodeGroup(result);
+  }
+
+  getEpisodeGroup(id: number): EpisodeGroup | null {
+    const row = this.db.select().from(episodeGroups).where(eq(episodeGroups.id, id)).get();
+    return row ? this.rowToEpisodeGroup(row) : null;
+  }
+
+  getEpisodeGroupsByAnimeId(animeId: number): EpisodeGroup[] {
+    const rows = this.db
+      .select()
+      .from(episodeGroups)
+      .where(eq(episodeGroups.animeId, animeId))
+      .orderBy(episodeGroups.seasonNumber)
+      .all();
+    return rows.map(this.rowToEpisodeGroup);
+  }
+
+  findEpisodeGroup(
+    animeId: number,
+    entryType: string,
+    seasonNumber: number | null,
+  ): EpisodeGroup | null {
+    const seasonCondition =
+      seasonNumber === null
+        ? isNull(episodeGroups.seasonNumber)
+        : eq(episodeGroups.seasonNumber, seasonNumber);
+    const row = this.db
+      .select()
+      .from(episodeGroups)
+      .where(
+        and(
+          eq(episodeGroups.animeId, animeId),
+          eq(episodeGroups.entryType, entryType),
+          seasonCondition,
+        ),
+      )
+      .get();
+    return row ? this.rowToEpisodeGroup(row) : null;
+  }
+
+  deleteEpisodeGroupsByAnimeId(animeId: number): void {
+    this.db.delete(episodeGroups).where(eq(episodeGroups.animeId, animeId)).run();
+  }
+
+  // Group Tracker Mappings
+
+  upsertGroupTrackerMapping(mapping: GroupTrackerMapping): void {
+    this.db
+      .insert(groupTrackerMappings)
+      .values({
+        groupId: mapping.groupId,
+        source: mapping.source,
+        externalId: mapping.externalId,
+      })
+      .onConflictDoUpdate({
+        target: [groupTrackerMappings.source, groupTrackerMappings.externalId],
+        set: { groupId: mapping.groupId },
+      })
+      .run();
+  }
+
+  getTrackerMappingsByGroupId(groupId: number): GroupTrackerMapping[] {
+    const rows = this.db
+      .select()
+      .from(groupTrackerMappings)
+      .where(eq(groupTrackerMappings.groupId, groupId))
+      .all();
+    return rows.map(this.rowToGroupTrackerMapping);
+  }
+
+  findGroupByTrackerExternalId(source: string, externalId: string): { groupId: number } | null {
+    const row = this.db
+      .select({ groupId: groupTrackerMappings.groupId })
+      .from(groupTrackerMappings)
+      .where(
+        and(
+          eq(groupTrackerMappings.source, source),
+          eq(groupTrackerMappings.externalId, externalId),
+        ),
+      )
+      .get();
+    return row ? { groupId: row.groupId } : null;
+  }
+
+  deleteTrackerMappingsByGroupId(groupId: number): void {
+    this.db.delete(groupTrackerMappings).where(eq(groupTrackerMappings.groupId, groupId)).run();
+  }
+
   private rowToAnime(row: {
     id: number;
     externalId: string;
     sourceDb: string;
     title: string;
     titleJapanese: string | null;
-    entryType: string;
     episodeCount: number;
     coverArtPath: string | null;
+    genres: string[] | null;
+    libraryState: string;
     lastSynced: string;
   }): LibraryAnime {
     return {
@@ -446,9 +578,10 @@ export class LibraryRepository {
       sourceDb: row.sourceDb,
       title: row.title,
       titleJapanese: row.titleJapanese ?? undefined,
-      entryType: row.entryType as EntryType,
       episodeCount: row.episodeCount,
       coverArtPath: row.coverArtPath ?? undefined,
+      genres: row.genres ?? undefined,
+      libraryState: row.libraryState as LibraryAnime["libraryState"],
       lastSynced: row.lastSynced,
     };
   }
@@ -456,18 +589,58 @@ export class LibraryRepository {
   private rowToEpisode(row: {
     id: number;
     animeId: number;
+    groupId: number;
     episodeNumber: number;
     filePath: string;
     title: string | null;
     season: number | null;
+    watched: boolean;
   }): LibraryEpisode {
     return {
       id: row.id,
       animeId: row.animeId,
+      groupId: row.groupId,
       episodeNumber: row.episodeNumber,
       filePath: row.filePath,
       title: row.title ?? undefined,
       season: row.season ?? undefined,
+      watched: row.watched,
+    };
+  }
+
+  private rowToEpisodeGroup(row: {
+    id: number;
+    animeId: number;
+    entryType: string;
+    seasonNumber: number | null;
+    watchStatus: string;
+    synopsis: string | null;
+    rating: number | null;
+    coverArtPath: string | null;
+    lastSynced: string;
+  }): EpisodeGroup {
+    return {
+      id: row.id,
+      animeId: row.animeId,
+      entryType: row.entryType as EntryType,
+      seasonNumber: row.seasonNumber ?? undefined,
+      watchStatus: row.watchStatus as EpisodeGroup["watchStatus"],
+      synopsis: row.synopsis ?? undefined,
+      rating: row.rating ?? undefined,
+      coverArtPath: row.coverArtPath ?? undefined,
+      lastSynced: row.lastSynced,
+    };
+  }
+
+  private rowToGroupTrackerMapping(row: {
+    groupId: number;
+    source: string;
+    externalId: string;
+  }): GroupTrackerMapping {
+    return {
+      groupId: row.groupId,
+      source: row.source as GroupTrackerMapping["source"],
+      externalId: row.externalId,
     };
   }
 }

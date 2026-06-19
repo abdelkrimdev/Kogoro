@@ -42,22 +42,33 @@ async function seedLibraryAndCache(
     externalId: "tvdb-12345",
     sourceDb: "tvdb",
     title: "Test Anime",
-    entryType: "tv",
     episodeCount: 2,
   });
+
+  const group = libraryRepo.upsertEpisodeGroup({
+    animeId: anime.id,
+    entryType: "tv",
+    seasonNumber: 1,
+    watchStatus: "plan_to_watch",
+  });
+
   libraryRepo.addEpisode({
     animeId: anime.id,
+    groupId: group.id,
     episodeNumber: 1,
     filePath: ep1Path,
     title: "Episode 1",
     season: 1,
+    watched: false,
   });
   libraryRepo.addEpisode({
     animeId: anime.id,
+    groupId: group.id,
     episodeNumber: 2,
     filePath: ep2Path,
     title: "Episode 2",
     season: 1,
+    watched: false,
   });
   closeLibrary();
 
@@ -98,7 +109,6 @@ describe("enrichArtwork", () => {
         externalId: "tvdb-12345",
         sourceDb: "tvdb",
         title: "Empty Anime",
-        entryType: "tv",
         episodeCount: 0,
       });
 

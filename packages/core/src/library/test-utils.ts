@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { anime, episodes, watchStatus } from "./schema";
+import { anime, episodeGroups, episodes, groupTrackerMappings } from "./schema";
 
 const MIGRATIONS_FOLDER = join(import.meta.dir, "../../drizzle");
 
@@ -12,7 +12,9 @@ export function createLibraryDb(dir?: string) {
   const path = dir ? `${dir}/library.db` : ":memory:";
   const sqlite = new Database(path);
   sqlite.run("PRAGMA foreign_keys = ON");
-  const db = drizzle(sqlite, { schema: { anime, episodes, watchStatus } });
+  const db = drizzle(sqlite, {
+    schema: { anime, episodeGroups, episodes, groupTrackerMappings },
+  });
   migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   return { db, sqlite };
 }
