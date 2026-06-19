@@ -1,13 +1,8 @@
 <script lang="ts">
   import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, LoaderCircle } from '@lucide/svelte';
-  import Checkbox from "./Checkbox.svelte";
+  import EpisodeGroupAccordion from "./EpisodeGroupAccordion.svelte";
   import type { AnimeDetail } from "../../shared/types";
   import { getAnimeDirectory } from "../state/detail-state";
-  import {
-    type WatchStatusEntry,
-    enrichEpisodesWithWatchStatus,
-    computeWatchProgress,
-  } from "../state/watch-state";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -23,7 +18,6 @@
   let artworkLoading = $state(false);
   let metadataLoading = $state(false);
   let rescanLoading = $state(false);
-  let watchStatuses = $state<WatchStatusEntry[]>([]);
 
   function sourceDbLabel(db: string): string {
     switch (db) {
@@ -34,22 +28,6 @@
       default:
         return db;
     }
-  }
-
-  function detectGaps(episodes: AnimeDetail["episodes"]): Set<number> {
-    const gaps = new Set<number>();
-    let prevEp = 0;
-    for (const ep of episodes) {
-      if (!ep.missing && prevEp > 0 && ep.episode > prevEp + 1) {
-        for (let i = prevEp + 1; i < ep.episode; i++) {
-          gaps.add(i);
-        }
-      }
-      if (!ep.missing) {
-        prevEp = ep.episode;
-      }
-    }
-    return gaps;
   }
 
   async function loadDetail() {
@@ -65,32 +43,6 @@
       error = err instanceof Error ? err.message : "Failed to load anime details";
     }
     loading = false;
-  }
-
-  async function loadWatchStatus() {
-    try {
-      const result = (await rpc.request("getWatchStatusByAnime", { animeId })) as WatchStatusEntry[];
-      watchStatuses = result;
-    } catch (err) {
-      console.error("Failed to load watch status:", err);
-    }
-  }
-
-  async function toggleWatched(episodeId: string) {
-    const current = watchStatuses.find((ws) => ws.episodeId === episodeId);
-    const newWatched = !(current?.watched ?? false);
-
-    watchStatuses = [
-      ...watchStatuses.filter((ws) => ws.episodeId !== episodeId),
-      { episodeId, watched: newWatched },
-    ];
-
-    try {
-      await rpc.request("setWatchStatus", { episodeId, watched: newWatched });
-    } catch (err) {
-      console.error("Failed to set watch status:", err);
-      await loadWatchStatus();
-    }
   }
 
   async function downloadArtwork() {
@@ -116,7 +68,15 @@
 
   async function rescan() {
     if (!detail) return;
-    const dir = getAnimeDirectory(detail.episodes);
+    const allEpisodes = detail.groups.flatMap((g) => g.episodes.map((ep) => ({
+      id: ep.id,
+      season: g.seasonNumber ?? 1,
+      episode: ep.episodeNumber,
+      titleEn: ep.titleEn,
+      filePath: ep.filePath,
+      missing: false,
+    })));
+    const dir = getAnimeDirectory(allEpisodes);
     if (!dir) return;
     rescanLoading = true;
     try {
@@ -127,16 +87,18 @@
     rescanLoading = false;
   }
 
-  const gaps = $derived(detail ? detectGaps(detail.episodes) : new Set<number>());
-  const missingCount = $derived(detail?.episodes.filter((ep) => ep.missing).length ?? 0);
-  const enrichedEpisodes = $derived(
-    detail ? enrichEpisodesWithWatchStatus(detail.episodes, watchStatuses) : [],
+  const totalEpisodes = $derived(
+    detail?.groups.reduce((sum, g) => sum + g.episodes.length, 0) ?? 0
   );
-  const progress = $derived(computeWatchProgress(enrichedEpisodes));
+  const totalWatched = $derived(
+    detail?.groups.reduce((sum, g) => sum + g.episodes.filter((ep) => ep.watched).length, 0) ?? 0
+  );
+  const progressPercent = $derived(
+    totalEpisodes > 0 ? Math.round((totalWatched / totalEpisodes) * 100) : 0
+  );
 
   $effect(() => {
     loadDetail();
-    loadWatchStatus();
   });
 </script>
 
@@ -217,71 +179,33 @@
               <span class="text-sm text-surface-600-400">·</span>
               <span class="text-sm text-surface-700-300">{detail.anime.totalEpisodes} episodes</span>
               <span class="text-sm text-surface-600-400">·</span>
-              <span class="text-sm text-surface-700-300">{detail.filesOnDisk} files on disk</span>
-              {#if missingCount > 0}
+              <span class="text-sm text-surface-700-300">{totalEpisodes} files on disk</span>
+              {#if progressPercent > 0}
                 <span class="text-sm text-surface-600-400">·</span>
-                <span class="text-sm text-warning-500-400">{missingCount} missing</span>
-              {/if}
-              {#if progress.total > 0}
-                <span class="text-sm text-surface-600-400">·</span>
-                <span class="text-sm text-success-500-400">{progress.percent}% watched</span>
-                <progress class="progress w-24" value={progress.percent} max="100"></progress>
+                <span class="text-sm text-success-500-400">{progressPercent}% watched</span>
+                <progress class="progress w-24" value={progressPercent} max="100"></progress>
               {/if}
             </div>
 
-            <div class="mt-6">
-              <h2 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide mb-2">Episodes</h2>
-              <div class="card preset-outlined-surface-300-700 rounded-xl overflow-hidden">
-                {#if detail.episodes.length === 0}
-                  <div class="text-center text-surface-600-400 py-8">
-                    No episodes found.
-                  </div>
-                {:else}
-                  <table class="table">
-                    <thead>
-                      <tr>
-                        <th class="font-medium">Episode</th>
-                        <th class="font-medium">Title</th>
-                        <th class="font-medium">File Path</th>
-                        <th class="font-medium text-center w-16">Watched</th>
-                      </tr>
-                    </thead>
-                    <tbody class="[&>tr]:hover:preset-tonal-primary">
-                      {#each enrichedEpisodes as ep (ep.id)}
-                        {@const isGap = gaps.has(ep.episode)}
-                        <tr class="{ep.missing ? 'text-surface-600-400 opacity-60' : isGap ? 'text-warning-500-400' : ''}">
-                          <td class="text-sm font-medium whitespace-nowrap">
-                            {ep.season}x{String(ep.episode).padStart(2, "0")}
-                            {#if ep.missing}
-                                <span class="badge preset-tonal-warning ml-2 text-xs">Missing</span>
-                              {:else if isGap}
-                                <span class="badge preset-tonal-warning ml-2 text-xs">Gap</span>
-                            {/if}
-                          </td>
-                          <td class="text-sm">{ep.titleEn}</td>
-                          <td class="text-sm text-surface-700-300 font-mono truncate max-w-xs">
-                            {#if ep.filePath}
-                              {ep.filePath}
-                            {:else}
-                              <span class="text-surface-600-400">—</span>
-                            {/if}
-                          </td>
-                          <td class="text-center">
-                            {#if !ep.missing}
-                              <Checkbox
-                                checked={ep.watched}
-                                onchange={() => toggleWatched(ep.id)}
-                              />
-                            {:else}
-                              <span class="text-surface-600-400">—</span>
-                            {/if}
-                          </td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                {/if}
+            {#if detail.anime.genres && detail.anime.genres.length > 0}
+              <div class="flex flex-wrap gap-2 mt-3">
+                {#each detail.anime.genres as genre (genre)}
+                  <span class="badge preset-tonal-surface">{genre}</span>
+                {/each}
               </div>
+            {/if}
+
+            <div class="mt-6 space-y-4">
+              <h2 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Episode Groups</h2>
+              {#if detail.groups.length === 0}
+                <div class="text-center text-surface-600-400 py-8">
+                  No episode groups found.
+                </div>
+              {:else}
+                {#each detail.groups as group (group.id)}
+                  <EpisodeGroupAccordion {group} {rpc} defaultOpen={detail.groups.length === 1} />
+                {/each}
+              {/if}
             </div>
           </div>
         </div>
