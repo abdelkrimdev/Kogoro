@@ -38,6 +38,7 @@ import {
   getTrackerConnectionFields,
   getTrackerStatus,
 } from "./tracker-connections";
+import { createTrackerImportHandlers } from "./tracker-import";
 import {
   addWatchedFolderHandler,
   getWatchedFoldersHandler,
@@ -64,6 +65,11 @@ const libraryHandlers = createLibraryHandlers({
 });
 
 const dashboardHandlers = createDashboardHandlers({ libraryService });
+
+const trackerImportHandlers = createTrackerImportHandlers({
+  libraryService,
+  credentialStore,
+});
 
 const enrichmentHandlers = createEnrichmentHandlers({
   pluginFactory,
@@ -164,6 +170,8 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       connectTracker: async (params) => connectTracker(credentialStore, params),
       disconnectTracker: async (params) =>
         disconnectTracker(credentialStore, libraryService, params),
+      getImportPreview: async (params) => trackerImportHandlers.getImportPreview(params),
+      confirmImport: async (params) => trackerImportHandlers.confirmImport(params),
       getDashboardData: async () => dashboardHandlers.getDashboardData(),
     },
     messages: {

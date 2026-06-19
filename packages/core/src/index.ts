@@ -106,6 +106,7 @@ export type {
 export { ScanOrchestrator } from "./scan/scan-orchestrator";
 export type { ScanResult } from "./scan/scanner";
 export { Scanner } from "./scan/scanner";
+export type { TrackerSource } from "./tracker/tracker-import";
 export type {
   AnimeResult,
   ArtworkResult,
