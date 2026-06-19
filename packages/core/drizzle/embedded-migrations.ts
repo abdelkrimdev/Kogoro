@@ -7,32 +7,14 @@ export const journal = {
     {
       idx: 0,
       version: "6",
-      when: 1781184049834,
-      tag: "0000_baseline",
-      breakpoints: true,
-    },
-    {
-      idx: 1,
-      version: "6",
-      when: 1781270449834,
-      tag: "0001_add_match_source_db",
-      breakpoints: true,
-    },
-    {
-      idx: 2,
-      version: "6",
-      when: 1781349369950,
-      tag: "0002_classy_hedge_knight",
+      when: 1781871146546,
+      tag: "0000_shallow_morbius",
       breakpoints: true,
     },
   ],
 } as const;
 
 export const migrations: Record<string, string> = {
-  "0000_baseline":
-    "CREATE TABLE IF NOT EXISTS `anime` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`external_id` text NOT NULL,\n\t`source_db` text NOT NULL,\n\t`title` text NOT NULL,\n\t`title_japanese` text,\n\t`entry_type` text DEFAULT 'tv' NOT NULL,\n\t`episode_count` integer DEFAULT 0 NOT NULL,\n\t`cover_art_path` text,\n\t`last_synced` text NOT NULL\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX IF NOT EXISTS `anime_external_id_source_db_unique` ON `anime` (`external_id`, `source_db`);\n--> statement-breakpoint\nCREATE TABLE IF NOT EXISTS `episodes` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`anime_id` integer NOT NULL,\n\t`episode_number` integer NOT NULL,\n\t`file_path` text NOT NULL,\n\t`title` text,\n\t`season` integer DEFAULT 1,\n\tFOREIGN KEY (`anime_id`) REFERENCES `anime`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX IF NOT EXISTS `episodes_anime_id_episode_number_season_unique` ON `episodes` (`anime_id`, `episode_number`, `season`);\n--> statement-breakpoint\nCREATE TABLE IF NOT EXISTS `watch_status` (\n\t`episode_id` integer PRIMARY KEY NOT NULL,\n\t`watched` integer DEFAULT 0 NOT NULL,\n\t`notes` text,\n\t`updated_at` text NOT NULL,\n\tFOREIGN KEY (`episode_id`) REFERENCES `episodes`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE TABLE IF NOT EXISTS `matches` (\n\t`hash` text PRIMARY KEY NOT NULL,\n\t`anime_id` text NOT NULL,\n\t`anime_title` text,\n\t`episode_id` text,\n\t`entry_type` text NOT NULL,\n\t`season` integer,\n\t`episode` integer,\n\t`title` text,\n\t`timestamp` text NOT NULL\n);\n--> statement-breakpoint\nCREATE TABLE IF NOT EXISTS `scan_state` (\n\t`path` text PRIMARY KEY NOT NULL,\n\t`size` integer NOT NULL,\n\t`mtime` integer NOT NULL,\n\t`hash` text DEFAULT '' NOT NULL\n);\n",
-  "0001_add_match_source_db":
-    "ALTER TABLE `matches` ADD `source_db` text NOT NULL DEFAULT 'tvdb';--> statement-breakpoint\nDELETE FROM `matches`;",
-  "0002_classy_hedge_knight":
-    "CREATE INDEX `idx_matches_hash_source_db` ON `matches` (`hash`,`source_db`);\n",
+  "0000_shallow_morbius":
+    "CREATE TABLE `anime` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`external_id` text NOT NULL,\n\t`source_db` text NOT NULL,\n\t`title` text NOT NULL,\n\t`title_japanese` text,\n\t`episode_count` integer DEFAULT 0 NOT NULL,\n\t`cover_art_path` text,\n\t`genres` text,\n\t`library_state` text DEFAULT 'not_on_disk' NOT NULL,\n\t`last_synced` text NOT NULL\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `anime_external_id_source_db_unique` ON `anime` (`external_id`,`source_db`);--> statement-breakpoint\nCREATE TABLE `episode_groups` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`anime_id` integer NOT NULL,\n\t`entry_type` text NOT NULL,\n\t`season_number` integer,\n\t`watch_status` text DEFAULT 'plan_to_watch' NOT NULL,\n\t`synopsis` text,\n\t`rating` real,\n\t`cover_art_path` text,\n\t`last_synced` text NOT NULL,\n\tFOREIGN KEY (`anime_id`) REFERENCES `anime`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `episode_groups_anime_id_entry_type_season_number_unique` ON `episode_groups` (`anime_id`,`entry_type`,`season_number`);--> statement-breakpoint\nCREATE TABLE `episodes` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`anime_id` integer NOT NULL,\n\t`group_id` integer NOT NULL,\n\t`episode_number` integer NOT NULL,\n\t`file_path` text NOT NULL,\n\t`title` text,\n\t`season` integer DEFAULT 1,\n\t`watched` integer DEFAULT false NOT NULL,\n\tFOREIGN KEY (`anime_id`) REFERENCES `anime`(`id`) ON UPDATE no action ON DELETE cascade,\n\tFOREIGN KEY (`group_id`) REFERENCES `episode_groups`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `episodes_anime_id_episode_number_season_unique` ON `episodes` (`anime_id`,`episode_number`,`season`);--> statement-breakpoint\nCREATE TABLE `group_tracker_mappings` (\n\t`group_id` integer NOT NULL,\n\t`source` text NOT NULL,\n\t`external_id` text NOT NULL,\n\tFOREIGN KEY (`group_id`) REFERENCES `episode_groups`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `group_tracker_mappings_source_external_id_unique` ON `group_tracker_mappings` (`source`,`external_id`);--> statement-breakpoint\nCREATE TABLE `matches` (\n\t`hash` text PRIMARY KEY NOT NULL,\n\t`anime_id` text NOT NULL,\n\t`anime_title` text,\n\t`episode_id` text,\n\t`entry_type` text NOT NULL,\n\t`season` integer,\n\t`episode` integer,\n\t`title` text,\n\t`source_db` text DEFAULT 'tvdb' NOT NULL,\n\t`timestamp` text NOT NULL\n);\n--> statement-breakpoint\nCREATE INDEX `idx_matches_hash_source_db` ON `matches` (`hash`,`source_db`);--> statement-breakpoint\nCREATE TABLE `scan_state` (\n\t`path` text PRIMARY KEY NOT NULL,\n\t`size` integer NOT NULL,\n\t`mtime` integer NOT NULL,\n\t`hash` text DEFAULT '' NOT NULL\n);\n",
 } as const;
