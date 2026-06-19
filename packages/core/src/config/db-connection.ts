@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { journal, migrations } from "../../drizzle/embedded-migrations";
+import { EventRepository } from "../events/event-repository";
+import { events as eventsSchema } from "../events/schema";
 import { LibraryRepository } from "../library/library-repository";
 import { anime, episodeGroups, episodes, groupTrackerMappings } from "../library/schema";
 import { MatchRepository } from "../match/match-repository";
@@ -51,4 +53,24 @@ export function createLibraryConnection(dbPath: string): LibraryRepository {
   const db = drizzle(sqlite, { schema: { anime, episodeGroups, episodes, groupTrackerMappings } });
   migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   return new LibraryRepository(db);
+}
+
+export function createEventsConnection(dbPath: string): EventRepository {
+  const sqlite = new Database(dbPath);
+  sqlite.run("PRAGMA foreign_keys = ON");
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      timestamp TEXT NOT NULL,
+      pushed TEXT NOT NULL DEFAULT '[]'
+    )
+  `);
+  sqlite.run("CREATE INDEX IF NOT EXISTS idx_events_pushed ON events (pushed)");
+  const db = drizzle(sqlite, { schema: { events: eventsSchema } });
+  return new EventRepository(db);
 }

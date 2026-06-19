@@ -8,7 +8,11 @@ export type { PromptsAPI } from "./config/config-wizard";
 export { runConfigWizard } from "./config/config-wizard";
 export { CredentialStore, createCredentialStore } from "./config/credential-store";
 export type { MatchCacheConnection } from "./config/db-connection";
-export { createLibraryConnection, createMatchCacheConnection } from "./config/db-connection";
+export {
+  createEventsConnection,
+  createLibraryConnection,
+  createMatchCacheConnection,
+} from "./config/db-connection";
 export type { DbPaths } from "./config/db-paths";
 export { resolveDbPaths } from "./config/db-paths";
 export type { Config, EpisodeNumbering } from "./config/schema";
@@ -21,6 +25,8 @@ export {
   stripTypeDir,
   TEMPLATE_PRESETS,
 } from "./config/schema";
+export type { AppendEventInput, Event } from "./events/event-repository";
+export { EventRepository } from "./events/event-repository";
 export type { EnrichmentSend } from "./fixtures";
 export { walk } from "./io/directory-walker";
 export { hashFile } from "./io/file-hash";

@@ -10,6 +10,8 @@ import { hashFile } from "./io/file-hash";
 
 export { hashFile } from "./io/file-hash";
 
+import { EventRepository } from "./events/event-repository";
+import { createEventDb as createEventDbInstance } from "./events/test-utils";
 import { HttpClient } from "./io/http-client";
 import { LibraryRepository } from "./library/library-repository";
 import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils";
@@ -160,6 +162,15 @@ export function createLibraryRepository(dir?: string): {
 export function createMatchRepository(dir?: string): { repo: MatchRepository; close: () => void } {
   const { db, sqlite } = createMatchCacheDbInstance(dir);
   const repo = new MatchRepository(db);
+  return { repo, close: () => sqlite.close() };
+}
+
+export function createEventRepository(dir?: string): {
+  repo: EventRepository;
+  close: () => void;
+} {
+  const { db, sqlite } = createEventDbInstance(dir);
+  const repo = new EventRepository(db);
   return { repo, close: () => sqlite.close() };
 }
 

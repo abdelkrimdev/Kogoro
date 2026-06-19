@@ -5,6 +5,7 @@ import { CONFIG_DIR } from "./schema";
 export interface DbPaths {
   libraryDbPath: string;
   cacheDbPath: string;
+  eventsDbPath: string;
 }
 
 export function resolveDbPaths(configDir: string = CONFIG_DIR): DbPaths {
@@ -14,5 +15,6 @@ export function resolveDbPaths(configDir: string = CONFIG_DIR): DbPaths {
   return {
     libraryDbPath: join(configDir, "library.db"),
     cacheDbPath: join(configDir, "cache.db"),
+    eventsDbPath: join(configDir, "events.db"),
   };
 }
