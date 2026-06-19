@@ -7,6 +7,9 @@ interface LibraryAnimeItem {
   episodeCount: number;
   filesOnDisk: number;
   coverArt?: string;
+  libraryState: "on_disk" | "partially_on_disk" | "not_on_disk";
+  groups: Array<{ entryType: string; watchStatus: string }>;
+  groupCount: number;
 }
 
 export interface LibraryAnimeDetail {
@@ -67,13 +70,25 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
     async getLibrary(): Promise<LibraryAnimeItem[]> {
       const animeList = svc.listAnime();
       return Promise.all(
-        animeList.map(async (a) => ({
-          id: String(a.id),
-          titleEn: a.title,
-          episodeCount: a.episodeCount,
-          filesOnDisk: a.filesOnDisk ?? a.episodeCount,
-          coverArt: a.coverArtPath ? await toDataUrl(a.coverArtPath) : undefined,
-        })),
+        animeList.map(async (a) => {
+          const groups = svc.getEpisodeGroupsByAnimeId(a.id);
+          return {
+            id: String(a.id),
+            titleEn: a.title,
+            episodeCount: a.episodeCount,
+            filesOnDisk: a.filesOnDisk ?? a.episodeCount,
+            coverArt: a.coverArtPath ? await toDataUrl(a.coverArtPath) : undefined,
+            libraryState: (a.libraryState ?? "not_on_disk") as
+              | "on_disk"
+              | "partially_on_disk"
+              | "not_on_disk",
+            groups: groups.map((g) => ({
+              entryType: g.entryType,
+              watchStatus: g.watchStatus,
+            })),
+            groupCount: groups.length,
+          };
+        }),
       );
     },
 
