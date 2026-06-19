@@ -18,11 +18,11 @@ describe("PluginRegistry", () => {
       expect(subPlugins.some((p) => p.name === "opensubtitles")).toBe(true);
     });
 
-    test("returns no built-in tracker plugins by default", () => {
+    test("returns built-in tracker plugins", () => {
       const registry = new PluginRegistry();
       const plugins = registry.list();
       const trackerPlugins = plugins.filter((p) => p.type === "tracker");
-      expect(trackerPlugins).toHaveLength(0);
+      expect(trackerPlugins.some((p) => p.name === "kitsu")).toBe(true);
     });
 
     test("marks disabled plugins", () => {
