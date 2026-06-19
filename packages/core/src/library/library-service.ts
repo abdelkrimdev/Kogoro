@@ -345,7 +345,7 @@ export class LibraryService {
     this.library.removeTrackerMapping(groupId, source);
   }
 
-  // Watched status (now on episodes directly)
+  // Watched status
 
   setEpisodeWatched(episodeId: number, watched: boolean): LibraryEpisode | null {
     return this.library.setEpisodeWatched(episodeId, watched);

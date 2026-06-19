@@ -1573,7 +1573,7 @@ describe("LibraryService", () => {
   });
 
   describe("getEpisodesByGroupId", () => {
-    test("returns episodes for group", () => {
+    test("returns episodes belonging to group", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
@@ -1593,8 +1593,17 @@ describe("LibraryService", () => {
           watchStatus: "watching",
         });
 
+        repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          watched: false,
+        });
+
         const groupEpisodes = service.getEpisodesByGroupId(group.id);
-        expect(Array.isArray(groupEpisodes)).toBe(true);
+        expect(groupEpisodes).toHaveLength(1);
+        expect(groupEpisodes[0]?.episodeNumber).toBe(1);
       } finally {
         sqlite.close();
       }

@@ -1257,7 +1257,7 @@ describe("LibraryRepository", () => {
         repo.deleteEpisodeGroup(group.id);
 
         expect(repo.getEpisodeGroup(group.id)).toBeNull();
-        expect(repo.getEpisodesByAnimeId(anime.id)).toHaveLength(0);
+        expect(repo.getEpisodesByGroupId(group.id)).toHaveLength(0);
       } finally {
         sqlite.close();
       }
