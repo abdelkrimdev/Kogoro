@@ -290,6 +290,212 @@ describe("LibraryService", () => {
         sqlite.close();
       }
     });
+
+    test("preserves group watch statuses across rebuild", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 2,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+          synopsis: "Season 1 synopsis",
+          rating: 9.5,
+        });
+
+        repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: true,
+        });
+        repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 2,
+          filePath: "/media/S01E02.mkv",
+          season: 1,
+          watched: false,
+        });
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Cursed Womb Must Die",
+            filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        service.rebuildFromMatches(matches);
+
+        const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
+        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
+        expect(groups).toHaveLength(1);
+        expect(groups[0]?.watchStatus).toBe("completed");
+        expect(groups[0]?.synopsis).toBe("Season 1 synopsis");
+        expect(groups[0]?.rating).toBe(9.5);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("preserves tracker mappings across rebuild", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 2,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        repo.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "mal",
+          externalId: "12345",
+        });
+        repo.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "67890",
+        });
+
+        repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: false,
+        });
+        repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 2,
+          filePath: "/media/S01E02.mkv",
+          season: 1,
+          watched: false,
+        });
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Cursed Womb Must Die",
+            filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        service.rebuildFromMatches(matches);
+
+        const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
+        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
+        expect(groups).toHaveLength(1);
+
+        const malMapping = repo.getTrackerMapping(groups[0]?.id as number, "mal");
+        expect(malMapping?.externalId).toBe("12345");
+
+        const anilistMapping = repo.getTrackerMapping(groups[0]?.id as number, "anilist");
+        expect(anilistMapping?.externalId).toBe("67890");
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("computes library state after rebuild", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Cursed Womb Must Die",
+            filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        service.rebuildFromMatches(matches);
+
+        const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
+        expect(rebuilt?.libraryState).toBe("on_disk");
+      } finally {
+        sqlite.close();
+      }
+    });
   });
 
   describe("mergeFromMatches", () => {
@@ -719,6 +925,46 @@ describe("LibraryService", () => {
         expect(tvdb).not.toBeNull();
         expect(tvdb?.title).toBe("Oshi no Ko (TV)");
         expect(repo.getEpisodesByAnimeId(tvdb?.id as number)).toHaveLength(2);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("computes library state after merge", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Cursed Womb Must Die",
+            filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        service.mergeFromMatches(matches);
+
+        const merged = repo.findAnime("tvdb-12345", "tvdb");
+        expect(merged?.libraryState).toBe("on_disk");
       } finally {
         sqlite.close();
       }
