@@ -35,6 +35,8 @@ export type {
 } from "./library/library-repository";
 export { LibraryRepository } from "./library/library-repository";
 export { LibraryService } from "./library/library-service";
+export type { GroupFilesOnDisk, LibraryState } from "./library/library-state";
+export { computeLibraryState } from "./library/library-state";
 export { CacheService } from "./match/cache-service";
 export type { CachedMatch } from "./match/match-repository";
 export { MatchRepository } from "./match/match-repository";

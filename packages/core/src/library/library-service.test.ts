@@ -1480,4 +1480,248 @@ describe("LibraryService", () => {
       }
     });
   });
+
+  describe("setGroupWatchStatus", () => {
+    test("updates episode group watch status", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        const updated = service.setGroupWatchStatus(group.id, "completed");
+        expect(updated?.watchStatus).toBe("completed");
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("updateEpisodeGroupMetadata", () => {
+    test("updates group metadata", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const updated = service.updateEpisodeGroupMetadata(group.id, {
+          synopsis: "Updated synopsis",
+          rating: 9.0,
+        });
+        expect(updated?.synopsis).toBe("Updated synopsis");
+        expect(updated?.rating).toBe(9.0);
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("deleteEpisodeGroup", () => {
+    test("deletes episode group", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        service.deleteEpisodeGroup(group.id);
+        expect(service.getEpisodeGroup(group.id)).toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("getEpisodesByGroupId", () => {
+    test("returns episodes for group", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const groupEpisodes = service.getEpisodesByGroupId(group.id);
+        expect(Array.isArray(groupEpisodes)).toBe(true);
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("getTrackerMapping", () => {
+    test("returns single mapping", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        service.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "mal",
+          externalId: "12345",
+        });
+
+        const mapping = service.getTrackerMapping(group.id, "mal");
+        expect(mapping?.externalId).toBe("12345");
+
+        const notFound = service.getTrackerMapping(group.id, "anilist");
+        expect(notFound).toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("removeTrackerMappingsBySource", () => {
+    test("removes all mappings for source", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        service.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "mal",
+          externalId: "12345",
+        });
+        service.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "67890",
+        });
+
+        service.removeTrackerMappingsBySource("mal");
+
+        const mappings = service.getTrackerMappingsByGroupId(group.id);
+        expect(mappings).toHaveLength(1);
+        expect(mappings[0]?.source).toBe("anilist");
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("removeTrackerMapping", () => {
+    test("removes single mapping", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const service = new LibraryService(repo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        service.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "mal",
+          externalId: "12345",
+        });
+        service.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "67890",
+        });
+
+        service.removeTrackerMapping(group.id, "mal");
+
+        const mappings = service.getTrackerMappingsByGroupId(group.id);
+        expect(mappings).toHaveLength(1);
+        expect(mappings[0]?.source).toBe("anilist");
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
 });

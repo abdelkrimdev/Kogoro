@@ -300,6 +300,25 @@ export class LibraryService {
     return this.library.upsertEpisodeGroup(data);
   }
 
+  setGroupWatchStatus(groupId: number, status: EpisodeGroup["watchStatus"]): EpisodeGroup | null {
+    return this.library.updateEpisodeGroupStatus(groupId, status);
+  }
+
+  updateEpisodeGroupMetadata(
+    groupId: number,
+    metadata: { synopsis?: string; rating?: number; coverArtPath?: string },
+  ): EpisodeGroup | null {
+    return this.library.updateEpisodeGroupMetadata(groupId, metadata);
+  }
+
+  deleteEpisodeGroup(groupId: number): void {
+    this.library.deleteEpisodeGroup(groupId);
+  }
+
+  getEpisodesByGroupId(groupId: number): LibraryEpisode[] {
+    return this.library.getEpisodesByGroupId(groupId);
+  }
+
   // Tracker Mappings
 
   getTrackerMappingsByGroupId(groupId: number): GroupTrackerMapping[] {
@@ -312,6 +331,18 @@ export class LibraryService {
 
   findGroupByTrackerExternalId(source: string, externalId: string): { groupId: number } | null {
     return this.library.findGroupByTrackerExternalId(source, externalId);
+  }
+
+  getTrackerMapping(groupId: number, source: string): GroupTrackerMapping | null {
+    return this.library.getTrackerMapping(groupId, source);
+  }
+
+  removeTrackerMappingsBySource(source: string): void {
+    this.library.removeTrackerMappingsBySource(source);
+  }
+
+  removeTrackerMapping(groupId: number, source: string): void {
+    this.library.removeTrackerMapping(groupId, source);
   }
 
   // Watched status (now on episodes directly)

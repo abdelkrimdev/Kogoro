@@ -517,6 +517,45 @@ export class LibraryRepository {
     this.db.delete(episodeGroups).where(eq(episodeGroups.animeId, animeId)).run();
   }
 
+  updateEpisodeGroupStatus(
+    groupId: number,
+    status: EpisodeGroup["watchStatus"],
+  ): EpisodeGroup | null {
+    this.db
+      .update(episodeGroups)
+      .set({ watchStatus: status })
+      .where(eq(episodeGroups.id, groupId))
+      .run();
+    return this.getEpisodeGroup(groupId);
+  }
+
+  updateEpisodeGroupMetadata(
+    groupId: number,
+    metadata: { synopsis?: string; rating?: number; coverArtPath?: string },
+  ): EpisodeGroup | null {
+    const set: Record<string, unknown> = {};
+    if (metadata.synopsis !== undefined) set["synopsis"] = metadata.synopsis;
+    if (metadata.rating !== undefined) set["rating"] = metadata.rating;
+    if (metadata.coverArtPath !== undefined) set["coverArtPath"] = metadata.coverArtPath;
+    if (Object.keys(set).length === 0) return this.getEpisodeGroup(groupId);
+    this.db.update(episodeGroups).set(set).where(eq(episodeGroups.id, groupId)).run();
+    return this.getEpisodeGroup(groupId);
+  }
+
+  deleteEpisodeGroup(groupId: number): void {
+    this.db.delete(episodeGroups).where(eq(episodeGroups.id, groupId)).run();
+  }
+
+  getEpisodesByGroupId(groupId: number): LibraryEpisode[] {
+    const rows = this.db
+      .select()
+      .from(episodes)
+      .where(eq(episodes.groupId, groupId))
+      .orderBy(episodes.episodeNumber)
+      .all();
+    return rows.map(this.rowToEpisode);
+  }
+
   // Group Tracker Mappings
 
   upsertGroupTrackerMapping(mapping: GroupTrackerMapping): void {
@@ -559,6 +598,30 @@ export class LibraryRepository {
 
   deleteTrackerMappingsByGroupId(groupId: number): void {
     this.db.delete(groupTrackerMappings).where(eq(groupTrackerMappings.groupId, groupId)).run();
+  }
+
+  getTrackerMapping(groupId: number, source: string): GroupTrackerMapping | null {
+    const row = this.db
+      .select()
+      .from(groupTrackerMappings)
+      .where(
+        and(eq(groupTrackerMappings.groupId, groupId), eq(groupTrackerMappings.source, source)),
+      )
+      .get();
+    return row ? this.rowToGroupTrackerMapping(row) : null;
+  }
+
+  removeTrackerMappingsBySource(source: string): void {
+    this.db.delete(groupTrackerMappings).where(eq(groupTrackerMappings.source, source)).run();
+  }
+
+  removeTrackerMapping(groupId: number, source: string): void {
+    this.db
+      .delete(groupTrackerMappings)
+      .where(
+        and(eq(groupTrackerMappings.groupId, groupId), eq(groupTrackerMappings.source, source)),
+      )
+      .run();
   }
 
   private rowToAnime(row: {
