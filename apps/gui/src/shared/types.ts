@@ -23,6 +23,12 @@ import type {
   setThemeMode,
 } from "../bun/state";
 import type {
+  connectTracker,
+  disconnectTracker,
+  getTrackerConnectionFields,
+  getTrackerStatus,
+} from "../bun/tracker-connections";
+import type {
   addWatchedFolderHandler,
   getWatchedFoldersHandler,
   markWatchedFolderScannedHandler,
@@ -179,6 +185,22 @@ export type AppRPC = {
       checkKeyring: {
         params: Record<string, never>;
         response: AwaitedReturnType<typeof checkKeyringStatus>;
+      };
+      getTrackerStatus: {
+        params: Record<string, never>;
+        response: AwaitedReturnType<typeof getTrackerStatus>;
+      };
+      getTrackerConnectionFields: {
+        params: Parameters<typeof getTrackerConnectionFields>[0];
+        response: ReturnType<typeof getTrackerConnectionFields>;
+      };
+      connectTracker: {
+        params: Parameters<typeof connectTracker>[1];
+        response: AwaitedReturnType<typeof connectTracker>;
+      };
+      disconnectTracker: {
+        params: Parameters<typeof disconnectTracker>[1];
+        response: AwaitedReturnType<typeof disconnectTracker>;
       };
     };
     messages: {

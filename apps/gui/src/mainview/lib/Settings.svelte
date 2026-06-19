@@ -48,6 +48,13 @@
   let rebuilding = $state(false);
   let showRebuildConfirm = $state(false);
 
+  let trackerStatus = $state<Array<{ name: string; displayName: string; connected: boolean; accountInfo?: string }>>([]);
+  let connectDialogTracker = $state<string | null>(null);
+  let connectDialogFields = $state<Array<{ name: string; label: string; type: "text" | "password"; placeholder?: string }>>([]);
+  let connectDialogValues = $state<Record<string, string>>({});
+  let connectingInProgress = $state(false);
+  let disconnectDialogTracker = $state<string | null>(null);
+
   const apiKeys = $derived((settingsData["apiKeys"] as Record<string, string>) ?? {});
   const plugins = $derived(
     (settingsData["plugins"] as Array<{ name: string; type: string; source: string; enabled: boolean }>) ?? [],
@@ -63,6 +70,14 @@
       settingsData = (await rpc.request("getSettingsData", {})) as Record<string, unknown>;
     } catch {
       showNotification("Failed to load settings");
+    }
+  }
+
+  async function loadTrackerStatus() {
+    try {
+      trackerStatus = (await rpc.request("getTrackerStatus", {})) as typeof trackerStatus;
+    } catch {
+      showNotification("Failed to load tracker status");
     }
   }
 
@@ -138,6 +153,59 @@
     await rebuildLibrary();
   }
 
+  async function openConnectDialog(trackerName: string) {
+    try {
+      const fields = (await rpc.request("getTrackerConnectionFields", trackerName)) as Array<{ name: string; label: string; type: "text" | "password"; placeholder?: string }>;
+      connectDialogTracker = trackerName;
+      connectDialogFields = fields;
+      connectDialogValues = {};
+    } catch {
+      showNotification("Failed to load tracker fields");
+    }
+  }
+
+  async function handleConnect() {
+    if (!connectDialogTracker) return;
+    connectingInProgress = true;
+    try {
+      const result = (await rpc.request("connectTracker", {
+        name: connectDialogTracker,
+        values: connectDialogValues,
+      })) as { success: boolean; error?: string };
+      if (result.success) {
+        showNotification(`${connectDialogTracker} connected successfully`);
+        connectDialogTracker = null;
+        await loadTrackerStatus();
+      } else {
+        showNotification(`Error: ${result.error}`);
+      }
+    } catch {
+      showNotification("Failed to connect tracker");
+    } finally {
+      connectingInProgress = false;
+    }
+  }
+
+  function openDisconnectDialog(trackerName: string) {
+    disconnectDialogTracker = trackerName;
+  }
+
+  async function handleDisconnect() {
+    if (!disconnectDialogTracker) return;
+    try {
+      const result = (await rpc.request("disconnectTracker", { name: disconnectDialogTracker })) as { success: boolean; error?: string };
+      if (result.success) {
+        showNotification(`${disconnectDialogTracker} disconnected`);
+        disconnectDialogTracker = null;
+        await loadTrackerStatus();
+      } else {
+        showNotification(`Error: ${result.error}`);
+      }
+    } catch {
+      showNotification("Failed to disconnect tracker");
+    }
+  }
+
   async function rebuildLibrary() {
     rebuilding = true;
     try {
@@ -156,6 +224,7 @@
 
   $effect(() => {
     loadSettings();
+    loadTrackerStatus();
   });
 </script>
 
@@ -348,7 +417,46 @@
   </section>
 
   <section class="space-y-4">
-    <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Maintenance</h3>
+    <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Trackers</h3>
+    <div class="space-y-2">
+      {#each trackerStatus as tracker}
+        <div class="card preset-outlined-surface-300-700 flex items-center justify-between p-3">
+          <div class="flex items-center gap-3">
+            <span class="font-medium text-sm text-surface-950-50">{tracker.displayName}</span>
+            {#if tracker.connected}
+              <span class="badge preset-tonal-success text-xs">Connected</span>
+              {#if tracker.accountInfo}
+                <span class="text-surface-600-400 text-sm">{tracker.accountInfo}</span>
+              {/if}
+            {:else}
+              <span class="badge preset-tonal-surface text-xs">Not connected</span>
+            {/if}
+          </div>
+          <div class="flex items-center gap-2">
+            {#if tracker.connected}
+              <button
+                type="button"
+                class="btn btn-sm preset-outlined-error-500 rounded-lg"
+                onclick={() => openDisconnectDialog(tracker.name)}
+              >
+                Disconnect
+              </button>
+            {:else}
+              <button
+                type="button"
+                class="btn btn-sm preset-filled-primary-500 rounded-lg"
+                onclick={() => openConnectDialog(tracker.name)}
+              >
+                Connect
+              </button>
+            {/if}
+          </div>
+        </div>
+      {/each}
+    </div>
+  </section>
+
+  <section class="space-y-4">
     <div class="card preset-outlined-surface-300-700 p-4 space-y-3">
       <div class="flex items-center justify-between">
         <div>
@@ -406,6 +514,76 @@
               onclick={handleRebuildConfirm}
             >
               Rebuild
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Portal>
+  </Dialog>
+
+  <Dialog open={!!connectDialogTracker} onOpenChange={(details) => { if (!details.open) connectDialogTracker = null; }}>
+    <Portal>
+      <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-950/60 backdrop-blur-sm" />
+      <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-sm p-0 shadow-xl">
+          <div class="p-4">
+            <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Connect {connectDialogTracker ?? ""}</Dialog.Title>
+            <Dialog.Description class="text-sm text-surface-600-400 mb-4">
+              Enter your credentials to connect this tracker.
+            </Dialog.Description>
+            <div class="space-y-3">
+              {#each connectDialogFields as field}
+                <label class="label">
+                  <span class="label-text">{field.label}</span>
+                  <input
+                    type={field.type}
+                    placeholder={field.placeholder ?? ""}
+                    oninput={(e) => { connectDialogValues[field.name] = (e.target as HTMLInputElement).value; }}
+                    class="input"
+                  />
+                </label>
+              {/each}
+            </div>
+          </div>
+          <div class="p-4 border-t border-surface-300-700 flex justify-end gap-3">
+            <Dialog.CloseTrigger class="btn preset-tonal-surface rounded-lg font-medium">
+              Cancel
+            </Dialog.CloseTrigger>
+            <button
+              type="button"
+              class="btn preset-filled-primary-500 rounded-lg font-medium"
+              onclick={handleConnect}
+              disabled={connectingInProgress}
+            >
+              {connectingInProgress ? "Connecting..." : "Connect"}
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Portal>
+  </Dialog>
+
+  <Dialog open={!!disconnectDialogTracker} onOpenChange={(details) => { if (!details.open) disconnectDialogTracker = null; }}>
+    <Portal>
+      <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-950/60 backdrop-blur-sm" />
+      <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-sm p-0 shadow-xl">
+          <div class="p-4">
+            <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Disconnect Tracker</Dialog.Title>
+            <Dialog.Description class="text-sm text-surface-600-400">
+              Disconnecting will remove tracker mappings. Your library data stays. Continue?
+            </Dialog.Description>
+          </div>
+          <div class="p-4 border-t border-surface-300-700 flex justify-end gap-3">
+            <Dialog.CloseTrigger class="btn preset-tonal-surface rounded-lg font-medium">
+              Cancel
+            </Dialog.CloseTrigger>
+            <button
+              type="button"
+              class="btn preset-filled-error-500 rounded-lg font-medium"
+              onclick={handleDisconnect}
+            >
+              Disconnect
             </button>
           </div>
         </Dialog.Content>

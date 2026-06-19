@@ -32,6 +32,12 @@ import {
   setThemeMode,
 } from "./state";
 import {
+  connectTracker,
+  disconnectTracker,
+  getTrackerConnectionFields,
+  getTrackerStatus,
+} from "./tracker-connections";
+import {
   addWatchedFolderHandler,
   getWatchedFoldersHandler,
   markWatchedFolderScannedHandler,
@@ -148,6 +154,10 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       removeWatchedFolder: async (params) => removeWatchedFolderHandler(params),
       markWatchedFolderScanned: async (params) => markWatchedFolderScannedHandler(params),
       checkKeyring: async () => checkKeyringStatus(),
+      getTrackerStatus: async () => getTrackerStatus(credentialStore),
+      getTrackerConnectionFields: (params) => getTrackerConnectionFields(params),
+      connectTracker: async (params) => connectTracker(credentialStore, params),
+      disconnectTracker: async (params) => disconnectTracker(credentialStore, params),
     },
     messages: {
       windowWillClose: (data) => {

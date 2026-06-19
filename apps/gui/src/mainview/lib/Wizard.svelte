@@ -17,6 +17,7 @@
     { id: "database", title: "Database" },
     { id: "apikey", title: "API Key" },
     { id: "template", title: "Template" },
+    { id: "trackers", title: "Trackers" },
   ];
 
   let step = $state(0);
@@ -28,11 +29,25 @@
   let saving = $state(false);
   const customPlaceholder = "{anime} - {season}x{episode:02} - {title}";
 
+  let trackerStatus = $state<Array<{ name: string; displayName: string; connected: boolean; accountInfo?: string }>>([]);
+  let connectDialogTracker = $state<string | null>(null);
+  let connectDialogFields = $state<Array<{ name: string; label: string; type: "text" | "password"; placeholder?: string }>>([]);
+  let connectDialogValues = $state<Record<string, string>>({});
+  let connectingInProgress = $state(false);
+
   const stepIsValid = $derived.by(() => {
     if (step === 1) return apiKey.length > 0;
     if (step === 2) return !saving;
     return true;
   });
+
+  async function loadTrackerStatus() {
+    try {
+      trackerStatus = (await rpc.request("getTrackerStatus", {})) as typeof trackerStatus;
+    } catch {
+      // Tracker loading is optional during onboarding
+    }
+  }
 
   async function handleStepChange(details: { step: number }) {
     if (details.step > step && step === 1) {
@@ -54,6 +69,7 @@
           return;
         }
         step = 3;
+        await loadTrackerStatus();
       } catch (err) {
         error = err instanceof Error ? err.message : String(err);
         saving = false;
@@ -84,6 +100,36 @@
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
       saving = false;
+    }
+  }
+
+  async function openConnectDialog(trackerName: string) {
+    try {
+      const fields = (await rpc.request("getTrackerConnectionFields", trackerName)) as typeof connectDialogFields;
+      connectDialogTracker = trackerName;
+      connectDialogFields = fields;
+      connectDialogValues = {};
+    } catch {
+      // Fields loading is optional
+    }
+  }
+
+  async function handleConnect() {
+    if (!connectDialogTracker) return;
+    connectingInProgress = true;
+    try {
+      const result = (await rpc.request("connectTracker", {
+        name: connectDialogTracker,
+        values: connectDialogValues,
+      })) as { success: boolean; error?: string };
+      if (result.success) {
+        connectDialogTracker = null;
+        await loadTrackerStatus();
+      }
+    } catch {
+      // Connection is optional during onboarding
+    } finally {
+      connectingInProgress = false;
     }
   }
 </script>
@@ -187,6 +233,39 @@
         </Steps.Content>
 
         <Steps.Content index={3}>
+          <div class="space-y-4">
+            <h2 class="text-xl font-bold text-surface-950-50">Connect a Tracker</h2>
+            <p class="text-surface-700-300 text-sm">Optionally connect your tracker accounts to import your anime list.</p>
+            <div class="space-y-2">
+              {#each trackerStatus as tracker}
+                <div class="card preset-outlined-surface-300-700 flex items-center justify-between p-3">
+                  <div class="flex items-center gap-3">
+                    <span class="font-medium text-sm text-surface-950-50">{tracker.displayName}</span>
+                    {#if tracker.connected}
+                      <span class="badge preset-tonal-success text-xs">Connected</span>
+                    {:else}
+                      <span class="badge preset-tonal-surface text-xs">Not connected</span>
+                    {/if}
+                  </div>
+                  {#if !tracker.connected}
+                    <button
+                      type="button"
+                      class="btn btn-sm preset-filled-primary-500 rounded-lg"
+                      onclick={() => openConnectDialog(tracker.name)}
+                    >
+                      Connect
+                    </button>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+            {#if error}
+              <p class="text-error-500-400 text-sm">{error}</p>
+            {/if}
+          </div>
+        </Steps.Content>
+
+        <Steps.Content index={4}>
           <div class="space-y-6 text-center">
             <h2 class="text-xl font-bold text-surface-950-50">You're All Set!</h2>
             <p class="text-surface-700-300 text-sm">Kogoro is configured and ready to organize your anime collection.</p>
@@ -196,7 +275,7 @@
           </div>
         </Steps.Content>
 
-        {#if step < 3}
+        {#if step < 4}
           <div class="flex justify-between mt-8">
             <Steps.PrevTrigger class="btn preset-outlined-surface-300-700 rounded-lg font-medium">
               Back
@@ -207,11 +286,11 @@
               </button>
               {#if stepIsValid}
                 <Steps.NextTrigger class="btn preset-filled-primary-500 rounded-lg font-medium">
-                  {saving ? "Saving..." : step === 2 ? "Finish" : "Next"}
+                  {saving ? "Saving..." : step === 3 ? "Finish" : "Next"}
                 </Steps.NextTrigger>
               {:else}
                 <button type="button" class="btn preset-filled-primary-500 rounded-lg font-medium opacity-50 cursor-not-allowed" disabled>
-                  {saving ? "Saving..." : step === 2 ? "Finish" : "Next"}
+                  {saving ? "Saving..." : step === 3 ? "Finish" : "Next"}
                 </button>
               {/if}
             </div>
@@ -221,3 +300,42 @@
     </div>
   </div>
 </div>
+
+{#if connectDialogTracker}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/60 backdrop-blur-sm">
+    <div class="card preset-outlined-surface-300-700 w-full max-w-sm p-4 shadow-xl">
+      <h3 class="text-lg font-semibold text-surface-950-50 mb-2">Connect {connectDialogTracker}</h3>
+      <p class="text-sm text-surface-600-400 mb-4">Enter your credentials to connect this tracker.</p>
+      <div class="space-y-3">
+        {#each connectDialogFields as field}
+          <label class="label">
+            <span class="label-text">{field.label}</span>
+            <input
+              type={field.type}
+              placeholder={field.placeholder ?? ""}
+              oninput={(e) => { connectDialogValues[field.name] = (e.target as HTMLInputElement).value; }}
+              class="input"
+            />
+          </label>
+        {/each}
+      </div>
+      <div class="flex justify-end gap-3 mt-4">
+        <button
+          type="button"
+          class="btn preset-tonal-surface rounded-lg font-medium"
+          onclick={() => { connectDialogTracker = null; }}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn preset-filled-primary-500 rounded-lg font-medium"
+          onclick={handleConnect}
+          disabled={connectingInProgress}
+        >
+          {connectingInProgress ? "Connecting..." : "Connect"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}

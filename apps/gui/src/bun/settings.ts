@@ -52,6 +52,18 @@ function buildPluginList(
       source: "built-in",
       enabled: pluginsConfig?.["opensubtitles"]?.enabled ?? true,
     },
+    {
+      name: "anilist",
+      type: "tracker",
+      source: "built-in",
+      enabled: pluginsConfig?.["anilist"]?.enabled ?? true,
+    },
+    {
+      name: "kitsu",
+      type: "tracker",
+      source: "built-in",
+      enabled: pluginsConfig?.["kitsu"]?.enabled ?? true,
+    },
   ];
 }
 
