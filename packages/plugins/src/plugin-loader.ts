@@ -1,4 +1,4 @@
-import type { CredentialStore, DatabasePlugin, SubtitlePlugin } from "@kogoro/core";
+import type { CredentialStore, DatabasePlugin, SubtitlePlugin, TrackerPlugin } from "@kogoro/core";
 import { getManifestEntry, type PluginLoadContext } from "./plugin-manifest";
 import { isPluginEnabled } from "./plugin-registry";
 
@@ -18,10 +18,30 @@ function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
   );
 }
 
+function isTrackerPlugin(obj: unknown): obj is TrackerPlugin {
+  if (obj === null || typeof obj !== "object") return false;
+  const p = obj as {
+    authenticate?: unknown;
+    getUserList?: unknown;
+    getEntry?: unknown;
+    updateEntry?: unknown;
+    getAnimeDetails?: unknown;
+  };
+  return (
+    typeof p.authenticate === "function" &&
+    typeof p.getUserList === "function" &&
+    typeof p.getEntry === "function" &&
+    typeof p.updateEntry === "function" &&
+    typeof p.getAnimeDetails === "function"
+  );
+}
+
 export class PluginLoader {
   private databaseCache: Map<string, DatabasePlugin> = new Map();
   private subtitleCache: Map<string, SubtitlePlugin> = new Map();
+  private trackerCache: Map<string, TrackerPlugin> = new Map();
   private externalCache: Map<string, DatabasePlugin> = new Map();
+  private externalTrackerCache: Map<string, TrackerPlugin> = new Map();
 
   constructor(private debug?: boolean) {}
 
@@ -67,6 +87,29 @@ export class PluginLoader {
     return undefined;
   }
 
+  async loadTracker(
+    name: string,
+    plugins: Record<string, { enabled: boolean }> | undefined,
+    credentialStore: CredentialStore,
+  ): Promise<TrackerPlugin | undefined> {
+    if (!isPluginEnabled(name, plugins)) {
+      console.warn(`Plugin "${name}" is disabled`);
+      return undefined;
+    }
+    const cached = this.trackerCache.get(name);
+    if (cached) return cached;
+    const entry = getManifestEntry(name);
+    if (entry && entry.type === "tracker") {
+      const ctx: PluginLoadContext = { credentialStore, debug: this.debug };
+      const plugin = await entry.load(ctx, entry);
+      if (plugin) {
+        this.trackerCache.set(name, plugin as TrackerPlugin);
+      }
+      return plugin as TrackerPlugin | undefined;
+    }
+    return this.loadExternalTrackerPlugin(name);
+  }
+
   private async loadExternalDatabasePlugin(name: string): Promise<DatabasePlugin | undefined> {
     const cached = this.externalCache.get(name);
     if (cached) return cached;
@@ -87,6 +130,30 @@ export class PluginLoader {
       return instance;
     } catch (err) {
       console.warn(`Failed to load external plugin "${name}": ${String(err)}`);
+      return undefined;
+    }
+  }
+
+  private async loadExternalTrackerPlugin(name: string): Promise<TrackerPlugin | undefined> {
+    const cached = this.externalTrackerCache.get(name);
+    if (cached) return cached;
+
+    try {
+      const mod = await import(`kogoro-tracker-${name}`);
+      const PluginConstructor = mod.default as new (options: Record<string, unknown>) => unknown;
+      if (typeof PluginConstructor !== "function") {
+        console.warn(`Plugin "${name}" does not export a constructor as default`);
+        return undefined;
+      }
+      const instance = new PluginConstructor(this.debug ? { debug: true } : {});
+      if (!isTrackerPlugin(instance)) {
+        console.warn(`Plugin "${name}" does not implement TrackerPlugin interface`);
+        return undefined;
+      }
+      this.externalTrackerCache.set(name, instance);
+      return instance;
+    } catch (err) {
+      console.warn(`Failed to load external tracker plugin "${name}": ${String(err)}`);
       return undefined;
     }
   }

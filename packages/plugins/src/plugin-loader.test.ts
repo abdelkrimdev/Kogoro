@@ -240,4 +240,138 @@ describe("PluginLoader", () => {
       );
     });
   });
+
+  describe("loadTracker", () => {
+    describe("unknown tracker plugin name", () => {
+      test("loads external tracker plugin via dynamic import", async () => {
+        mock.module("kogoro-tracker-myanimelist", () => ({
+          default: class ExternalTrackerPlugin {
+            async authenticate() {
+              return "token";
+            }
+            async getUserList() {
+              return [];
+            }
+            async getEntry() {
+              return {
+                trackerId: "1",
+                title: "Test",
+                watchStatus: "watching",
+                episodesWatched: 0,
+                totalEpisodes: 0,
+              };
+            }
+            async updateEntry() {}
+            async getAnimeDetails() {
+              return { trackerId: "1", title: "Test", entryType: "tv" as const };
+            }
+          },
+        }));
+
+        await withTestConfig(
+          "loader-tracker-external",
+          async (_dir, config, credentialStore) => {
+            const loader = new PluginLoader();
+            const plugin = await loader.loadTracker("myanimelist", config.plugins, credentialStore);
+            expect(plugin).toBeDefined();
+            expect(plugin?.authenticate).toBeInstanceOf(Function);
+            expect(plugin?.getUserList).toBeInstanceOf(Function);
+            expect(plugin?.getEntry).toBeInstanceOf(Function);
+            expect(plugin?.updateEntry).toBeInstanceOf(Function);
+            expect(plugin?.getAnimeDetails).toBeInstanceOf(Function);
+          },
+          null,
+        );
+      });
+
+      test("caches external tracker plugin instance", async () => {
+        mock.module("kogoro-tracker-cached-trk", () => ({
+          default: class CachedTrackerPlugin {
+            id = Math.random();
+            async authenticate() {
+              return "token";
+            }
+            async getUserList() {
+              return [];
+            }
+            async getEntry() {
+              return {
+                trackerId: "1",
+                title: "Test",
+                watchStatus: "watching",
+                episodesWatched: 0,
+                totalEpisodes: 0,
+              };
+            }
+            async updateEntry() {}
+            async getAnimeDetails() {
+              return { trackerId: "1", title: "Test", entryType: "tv" as const };
+            }
+          },
+        }));
+
+        await withTestConfig(
+          "loader-tracker-cache",
+          async (_dir, config, credentialStore) => {
+            const loader = new PluginLoader();
+            const first = await loader.loadTracker("cached-trk", config.plugins, credentialStore);
+            const second = await loader.loadTracker("cached-trk", config.plugins, credentialStore);
+            expect(first).toBe(second);
+          },
+          null,
+        );
+      });
+
+      test("returns undefined when default export is not a constructor", async () => {
+        mock.module("kogoro-tracker-badctor", () => ({
+          default: "not a constructor",
+        }));
+
+        await withTestConfig(
+          "loader-tracker-bad-ctor",
+          async (_dir, config, credentialStore) => {
+            const loader = new PluginLoader();
+            const plugin = await loader.loadTracker("badctor", config.plugins, credentialStore);
+            expect(plugin).toBeUndefined();
+          },
+          null,
+        );
+      });
+
+      test("returns undefined when plugin does not implement TrackerPlugin", async () => {
+        mock.module("kogoro-tracker-badimpl", () => ({
+          default: class BadTrackerPlugin {
+            async authenticate() {
+              return "token";
+            }
+          },
+        }));
+
+        await withTestConfig(
+          "loader-tracker-bad-impl",
+          async (_dir, config, credentialStore) => {
+            const loader = new PluginLoader();
+            const plugin = await loader.loadTracker("badimpl", config.plugins, credentialStore);
+            expect(plugin).toBeUndefined();
+          },
+          null,
+        );
+      });
+    });
+
+    describe("disabled plugins", () => {
+      test("returns undefined for disabled tracker plugins", async () => {
+        await withTestConfig(
+          "loader-tracker-disabled",
+          async (_dir, config, credentialStore) => {
+            config.set("plugins.myanimelist.enabled", "false");
+            const loader = new PluginLoader();
+            const plugin = await loader.loadTracker("myanimelist", config.plugins, credentialStore);
+            expect(plugin).toBeUndefined();
+          },
+          null,
+        );
+      });
+    });
+  });
 });

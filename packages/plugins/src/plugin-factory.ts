@@ -1,4 +1,10 @@
-import type { ConfigManager, CredentialStore, DatabasePlugin, SubtitlePlugin } from "@kogoro/core";
+import type {
+  ConfigManager,
+  CredentialStore,
+  DatabasePlugin,
+  SubtitlePlugin,
+  TrackerPlugin,
+} from "@kogoro/core";
 import { PluginLoader } from "./plugin-loader";
 import { type PluginInfo, PluginRegistry } from "./plugin-registry";
 
@@ -26,6 +32,10 @@ export class PluginFactory {
 
   async subtitle(name?: string): Promise<SubtitlePlugin | undefined> {
     return this.loader.loadSubtitle(name ?? "opensubtitles", this.credentialStore);
+  }
+
+  async tracker(name: string): Promise<TrackerPlugin | undefined> {
+    return this.loader.loadTracker(name, this.config.plugins, this.credentialStore);
   }
 
   list(): PluginInfo[] {

@@ -18,6 +18,13 @@ describe("PluginRegistry", () => {
       expect(subPlugins.some((p) => p.name === "opensubtitles")).toBe(true);
     });
 
+    test("returns no built-in tracker plugins by default", () => {
+      const registry = new PluginRegistry();
+      const plugins = registry.list();
+      const trackerPlugins = plugins.filter((p) => p.type === "tracker");
+      expect(trackerPlugins).toHaveLength(0);
+    });
+
     test("marks disabled plugins", () => {
       const registry = new PluginRegistry();
       const plugins = registry.list({ tvdb: { enabled: false } });
