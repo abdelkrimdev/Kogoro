@@ -18,22 +18,6 @@ export const TEMPLATE_PRESETS = [
   { value: "custom", label: "Custom" },
 ];
 
-export function typeBadgeClass(type: string): string {
-  const base = "badge";
-  switch (type) {
-    case "tv":
-      return `${base} preset-tonal-primary`;
-    case "movie":
-      return `${base} preset-tonal-success`;
-    case "ova":
-      return `${base} preset-tonal-warning`;
-    case "special":
-      return `${base} preset-tonal-error`;
-    default:
-      return `${base} preset-tonal-surface`;
-  }
-}
-
 export function statusColorClass(status: string): string {
   switch (status) {
     case "matched":

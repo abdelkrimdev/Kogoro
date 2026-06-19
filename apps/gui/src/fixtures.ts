@@ -33,8 +33,6 @@ export function makeWatchStatus(overrides: Partial<WatchStatusEntry> = {}): Watc
   return {
     episodeId: overrides.episodeId ?? "e1",
     watched: overrides.watched ?? true,
-    notes: overrides.notes,
-    updatedAt: overrides.updatedAt ?? "2026-01-01T00:00:00.000Z",
   };
 }
 
@@ -89,7 +87,6 @@ export function makeLibraryItem(overrides: Partial<LibraryItem> = {}): LibraryIt
   return {
     id: overrides.id ?? "1",
     titleEn: overrides.titleEn ?? "Steins;Gate",
-    entryType: overrides.entryType ?? "tv",
     episodeCount: overrides.episodeCount ?? 24,
     filesOnDisk: overrides.filesOnDisk ?? 24,
     coverArt: overrides.coverArt,
@@ -100,7 +97,6 @@ export function makeLibraryState(overrides: Partial<LibraryState> = {}): Library
   return {
     items: overrides.items ?? [],
     search: overrides.search ?? "",
-    typeFilter: overrides.typeFilter ?? [],
     viewMode: overrides.viewMode ?? "grid",
     sortField: overrides.sortField ?? "titleEn",
     sortAsc: overrides.sortAsc ?? true,

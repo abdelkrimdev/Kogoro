@@ -3,13 +3,10 @@ import type { EpisodeRow } from "./detail-state";
 export interface WatchStatusEntry {
   episodeId: string;
   watched: boolean;
-  notes?: string;
-  updatedAt: string;
 }
 
 export interface EnrichedEpisode extends EpisodeRow {
   watched: boolean;
-  notes?: string;
 }
 
 export function enrichEpisodesWithWatchStatus(
@@ -22,7 +19,6 @@ export function enrichEpisodesWithWatchStatus(
     return {
       ...ep,
       watched: ws?.watched ?? false,
-      notes: ws?.notes,
     };
   });
 }

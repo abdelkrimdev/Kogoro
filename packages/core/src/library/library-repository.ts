@@ -349,6 +349,7 @@ export class LibraryRepository {
         externalId: anime.externalId,
         sourceDb: anime.sourceDb,
         title: anime.title,
+        entryType: episodeGroups.entryType,
         groupId: episodes.groupId,
         episodeNumber: episodes.episodeNumber,
         filePath: episodes.filePath,
@@ -364,7 +365,7 @@ export class LibraryRepository {
     return rows.map((row) => ({
       animeId: row.externalId,
       animeTitle: row.title,
-      entryType: "tv" as EntryType,
+      entryType: row.entryType as EntryType,
       episode: row.episodeNumber,
       filePath: row.filePath,
       episodeTitle: row.episodeTitle ?? null,
@@ -491,7 +492,7 @@ export class LibraryRepository {
 
   findEpisodeGroup(
     animeId: number,
-    entryType: string,
+    entryType: EntryType,
     seasonNumber: number | null,
   ): EpisodeGroup | null {
     const seasonCondition =

@@ -79,34 +79,16 @@
   async function toggleWatched(episodeId: string) {
     const current = watchStatuses.find((ws) => ws.episodeId === episodeId);
     const newWatched = !(current?.watched ?? false);
-    const now = new Date().toISOString();
 
     watchStatuses = [
       ...watchStatuses.filter((ws) => ws.episodeId !== episodeId),
-      { episodeId, watched: newWatched, notes: current?.notes, updatedAt: now },
+      { episodeId, watched: newWatched },
     ];
 
     try {
-      await rpc.request("setWatchStatus", { episodeId, watched: newWatched, notes: current?.notes });
+      await rpc.request("setWatchStatus", { episodeId, watched: newWatched });
     } catch (err) {
       console.error("Failed to set watch status:", err);
-      await loadWatchStatus();
-    }
-  }
-
-  async function saveNotes(episodeId: string, notes: string) {
-    const current = watchStatuses.find((ws) => ws.episodeId === episodeId);
-    const now = new Date().toISOString();
-
-    watchStatuses = [
-      ...watchStatuses.filter((ws) => ws.episodeId !== episodeId),
-      { episodeId, watched: current?.watched ?? false, notes: notes || undefined, updatedAt: now },
-    ];
-
-    try {
-      await rpc.request("setWatchStatus", { episodeId, watched: current?.watched ?? false, notes: notes || undefined });
-    } catch (err) {
-      console.error("Failed to save notes:", err);
       await loadWatchStatus();
     }
   }
@@ -262,7 +244,6 @@
                         <th class="font-medium">Title</th>
                         <th class="font-medium">File Path</th>
                         <th class="font-medium text-center w-16">Watched</th>
-                        <th class="font-medium">Notes</th>
                       </tr>
                     </thead>
                     <tbody class="[&>tr]:hover:preset-tonal-primary">
@@ -290,19 +271,6 @@
                               <Checkbox
                                 checked={ep.watched}
                                 onchange={() => toggleWatched(ep.id)}
-                              />
-                            {:else}
-                              <span class="text-surface-600-400">—</span>
-                            {/if}
-                          </td>
-                          <td>
-                            {#if !ep.missing}
-                              <input
-                                type="text"
-                                class="input w-full text-sm text-surface-700-300 border-b border-surface-300-700 focus:border-primary-500 px-1 py-0.5"
-                                placeholder="Add note..."
-                                value={ep.notes ?? ""}
-                                onchange={(e) => saveNotes(ep.id, (e.target as HTMLInputElement).value)}
                               />
                             {:else}
                               <span class="text-surface-600-400">—</span>

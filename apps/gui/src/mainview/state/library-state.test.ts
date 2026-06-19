@@ -32,26 +32,6 @@ describe("filterAndSort", () => {
     });
   });
 
-  describe("type filtering", () => {
-    it("returns all items when typeFilter is empty", () => {
-      const items = [makeLibraryItem({ entryType: "tv" }), makeLibraryItem({ entryType: "movie" })];
-      const state = makeLibraryState({ items, typeFilter: [] });
-      expect(filterAndSort(state)).toHaveLength(2);
-    });
-
-    it("filters items by selected entry types", () => {
-      const items = [
-        makeLibraryItem({ id: "1", entryType: "tv" }),
-        makeLibraryItem({ id: "2", entryType: "movie" }),
-        makeLibraryItem({ id: "3", entryType: "ova" }),
-      ];
-      const state = makeLibraryState({ items, typeFilter: ["tv", "movie"] });
-      const result = filterAndSort(state);
-      expect(result).toHaveLength(2);
-      expect(result.map((i) => i.entryType)).toEqual(["tv", "movie"]);
-    });
-  });
-
   describe("sorting", () => {
     it("sorts by title ascending", () => {
       const items = [
@@ -86,36 +66,35 @@ describe("filterAndSort", () => {
       expect(result.map((i) => i.episodeCount)).toEqual([12, 24, 50]);
     });
 
-    it("sorts by entry type", () => {
+    it("sorts by files on disk", () => {
       const items = [
-        makeLibraryItem({ id: "1", entryType: "ova" }),
-        makeLibraryItem({ id: "2", entryType: "tv" }),
-        makeLibraryItem({ id: "3", entryType: "movie" }),
+        makeLibraryItem({ id: "1", filesOnDisk: 24 }),
+        makeLibraryItem({ id: "2", filesOnDisk: 12 }),
+        makeLibraryItem({ id: "3", filesOnDisk: 50 }),
       ];
-      const state = makeLibraryState({ items, sortField: "entryType", sortAsc: true });
+      const state = makeLibraryState({ items, sortField: "filesOnDisk", sortAsc: true });
       const result = filterAndSort(state);
-      expect(result.map((i) => i.entryType)).toEqual(["movie", "ova", "tv"]);
+      expect(result.map((i) => i.filesOnDisk)).toEqual([12, 24, 50]);
     });
   });
 
   describe("combined filter and sort", () => {
     it("filters then sorts remaining items", () => {
       const items = [
-        makeLibraryItem({ id: "1", titleEn: "Steins;Gate", entryType: "tv" }),
-        makeLibraryItem({ id: "2", titleEn: "Attack on Titan", entryType: "tv" }),
-        makeLibraryItem({ id: "3", titleEn: "Steins;Gate 0", entryType: "ova" }),
-        makeLibraryItem({ id: "4", titleEn: "Your Name", entryType: "movie" }),
+        makeLibraryItem({ id: "1", titleEn: "Steins;Gate" }),
+        makeLibraryItem({ id: "2", titleEn: "Attack on Titan" }),
+        makeLibraryItem({ id: "3", titleEn: "Steins;Gate 0" }),
       ];
       const state = makeLibraryState({
         items,
         search: "steins",
-        typeFilter: ["tv"],
         sortField: "titleEn",
         sortAsc: true,
       });
       const result = filterAndSort(state);
-      expect(result).toHaveLength(1);
+      expect(result).toHaveLength(2);
       expect(result[0]?.id).toBe("1");
+      expect(result[1]?.id).toBe("3");
     });
   });
 });

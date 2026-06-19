@@ -17,18 +17,7 @@ describe("enrichEpisodesWithWatchStatus", () => {
     expect(result[0]?.watched).toBe(true);
   });
 
-  it("includes notes from watch status", () => {
-    const episodes = [makeEpisode({ id: "e1" })];
-    const watchStatuses = [
-      makeWatchStatus({ episodeId: "e1", watched: true, notes: "great episode" }),
-    ];
-
-    const result = enrichEpisodesWithWatchStatus(episodes, watchStatuses);
-
-    expect(result[0]?.notes).toBe("great episode");
-  });
-
-  it("defaults to not watched and no notes when status is absent", () => {
+  it("defaults to not watched when status is absent", () => {
     const episodes = [makeEpisode({ id: "e1" }), makeEpisode({ id: "e2", episode: 2 })];
     const watchStatuses = [makeWatchStatus({ episodeId: "e1", watched: true })];
 
@@ -36,7 +25,6 @@ describe("enrichEpisodesWithWatchStatus", () => {
 
     expect(result[0]?.watched).toBe(true);
     expect(result[1]?.watched).toBe(false);
-    expect(result[1]?.notes).toBeUndefined();
   });
 
   it("handles an empty watch status array", () => {

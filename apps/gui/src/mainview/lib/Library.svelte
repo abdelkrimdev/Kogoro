@@ -1,6 +1,5 @@
 <script lang="ts">
   import { type LibraryItem, filterAndSort } from "../state/library-state";
-  import { ENTRY_LABELS, typeBadgeClass, entryTypeLabel } from "../shared";
   import { Search, LayoutGrid, List, Folder, ChevronUp, ChevronDown } from '@lucide/svelte';
 
   interface Props {
@@ -13,27 +12,15 @@
 
   let items = $state<LibraryItem[]>([]);
   let search = $state("");
-  let typeFilter = $state<string[]>([]);
   let viewMode = $state<"grid" | "list">("grid");
-  let sortField = $state<"titleEn" | "entryType" | "episodeCount" | "filesOnDisk">("titleEn");
+  let sortField = $state<"titleEn" | "episodeCount" | "filesOnDisk">("titleEn");
   let sortAsc = $state(true);
 
-  const ENTRY_TYPES = Object.keys(ENTRY_LABELS);
-
   const filtered = $derived(
-    filterAndSort({ items, search, typeFilter, viewMode, sortField, sortAsc }),
+    filterAndSort({ items, search, viewMode, sortField, sortAsc }),
   );
 
   const hasLibrary = $derived(items.length > 0);
-
-  function toggleType(type: string) {
-    const idx = typeFilter.indexOf(type);
-    if (idx >= 0) {
-      typeFilter = typeFilter.filter((t) => t !== type);
-    } else {
-      typeFilter = [...typeFilter, type];
-    }
-  }
 
   function setSort(field: typeof sortField) {
     if (sortField === field) {
@@ -86,20 +73,6 @@
         class="ig-input"
       />
     </div>
-    <div class="flex items-center gap-2">
-      {#each ENTRY_TYPES as type}
-        {@const active = typeFilter.length === 0 || typeFilter.includes(type)}
-        <button
-          type="button"
-          class="{active
-            ? 'badge preset-tonal-primary'
-            : 'badge preset-tonal-surface'}"
-          onclick={() => toggleType(type)}
-        >
-          {entryTypeLabel(type)}
-        </button>
-      {/each}
-    </div>
     <div class="flex items-center bg-surface-300-700 rounded-lg border border-surface-300-700 p-0.5">
       <button
         type="button"
@@ -146,10 +119,7 @@
             <h3 class="text-sm font-medium text-surface-950-50 truncate group-hover:text-primary-400 transition-colors">
               {item.titleEn}
             </h3>
-            <div class="flex items-center justify-between">
-              <span class="{typeBadgeClass(item.entryType)} text-xs">
-                {entryTypeLabel(item.entryType)}
-              </span>
+            <div class="flex items-center justify-end">
               <span class="text-xs text-surface-600-400">{item.episodeCount} ep</span>
             </div>
           </div>
@@ -164,13 +134,6 @@
               <th class="font-medium cursor-pointer hover:text-primary-400 transition-colors" onclick={() => setSort('titleEn')}>
                 <span class="inline-flex items-center gap-1">Title
                   {#if sortField === 'titleEn'}
-                    {#if sortAsc}<ChevronUp class="size-3" />{:else}<ChevronDown class="size-3" />{/if}
-                  {/if}
-                </span>
-              </th>
-              <th class="font-medium cursor-pointer hover:text-primary-400 transition-colors" onclick={() => setSort('entryType')}>
-                <span class="inline-flex items-center gap-1">Type
-                  {#if sortField === 'entryType'}
                     {#if sortAsc}<ChevronUp class="size-3" />{:else}<ChevronDown class="size-3" />{/if}
                   {/if}
                 </span>
@@ -195,11 +158,6 @@
           {#each filtered as item (item.id)}
             <tr class="cursor-pointer" onclick={() => onOpenAnime?.(item.id)}>
               <td class="text-sm text-surface-950-50 font-medium">{item.titleEn}</td>
-              <td>
-                <span class="{typeBadgeClass(item.entryType)} text-xs">
-                  {entryTypeLabel(item.entryType)}
-                </span>
-              </td>
               <td class="text-sm text-surface-700-300 text-right">{item.episodeCount}</td>
               <td class="text-sm text-surface-700-300 text-right">{item.filesOnDisk}</td>
             </tr>
