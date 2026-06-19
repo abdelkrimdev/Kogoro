@@ -90,6 +90,9 @@ export function makeLibraryItem(overrides: Partial<LibraryItem> = {}): LibraryIt
     episodeCount: overrides.episodeCount ?? 24,
     filesOnDisk: overrides.filesOnDisk ?? 24,
     coverArt: overrides.coverArt,
+    libraryState: overrides.libraryState ?? "on_disk",
+    groups: overrides.groups ?? [{ entryType: "tv", watchStatus: "completed" }],
+    groupCount: overrides.groupCount ?? 1,
   };
 }
 
@@ -100,6 +103,8 @@ export function makeLibraryState(overrides: Partial<LibraryState> = {}): Library
     viewMode: overrides.viewMode ?? "grid",
     sortField: overrides.sortField ?? "titleEn",
     sortAsc: overrides.sortAsc ?? true,
+    libraryStateFilter: overrides.libraryStateFilter ?? "all",
+    watchStatusFilter: overrides.watchStatusFilter ?? "all",
   };
 }
 
