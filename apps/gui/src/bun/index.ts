@@ -162,7 +162,8 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       getTrackerStatus: async () => getTrackerStatus(credentialStore),
       getTrackerConnectionFields: (params) => getTrackerConnectionFields(params),
       connectTracker: async (params) => connectTracker(credentialStore, params),
-      disconnectTracker: async (params) => disconnectTracker(credentialStore, params),
+      disconnectTracker: async (params) =>
+        disconnectTracker(credentialStore, libraryService, params),
       getDashboardData: async () => dashboardHandlers.getDashboardData(),
     },
     messages: {

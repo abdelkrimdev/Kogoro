@@ -1,12 +1,25 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { CredentialStore } from "@kogoro/core";
-import { createMockKeytar } from "@kogoro/core/testing";
+import { CredentialStore, LibraryService } from "@kogoro/core";
+import { createLibraryRepository, createMockKeytar } from "@kogoro/core/testing";
 import {
   connectTracker,
   disconnectTracker,
   getTrackerConnectionFields,
   getTrackerStatus,
 } from "./tracker-connections";
+
+const originalEnv = process.env;
+
+beforeEach(() => {
+  process.env = { ...originalEnv };
+  for (const k of Object.keys(process.env)) {
+    if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
+  }
+});
+
+afterEach(() => {
+  process.env = originalEnv;
+});
 
 describe("getTrackerStatus", () => {
   test("returns not-connected status when no credentials stored", async () => {
@@ -61,19 +74,6 @@ describe("getTrackerConnectionFields", () => {
 });
 
 describe("connectTracker", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-    for (const k of Object.keys(process.env)) {
-      if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
-    }
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
   test("stores anilist token credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const result = await connectTracker(store, {
@@ -126,23 +126,23 @@ describe("connectTracker", () => {
 });
 
 describe("disconnectTracker", () => {
-  const originalEnv = process.env;
+  let service: LibraryService;
+  let closeService: () => void;
 
   beforeEach(() => {
-    process.env = { ...originalEnv };
-    for (const k of Object.keys(process.env)) {
-      if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
-    }
+    const { repo, close } = createLibraryRepository();
+    service = new LibraryService(repo);
+    closeService = close;
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    closeService();
   });
 
   test("deletes anilist credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("anilist", "token");
-    const result = await disconnectTracker(store, { name: "anilist" });
+    const result = await disconnectTracker(store, service, { name: "anilist" });
     expect(result.success).toBe(true);
     expect(await store.getCredential("anilist")).toBeUndefined();
   });
@@ -150,21 +150,93 @@ describe("disconnectTracker", () => {
   test("deletes kitsu credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("kitsu", "user:pass");
-    const result = await disconnectTracker(store, { name: "kitsu" });
+    const result = await disconnectTracker(store, service, { name: "kitsu" });
     expect(result.success).toBe(true);
     expect(await store.getCredential("kitsu")).toBeUndefined();
   });
 
   test("returns error for unknown tracker", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
-    const result = await disconnectTracker(store, { name: "mal" });
+    const result = await disconnectTracker(store, service, { name: "mal" });
     expect(result.success).toBe(false);
     expect(result.error).toContain("mal");
   });
 
   test("succeeds when no credential exists", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
-    const result = await disconnectTracker(store, { name: "anilist" });
+    const result = await disconnectTracker(store, service, { name: "anilist" });
     expect(result.success).toBe(true);
+  });
+
+  test("removes all tracker mappings for disconnected source", async () => {
+    const store = new CredentialStore({ keytar: createMockKeytar() });
+    await store.setCredential("anilist", "token");
+
+    const anime = service.upsertAnime({
+      externalId: "tvdb-12345",
+      sourceDb: "tvdb",
+      title: "Jujutsu Kaisen",
+      episodeCount: 24,
+    });
+
+    const group = service.upsertEpisodeGroup({
+      animeId: anime.id,
+      entryType: "tv",
+      seasonNumber: 1,
+      watchStatus: "watching",
+    });
+
+    service.upsertGroupTrackerMapping({
+      groupId: group.id,
+      source: "anilist",
+      externalId: "anilist-67890",
+    });
+    service.upsertGroupTrackerMapping({
+      groupId: group.id,
+      source: "kitsu",
+      externalId: "kitsu-11111",
+    });
+
+    const result = await disconnectTracker(store, service, { name: "anilist" });
+    expect(result.success).toBe(true);
+    expect(await store.getCredential("anilist")).toBeUndefined();
+
+    const remainingMappings = service.getTrackerMappingsByGroupId(group.id);
+    expect(remainingMappings).toHaveLength(1);
+    expect(remainingMappings[0]?.source).toBe("kitsu");
+  });
+
+  test("preserves library data when disconnecting", async () => {
+    const store = new CredentialStore({ keytar: createMockKeytar() });
+    await store.setCredential("anilist", "token");
+
+    const anime = service.upsertAnime({
+      externalId: "tvdb-12345",
+      sourceDb: "tvdb",
+      title: "Jujutsu Kaisen",
+      episodeCount: 24,
+    });
+
+    const group = service.upsertEpisodeGroup({
+      animeId: anime.id,
+      entryType: "tv",
+      seasonNumber: 1,
+      watchStatus: "watching",
+    });
+
+    service.upsertGroupTrackerMapping({
+      groupId: group.id,
+      source: "anilist",
+      externalId: "anilist-67890",
+    });
+
+    await disconnectTracker(store, service, { name: "anilist" });
+
+    const animeAfter = service.getAnime(anime.id);
+    expect(animeAfter).not.toBeNull();
+    expect(animeAfter?.title).toBe("Jujutsu Kaisen");
+
+    const groupsAfter = service.getEpisodeGroupsByAnimeId(anime.id);
+    expect(groupsAfter).toHaveLength(1);
   });
 });
