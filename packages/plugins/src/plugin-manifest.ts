@@ -9,6 +9,7 @@ import {
 import { AniDBPlugin } from "./database/anidb-plugin";
 import { TVDBPlugin } from "./database/tvdb-plugin";
 import { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
+import { AniListPlugin } from "./tracker/anilist-plugin";
 
 export interface PluginLoadContext {
   credentialStore: CredentialStore;
@@ -101,6 +102,18 @@ async function loadOpenSubtitles(
   return new OpenSubtitlesPlugin({ apiKey, baseUrl: entry.baseUrl, httpClient });
 }
 
+async function loadAnilist(
+  ctx: PluginLoadContext,
+  entry: PluginManifestEntry,
+): Promise<TrackerPlugin | undefined> {
+  const token = await ctx.credentialStore.getCredential(entry.credentialKey);
+  const httpClient = new HttpClient({
+    minDelay: entry.rateLimit,
+    ...debugOptions(ctx.debug),
+  });
+  return new AniListPlugin({ token: token ?? undefined, httpClient });
+}
+
 export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
   {
     name: "tvdb",
@@ -127,6 +140,15 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     baseUrl: "https://api.opensubtitles.com/api/v1",
     credentialKey: "opensubtitles",
     load: loadOpenSubtitles,
+  },
+  {
+    name: "anilist",
+    type: "tracker",
+    description: "AniList GraphQL API plugin",
+    baseUrl: "https://graphql.anilist.co",
+    rateLimit: 667,
+    credentialKey: "anilist",
+    load: loadAnilist,
   },
 ];
 

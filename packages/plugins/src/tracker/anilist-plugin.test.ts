@@ -1,0 +1,699 @@
+import { describe, expect, test } from "bun:test";
+import type { EntryType, TrackerPlugin, TrackerWatchStatus } from "@kogoro/core";
+import { createMockHttpClient, toUrlString } from "@kogoro/core/testing";
+import { AniListPlugin } from "./anilist-plugin";
+
+const GRAPHQL_URL = "https://graphql.anilist.co";
+
+function mockGraphQLFetch(
+  resolver: (body: { query: string; variables?: Record<string, unknown> }) => unknown,
+): (url: string | URL, init?: RequestInit) => Promise<Response> {
+  return async (url: string | URL, init?: RequestInit) => {
+    const urlStr = toUrlString(url);
+    if (urlStr !== GRAPHQL_URL) {
+      return new Response(JSON.stringify({ error: "Not Found" }), { status: 404 });
+    }
+    const body = JSON.parse(init?.body as string) as {
+      query: string;
+      variables?: Record<string, unknown>;
+    };
+    try {
+      const data = resolver(body);
+      return new Response(JSON.stringify({ data }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      return new Response(JSON.stringify({ errors: [{ message: String(err) }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  };
+}
+
+describe("AniListPlugin", () => {
+  test("satisfies TrackerPlugin contract", () => {
+    const plugin: TrackerPlugin = new AniListPlugin({
+      httpClient: createMockHttpClient(mockGraphQLFetch(() => ({}))),
+    });
+    expect(plugin.authenticate).toBeInstanceOf(Function);
+    expect(plugin.getUserList).toBeInstanceOf(Function);
+    expect(plugin.getEntry).toBeInstanceOf(Function);
+    expect(plugin.updateEntry).toBeInstanceOf(Function);
+    expect(plugin.getAnimeDetails).toBeInstanceOf(Function);
+  });
+
+  describe("authenticate", () => {
+    test("returns stored token from credential store", async () => {
+      const plugin = new AniListPlugin({
+        token: "stored-anilist-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => ({}))),
+      });
+      const token = await plugin.authenticate();
+      expect(token).toBe("stored-anilist-token");
+    });
+
+    test("returns empty string when no token", async () => {
+      const plugin = new AniListPlugin({
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => ({}))),
+      });
+      const token = await plugin.authenticate();
+      expect(token).toBe("");
+    });
+  });
+
+  describe("getUserList", () => {
+    test("returns mapped TrackerAnime array from user list", async () => {
+      const listResponse = {
+        MediaListCollection: {
+          lists: [
+            {
+              entries: [
+                {
+                  mediaId: 12345,
+                  status: "CURRENT",
+                  score: 8,
+                  progress: 12,
+                  media: {
+                    title: {
+                      romaji: "Shingeki no Kyojin",
+                      english: "Attack on Titan",
+                      native: "進撃の巨人",
+                    },
+                    coverImage: {
+                      large:
+                        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx12345-abc.jpg",
+                    },
+                    startDate: { year: 2013 },
+                    format: "TV",
+                    episodes: 25,
+                    synonyms: ["AoT"],
+                  },
+                },
+                {
+                  mediaId: 67890,
+                  status: "COMPLETED",
+                  score: 9,
+                  progress: 24,
+                  media: {
+                    title: {
+                      romaji: "Fullmetal Alchemist: Brotherhood",
+                      english: "Fullmetal Alchemist: Brotherhood",
+                      native: "鋼の錬金術師 FULLMETAL ALCHEMIST",
+                    },
+                    coverImage: {
+                      large:
+                        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx67890-def.jpg",
+                    },
+                    startDate: { year: 2009 },
+                    format: "TV",
+                    episodes: 64,
+                    synonyms: [],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
+      });
+      const results = await plugin.getUserList();
+
+      expect(results).toHaveLength(2);
+
+      expect(results[0]?.trackerId).toBe("12345");
+      expect(results[0]?.title).toBe("Attack on Titan");
+      expect(results[0]?.alternativeTitles).toContain("Shingeki no Kyojin");
+      expect(results[0]?.alternativeTitles).toContain("AoT");
+      expect(results[0]?.image).toBe(
+        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx12345-abc.jpg",
+      );
+      expect(results[0]?.year).toBe(2013);
+      expect(results[0]?.entryType).toBe("tv");
+      expect(results[0]?.watchStatus).toBe("watching");
+      expect(results[0]?.episodesWatched).toBe(12);
+      expect(results[0]?.totalEpisodes).toBe(25);
+      expect(results[0]?.score).toBe(8);
+
+      expect(results[1]?.trackerId).toBe("67890");
+      expect(results[1]?.title).toBe("Fullmetal Alchemist: Brotherhood");
+      expect(results[1]?.watchStatus).toBe("completed");
+      expect(results[1]?.episodesWatched).toBe(24);
+      expect(results[1]?.totalEpisodes).toBe(64);
+      expect(results[1]?.score).toBe(9);
+    });
+
+    test("maps all AniList statuses to domain types", async () => {
+      const statusMap: Array<[string, TrackerWatchStatus]> = [
+        ["CURRENT", "watching"],
+        ["COMPLETED", "completed"],
+        ["PLANNING", "plan-to-watch"],
+        ["PAUSED", "on-hold"],
+        ["DROPPED", "dropped"],
+      ];
+
+      for (const [anilistStatus, expectedStatus] of statusMap) {
+        const listResponse = {
+          MediaListCollection: {
+            lists: [
+              {
+                entries: [
+                  {
+                    mediaId: 1,
+                    status: anilistStatus,
+                    score: 0,
+                    progress: 0,
+                    media: {
+                      title: { romaji: "Test", english: null, native: null },
+                      coverImage: { large: null },
+                      startDate: { year: null },
+                      format: "TV",
+                      episodes: 12,
+                      synonyms: [],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        };
+
+        const plugin = new AniListPlugin({
+          token: "test-token",
+          httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
+        });
+        const results = await plugin.getUserList();
+        expect(results[0]?.watchStatus).toBe(expectedStatus);
+      }
+    });
+
+    test("maps entry types correctly", async () => {
+      const formatMap: Array<[string, EntryType]> = [
+        ["TV", "tv"],
+        ["MOVIE", "movie"],
+        ["OVA", "ova"],
+        ["SPECIAL", "special"],
+      ];
+
+      for (const [format, expectedType] of formatMap) {
+        const listResponse = {
+          MediaListCollection: {
+            lists: [
+              {
+                entries: [
+                  {
+                    mediaId: 1,
+                    status: "CURRENT",
+                    score: 0,
+                    progress: 0,
+                    media: {
+                      title: { romaji: "Test", english: null, native: null },
+                      coverImage: { large: null },
+                      startDate: { year: null },
+                      format,
+                      episodes: 12,
+                      synonyms: [],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        };
+
+        const plugin = new AniListPlugin({
+          token: "test-token",
+          httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
+        });
+        const results = await plugin.getUserList();
+        expect(results[0]?.entryType).toBe(expectedType);
+      }
+    });
+
+    test("returns empty array when user has no entries", async () => {
+      const listResponse = {
+        MediaListCollection: {
+          lists: [],
+        },
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
+      });
+      const results = await plugin.getUserList();
+      expect(results).toEqual([]);
+    });
+
+    test("returns empty array on GraphQL error", async () => {
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(
+          mockGraphQLFetch(() => {
+            throw new Error("Not Authenticated");
+          }),
+        ),
+      });
+      const results = await plugin.getUserList();
+      expect(results).toEqual([]);
+    });
+
+    test("collects entries from multiple lists", async () => {
+      const listResponse = {
+        MediaListCollection: {
+          lists: [
+            {
+              entries: [
+                {
+                  mediaId: 1,
+                  status: "CURRENT",
+                  score: 8,
+                  progress: 5,
+                  media: {
+                    title: { romaji: "Watching", english: null, native: null },
+                    coverImage: { large: null },
+                    startDate: { year: 2024 },
+                    format: "TV",
+                    episodes: 12,
+                    synonyms: [],
+                  },
+                },
+              ],
+            },
+            {
+              entries: [
+                {
+                  mediaId: 2,
+                  status: "COMPLETED",
+                  score: 10,
+                  progress: 24,
+                  media: {
+                    title: { romaji: "Completed", english: null, native: null },
+                    coverImage: { large: null },
+                    startDate: { year: 2023 },
+                    format: "TV",
+                    episodes: 24,
+                    synonyms: [],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
+      });
+      const results = await plugin.getUserList();
+      expect(results).toHaveLength(2);
+      expect(results[0]?.title).toBe("Watching");
+      expect(results[1]?.title).toBe("Completed");
+    });
+  });
+
+  describe("getEntry", () => {
+    test("returns TrackerEntry for a given mediaListEntry id", async () => {
+      const entryResponse = {
+        MediaList: {
+          id: 999,
+          mediaId: 12345,
+          status: "CURRENT",
+          score: 8,
+          progress: 12,
+          media: {
+            title: {
+              romaji: "Shingeki no Kyojin",
+              english: "Attack on Titan",
+            },
+            episodes: 25,
+          },
+        },
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => entryResponse)),
+      });
+      const entry = await plugin.getEntry("999");
+
+      expect(entry.trackerId).toBe("999");
+      expect(entry.title).toBe("Attack on Titan");
+      expect(entry.watchStatus).toBe("watching");
+      expect(entry.episodesWatched).toBe(12);
+      expect(entry.totalEpisodes).toBe(25);
+      expect(entry.score).toBe(8);
+    });
+
+    test("uses english title when available", async () => {
+      const entryResponse = {
+        MediaList: {
+          id: 1,
+          mediaId: 100,
+          status: "COMPLETED",
+          score: 9,
+          progress: 24,
+          media: {
+            title: {
+              romaji: "日本語タイトル",
+              english: "English Title",
+            },
+            episodes: 24,
+          },
+        },
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => entryResponse)),
+      });
+      const entry = await plugin.getEntry("1");
+      expect(entry.title).toBe("English Title");
+    });
+
+    test("falls back to romaji title when english is null", async () => {
+      const entryResponse = {
+        MediaList: {
+          id: 1,
+          mediaId: 100,
+          status: "CURRENT",
+          score: 0,
+          progress: 5,
+          media: {
+            title: {
+              romaji: "Romaji Only",
+              english: null,
+            },
+            episodes: 12,
+          },
+        },
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => entryResponse)),
+      });
+      const entry = await plugin.getEntry("1");
+      expect(entry.title).toBe("Romaji Only");
+    });
+  });
+
+  describe("updateEntry", () => {
+    test("sends SaveMediaListEntry mutation with status", async () => {
+      let capturedBody: string | undefined;
+
+      const fetch = async (_url: string | URL, init?: RequestInit) => {
+        capturedBody = init?.body as string;
+        return new Response(
+          JSON.stringify({
+            data: {
+              SaveMediaListEntry: {
+                id: 999,
+                status: "COMPLETED",
+                score: 9,
+                progress: 25,
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(fetch),
+      });
+
+      await plugin.updateEntry("999", {
+        watchStatus: "completed",
+        episodesWatched: 25,
+        score: 9,
+      });
+
+      expect(capturedBody).toBeDefined();
+      const body = JSON.parse(capturedBody as string);
+      expect(body.query).toContain("SaveMediaListEntry");
+      expect(body.variables.id).toBe(999);
+      expect(body.variables.status).toBe("COMPLETED");
+      expect(body.variables.progress).toBe(25);
+      expect(body.variables.scoreRaw).toBe(900);
+    });
+
+    test("sends only provided fields", async () => {
+      let capturedBody: string | undefined;
+
+      const fetch = async (_url: string | URL, init?: RequestInit) => {
+        capturedBody = init?.body as string;
+        return new Response(
+          JSON.stringify({
+            data: {
+              SaveMediaListEntry: {
+                id: 999,
+                status: "CURRENT",
+                progress: 13,
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(fetch),
+      });
+
+      await plugin.updateEntry("999", { episodesWatched: 13 });
+
+      const body = JSON.parse(capturedBody as string);
+      expect(body.variables.id).toBe(999);
+      expect(body.variables.progress).toBe(13);
+      expect(body.variables).not.toHaveProperty("status");
+      expect(body.variables).not.toHaveProperty("scoreRaw");
+    });
+
+    test("maps domain watch status to AniList status", async () => {
+      const statusMap: Array<[string, string]> = [
+        ["watching", "CURRENT"],
+        ["completed", "COMPLETED"],
+        ["plan-to-watch", "PLANNING"],
+        ["on-hold", "PAUSED"],
+        ["dropped", "DROPPED"],
+      ];
+
+      for (const [domainStatus, anilistStatus] of statusMap) {
+        let capturedBody: string | undefined;
+        const fetch = async (_url: string | URL, init?: RequestInit) => {
+          capturedBody = init?.body as string;
+          return new Response(JSON.stringify({ data: { SaveMediaListEntry: { id: 1 } } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        };
+
+        const plugin = new AniListPlugin({
+          token: "test-token",
+          httpClient: createMockHttpClient(fetch),
+        });
+
+        await plugin.updateEntry("1", { watchStatus: domainStatus as TrackerWatchStatus });
+        const body = JSON.parse(capturedBody as string);
+        expect(body.variables.status).toBe(anilistStatus);
+      }
+    });
+
+    test("multiplies score by 100 for AniList scoreRaw", async () => {
+      let capturedBody: string | undefined;
+      const fetch = async (_url: string | URL, init?: RequestInit) => {
+        capturedBody = init?.body as string;
+        return new Response(JSON.stringify({ data: { SaveMediaListEntry: { id: 1 } } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(fetch),
+      });
+
+      await plugin.updateEntry("1", { score: 7 });
+      const body = JSON.parse(capturedBody as string);
+      expect(body.variables.scoreRaw).toBe(700);
+    });
+  });
+
+  describe("getAnimeDetails", () => {
+    test("returns mapped TrackerAnimeDetails from Media query", async () => {
+      const mediaResponse = {
+        Media: {
+          id: 12345,
+          title: {
+            romaji: "Shingeki no Kyojin",
+            english: "Attack on Titan",
+            native: "進撃の巨人",
+          },
+          synonyms: ["AoT", "Attack on Titan (anime)"],
+          description: "Centuries ago, mankind was slaughtered...",
+          averageScore: 85,
+          genres: ["Action", "Drama", "Fantasy"],
+          studios: {
+            nodes: [{ name: "MAPPA" }, { name: "Wit Studio" }],
+          },
+          coverImage: {
+            large: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx12345-abc.jpg",
+          },
+          startDate: { year: 2013 },
+          format: "TV",
+          episodes: 25,
+        },
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => mediaResponse)),
+      });
+      const details = await plugin.getAnimeDetails("12345");
+
+      expect(details.trackerId).toBe("12345");
+      expect(details.title).toBe("Attack on Titan");
+      expect(details.alternativeTitles).toContain("Shingeki no Kyojin");
+      expect(details.alternativeTitles).toContain("AoT");
+      expect(details.image).toBe(
+        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx12345-abc.jpg",
+      );
+      expect(details.year).toBe(2013);
+      expect(details.entryType).toBe("tv");
+      expect(details.synopsis).toBe("Centuries ago, mankind was slaughtered...");
+      expect(details.rating).toBe(85);
+      expect(details.genres).toEqual(["Action", "Drama", "Fantasy"]);
+      expect(details.studio).toBe("MAPPA");
+      expect(details.totalEpisodes).toBe(25);
+    });
+
+    test("uses first studio name", async () => {
+      const mediaResponse = {
+        Media: {
+          id: 1,
+          title: { romaji: "Test", english: null, native: null },
+          synonyms: [],
+          description: "Test description",
+          averageScore: 70,
+          genres: ["Action"],
+          studios: {
+            nodes: [{ name: "Studio A" }, { name: "Studio B" }],
+          },
+          coverImage: { large: null },
+          startDate: { year: 2020 },
+          format: "MOVIE",
+          episodes: 1,
+        },
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => mediaResponse)),
+      });
+      const details = await plugin.getAnimeDetails("1");
+      expect(details.studio).toBe("Studio A");
+      expect(details.entryType).toBe("movie");
+    });
+
+    test("handles missing optional fields", async () => {
+      const mediaResponse = {
+        Media: {
+          id: 1,
+          title: { romaji: "Minimal", english: null, native: null },
+          synonyms: [],
+          description: null,
+          averageScore: null,
+          genres: [],
+          studios: { nodes: [] },
+          coverImage: { large: null },
+          startDate: { year: null },
+          format: "TV",
+          episodes: null,
+        },
+      };
+
+      const plugin = new AniListPlugin({
+        token: "test-token",
+        httpClient: createMockHttpClient(mockGraphQLFetch(() => mediaResponse)),
+      });
+      const details = await plugin.getAnimeDetails("1");
+
+      expect(details.trackerId).toBe("1");
+      expect(details.title).toBe("Minimal");
+      expect(details.synopsis).toBeUndefined();
+      expect(details.rating).toBeUndefined();
+      expect(details.genres).toEqual([]);
+      expect(details.studio).toBeUndefined();
+      expect(details.totalEpisodes).toBeUndefined();
+      expect(details.image).toBeUndefined();
+      expect(details.year).toBeUndefined();
+    });
+  });
+
+  describe("error handling", () => {
+    test("returns empty array when getUserList receives non-ok response", async () => {
+      const fetch = async () => {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = new AniListPlugin({
+        token: "bad-token",
+        httpClient: createMockHttpClient(fetch),
+      });
+      const results = await plugin.getUserList();
+      expect(results).toEqual([]);
+    });
+
+    test("includes Authorization header when token is set", async () => {
+      let capturedHeaders: Record<string, string> = {};
+
+      const fetch = async (_url: string | URL, init?: RequestInit) => {
+        capturedHeaders = Object.fromEntries(new Headers(init?.headers).entries());
+        return new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = new AniListPlugin({
+        token: "my-anilist-token",
+        httpClient: createMockHttpClient(fetch),
+      });
+      await plugin.getUserList();
+
+      expect(capturedHeaders["authorization"]).toBe("Bearer my-anilist-token");
+    });
+
+    test("does not include Authorization header when no token", async () => {
+      let capturedHeaders: Record<string, string> = {};
+
+      const fetch = async (_url: string | URL, init?: RequestInit) => {
+        capturedHeaders = Object.fromEntries(new Headers(init?.headers).entries());
+        return new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = new AniListPlugin({
+        httpClient: createMockHttpClient(fetch),
+      });
+      await plugin.getUserList();
+
+      expect(capturedHeaders).not.toHaveProperty("authorization");
+    });
+  });
+});

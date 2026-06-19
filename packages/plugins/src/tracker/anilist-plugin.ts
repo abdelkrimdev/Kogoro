@@ -1,0 +1,311 @@
+import {
+  type EntryType,
+  HttpClient,
+  type TrackerAnime,
+  type TrackerAnimeDetails,
+  type TrackerEntry,
+  type TrackerEntryChanges,
+  type TrackerPlugin,
+  type TrackerWatchStatus,
+} from "@kogoro/core";
+
+const GRAPHQL_URL = "https://graphql.anilist.co";
+
+interface AniListTitle {
+  romaji: string | null;
+  english: string | null;
+  native: string | null;
+}
+
+interface AniListMediaListEntry {
+  mediaId: number;
+  status: string;
+  score: number;
+  progress: number;
+  media: {
+    title: AniListTitle;
+    coverImage: { large: string | null };
+    startDate: { year: number | null };
+    format: string;
+    episodes: number | null;
+    synonyms: string[];
+  };
+}
+
+interface AniListMediaList {
+  entries: AniListMediaListEntry[];
+}
+
+interface AniListMediaListResponse {
+  MediaListCollection: {
+    lists: AniListMediaList[];
+  };
+}
+
+interface AniListMediaListEntryResponse {
+  MediaList: {
+    id: number;
+    mediaId: number;
+    status: string;
+    score: number;
+    progress: number;
+    media: {
+      title: AniListTitle;
+      episodes: number | null;
+    };
+  };
+}
+
+interface AniListMediaResponse {
+  Media: {
+    id: number;
+    title: AniListTitle;
+    synonyms: string[];
+    description: string | null;
+    averageScore: number | null;
+    genres: string[];
+    studios: { nodes: { name: string }[] };
+    coverImage: { large: string | null };
+    startDate: { year: number | null };
+    format: string;
+    episodes: number | null;
+  };
+}
+
+const ANILIST_STATUS_MAP: Record<string, TrackerWatchStatus> = {
+  CURRENT: "watching",
+  COMPLETED: "completed",
+  PLANNING: "plan-to-watch",
+  PAUSED: "on-hold",
+  DROPPED: "dropped",
+};
+
+const STATUS_REVERSE_MAP: Record<TrackerWatchStatus, string> = {
+  watching: "CURRENT",
+  completed: "COMPLETED",
+  "plan-to-watch": "PLANNING",
+  "on-hold": "PAUSED",
+  dropped: "DROPPED",
+};
+
+const FORMAT_MAP: Record<string, EntryType> = {
+  TV: "tv",
+  MOVIE: "movie",
+  OVA: "ova",
+  SPECIAL: "special",
+  ONA: "tv",
+  MUSIC: "special",
+};
+
+function pickTitle(title: AniListTitle): string {
+  return title.english ?? title.romaji ?? "";
+}
+
+function pickAlternativeTitles(title: AniListTitle, synonyms: string[]): string[] {
+  const alts: string[] = [];
+  if (title.romaji && title.romaji !== title.english) alts.push(title.romaji);
+  if (title.native) alts.push(title.native);
+  for (const s of synonyms) {
+    if (s !== title.english && s !== title.romaji) alts.push(s);
+  }
+  return alts;
+}
+
+function mapFormat(format: string): EntryType {
+  return FORMAT_MAP[format] ?? "tv";
+}
+
+function mapStatus(status: string): TrackerWatchStatus {
+  return ANILIST_STATUS_MAP[status] ?? "plan-to-watch";
+}
+
+const MEDIA_LIST_COLLECTION_QUERY = `
+query ($userId: Int) {
+  MediaListCollection(userId: $userId, type: ANIME) {
+    lists {
+      entries {
+        mediaId
+        status
+        score
+        progress
+        media {
+          title { romaji english native }
+          coverImage { large }
+          startDate { year }
+          format
+          episodes
+          synonyms
+        }
+      }
+    }
+  }
+}`;
+
+const MEDIA_LIST_ENTRY_QUERY = `
+query ($id: Int) {
+  MediaList(id: $id) {
+    id
+    mediaId
+    status
+    score
+    progress
+    media {
+      title { romaji english }
+      episodes
+    }
+  }
+}`;
+
+const SAVE_MEDIA_LIST_ENTRY_MUTATION = `
+mutation ($id: Int, $mediaId: Int, $status: MediaListStatus, $scoreRaw: Int, $progress: Int) {
+  SaveMediaListEntry(id: $id, mediaId: $mediaId, status: $status, scoreRaw: $scoreRaw, progress: $progress) {
+    id
+    status
+    score
+    progress
+  }
+}`;
+
+const MEDIA_QUERY = `
+query ($id: Int) {
+  Media(id: $id, type: ANIME) {
+    id
+    title { romaji english native }
+    synonyms
+    description
+    averageScore
+    genres
+    studios(isMain: true) { nodes { name } }
+    coverImage { large }
+    startDate { year }
+    format
+    episodes
+  }
+}`;
+
+export class AniListPlugin implements TrackerPlugin {
+  private token: string | null;
+  private httpClient: HttpClient;
+
+  constructor(options: { token?: string; httpClient?: HttpClient }) {
+    this.token = options.token ?? null;
+    this.httpClient = options.httpClient ?? new HttpClient();
+  }
+
+  async authenticate(): Promise<string> {
+    return this.token ?? "";
+  }
+
+  async getUserList(): Promise<TrackerAnime[]> {
+    const data = await this.graphql<AniListMediaListResponse>(MEDIA_LIST_COLLECTION_QUERY);
+    if (!data?.MediaListCollection) return [];
+
+    const results: TrackerAnime[] = [];
+    for (const list of data.MediaListCollection.lists) {
+      for (const entry of list.entries) {
+        results.push({
+          trackerId: String(entry.mediaId),
+          title: pickTitle(entry.media.title),
+          alternativeTitles: pickAlternativeTitles(entry.media.title, entry.media.synonyms),
+          image: entry.media.coverImage.large ?? undefined,
+          year: entry.media.startDate.year ?? undefined,
+          entryType: mapFormat(entry.media.format),
+          watchStatus: mapStatus(entry.status),
+          episodesWatched: entry.progress,
+          totalEpisodes: entry.media.episodes ?? 0,
+          score: entry.score || undefined,
+        });
+      }
+    }
+    return results;
+  }
+
+  async getEntry(trackerId: string): Promise<TrackerEntry> {
+    const data = await this.graphql<AniListMediaListEntryResponse>(MEDIA_LIST_ENTRY_QUERY, {
+      id: Number.parseInt(trackerId, 10),
+    });
+    if (!data?.MediaList) {
+      return {
+        trackerId,
+        title: "",
+        watchStatus: "plan-to-watch",
+        episodesWatched: 0,
+        totalEpisodes: 0,
+      };
+    }
+    const entry = data.MediaList;
+    return {
+      trackerId: String(entry.id),
+      title: pickTitle(entry.media.title),
+      watchStatus: mapStatus(entry.status),
+      episodesWatched: entry.progress,
+      totalEpisodes: entry.media.episodes ?? 0,
+      score: entry.score || undefined,
+    };
+  }
+
+  async updateEntry(trackerId: string, changes: TrackerEntryChanges): Promise<void> {
+    const variables: Record<string, unknown> = {
+      id: Number.parseInt(trackerId, 10),
+    };
+    if (changes.watchStatus !== undefined) {
+      variables["status"] = STATUS_REVERSE_MAP[changes.watchStatus];
+    }
+    if (changes.episodesWatched !== undefined) {
+      variables["progress"] = changes.episodesWatched;
+    }
+    if (changes.score !== undefined) {
+      variables["scoreRaw"] = changes.score * 100;
+    }
+    await this.graphql(SAVE_MEDIA_LIST_ENTRY_MUTATION, variables);
+  }
+
+  async getAnimeDetails(trackerId: string): Promise<TrackerAnimeDetails> {
+    const data = await this.graphql<AniListMediaResponse>(MEDIA_QUERY, {
+      id: Number.parseInt(trackerId, 10),
+    });
+    if (!data?.Media) {
+      return {
+        trackerId,
+        title: "",
+        entryType: "tv",
+      };
+    }
+    const media = data.Media;
+    return {
+      trackerId: String(media.id),
+      title: pickTitle(media.title),
+      alternativeTitles: pickAlternativeTitles(media.title, media.synonyms),
+      image: media.coverImage.large ?? undefined,
+      year: media.startDate.year ?? undefined,
+      entryType: mapFormat(media.format),
+      synopsis: media.description ?? undefined,
+      rating: media.averageScore ?? undefined,
+      genres: media.genres,
+      studio: media.studios.nodes[0]?.name ?? undefined,
+      totalEpisodes: media.episodes ?? undefined,
+    };
+  }
+
+  private async graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+
+    const response = await this.httpClient.fetch(GRAPHQL_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables }),
+    });
+
+    if (!response.ok) return null;
+
+    const json = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
+    if (json.errors?.length) return null;
+    return json.data ?? null;
+  }
+}
