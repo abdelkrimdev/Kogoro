@@ -1,24 +1,25 @@
 import { describe, expect, test } from "bun:test";
-import type { TrackerWatchStatus } from "@kogoro/core";
+import type { CredentialStore, TrackerWatchStatus } from "@kogoro/core";
 import { createMockHttpClient, createMockKeytar, withTestConfig } from "@kogoro/core/testing";
 import { MyAnimeListPlugin } from "./myanimelist-plugin";
+
+function createPlugin(
+  credentialStore: CredentialStore,
+  fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>,
+): MyAnimeListPlugin {
+  return new MyAnimeListPlugin({
+    credentialStore,
+    httpClient: createMockHttpClient(fetch),
+  });
+}
 
 describe("MyAnimeListPlugin", () => {
   describe("authenticate", () => {
     test("returns token from credential store when available", async () => {
       await withTestConfig(
         "mal-auth-stored",
-        async (_dir, _config, _credentialStore) => {
-          const mockKeytar = createMockKeytar({ "kogoro:mal": "test-token" });
-          const credentialStoreWithKeytar = new (await import("@kogoro/core")).CredentialStore({
-            keytar: mockKeytar,
-          });
-
-          const plugin = new MyAnimeListPlugin({
-            credentialStore: credentialStoreWithKeytar,
-            httpClient: createMockHttpClient(),
-          });
-
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(credentialStore);
           const token = await plugin.authenticate();
           expect(token).toBe("test-token");
         },
@@ -28,10 +29,7 @@ describe("MyAnimeListPlugin", () => {
 
     test("throws error when no token available", async () => {
       await withTestConfig("mal-auth-no-token", async (_dir, _config, credentialStore) => {
-        const plugin = new MyAnimeListPlugin({
-          credentialStore,
-          httpClient: createMockHttpClient(),
-        });
+        const plugin = createPlugin(credentialStore);
 
         await expect(plugin.authenticate()).rejects.toThrow(
           "MAL authentication requires OAuth flow",
@@ -74,24 +72,15 @@ describe("MyAnimeListPlugin", () => {
 
       await withTestConfig(
         "mal-user-list",
-        async (_dir, _config, _credentialStore) => {
-          const mockKeytar = createMockKeytar({ "kogoro:mal": "test-token" });
-          const credentialStoreWithKeytar = new (await import("@kogoro/core")).CredentialStore({
-            keytar: mockKeytar,
-          });
-
-          const httpClient = createMockHttpClient(
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(
+            credentialStore,
             async () =>
               new Response(JSON.stringify(mockResponse), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
               }),
           );
-
-          const plugin = new MyAnimeListPlugin({
-            credentialStore: credentialStoreWithKeytar,
-            httpClient,
-          });
 
           await plugin.authenticate();
           const list = await plugin.getUserList();
@@ -162,13 +151,8 @@ describe("MyAnimeListPlugin", () => {
       let callCount = 0;
       await withTestConfig(
         "mal-pagination",
-        async (_dir, _config, _credentialStore) => {
-          const mockKeytar = createMockKeytar({ "kogoro:mal": "test-token" });
-          const credentialStoreWithKeytar = new (await import("@kogoro/core")).CredentialStore({
-            keytar: mockKeytar,
-          });
-
-          const httpClient = createMockHttpClient(async () => {
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(credentialStore, async () => {
             callCount++;
             if (callCount === 1) {
               return new Response(JSON.stringify(page1Response), {
@@ -180,11 +164,6 @@ describe("MyAnimeListPlugin", () => {
               status: 200,
               headers: { "Content-Type": "application/json" },
             });
-          });
-
-          const plugin = new MyAnimeListPlugin({
-            credentialStore: credentialStoreWithKeytar,
-            httpClient,
           });
 
           await plugin.authenticate();
@@ -217,24 +196,15 @@ describe("MyAnimeListPlugin", () => {
 
       await withTestConfig(
         "mal-get-entry",
-        async (_dir, _config, _credentialStore) => {
-          const mockKeytar = createMockKeytar({ "kogoro:mal": "test-token" });
-          const credentialStoreWithKeytar = new (await import("@kogoro/core")).CredentialStore({
-            keytar: mockKeytar,
-          });
-
-          const httpClient = createMockHttpClient(
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(
+            credentialStore,
             async () =>
               new Response(JSON.stringify(mockResponse), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
               }),
           );
-
-          const plugin = new MyAnimeListPlugin({
-            credentialStore: credentialStoreWithKeytar,
-            httpClient,
-          });
 
           await plugin.authenticate();
           const entry = await plugin.getEntry("1234");
@@ -261,13 +231,8 @@ describe("MyAnimeListPlugin", () => {
 
       await withTestConfig(
         "mal-update-entry",
-        async (_dir, _config, _credentialStore) => {
-          const mockKeytar = createMockKeytar({ "kogoro:mal": "test-token" });
-          const credentialStoreWithKeytar = new (await import("@kogoro/core")).CredentialStore({
-            keytar: mockKeytar,
-          });
-
-          const httpClient = createMockHttpClient(async (url, init) => {
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(credentialStore, async (url, init) => {
             capturedUrl = url.toString();
             capturedMethod = init?.method || "";
             capturedBody = init?.body as string;
@@ -275,11 +240,6 @@ describe("MyAnimeListPlugin", () => {
               status: 200,
               headers: { "Content-Type": "application/json" },
             });
-          });
-
-          const plugin = new MyAnimeListPlugin({
-            credentialStore: credentialStoreWithKeytar,
-            httpClient,
           });
 
           await plugin.authenticate();
@@ -327,24 +287,15 @@ describe("MyAnimeListPlugin", () => {
 
       await withTestConfig(
         "mal-anime-details",
-        async (_dir, _config, _credentialStore) => {
-          const mockKeytar = createMockKeytar({ "kogoro:mal": "test-token" });
-          const credentialStoreWithKeytar = new (await import("@kogoro/core")).CredentialStore({
-            keytar: mockKeytar,
-          });
-
-          const httpClient = createMockHttpClient(
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(
+            credentialStore,
             async () =>
               new Response(JSON.stringify(mockResponse), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
               }),
           );
-
-          const plugin = new MyAnimeListPlugin({
-            credentialStore: credentialStoreWithKeytar,
-            httpClient,
-          });
 
           await plugin.authenticate();
           const details = await plugin.getAnimeDetails("1234");
@@ -402,24 +353,15 @@ describe("MyAnimeListPlugin", () => {
 
         await withTestConfig(
           `mal-status-${mal}`,
-          async (_dir, _config, _credentialStore) => {
-            const mockKeytar = createMockKeytar({ "kogoro:mal": "test-token" });
-            const credentialStoreWithKeytar = new (await import("@kogoro/core")).CredentialStore({
-              keytar: mockKeytar,
-            });
-
-            const httpClient = createMockHttpClient(
+          async (_dir, _config, credentialStore) => {
+            const plugin = createPlugin(
+              credentialStore,
               async () =>
                 new Response(JSON.stringify(mockResponse), {
                   status: 200,
                   headers: { "Content-Type": "application/json" },
                 }),
             );
-
-            const plugin = new MyAnimeListPlugin({
-              credentialStore: credentialStoreWithKeytar,
-              httpClient,
-            });
 
             await plugin.authenticate();
             const list = await plugin.getUserList();

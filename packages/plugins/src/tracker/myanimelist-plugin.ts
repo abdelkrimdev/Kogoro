@@ -9,38 +9,7 @@ import type {
   TrackerWatchStatus,
 } from "@kogoro/core";
 
-interface MALAnimeListResponse {
-  data: Array<{
-    node: {
-      id: number;
-      title: string;
-      main_picture?: {
-        medium: string;
-        large: string;
-      };
-      alternative_titles?: {
-        en?: string;
-        ja?: string;
-      };
-      start_date?: string;
-      media_type?: string;
-      num_episodes?: number;
-    };
-    list_status?: {
-      status: string;
-      score: number;
-      num_episodes_watched: number;
-      is_rewatching: boolean;
-      updated_at: string;
-    };
-  }>;
-  paging?: {
-    previous?: string;
-    next?: string;
-  };
-}
-
-interface MALAnimeDetailsResponse {
+interface MALNode {
   id: number;
   title: string;
   main_picture?: {
@@ -54,18 +23,33 @@ interface MALAnimeDetailsResponse {
   start_date?: string;
   media_type?: string;
   num_episodes?: number;
-  synopsis?: string;
-  mean?: number;
-  genres?: Array<{ id: number; name: string }>;
-  studios?: Array<{ id: number; name: string }>;
 }
 
-interface MALListStatusResponse {
+interface MALListStatus {
   status: string;
   score: number;
   num_episodes_watched: number;
   is_rewatching: boolean;
   updated_at: string;
+}
+
+interface MALAnimeListResponse {
+  data: Array<{
+    node: MALNode;
+    list_status?: MALListStatus;
+  }>;
+  paging?: {
+    previous?: string;
+    next?: string;
+  };
+}
+
+interface MALAnimeDetailsResponse extends MALNode {
+  synopsis?: string;
+  mean?: number;
+  genres?: Array<{ id: number; name: string }>;
+  studios?: Array<{ id: number; name: string }>;
+  my_list_status?: MALListStatus;
 }
 
 function mapMALStatus(status: string): TrackerWatchStatus {
@@ -119,8 +103,9 @@ function mapMediaType(mediaType: string | undefined): "tv" | "movie" | "ova" | "
 }
 
 export class MyAnimeListPlugin implements TrackerPlugin {
+  private static readonly BASE_URL = "https://api.myanimelist.net/v2";
+
   private accessToken: string | null = null;
-  private baseUrl = "https://api.myanimelist.net/v2";
   private credentialStore: CredentialStore;
   private httpClient: HttpClient;
 
@@ -139,14 +124,10 @@ export class MyAnimeListPlugin implements TrackerPlugin {
       return token;
     }
 
-    // Generate PKCE code verifier and challenge
     const codeVerifier = this.generateCodeVerifier();
     const codeChallenge = await this.generateCodeChallenge(codeVerifier);
-
-    // Store code verifier for later use
     await this.credentialStore.setCredential("mal_code_verifier", codeVerifier);
 
-    // Return authorization URL for user to complete OAuth flow
     const authUrl = new URL("https://myanimelist.net/v1/oauth2/authorize");
     authUrl.searchParams.set("client_id", process.env["MAL_CLIENT_ID"] || "");
     authUrl.searchParams.set("redirect_uri", "http://localhost:3000/callback");
@@ -160,24 +141,6 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     );
   }
 
-  private generateCodeVerifier(): string {
-    const array = new Uint8Array(32);
-    crypto.getRandomValues(array);
-    return this.base64UrlEncode(array);
-  }
-
-  private async generateCodeChallenge(codeVerifier: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(codeVerifier);
-    const digest = await crypto.subtle.digest("SHA-256", data);
-    return this.base64UrlEncode(new Uint8Array(digest));
-  }
-
-  private base64UrlEncode(buffer: Uint8Array): string {
-    const base64 = btoa(String.fromCharCode(...buffer));
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  }
-
   async getUserList(): Promise<TrackerAnime[]> {
     await this.ensureAuthenticated();
 
@@ -186,22 +149,9 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     const limit = 100;
 
     while (true) {
-      const response = await this.httpClient.fetch(
-        `${this.baseUrl}/users/@me/animelist?offset=${offset}&limit=${limit}&fields=list_status`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${this.accessToken}`,
-            "Content-Type": "application/json",
-          },
-        },
+      const data = await this.fetchJson<MALAnimeListResponse>(
+        `${MyAnimeListPlugin.BASE_URL}/users/@me/animelist?offset=${offset}&limit=${limit}&fields=list_status`,
       );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch MAL list: ${response.status}`);
-      }
-
-      const data = (await response.json()) as MALAnimeListResponse;
 
       for (const item of data.data) {
         if (!item.list_status) continue;
@@ -235,24 +185,9 @@ export class MyAnimeListPlugin implements TrackerPlugin {
   async getEntry(trackerId: string): Promise<TrackerEntry> {
     await this.ensureAuthenticated();
 
-    const response = await this.httpClient.fetch(
-      `${this.baseUrl}/anime/${trackerId}?fields=my_list_status,num_episodes`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-          "Content-Type": "application/json",
-        },
-      },
+    const data = await this.fetchJson<MALAnimeDetailsResponse>(
+      `${MyAnimeListPlugin.BASE_URL}/anime/${trackerId}?fields=my_list_status,num_episodes`,
     );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch MAL entry: ${response.status}`);
-    }
-
-    const data = (await response.json()) as MALAnimeDetailsResponse & {
-      my_list_status?: MALListStatusResponse;
-    };
 
     if (!data.my_list_status) {
       throw new Error(`Anime ${trackerId} not in user's list`);
@@ -290,12 +225,11 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     }
 
     const response = await this.httpClient.fetch(
-      `${this.baseUrl}/anime/${trackerId}/my_list_status`,
+      `${MyAnimeListPlugin.BASE_URL}/anime/${trackerId}/my_list_status`,
       {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-          "Content-Type": "application/x-www-form-urlencoded",
+          ...this.authHeaders("application/x-www-form-urlencoded"),
         },
         body: params.toString(),
       },
@@ -309,22 +243,9 @@ export class MyAnimeListPlugin implements TrackerPlugin {
   async getAnimeDetails(trackerId: string): Promise<TrackerAnimeDetails> {
     await this.ensureAuthenticated();
 
-    const response = await this.httpClient.fetch(
-      `${this.baseUrl}/anime/${trackerId}?fields=synopsis,mean,genres,studios,main_picture,alternative_titles,start_date,num_episodes,media_type`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-          "Content-Type": "application/json",
-        },
-      },
+    const data = await this.fetchJson<MALAnimeDetailsResponse>(
+      `${MyAnimeListPlugin.BASE_URL}/anime/${trackerId}?fields=synopsis,mean,genres,studios,main_picture,alternative_titles,start_date,num_episodes,media_type`,
     );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch MAL anime details: ${response.status}`);
-    }
-
-    const data = (await response.json()) as MALAnimeDetailsResponse;
 
     return {
       trackerId: String(data.id),
@@ -341,6 +262,44 @@ export class MyAnimeListPlugin implements TrackerPlugin {
       studio: data.studios?.[0]?.name,
       totalEpisodes: data.num_episodes,
     };
+  }
+
+  private authHeaders(contentType: string): Record<string, string> {
+    return {
+      Authorization: `Bearer ${this.accessToken}`,
+      "Content-Type": contentType,
+    };
+  }
+
+  private async fetchJson<T>(url: string): Promise<T> {
+    const response = await this.httpClient.fetch(url, {
+      method: "GET",
+      headers: this.authHeaders("application/json"),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch MAL data: ${response.status}`);
+    }
+
+    return (await response.json()) as T;
+  }
+
+  private generateCodeVerifier(): string {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return this.base64UrlEncode(array);
+  }
+
+  private async generateCodeChallenge(codeVerifier: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(codeVerifier);
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return this.base64UrlEncode(new Uint8Array(digest));
+  }
+
+  private base64UrlEncode(buffer: Uint8Array): string {
+    const base64 = btoa(String.fromCharCode(...buffer));
+    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
   private async ensureAuthenticated(): Promise<void> {
