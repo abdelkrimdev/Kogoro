@@ -129,11 +129,7 @@ export class TrackerImportService {
     const baseTitleLower = this.stripSeasonFromTitle(titleLower);
 
     for (const anime of libraryAnimeList) {
-      const animeTitleLower = anime.title.toLowerCase();
-      if (animeTitleLower === titleLower) {
-        return anime;
-      }
-      if (this.stripSeasonFromTitle(animeTitleLower) === baseTitleLower) {
+      if (this.titlesMatch(anime, titleLower, baseTitleLower)) {
         return anime;
       }
     }
@@ -143,14 +139,7 @@ export class TrackerImportService {
         const altLower = altTitle.toLowerCase();
         const altBaseLower = this.stripSeasonFromTitle(altLower);
         for (const anime of libraryAnimeList) {
-          const animeTitleLower = anime.title.toLowerCase();
-          if (animeTitleLower === altLower) {
-            return anime;
-          }
-          if (this.stripSeasonFromTitle(animeTitleLower) === altBaseLower) {
-            return anime;
-          }
-          if (anime.titleJapanese?.toLowerCase() === altLower) {
+          if (this.titlesMatch(anime, altLower, altBaseLower, true)) {
             return anime;
           }
         }
@@ -158,6 +147,25 @@ export class TrackerImportService {
     }
 
     return null;
+  }
+
+  private titlesMatch(
+    anime: { title: string; titleJapanese?: string },
+    targetLower: string,
+    targetBaseLower: string,
+    checkJapanese = false,
+  ): boolean {
+    const animeTitleLower = anime.title.toLowerCase();
+    if (animeTitleLower === targetLower) {
+      return true;
+    }
+    if (this.stripSeasonFromTitle(animeTitleLower) === targetBaseLower) {
+      return true;
+    }
+    if (checkJapanese && anime.titleJapanese?.toLowerCase() === targetLower) {
+      return true;
+    }
+    return false;
   }
 
   private stripSeasonFromTitle(title: string): string {

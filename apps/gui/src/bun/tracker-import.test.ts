@@ -1,22 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { CredentialStore, LibraryService } from "@kogoro/core";
-import { createLibraryRepository } from "@kogoro/core/testing";
+import { createLibraryRepository, createMockKeytar } from "@kogoro/core/testing";
 import { createTrackerImportHandlers } from "./tracker-import";
-
-function createMockKeytar(initial: Record<string, string> = {}) {
-  const store = new Map(Object.entries(initial));
-  return {
-    async getPassword(_service: string, account: string) {
-      return store.get(account) ?? null;
-    },
-    async setPassword(_service: string, account: string, password: string) {
-      store.set(account, password);
-    },
-    async deletePassword(_service: string, account: string) {
-      return store.delete(account);
-    },
-  };
-}
 
 describe("TrackerImportHandlers", () => {
   describe("getImportPreview", () => {
@@ -49,7 +34,7 @@ describe("TrackerImportHandlers", () => {
         });
 
         const credentialStore = new CredentialStore({
-          keytar: createMockKeytar({ anilist: "test-token" }),
+          keytar: createMockKeytar({ "kogoro:anilist": "test-token" }),
         });
         const handlers = createTrackerImportHandlers({ libraryService, credentialStore });
 
