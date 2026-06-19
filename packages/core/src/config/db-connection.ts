@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -11,20 +11,19 @@ import { MatchRepository } from "../match/match-repository";
 import { ScanStateRepository } from "../match/scan-state-repository";
 import { matches, scanState } from "../match/schema";
 
-function resolveMigrationsFolder(): string {
-  const diskPath = join(import.meta.dir, "../../drizzle");
-  if (existsSync(join(diskPath, "meta/_journal.json"))) {
-    return diskPath;
-  }
+function makeIdempotent(sql: string): string {
+  return sql
+    .replace(/CREATE TABLE `(\w+)`/g, "CREATE TABLE IF NOT EXISTS `$1`")
+    .replace(/CREATE UNIQUE INDEX `(\w+)`/g, "CREATE UNIQUE INDEX IF NOT EXISTS `$1`")
+    .replace(/CREATE INDEX `(\w+)`/g, "CREATE INDEX IF NOT EXISTS `$1`");
+}
 
+function resolveMigrationsFolder(): string {
   const tmpDir = join(tmpdir(), "kogoro-drizzle");
-  const journalPath = join(tmpDir, "meta/_journal.json");
-  if (!existsSync(journalPath)) {
-    mkdirSync(join(tmpDir, "meta"), { recursive: true });
-    writeFileSync(journalPath, JSON.stringify(journal));
-    for (const [tag, sql] of Object.entries(migrations)) {
-      writeFileSync(join(tmpDir, `${tag}.sql`), sql);
-    }
+  mkdirSync(join(tmpDir, "meta"), { recursive: true });
+  writeFileSync(join(tmpDir, "meta/_journal.json"), JSON.stringify(journal));
+  for (const [tag, sql] of Object.entries(migrations)) {
+    writeFileSync(join(tmpDir, `${tag}.sql`), makeIdempotent(sql));
   }
   return tmpDir;
 }
