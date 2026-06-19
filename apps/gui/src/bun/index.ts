@@ -13,6 +13,7 @@ import {
 import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow, PATHS, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
+import { createDashboardHandlers } from "./dashboard";
 import { createEnrichmentHandlers } from "./enrichment";
 import { createLibraryHandlers } from "./library";
 import {
@@ -61,6 +62,8 @@ const libraryHandlers = createLibraryHandlers({
   libraryService,
   getSourceDb: () => configManager.primaryDb,
 });
+
+const dashboardHandlers = createDashboardHandlers({ libraryService });
 
 const enrichmentHandlers = createEnrichmentHandlers({
   pluginFactory,
@@ -158,6 +161,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       getTrackerConnectionFields: (params) => getTrackerConnectionFields(params),
       connectTracker: async (params) => connectTracker(credentialStore, params),
       disconnectTracker: async (params) => disconnectTracker(credentialStore, params),
+      getDashboardData: async () => dashboardHandlers.getDashboardData(),
     },
     messages: {
       windowWillClose: (data) => {

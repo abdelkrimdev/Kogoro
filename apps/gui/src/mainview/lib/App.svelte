@@ -19,6 +19,7 @@
   } from "../state/scan-session-reducer";
   import { createSidebarState, NAV_ITEMS, type View } from "../state/nav";
   import Wizard from "./Wizard.svelte";
+  import Dashboard from "./Dashboard.svelte";
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
   import Detail from "./Detail.svelte";
@@ -75,7 +76,7 @@
     });
   });
 
-  let currentView = $state<View>("scan");
+  let currentView = $state<View>("dashboard");
   let currentDetailId = $state<string | null>(null);
   let isLoading = $state(true);
   let incompleteConfig = $state<{ incomplete: boolean; missingKey?: string } | null>(null);
@@ -104,7 +105,7 @@
   }
 
   function onWizardComplete() {
-    navigate("scan");
+    navigate("dashboard");
   }
 
   function onRerunOnboarding() {
@@ -121,7 +122,7 @@
   }
 
   function onReviewComplete() {
-    currentView = "scan";
+    currentView = "dashboard";
     snap = reduceClearAfterReview(snap);
   }
 
@@ -165,7 +166,7 @@
       ]);
       keyringResult = kr;
       await refreshIncompleteConfig();
-      view = stats.animeCount > 0 ? "library" : "scan";
+      view = stats.animeCount > 0 ? "dashboard" : "scan";
     }
 
     const elapsed = Date.now() - startTime;
@@ -271,6 +272,8 @@
           <div class="flex-1 min-h-0 overflow-auto">
             <Review {rpc} sessionId={snap.sessionId} plan={snap.plan} onComplete={onReviewComplete} />
           </div>
+        {:else if currentView === "dashboard"}
+          <Dashboard {rpc} onNavigate={navigate} onOpenAnime={openAnime} />
         {:else if currentView === "library"}
           <div class="flex-1 min-h-0 overflow-auto">
             <Library {rpc} onOpenAnime={openAnime} onStartScan={() => navigate("scan")} />

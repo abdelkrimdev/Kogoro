@@ -1,5 +1,6 @@
 import type { ReviewPlan, ScanFileStatus, ScanState, ScanSummary } from "@kogoro/core";
 import type { RPCSchema } from "electrobun";
+import type { DashboardHandlers } from "../bun/dashboard";
 import type { EnrichmentHandlers } from "../bun/enrichment";
 import type { LibraryHandlers } from "../bun/library";
 import type {
@@ -36,6 +37,12 @@ import type {
 } from "../bun/watched-folders";
 
 export type { ReviewPlan, ScanFileStatus, ScanState, ScanSummary } from "@kogoro/core";
+export type {
+  DashboardContinueWatching,
+  DashboardCurrentlyWatching,
+  DashboardData,
+  DashboardStats,
+} from "../bun/dashboard";
 export type { LibraryAnimeDetail as AnimeDetail } from "../bun/library";
 export type { ResolveCandidateEntry as ResolveCandidate } from "../bun/scan";
 export type { ThemeMode } from "../bun/state";
@@ -201,6 +208,10 @@ export type AppRPC = {
       disconnectTracker: {
         params: Parameters<typeof disconnectTracker>[1];
         response: AwaitedReturnType<typeof disconnectTracker>;
+      };
+      getDashboardData: {
+        params: Record<string, never>;
+        response: AwaitedReturnType<DashboardHandlers["getDashboardData"]>;
       };
     };
     messages: {
