@@ -26,6 +26,14 @@ const KITSU_SUBTYPE_MAP: Record<string, EntryType> = {
   music: "special",
 };
 
+const KITSU_STATUS_REVERSE_MAP: Record<string, string> = {
+  watching: "current",
+  completed: "completed",
+  "on-hold": "on_hold",
+  dropped: "dropped",
+  "plan-to-watch": "planned",
+};
+
 interface KitsuPluginOptions {
   baseUrl?: string;
   oauthUrl?: string;
@@ -74,6 +82,15 @@ function parseYear(val: unknown): number | undefined {
   const yearStr = val.slice(0, 4);
   if (!yearStr) return undefined;
   return Number.parseInt(yearStr, 10);
+}
+
+function singleOrFirst<T>(value: T | T[]): T | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function posterUrl(attrs: Record<string, unknown> | undefined): string | undefined {
+  const poster = attrs?.["posterImage"] as Record<string, unknown> | undefined;
+  return typeof poster?.["original"] === "string" ? poster["original"] : undefined;
 }
 
 export class KitsuPlugin implements TrackerPlugin {
@@ -148,7 +165,7 @@ export class KitsuPlugin implements TrackerPlugin {
     const userResponse = await this.authenticatedGet("/users?filter[self]=true");
     if (!userResponse) return [];
 
-    const userData = Array.isArray(userResponse.data) ? userResponse.data[0] : userResponse.data;
+    const userData = singleOrFirst(userResponse.data);
     if (!userData) return [];
 
     const userId = String(userData.id);
@@ -175,12 +192,10 @@ export class KitsuPlugin implements TrackerPlugin {
       const status = str(attrs["status"]) ?? "current";
       const ratingTwenty = num(attrs["ratingTwenty"]);
 
-      const posterImage = animeAttrs["posterImage"] as Record<string, unknown> | undefined;
-
       return {
         trackerId: String(entry.id),
         title: str(animeAttrs["canonicalTitle"]) ?? "",
-        image: typeof posterImage?.["original"] === "string" ? posterImage["original"] : undefined,
+        image: posterUrl(animeAttrs),
         year: parseYear(animeAttrs["startDate"]),
         entryType: KITSU_SUBTYPE_MAP[str(animeAttrs["subtype"]) ?? ""] ?? "tv",
         watchStatus: KITSU_STATUS_MAP[status] ?? "watching",
@@ -197,7 +212,7 @@ export class KitsuPlugin implements TrackerPlugin {
       throw new Error(`Library entry ${trackerId} not found`);
     }
 
-    const entry = Array.isArray(response.data) ? response.data[0] : response.data;
+    const entry = singleOrFirst(response.data);
     if (!entry) {
       throw new Error(`Library entry ${trackerId} not found`);
     }
@@ -224,14 +239,7 @@ export class KitsuPlugin implements TrackerPlugin {
   async updateEntry(trackerId: string, changes: TrackerEntryChanges): Promise<void> {
     const attributes: Record<string, unknown> = {};
     if (changes.watchStatus !== undefined) {
-      const reverseMap: Record<string, string> = {
-        watching: "current",
-        completed: "completed",
-        "on-hold": "on_hold",
-        dropped: "dropped",
-        "plan-to-watch": "planned",
-      };
-      attributes["status"] = reverseMap[changes.watchStatus] ?? changes.watchStatus;
+      attributes["status"] = KITSU_STATUS_REVERSE_MAP[changes.watchStatus] ?? changes.watchStatus;
     }
     if (changes.episodesWatched !== undefined) {
       attributes["progress"] = changes.episodesWatched;
@@ -258,7 +266,7 @@ export class KitsuPlugin implements TrackerPlugin {
       throw new Error(`Anime ${trackerId} not found`);
     }
 
-    const anime = Array.isArray(response.data) ? response.data[0] : response.data;
+    const anime = singleOrFirst(response.data);
     if (!anime) {
       throw new Error(`Anime ${trackerId} not found`);
     }
@@ -270,12 +278,10 @@ export class KitsuPlugin implements TrackerPlugin {
       .map((i) => str(i.attributes?.["title"]) ?? "")
       .filter(Boolean);
 
-    const posterImage = attrs["posterImage"] as Record<string, unknown> | undefined;
-
     return {
       trackerId: String(anime.id),
       title: str(attrs["canonicalTitle"]) ?? "",
-      image: typeof posterImage?.["original"] === "string" ? posterImage["original"] : undefined,
+      image: posterUrl(attrs),
       year: parseYear(attrs["startDate"]),
       entryType: KITSU_SUBTYPE_MAP[str(attrs["subtype"]) ?? ""] ?? "tv",
       synopsis: str(attrs["synopsis"]),
