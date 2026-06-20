@@ -11,12 +11,18 @@
 
   let { rpc, conflicts: initialConflicts, onComplete, onCancel }: Props = $props();
 
-  let remaining = $state<SyncConflictInfo[]>([...initialConflicts]);
+  let remaining = $state<SyncConflictInfo[]>([]);
+  let totalCount = $state(0);
   let resolving = $state<string | null>(null);
   let error = $state<string | null>(null);
 
+  $effect(() => {
+    remaining = [...initialConflicts];
+    totalCount = initialConflicts.length;
+  });
+
   const allResolved = $derived(remaining.length === 0);
-  const resolvedCount = $derived(initialConflicts.length - remaining.length);
+  const resolvedCount = $derived(totalCount - remaining.length);
 
   function watchStatusLabel(status: string): string {
     switch (status) {
@@ -64,7 +70,7 @@
       <ArrowLeft class="size-4" />
     </button>
     <span class="text-sm font-medium text-surface-950-50">Sync Conflicts</span>
-    {#if initialConflicts.length > 0}
+    {#if totalCount > 0}
       <span class="badge preset-tonal-warning text-xs">{remaining.length} remaining</span>
     {/if}
   </header>
@@ -82,7 +88,7 @@
       <div class="card preset-outlined-surface-300-700 p-4">
         <div class="grid grid-cols-2 gap-4 text-center">
           <div>
-            <p class="text-2xl font-bold text-surface-950-50">{initialConflicts.length}</p>
+            <p class="text-2xl font-bold text-surface-950-50">{totalCount}</p>
             <p class="text-xs text-surface-600-400">Total Conflicts</p>
           </div>
           <div>

@@ -23,6 +23,8 @@ export interface EpisodeGroupRow {
   synopsis?: string;
   rating?: number;
   coverArt?: string;
+  onDiskCount: number;
+  missingCount: number;
   episodes: EpisodeGroupEpisode[];
 }
 

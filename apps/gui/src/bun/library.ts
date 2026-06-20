@@ -30,6 +30,8 @@ export interface LibraryAnimeDetail {
     synopsis?: string;
     rating?: number;
     coverArt?: string;
+    onDiskCount: number;
+    missingCount: number;
     episodes: Array<{
       id: string;
       episodeNumber: number;
@@ -100,6 +102,14 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       const groups: LibraryAnimeDetail["groups"] = await Promise.all(
         dbGroups.map(async (group) => {
           const dbEpisodes = svc.getEpisodesByGroupId(group.id);
+          const episodes = dbEpisodes.map((ep) => ({
+            id: String(ep.id),
+            episodeNumber: ep.episodeNumber,
+            titleEn: ep.title ?? `Episode ${ep.episodeNumber}`,
+            filePath: ep.filePath,
+            watched: ep.watched,
+          }));
+          const onDiskCount = episodes.filter((ep) => ep.filePath !== "").length;
           return {
             id: String(group.id),
             entryType: group.entryType,
@@ -108,13 +118,9 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
             synopsis: group.synopsis,
             rating: group.rating,
             coverArt: group.coverArtPath ? await toDataUrl(group.coverArtPath) : undefined,
-            episodes: dbEpisodes.map((ep) => ({
-              id: String(ep.id),
-              episodeNumber: ep.episodeNumber,
-              titleEn: ep.title ?? `Episode ${ep.episodeNumber}`,
-              filePath: ep.filePath,
-              watched: ep.watched,
-            })),
+            onDiskCount,
+            missingCount: episodes.length - onDiskCount,
+            episodes,
           };
         }),
       );

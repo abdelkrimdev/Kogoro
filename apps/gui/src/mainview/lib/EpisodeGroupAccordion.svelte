@@ -127,6 +127,12 @@
 
     <div class="flex-1"></div>
 
+    {#if group.episodes.length > 0}
+      <span class="text-sm text-primary-600-400">
+        {group.onDiskCount}/{group.episodes.length} on disk
+      </span>
+    {/if}
+
     {#if progress.total > 0}
       <span class="text-sm text-surface-700-300">
         {progress.watched}/{progress.total}
