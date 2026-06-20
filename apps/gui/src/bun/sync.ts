@@ -1,4 +1,9 @@
-import type { CredentialStore, EventRepository, LibraryService } from "@kogoro/core";
+import type {
+  CredentialStore,
+  EventRepository,
+  LibraryService,
+  TrackerWatchStatus,
+} from "@kogoro/core";
 import { type SyncConflict, SyncEngine } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
@@ -9,9 +14,24 @@ interface SyncHandlerOptions {
   credentialStore: CredentialStore;
 }
 
+export interface SyncConflictInfo {
+  groupId: number;
+  tracker: string;
+  animeTitle: string;
+  localChange: {
+    eventType: string;
+    oldValue: string | null;
+    newValue: string;
+  };
+  remoteChange: {
+    watchStatus: TrackerWatchStatus;
+    episodesWatched: number;
+  };
+}
+
 export interface SyncAllResult {
   applied: number;
-  conflicts: SyncConflict[];
+  conflicts: SyncConflictInfo[];
   syncedTrackers: string[];
   errors: Array<{ tracker: string; error: string }>;
 }
@@ -56,6 +76,17 @@ async function createEngines(
   return engines;
 }
 
+function enrichConflicts(conflicts: SyncConflict[], library: LibraryService): SyncConflictInfo[] {
+  return conflicts.map((c) => {
+    const group = library.getEpisodeGroup(c.groupId);
+    const anime = group ? library.getAnime(group.animeId) : null;
+    return {
+      ...c,
+      animeTitle: anime?.title ?? `Group #${c.groupId}`,
+    };
+  });
+}
+
 export function createSyncHandlers(options: SyncHandlerOptions) {
   return {
     async syncAll(): Promise<SyncAllResult> {
@@ -72,7 +103,7 @@ export function createSyncHandlers(options: SyncHandlerOptions) {
         try {
           const pullResult = await engine.pull();
           result.applied += pullResult.applied;
-          result.conflicts.push(...pullResult.conflicts);
+          result.conflicts.push(...enrichConflicts(pullResult.conflicts, options.libraryService));
 
           const pushResult = await engine.push();
           result.applied += pushResult.pushed;
@@ -108,7 +139,7 @@ export function createSyncHandlers(options: SyncHandlerOptions) {
           const pullResult = await engine.pull();
 
           const relevantConflicts = pullResult.conflicts.filter((c) => groupIds.has(c.groupId));
-          result.conflicts.push(...relevantConflicts);
+          result.conflicts.push(...enrichConflicts(relevantConflicts, options.libraryService));
           result.applied += pullResult.applied;
 
           const pushResult = await engine.push();
@@ -131,7 +162,7 @@ export function createSyncHandlers(options: SyncHandlerOptions) {
     },
 
     async resolveSyncConflict(params: {
-      conflict: SyncConflict;
+      conflict: SyncConflictInfo;
       resolution: "keepLocal" | "acceptRemote";
     }): Promise<{ success: boolean }> {
       const trackerDef = TRACKER_SOURCES.find((t) => t.source === params.conflict.tracker);
