@@ -3,6 +3,7 @@ import {
   ArtworkFetcher,
   type CacheService,
   type ConfigManager,
+  type CredentialStore,
   type DatabasePlugin,
   type EnrichmentSend,
   type LibraryService,
@@ -17,6 +18,7 @@ interface EnrichmentOptions {
   cacheService: CacheService;
   pluginFactory?: PluginFactory;
   database?: DatabasePlugin;
+  credentialStore?: CredentialStore;
 }
 
 type EnrichArtworkResult = {
@@ -41,6 +43,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     database: overrideDb,
     libraryService: svc,
     cacheService,
+    credentialStore,
   } = options;
   const extensions = configManager.resolveMediaExtensions();
 
@@ -160,5 +163,88 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     return { success: true, summary };
   }
 
-  return { enrichArtwork, enrichMetadata };
+  type EnrichTrackerResult = {
+    success: boolean;
+    summary?: { total: number; enriched: number; skipped: number; errors: number };
+    error?: string;
+  };
+
+  async function enrichTracker(params: { id: string }): Promise<EnrichTrackerResult> {
+    const resolved = resolveAnimeAndDir(svc, params.id);
+    if ("error" in resolved) {
+      send.enrichmentComplete?.({
+        animeId: params.id,
+        command: "tracker",
+        success: false,
+        error: resolved.error,
+      });
+      return { success: false, error: resolved.error };
+    }
+
+    if (!factory || !credentialStore) {
+      send.enrichmentComplete?.({
+        animeId: params.id,
+        command: "tracker",
+        success: true,
+      });
+      return { success: true, summary: { total: 0, enriched: 0, skipped: 0, errors: 0 } };
+    }
+
+    const groups = svc.getEpisodeGroupsByAnimeId(resolved.animeId);
+    let total = 0;
+    let enriched = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const group of groups) {
+      const mappings = svc.getTrackerMappingsByGroupId(group.id);
+      if (mappings.length === 0) {
+        skipped++;
+        continue;
+      }
+
+      for (const mapping of mappings) {
+        total++;
+        try {
+          const credential = await credentialStore.getCredential(mapping.source);
+          if (!credential) {
+            skipped++;
+            continue;
+          }
+
+          const plugin = await factory.tracker(mapping.source);
+          if (!plugin) {
+            skipped++;
+            continue;
+          }
+
+          const details = await plugin.getAnimeDetails(mapping.externalId);
+
+          const metadata: { synopsis?: string; rating?: number } = {};
+          if (details.synopsis && (!group.synopsis || group.synopsis.length === 0)) {
+            metadata.synopsis = details.synopsis;
+          }
+          if (details.rating != null && group.rating == null) {
+            metadata.rating = details.rating;
+          }
+
+          if (Object.keys(metadata).length > 0) {
+            svc.updateEpisodeGroupMetadata(group.id, metadata);
+          }
+
+          enriched++;
+        } catch {
+          errors++;
+        }
+      }
+    }
+
+    send.enrichmentComplete?.({ animeId: params.id, command: "tracker", success: true });
+    return {
+      success: true,
+      summary: { total, enriched, skipped, errors },
+    };
+  }
+
+  return { enrichArtwork, enrichMetadata, enrichTracker };
 }

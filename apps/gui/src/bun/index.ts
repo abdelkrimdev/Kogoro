@@ -86,21 +86,10 @@ const enrichmentHandlers = createEnrichmentHandlers({
   configManager,
   libraryService,
   cacheService,
+  credentialStore,
   send: {
-    enrichmentProgress: (data: {
-      animeId: string;
-      command: "artwork" | "metadata";
-      completed: number;
-      total: number;
-      file: string;
-      status: string;
-    }) => rpc.send.enrichmentProgress(data),
-    enrichmentComplete: (data: {
-      animeId: string;
-      command: "artwork" | "metadata";
-      success: boolean;
-      error?: string;
-    }) => rpc.send.enrichmentComplete(data),
+    enrichmentProgress: (data) => rpc.send.enrichmentProgress(data),
+    enrichmentComplete: (data) => rpc.send.enrichmentComplete(data),
   },
 });
 
@@ -165,6 +154,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       resolveMatch: (params) => scanHandlers.resolveMatch(params),
       enrichArtwork: (params) => enrichmentHandlers.enrichArtwork(params),
       enrichMetadata: (params) => enrichmentHandlers.enrichMetadata(params),
+      enrichTracker: (params) => enrichmentHandlers.enrichTracker(params),
       getThemeMode: () => getThemeMode(),
       setThemeMode: (params) => setThemeMode(params),
       getSidebarCollapsed: () => getSidebarCollapsed(),

@@ -42,7 +42,7 @@ import type {
 export interface EnrichmentSend {
   enrichmentProgress?: (data: {
     animeId: string;
-    command: "artwork" | "metadata";
+    command: "artwork" | "metadata" | "tracker";
     completed: number;
     total: number;
     file: string;
@@ -50,7 +50,7 @@ export interface EnrichmentSend {
   }) => void;
   enrichmentComplete?: (data: {
     animeId: string;
-    command: "artwork" | "metadata";
+    command: "artwork" | "metadata" | "tracker";
     success: boolean;
     error?: string;
   }) => void;

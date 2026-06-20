@@ -2,12 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { CacheService, DatabasePlugin } from "@kogoro/core";
-import { ConfigManager, LibraryService } from "@kogoro/core";
+import { ConfigManager, CredentialStore, LibraryService } from "@kogoro/core";
 import {
   createArtworkDb,
   createEventRepository,
   createLibraryRepository,
   createMatchCacheService,
+  createMockTracker,
   createTrackingEnrichmentSend,
   hashFile,
   makeCachedMatch,
@@ -393,6 +394,287 @@ describe("enrichMetadata", () => {
       const result = await handlers.enrichMetadata({ id: String(animeId) });
       expect(result.success).toBe(true);
       expect(result.summary?.written).toBe(2);
+      closeCache();
+      close();
+    });
+  });
+});
+
+describe("enrichTracker", () => {
+  test("fails when anime is not found in library", async () => {
+    await withTempDir("enrich-tracker-unknown", async (dir) => {
+      const { svc, close } = createLibraryService(dir);
+      const configManager = new ConfigManager({ configDir: dir });
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const handlers = createEnrichmentHandlers({
+        configManager,
+        send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
+      });
+
+      const result = await handlers.enrichTracker({ id: "99999" });
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Anime not found in library");
+      closeCache();
+      close();
+    });
+  });
+
+  test("returns success with zero summary when no pluginFactory", async () => {
+    await withTempDir("enrich-tracker-no-factory", async (dir) => {
+      const mediaDir = join(dir, "media");
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
+
+      const configManager = new ConfigManager({ configDir: dir });
+      const { svc, close } = createLibraryService(dir);
+      const handlers = createEnrichmentHandlers({
+        configManager,
+        send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
+      });
+
+      const result = await handlers.enrichTracker({ id: String(animeId) });
+      expect(result.success).toBe(true);
+      expect(result.summary?.total).toBe(0);
+      closeCache();
+      close();
+    });
+  });
+
+  test("skips groups with no tracker mappings", async () => {
+    await withTempDir("enrich-tracker-no-mappings", async (dir) => {
+      const mediaDir = join(dir, "media");
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
+
+      const configManager = new ConfigManager({ configDir: dir });
+      const { svc, close } = createLibraryService(dir);
+      const credentialStore = new CredentialStore();
+      const mockTracker = createMockTracker();
+      const mockPluginFactory = {
+        tracker: async () => mockTracker,
+      } as never;
+
+      const handlers = createEnrichmentHandlers({
+        configManager,
+        send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
+        pluginFactory: mockPluginFactory,
+        credentialStore,
+      });
+
+      const result = await handlers.enrichTracker({ id: String(animeId) });
+      expect(result.success).toBe(true);
+      expect(result.summary?.total).toBe(0);
+      expect(result.summary?.skipped).toBe(1);
+      closeCache();
+      close();
+    });
+  });
+
+  test("merges synopsis and rating from connected tracker", async () => {
+    await withTempDir("enrich-tracker-merge", async (dir) => {
+      const mediaDir = join(dir, "media");
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
+
+      const { repo: libraryRepo } = createLibraryRepository(dir);
+      const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      libraryRepo.upsertGroupTrackerMapping({
+        groupId: groups[0]!.id,
+        source: "anilist",
+        externalId: "anilist-123",
+      });
+
+      const configManager = new ConfigManager({ configDir: dir });
+      const { svc, close } = createLibraryService(dir);
+
+      const credentialStore = new CredentialStore();
+      await credentialStore.setCredential("anilist", "test-token");
+
+      const mockTracker = createMockTracker({
+        getAnimeDetails: async () => ({
+          trackerId: "anilist-123",
+          title: "Test Anime",
+          entryType: "tv" as const,
+          synopsis: "A great anime about testing",
+          rating: 8.5,
+        }),
+      });
+      const mockPluginFactory = {
+        tracker: async () => mockTracker,
+      } as never;
+
+      const handlers = createEnrichmentHandlers({
+        configManager,
+        send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
+        pluginFactory: mockPluginFactory,
+        credentialStore,
+      });
+
+      const result = await handlers.enrichTracker({ id: String(animeId) });
+      expect(result.success).toBe(true);
+      expect(result.summary?.enriched).toBe(1);
+
+      const updatedGroup = libraryRepo.getEpisodeGroup(groups[0]!.id);
+      expect(updatedGroup?.synopsis).toBe("A great anime about testing");
+      expect(updatedGroup?.rating).toBe(8.5);
+      closeCache();
+      close();
+    });
+  });
+
+  test("skips disconnected trackers", async () => {
+    const savedEnv = process.env["KOGORO_ANILIST_KEY"];
+    delete process.env["KOGORO_ANILIST_KEY"];
+    try {
+      await withTempDir("enrich-tracker-disconnected", async (dir) => {
+        const mediaDir = join(dir, "media");
+        const { cacheService, close: closeCache } = createMatchCacheService(dir);
+        const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
+
+        const { repo: libraryRepo } = createLibraryRepository(dir);
+        const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+        libraryRepo.upsertGroupTrackerMapping({
+          groupId: groups[0]!.id,
+          source: "anilist",
+          externalId: "anilist-123",
+        });
+
+        const configManager = new ConfigManager({ configDir: dir });
+        const { svc, close } = createLibraryService(dir);
+
+        const credentialStore = new CredentialStore();
+        const mockTracker = createMockTracker();
+        const mockPluginFactory = {
+          tracker: async () => mockTracker,
+        } as never;
+
+        const handlers = createEnrichmentHandlers({
+          configManager,
+          send: noopEnrichmentSend,
+          libraryService: svc,
+          cacheService,
+          pluginFactory: mockPluginFactory,
+          credentialStore,
+        });
+
+        const result = await handlers.enrichTracker({ id: String(animeId) });
+        expect(result.success).toBe(true);
+        expect(result.summary?.total).toBe(1);
+        expect(result.summary?.skipped).toBe(1);
+        expect(result.summary?.enriched).toBe(0);
+        closeCache();
+        close();
+      });
+    } finally {
+      if (savedEnv !== undefined) {
+        process.env["KOGORO_ANILIST_KEY"] = savedEnv;
+      }
+    }
+  });
+
+  test("does not overwrite existing synopsis with empty", async () => {
+    await withTempDir("enrich-tracker-no-overwrite", async (dir) => {
+      const mediaDir = join(dir, "media");
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
+
+      const { repo: libraryRepo } = createLibraryRepository(dir);
+      const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      libraryRepo.upsertGroupTrackerMapping({
+        groupId: groups[0]!.id,
+        source: "anilist",
+        externalId: "anilist-123",
+      });
+      libraryRepo.updateEpisodeGroupMetadata(groups[0]!.id, {
+        synopsis: "Existing synopsis",
+      });
+
+      const configManager = new ConfigManager({ configDir: dir });
+      const { svc, close } = createLibraryService(dir);
+
+      const credentialStore = new CredentialStore();
+      await credentialStore.setCredential("anilist", "test-token");
+
+      const mockTracker = createMockTracker({
+        getAnimeDetails: async () => ({
+          trackerId: "anilist-123",
+          title: "Test Anime",
+          entryType: "tv" as const,
+        }),
+      });
+      const mockPluginFactory = {
+        tracker: async () => mockTracker,
+      } as never;
+
+      const handlers = createEnrichmentHandlers({
+        configManager,
+        send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
+        pluginFactory: mockPluginFactory,
+        credentialStore,
+      });
+
+      const result = await handlers.enrichTracker({ id: String(animeId) });
+      expect(result.success).toBe(true);
+
+      const updatedGroup = libraryRepo.getEpisodeGroup(groups[0]!.id);
+      expect(updatedGroup?.synopsis).toBe("Existing synopsis");
+      closeCache();
+      close();
+    });
+  });
+
+  test("handles tracker plugin errors gracefully", async () => {
+    await withTempDir("enrich-tracker-error", async (dir) => {
+      const mediaDir = join(dir, "media");
+      const { cacheService, close: closeCache } = createMatchCacheService(dir);
+      const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
+
+      const { repo: libraryRepo } = createLibraryRepository(dir);
+      const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      libraryRepo.upsertGroupTrackerMapping({
+        groupId: groups[0]!.id,
+        source: "anilist",
+        externalId: "anilist-123",
+      });
+
+      const configManager = new ConfigManager({ configDir: dir });
+      const { svc, close } = createLibraryService(dir);
+
+      const credentialStore = new CredentialStore();
+      await credentialStore.setCredential("anilist", "test-token");
+
+      const mockTracker = createMockTracker({
+        getAnimeDetails: async () => {
+          throw new Error("API error");
+        },
+      });
+      const mockPluginFactory = {
+        tracker: async () => mockTracker,
+      } as never;
+
+      const handlers = createEnrichmentHandlers({
+        configManager,
+        send: noopEnrichmentSend,
+        libraryService: svc,
+        cacheService,
+        pluginFactory: mockPluginFactory,
+        credentialStore,
+      });
+
+      const result = await handlers.enrichTracker({ id: String(animeId) });
+      expect(result.success).toBe(true);
+      expect(result.summary?.errors).toBe(1);
+      expect(result.summary?.enriched).toBe(0);
       closeCache();
       close();
     });

@@ -160,6 +160,10 @@ export type AppRPC = {
         params: Parameters<EnrichmentHandlers["enrichMetadata"]>[0];
         response: AwaitedReturnType<EnrichmentHandlers["enrichMetadata"]>;
       };
+      enrichTracker: {
+        params: Parameters<EnrichmentHandlers["enrichTracker"]>[0];
+        response: AwaitedReturnType<EnrichmentHandlers["enrichTracker"]>;
+      };
       getThemeMode: {
         params: Record<string, never>;
         response: ReturnType<typeof getThemeMode>;
@@ -306,7 +310,7 @@ export type AppRPC = {
       };
       enrichmentProgress: {
         animeId: string;
-        command: "artwork" | "metadata";
+        command: "artwork" | "metadata" | "tracker";
         completed: number;
         total: number;
         file: string;
@@ -314,7 +318,7 @@ export type AppRPC = {
       };
       enrichmentComplete: {
         animeId: string;
-        command: "artwork" | "metadata";
+        command: "artwork" | "metadata" | "tracker";
         success: boolean;
         error?: string;
       };

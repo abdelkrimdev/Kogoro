@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, LoaderCircle } from '@lucide/svelte';
+  import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, LoaderCircle, ArrowUpFromLine } from '@lucide/svelte';
   import EpisodeGroupAccordion from "./EpisodeGroupAccordion.svelte";
   import type { AnimeDetail } from "../../shared/types";
   import { getAnimeDirectory } from "../state/detail-state";
@@ -17,6 +17,7 @@
   let error = $state<string | null>(null);
   let artworkLoading = $state(false);
   let metadataLoading = $state(false);
+  let trackerLoading = $state(false);
   let rescanLoading = $state(false);
 
   function sourceDbLabel(db: string): string {
@@ -64,6 +65,17 @@
       console.error("Metadata enrichment failed:", err);
     }
     metadataLoading = false;
+  }
+
+  async function syncTrackerData() {
+    trackerLoading = true;
+    try {
+      await rpc.request("enrichTracker", { id: animeId });
+    } catch (err) {
+      console.error("Tracker enrichment failed:", err);
+    }
+    trackerLoading = false;
+    await loadDetail();
   }
 
   async function rescan() {
@@ -165,6 +177,15 @@
               {:else}
                 <button type="button" class="flex items-center gap-2 btn preset-filled-success-500 rounded-lg font-medium" onclick={generateMetadata}>
                   <FileText class="size-4" /> Generate Metadata
+                </button>
+              {/if}
+              {#if trackerLoading}
+                <button type="button" disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
+                  <LoaderCircle class="size-4 animate-spin" /> Syncing Trackers...
+                </button>
+              {:else}
+                <button type="button" class="flex items-center gap-2 btn preset-tonal-secondary rounded-lg font-medium" onclick={syncTrackerData}>
+                  <ArrowUpFromLine class="size-4" /> Sync Tracker Data
                 </button>
               {/if}
             </div>
