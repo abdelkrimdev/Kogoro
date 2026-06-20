@@ -1467,6 +1467,130 @@ describe("LibraryService", () => {
       }
     });
 
+    test("replays unpushed group status change events", () => {
+      const dir = mkdtempSync(join(tmpdir(), "library-rebuild-replay-group-"));
+      try {
+        const ep1Path = join(dir, "S01E01.mkv");
+        writeFileSync(ep1Path, "");
+
+        const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const evtRepo = new EventRepository(evtDb);
+          const service = new LibraryService(repo, evtRepo);
+
+          const anime = service.upsertAnime({
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            episodeCount: 1,
+          });
+
+          const group = repo.upsertEpisodeGroup({
+            animeId: anime.id,
+            entryType: "tv",
+            seasonNumber: 1,
+            watchStatus: "plan_to_watch",
+          });
+
+          repo.addEpisode({
+            animeId: anime.id,
+            groupId: group.id,
+            episodeNumber: 1,
+            filePath: ep1Path,
+            title: "Episode 1",
+            season: 1,
+            watched: false,
+          });
+
+          evtRepo.append({
+            entityType: "group",
+            entityId: group.id,
+            eventType: "status_change",
+            oldValue: "plan_to_watch",
+            newValue: "completed",
+          });
+
+          service.rebuild();
+
+          const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
+          expect(rebuilt).not.toBeNull();
+
+          const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
+          expect(groups).toHaveLength(1);
+          expect(groups[0]?.watchStatus).toBe("completed");
+        } finally {
+          sqlite.close();
+          evtSqlite.close();
+        }
+      } finally {
+        rmSync(dir, { recursive: true });
+      }
+    });
+
+    test("replays unpushed episode watched toggle events", () => {
+      const dir = mkdtempSync(join(tmpdir(), "library-rebuild-replay-episode-"));
+      try {
+        const ep1Path = join(dir, "S01E01.mkv");
+        writeFileSync(ep1Path, "");
+
+        const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const evtRepo = new EventRepository(evtDb);
+          const service = new LibraryService(repo, evtRepo);
+
+          const anime = service.upsertAnime({
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            episodeCount: 1,
+          });
+
+          const group = repo.upsertEpisodeGroup({
+            animeId: anime.id,
+            entryType: "tv",
+            seasonNumber: 1,
+            watchStatus: "plan_to_watch",
+          });
+
+          const ep = repo.addEpisode({
+            animeId: anime.id,
+            groupId: group.id,
+            episodeNumber: 1,
+            filePath: ep1Path,
+            title: "Episode 1",
+            season: 1,
+            watched: false,
+          });
+
+          evtRepo.append({
+            entityType: "episode",
+            entityId: ep.id,
+            eventType: "watched_toggle",
+            oldValue: "false",
+            newValue: "true",
+          });
+
+          service.rebuild();
+
+          const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
+          expect(rebuilt).not.toBeNull();
+
+          const episodes = repo.getEpisodesByAnimeId(rebuilt?.id as number);
+          expect(episodes).toHaveLength(1);
+          expect(episodes[0]?.watched).toBe(true);
+        } finally {
+          sqlite.close();
+          evtSqlite.close();
+        }
+      } finally {
+        rmSync(dir, { recursive: true });
+      }
+    });
+
     test("excludes anime with deleted files from rebuilt library", () => {
       const dir = mkdtempSync(join(tmpdir(), "library-rebuild-"));
       try {

@@ -302,7 +302,8 @@ export class MyAnimeListPlugin implements TrackerPlugin {
   }
 
   private base64UrlEncode(buffer: Uint8Array): string {
-    const base64 = btoa(String.fromCharCode(...buffer));
+    const binary = Array.from(buffer, (b) => String.fromCharCode(b)).join("");
+    const base64 = btoa(binary);
     return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 

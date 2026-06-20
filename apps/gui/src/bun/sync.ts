@@ -2,6 +2,8 @@ import type {
   CredentialStore,
   EventRepository,
   LibraryService,
+  TrackerPlugin,
+  TrackerSource,
   TrackerWatchStatus,
 } from "@kogoro/core";
 import { type SyncConflict, SyncEngine, SyncOrchestrator } from "@kogoro/core";
@@ -47,8 +49,8 @@ const TRACKER_SOURCES = [
 async function buildTrackerPairs(
   options: SyncHandlerOptions,
   errors: Array<{ tracker: string; error: string }>,
-): Promise<Array<{ source: string; tracker: import("@kogoro/core").TrackerPlugin }>> {
-  const pairs: Array<{ source: string; tracker: import("@kogoro/core").TrackerPlugin }> = [];
+): Promise<Array<{ source: TrackerSource; tracker: TrackerPlugin }>> {
+  const pairs: Array<{ source: TrackerSource; tracker: TrackerPlugin }> = [];
 
   for (const tracker of TRACKER_SOURCES) {
     try {
@@ -81,58 +83,41 @@ function enrichConflicts(conflicts: SyncConflict[], library: LibraryService): Sy
   });
 }
 
+async function runSync(
+  options: SyncHandlerOptions,
+  conflictFilter?: (groupId: number) => boolean,
+): Promise<SyncAllResult> {
+  const errors: Array<{ tracker: string; error: string }> = [];
+  const pairs = await buildTrackerPairs(options, errors);
+
+  const orchestrator = new SyncOrchestrator(options.libraryService, options.eventsRepo, pairs);
+
+  const result = await orchestrator.syncAll();
+
+  let conflicts = result.conflicts;
+  if (conflictFilter) {
+    conflicts = conflicts.filter((c) => conflictFilter(c.groupId));
+  }
+
+  return {
+    applied: result.applied + result.pushed,
+    conflicts: enrichConflicts(conflicts, options.libraryService),
+    syncedTrackers: result.syncedTrackers,
+    errors: [...errors, ...result.errors],
+  };
+}
+
 export function createSyncHandlers(options: SyncHandlerOptions) {
   return {
     async syncAll(): Promise<SyncAllResult> {
-      const errors: Array<{ tracker: string; error: string }> = [];
-      const pairs = await buildTrackerPairs(options, errors);
-
-      const orchestrator = new SyncOrchestrator(
-        options.libraryService,
-        options.eventsRepo,
-        pairs as Array<{
-          source: import("@kogoro/core").TrackerSource;
-          tracker: import("@kogoro/core").TrackerPlugin;
-        }>,
-      );
-
-      const result = await orchestrator.syncAll();
-
-      return {
-        applied: result.applied + result.pushed,
-        conflicts: enrichConflicts(result.conflicts, options.libraryService),
-        syncedTrackers: result.syncedTrackers,
-        errors: [...errors, ...result.errors],
-      };
+      return runSync(options);
     },
 
     async syncAnime(params: { animeId: string }): Promise<SyncAllResult> {
       const animeId = Number(params.animeId);
       const groups = options.libraryService.getEpisodeGroupsByAnimeId(animeId);
       const groupIds = new Set(groups.map((g) => g.id));
-
-      const errors: Array<{ tracker: string; error: string }> = [];
-      const pairs = await buildTrackerPairs(options, errors);
-
-      const orchestrator = new SyncOrchestrator(
-        options.libraryService,
-        options.eventsRepo,
-        pairs as Array<{
-          source: import("@kogoro/core").TrackerSource;
-          tracker: import("@kogoro/core").TrackerPlugin;
-        }>,
-      );
-
-      const result = await orchestrator.syncAll();
-
-      const relevantConflicts = result.conflicts.filter((c) => groupIds.has(c.groupId));
-
-      return {
-        applied: result.applied + result.pushed,
-        conflicts: enrichConflicts(relevantConflicts, options.libraryService),
-        syncedTrackers: result.syncedTrackers,
-        errors: [...errors, ...result.errors],
-      };
+      return runSync(options, (groupId) => groupIds.has(groupId));
     },
 
     async triggerManualSync(): Promise<SyncAllResult> {

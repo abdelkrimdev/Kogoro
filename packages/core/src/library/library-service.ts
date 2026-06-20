@@ -112,7 +112,21 @@ export class LibraryService {
   }
 
   rebuild(sourceDb?: string): void {
-    this.rebuildFromMatches(this.getFilteredMatches(sourceDb));
+    const matches = this.getFilteredMatches(sourceDb);
+    let oldEntitySnapshot:
+      | {
+          groupByCompositeKey: Map<string, number>;
+          episodeByCompositeKey: Map<string, number>;
+        }
+      | undefined;
+
+    this.rebuildFromMatches(matches, (snapshot) => {
+      oldEntitySnapshot = snapshot;
+    });
+
+    if (oldEntitySnapshot) {
+      this.replayUnpushedEvents(oldEntitySnapshot);
+    }
   }
 
   async rebuildWithTrackers(

@@ -26,7 +26,7 @@ const KITSU_SUBTYPE_MAP: Record<string, EntryType> = {
   music: "special",
 };
 
-const KITSU_STATUS_REVERSE_MAP: Record<string, string> = {
+const KITSU_STATUS_REVERSE_MAP: Record<TrackerWatchStatus, string> = {
   watching: "current",
   completed: "completed",
   "on-hold": "on_hold",
@@ -239,7 +239,7 @@ export class KitsuPlugin implements TrackerPlugin {
   async updateEntry(trackerId: string, changes: TrackerEntryChanges): Promise<void> {
     const attributes: Record<string, unknown> = {};
     if (changes.watchStatus !== undefined) {
-      attributes["status"] = KITSU_STATUS_REVERSE_MAP[changes.watchStatus] ?? changes.watchStatus;
+      attributes["status"] = KITSU_STATUS_REVERSE_MAP[changes.watchStatus];
     }
     if (changes.episodesWatched !== undefined) {
       attributes["progress"] = changes.episodesWatched;
