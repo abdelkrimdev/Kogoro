@@ -169,7 +169,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       getTrackerConnectionFields: (params) => getTrackerConnectionFields(params),
       connectTracker: async (params) => connectTracker(credentialStore, params),
       disconnectTracker: async (params) =>
-        disconnectTracker(credentialStore, libraryService, params),
+        disconnectTracker(credentialStore, libraryService, eventsRepo, params),
       getImportPreview: async (params) => trackerImportHandlers.getImportPreview(params),
       confirmImport: async (params) => trackerImportHandlers.confirmImport(params),
       syncAll: async () => syncHandlers.syncAll(),

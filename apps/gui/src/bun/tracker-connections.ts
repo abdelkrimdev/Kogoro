@@ -1,4 +1,4 @@
-import type { CredentialStore, LibraryService } from "@kogoro/core";
+import type { CredentialStore, EventRepository, LibraryService } from "@kogoro/core";
 
 export interface TrackerConnectionInfo {
   name: string;
@@ -122,12 +122,14 @@ export async function connectTracker(
 export async function disconnectTracker(
   credentialStore: CredentialStore,
   libraryService: LibraryService,
+  eventRepo: EventRepository,
   params: { name: string },
 ): Promise<{ success: boolean; error?: string }> {
   const def = TRACKER_DEFINITIONS.find((d) => d.name === params.name);
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
   libraryService.removeTrackerMappingsBySource(def.name);
+  eventRepo.dropForSource(def.name);
   await credentialStore.deleteCredential(def.credentialKey);
   return { success: true };
 }
