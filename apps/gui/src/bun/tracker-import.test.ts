@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { ConfigManager, CredentialStore, LibraryService } from "@kogoro/core";
-import { createLibraryRepository, createMockKeytar, withMockFetch } from "@kogoro/core/testing";
+import {
+  createEventRepository,
+  createLibraryRepository,
+  createMockKeytar,
+  withMockFetch,
+} from "@kogoro/core/testing";
 import { PluginFactory } from "@kogoro/plugins";
 import { createTrackerImportHandlers } from "./tracker-import";
 
@@ -17,8 +22,9 @@ describe("TrackerImportHandlers", () => {
     it("returns preview for anilist tracker", async () => {
       const factory = createTestFactory();
       const { repo, close } = createLibraryRepository();
+      const { repo: evtRepo, close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         await withMockFetch(
           (() =>
@@ -39,6 +45,7 @@ describe("TrackerImportHandlers", () => {
           },
         );
       } finally {
+        closeEvt();
         close();
       }
     });
@@ -46,8 +53,9 @@ describe("TrackerImportHandlers", () => {
     it("returns error for unknown tracker", async () => {
       const factory = createTestFactory();
       const { repo, close } = createLibraryRepository();
+      const { repo: evtRepo, close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo);
+        const libraryService = new LibraryService(repo, evtRepo);
         const handlers = createTrackerImportHandlers({ libraryService, pluginFactory: factory });
 
         const result = await handlers.getImportPreview({ trackerName: "nonexistent" });
@@ -55,6 +63,7 @@ describe("TrackerImportHandlers", () => {
         expect(result.preview).toBeNull();
         expect(result.error).toContain("not connected");
       } finally {
+        closeEvt();
         close();
       }
     });
@@ -64,8 +73,9 @@ describe("TrackerImportHandlers", () => {
     it("returns result for anilist tracker", async () => {
       const factory = createTestFactory();
       const { repo, close } = createLibraryRepository();
+      const { repo: evtRepo, close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         await withMockFetch(
           (() =>
@@ -86,6 +96,7 @@ describe("TrackerImportHandlers", () => {
           },
         );
       } finally {
+        closeEvt();
         close();
       }
     });
@@ -93,8 +104,9 @@ describe("TrackerImportHandlers", () => {
     it("returns error for unknown tracker", async () => {
       const factory = createTestFactory();
       const { repo, close } = createLibraryRepository();
+      const { repo: evtRepo, close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo);
+        const libraryService = new LibraryService(repo, evtRepo);
         const handlers = createTrackerImportHandlers({ libraryService, pluginFactory: factory });
 
         const result = await handlers.confirmImport({ trackerName: "nonexistent" });
@@ -102,6 +114,7 @@ describe("TrackerImportHandlers", () => {
         expect(result.result).toBeNull();
         expect(result.error).toContain("not connected");
       } finally {
+        closeEvt();
         close();
       }
     });

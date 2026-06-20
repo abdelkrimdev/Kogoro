@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { stripTypeDir } from "../config/schema";
+import type { EventRepository } from "../events/event-repository";
 import type { EntryType, MatchEntry } from "../types";
 import type {
   EpisodeGroup,
@@ -21,7 +22,10 @@ function groupCompositeKey(
 }
 
 export class LibraryService {
-  constructor(private library: LibraryRepository) {}
+  constructor(
+    private library: LibraryRepository,
+    private events: EventRepository,
+  ) {}
 
   listAnime(): LibraryAnime[] {
     return this.library.listAnime();
@@ -404,14 +408,47 @@ export class LibraryService {
   }
 
   setGroupWatchStatus(groupId: number, status: EpisodeGroup["watchStatus"]): EpisodeGroup | null {
-    return this.library.updateEpisodeGroupStatus(groupId, status);
+    const oldGroup = this.library.getEpisodeGroup(groupId);
+    const result = this.library.updateEpisodeGroupStatus(groupId, status);
+    if (result && oldGroup && oldGroup.watchStatus !== status) {
+      this.events.append({
+        entityType: "group",
+        entityId: groupId,
+        eventType: "status_change",
+        oldValue: oldGroup.watchStatus,
+        newValue: status,
+      });
+    }
+    return result;
   }
 
   updateEpisodeGroupMetadata(
     groupId: number,
     metadata: { synopsis?: string; rating?: number; coverArtPath?: string },
   ): EpisodeGroup | null {
-    return this.library.updateEpisodeGroupMetadata(groupId, metadata);
+    const oldGroup = this.library.getEpisodeGroup(groupId);
+    const result = this.library.updateEpisodeGroupMetadata(groupId, metadata);
+    if (result && oldGroup) {
+      if (metadata.synopsis !== undefined && metadata.synopsis !== oldGroup.synopsis) {
+        this.events.append({
+          entityType: "group",
+          entityId: groupId,
+          eventType: "notes_update",
+          oldValue: oldGroup.synopsis ?? null,
+          newValue: metadata.synopsis,
+        });
+      }
+      if (metadata.rating !== undefined && metadata.rating !== oldGroup.rating) {
+        this.events.append({
+          entityType: "group",
+          entityId: groupId,
+          eventType: "notes_update",
+          oldValue: oldGroup.rating != null ? String(oldGroup.rating) : null,
+          newValue: String(metadata.rating),
+        });
+      }
+    }
+    return result;
   }
 
   deleteEpisodeGroup(groupId: number): void {
@@ -470,7 +507,18 @@ export class LibraryService {
   // Watched status
 
   setEpisodeWatched(episodeId: number, watched: boolean): LibraryEpisode | null {
-    return this.library.setEpisodeWatched(episodeId, watched);
+    const oldWatched = this.library.getEpisodeWatchStatus(episodeId);
+    const result = this.library.setEpisodeWatched(episodeId, watched);
+    if (result && oldWatched !== null && oldWatched !== watched) {
+      this.events.append({
+        entityType: "episode",
+        entityId: episodeId,
+        eventType: "watched_toggle",
+        oldValue: String(oldWatched),
+        newValue: String(watched),
+      });
+    }
+    return result;
   }
 
   getEpisodeWatchStatus(episodeId: number): boolean | null {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { LibraryRepository } from "@kogoro/core";
 import { LibraryService } from "@kogoro/core";
-import { createLibraryRepository, withTempDir } from "@kogoro/core/testing";
+import { createEventRepository, createLibraryRepository, withTempDir } from "@kogoro/core/testing";
 import { createDashboardHandlers } from "./dashboard";
 
 function seedWatchingAnime(repo: LibraryRepository) {
@@ -98,8 +98,11 @@ describe("getDashboardData handler", () => {
   test("returns currently watching anime with progress", async () => {
     await withTempDir("dashboard-watching", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(repo);
-      const handlers = createDashboardHandlers({ libraryService: new LibraryService(repo) });
+      const handlers = createDashboardHandlers({
+        libraryService: new LibraryService(repo, evtRepo),
+      });
       const data = await handlers.getDashboardData();
 
       expect(data.currentlyWatching).toHaveLength(1);
@@ -107,6 +110,7 @@ describe("getDashboardData handler", () => {
       expect(data.currentlyWatching[0]?.groupName).toBe("Season 1");
       expect(data.currentlyWatching[0]?.watchedEpisodes).toBe(12);
       expect(data.currentlyWatching[0]?.totalEpisodes).toBe(24);
+      closeEvt();
       close();
     });
   });
@@ -114,11 +118,15 @@ describe("getDashboardData handler", () => {
   test("returns empty currently watching when none have watching status", async () => {
     await withTempDir("dashboard-no-watching", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
       seedCompletedAnime(repo);
-      const handlers = createDashboardHandlers({ libraryService: new LibraryService(repo) });
+      const handlers = createDashboardHandlers({
+        libraryService: new LibraryService(repo, evtRepo),
+      });
       const data = await handlers.getDashboardData();
 
       expect(data.currentlyWatching).toHaveLength(0);
+      closeEvt();
       close();
     });
   });
@@ -126,10 +134,13 @@ describe("getDashboardData handler", () => {
   test("returns library stats with correct counts", async () => {
     await withTempDir("dashboard-stats", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(repo);
       seedCompletedAnime(repo);
       seedPlanToWatchAnime(repo);
-      const handlers = createDashboardHandlers({ libraryService: new LibraryService(repo) });
+      const handlers = createDashboardHandlers({
+        libraryService: new LibraryService(repo, evtRepo),
+      });
       const data = await handlers.getDashboardData();
 
       expect(data.libraryStats.totalAnime).toBe(3);
@@ -137,6 +148,7 @@ describe("getDashboardData handler", () => {
       expect(data.libraryStats.onDisk).toBe(0);
       expect(data.libraryStats.partiallyOnDisk).toBe(0);
       expect(data.libraryStats.notOnDisk).toBe(3);
+      closeEvt();
       close();
     });
   });
@@ -144,15 +156,19 @@ describe("getDashboardData handler", () => {
   test("returns continue watching for anime with watched episodes and unwatched files", async () => {
     await withTempDir("dashboard-continue", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(repo);
       seedCompletedAnime(repo);
-      const handlers = createDashboardHandlers({ libraryService: new LibraryService(repo) });
+      const handlers = createDashboardHandlers({
+        libraryService: new LibraryService(repo, evtRepo),
+      });
       const data = await handlers.getDashboardData();
 
       const continueItems = data.continueWatching.filter((c) => c.title === "Steins;Gate");
       expect(continueItems).toHaveLength(1);
       expect(continueItems[0]?.watchedEpisodes).toBe(12);
       expect(continueItems[0]?.totalEpisodes).toBe(24);
+      closeEvt();
       close();
     });
   });
@@ -160,11 +176,15 @@ describe("getDashboardData handler", () => {
   test("returns empty continue watching when no partially watched anime", async () => {
     await withTempDir("dashboard-no-continue", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
       seedCompletedAnime(repo);
-      const handlers = createDashboardHandlers({ libraryService: new LibraryService(repo) });
+      const handlers = createDashboardHandlers({
+        libraryService: new LibraryService(repo, evtRepo),
+      });
       const data = await handlers.getDashboardData();
 
       expect(data.continueWatching).toHaveLength(0);
+      closeEvt();
       close();
     });
   });
@@ -172,13 +192,17 @@ describe("getDashboardData handler", () => {
   test("returns empty dashboard when library is empty", async () => {
     await withTempDir("dashboard-empty", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const handlers = createDashboardHandlers({ libraryService: new LibraryService(repo) });
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const handlers = createDashboardHandlers({
+        libraryService: new LibraryService(repo, evtRepo),
+      });
       const data = await handlers.getDashboardData();
 
       expect(data.currentlyWatching).toHaveLength(0);
       expect(data.libraryStats.totalAnime).toBe(0);
       expect(data.libraryStats.totalEpisodes).toBe(0);
       expect(data.continueWatching).toHaveLength(0);
+      closeEvt();
       close();
     });
   });
@@ -186,12 +210,16 @@ describe("getDashboardData handler", () => {
   test("getLibraryStats returns correct counts", async () => {
     await withTempDir("dashboard-stats-direct", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(repo);
-      const handlers = createDashboardHandlers({ libraryService: new LibraryService(repo) });
+      const handlers = createDashboardHandlers({
+        libraryService: new LibraryService(repo, evtRepo),
+      });
       const stats = handlers.getLibraryStats();
 
       expect(stats.animeCount).toBe(1);
       expect(stats.episodeCount).toBe(24);
+      closeEvt();
       close();
     });
   });

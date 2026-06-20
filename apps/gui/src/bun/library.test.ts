@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LibraryRepository } from "@kogoro/core";
 import { LibraryService } from "@kogoro/core";
-import { createLibraryRepository, withTempDir } from "@kogoro/core/testing";
+import { createEventRepository, createLibraryRepository, withTempDir } from "@kogoro/core/testing";
 import { createLibraryHandlers } from "./library";
 
 function seedLibrary(repo: LibraryRepository, coverDir?: string) {
@@ -78,7 +78,8 @@ describe("getLibrary handler", () => {
       writeFileSync(join(coverDir, "jjk.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
       const { repo, close } = createLibraryRepository(dir);
       seedLibrary(repo, coverDir);
-      const libraryService = new LibraryService(repo);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
       const result = await handlers.getLibrary();
 
@@ -88,6 +89,7 @@ describe("getLibrary handler", () => {
       expect(result[0]?.coverArt).toStartWith("data:image/jpeg;base64,");
       expect(result[1]?.titleEn).toBe("Jujutsu Kaisen");
       expect(result[1]?.episodeCount).toBe(24);
+      closeEvt();
       close();
     });
   });
@@ -95,10 +97,12 @@ describe("getLibrary handler", () => {
   test("returns empty array when library is empty", async () => {
     await withTempDir("library-handler-empty", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const libraryService = new LibraryService(repo);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
       const result = await handlers.getLibrary();
       expect(result).toHaveLength(0);
+      closeEvt();
       close();
     });
   });
@@ -112,7 +116,8 @@ describe("getAnimeDetail handler", () => {
       writeFileSync(join(coverDir, "jjk.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
       const { repo, close } = createLibraryRepository(dir);
       seedLibrary(repo, coverDir);
-      const libraryService = new LibraryService(repo);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
       const library = await handlers.getLibrary();
       const jjk = library.find((a) => a.titleEn === "Jujutsu Kaisen");
@@ -130,6 +135,7 @@ describe("getAnimeDetail handler", () => {
       expect(result?.groups[0]?.episodes[1]?.episodeNumber).toBe(2);
       expect(result?.groups[0]?.episodes[1]?.titleEn).toBe("Cursed Womb Must Die");
       expect(result?.filesOnDisk).toBe(2);
+      closeEvt();
       close();
     });
   });
@@ -138,10 +144,12 @@ describe("getAnimeDetail handler", () => {
     await withTempDir("library-handler-detail-miss", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
       seedLibrary(repo);
-      const libraryService = new LibraryService(repo);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
       const result = await handlers.getAnimeDetail({ id: "99999" });
       expect(result).toBeNull();
+      closeEvt();
       close();
     });
   });
@@ -152,12 +160,14 @@ describe("getLibraryStats handler", () => {
     await withTempDir("library-handler-stats", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
       seedLibrary(repo);
-      const libraryService = new LibraryService(repo);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
       const result = await handlers.getLibraryStats();
 
       expect(result.animeCount).toBe(2);
       expect(result.episodeCount).toBe(3);
+      closeEvt();
       close();
     });
   });
@@ -165,12 +175,14 @@ describe("getLibraryStats handler", () => {
   test("returns zero counts when library is empty", async () => {
     await withTempDir("library-handler-stats-empty", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const libraryService = new LibraryService(repo);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
       const result = await handlers.getLibraryStats();
 
       expect(result.animeCount).toBe(0);
       expect(result.episodeCount).toBe(0);
+      closeEvt();
       close();
     });
   });
@@ -180,7 +192,8 @@ describe("mergeMatches", () => {
   test("merges match entries into library", async () => {
     await withTempDir("library-merge", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const libraryService = new LibraryService(repo);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
 
       libraryService.mergeFromMatches([
@@ -200,6 +213,7 @@ describe("mergeMatches", () => {
       const library = await handlers.getLibrary();
       expect(library).toHaveLength(1);
       expect(library[0]?.titleEn).toBe("My Anime");
+      closeEvt();
       close();
     });
   });
@@ -220,6 +234,7 @@ describe("rebuild", () => {
 
       await withTempDir("library-rebuild", async (dir) => {
         const { repo, close } = createLibraryRepository(dir);
+        const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
         const jjk = repo.upsertAnime({
           externalId: "tvdb-12345",
           sourceDb: "tvdb",
@@ -277,7 +292,7 @@ describe("rebuild", () => {
           watched: false,
         });
 
-        const libraryService = new LibraryService(repo);
+        const libraryService = new LibraryService(repo, evtRepo);
         const handlers = createLibraryHandlers({ libraryService });
 
         const result = handlers.rebuild();
@@ -285,6 +300,7 @@ describe("rebuild", () => {
 
         const library = await handlers.getLibrary();
         expect(library.length).toBeGreaterThan(0);
+        closeEvt();
         close();
       });
     } finally {
@@ -295,10 +311,12 @@ describe("rebuild", () => {
   test("returns success when library is empty", async () => {
     await withTempDir("library-rebuild-empty", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const libraryService = new LibraryService(repo);
+      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
       const result = handlers.rebuild();
       expect(result.success).toBe(true);
+      closeEvt();
       close();
     });
   });

@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { EventRepository } from "../events/event-repository";
+import { createEventDb } from "../events/test-utils";
 import type { MatchEntry } from "../types";
 import { LibraryRepository } from "./library-repository";
 import { LibraryService } from "./library-service";
@@ -11,9 +13,11 @@ describe("LibraryService", () => {
   describe("rebuildFromMatches", () => {
     test("clears existing data and rebuilds from matches", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         repo.upsertAnime({
           externalId: "old-123",
@@ -72,14 +76,17 @@ describe("LibraryService", () => {
         expect(repo.getEpisodesByAnimeId(aot?.id as number)).toHaveLength(1);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("creates episode groups for each season", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const matches: MatchEntry[] = [
           {
@@ -115,14 +122,17 @@ describe("LibraryService", () => {
         expect(groups[1]?.seasonNumber).toBe(2);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("preserves watched status for matching episodes", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = repo.upsertAnime({
           externalId: "tvdb-12345",
@@ -194,14 +204,17 @@ describe("LibraryService", () => {
         expect(ep1Status?.watched).toBe(true);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("sets correct episodeCount per anime", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const matches: MatchEntry[] = [
           {
@@ -247,14 +260,17 @@ describe("LibraryService", () => {
         expect(aot?.episodeCount).toBe(1);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("preserves per-anime sourceDb", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const matches: MatchEntry[] = [
           {
@@ -288,14 +304,17 @@ describe("LibraryService", () => {
         expect(repo.findAnime("anidb-67890", "tvdb")).toBeNull();
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("preserves group watch statuses across rebuild", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = repo.upsertAnime({
           externalId: "tvdb-12345",
@@ -365,14 +384,17 @@ describe("LibraryService", () => {
         expect(groups[0]?.rating).toBe(9.5);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("preserves tracker mappings across rebuild", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = repo.upsertAnime({
           externalId: "tvdb-12345",
@@ -454,14 +476,17 @@ describe("LibraryService", () => {
         expect(anilistMapping?.externalId).toBe("67890");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("computes library state after rebuild", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const matches: MatchEntry[] = [
           {
@@ -494,6 +519,7 @@ describe("LibraryService", () => {
         expect(rebuilt?.libraryState).toBe("on_disk");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -501,9 +527,11 @@ describe("LibraryService", () => {
   describe("mergeFromMatches", () => {
     test("merges without deleting existing data", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = repo.upsertAnime({
           externalId: "tvdb-12345",
@@ -586,14 +614,17 @@ describe("LibraryService", () => {
         expect(ep2Status?.watched).toBe(false);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("adds new anime and episodes", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const matches: MatchEntry[] = [
           {
@@ -628,14 +659,17 @@ describe("LibraryService", () => {
         expect(repo.getEpisodesByAnimeId(jjk?.id as number)).toHaveLength(2);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("merges into existing anime", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const firstMatches: MatchEntry[] = [
           {
@@ -696,14 +730,17 @@ describe("LibraryService", () => {
         expect(repo.getEpisodesByAnimeId(jjk?.id as number)).toHaveLength(4);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("does not inflate episodeCount on repeated merges", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const matches: MatchEntry[] = [
           {
@@ -741,14 +778,17 @@ describe("LibraryService", () => {
         expect(updated?.episodeCount).toBe(2);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("groups by title instead of animeId for same-sourceDb matches", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const matches: MatchEntry[] = [
           {
@@ -799,14 +839,17 @@ describe("LibraryService", () => {
         expect(episodes).toHaveLength(3);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("merges into existing entry when title and sourceDb match", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         repo.upsertAnime({
           externalId: "111",
@@ -852,14 +895,17 @@ describe("LibraryService", () => {
         expect(episodes).toHaveLength(2);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("removes anime from other sourceDbs when switching databases", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anidbMatches: MatchEntry[] = [
           {
@@ -927,14 +973,17 @@ describe("LibraryService", () => {
         expect(repo.getEpisodesByAnimeId(tvdb?.id as number)).toHaveLength(2);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("computes library state after merge", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const matches: MatchEntry[] = [
           {
@@ -967,6 +1016,7 @@ describe("LibraryService", () => {
         expect(merged?.libraryState).toBe("on_disk");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -974,9 +1024,11 @@ describe("LibraryService", () => {
   describe("passthrough methods", () => {
     test("delegates to repository", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -991,14 +1043,17 @@ describe("LibraryService", () => {
         expect(service.getStats()).toEqual({ animeCount: 1, episodeCount: 0 });
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("exportMatches converts to MatchEntry format", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1039,6 +1094,7 @@ describe("LibraryService", () => {
         });
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1046,9 +1102,11 @@ describe("LibraryService", () => {
   describe("getAnimeDir", () => {
     test("returns common parent directory of episode files", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1085,14 +1143,17 @@ describe("LibraryService", () => {
         expect(dir).toBe("/media/Jujutsu Kaisen");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("returns dirname for single episode", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1121,14 +1182,17 @@ describe("LibraryService", () => {
         expect(dir).toBe("/media/Solo Leveling");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("returns null for anime with no episodes", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1141,14 +1205,17 @@ describe("LibraryService", () => {
         expect(dir).toBeNull();
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("narrows to deepest common parent", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1192,14 +1259,17 @@ describe("LibraryService", () => {
         expect(dir).toBe("/media/Mixed");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("strips type directory suffix from common parent", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1236,14 +1306,17 @@ describe("LibraryService", () => {
         expect(dir).toBe("/media/Jujutsu Kaisen");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("does not strip non-type directory suffix", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1272,6 +1345,7 @@ describe("LibraryService", () => {
         expect(dir).toBe("/media/Solo Leveling/season1");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1286,9 +1360,11 @@ describe("LibraryService", () => {
         writeFileSync(ep2Path, "");
 
         const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
         try {
           const repo = new LibraryRepository(db);
-          const service = new LibraryService(repo);
+          const evtRepo = new EventRepository(evtDb);
+          const service = new LibraryService(repo, evtRepo);
 
           const anime = service.upsertAnime({
             externalId: "tvdb-12345",
@@ -1331,6 +1407,7 @@ describe("LibraryService", () => {
           expect(repo.getEpisodesByAnimeId(animeList[0]?.id as number)).toHaveLength(2);
         } finally {
           sqlite.close();
+          evtSqlite.close();
         }
       } finally {
         rmSync(dir, { recursive: true });
@@ -1344,9 +1421,11 @@ describe("LibraryService", () => {
         writeFileSync(ep1Path, "");
 
         const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
         try {
           const repo = new LibraryRepository(db);
-          const service = new LibraryService(repo);
+          const evtRepo = new EventRepository(evtDb);
+          const service = new LibraryService(repo, evtRepo);
 
           const anime = service.upsertAnime({
             externalId: "tvdb-12345",
@@ -1380,6 +1459,7 @@ describe("LibraryService", () => {
           expect(statuses[0]?.watched).toBe(true);
         } finally {
           sqlite.close();
+          evtSqlite.close();
         }
       } finally {
         rmSync(dir, { recursive: true });
@@ -1397,9 +1477,11 @@ describe("LibraryService", () => {
         writeFileSync(ep2Path, "");
 
         const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
         try {
           const repo = new LibraryRepository(db);
-          const service = new LibraryService(repo);
+          const evtRepo = new EventRepository(evtDb);
+          const service = new LibraryService(repo, evtRepo);
 
           const a1 = service.upsertAnime({
             externalId: "tvdb-100",
@@ -1456,6 +1538,7 @@ describe("LibraryService", () => {
           expect(repo.listAnime()).toHaveLength(1);
         } finally {
           sqlite.close();
+          evtSqlite.close();
         }
       } finally {
         rmSync(dir, { recursive: true });
@@ -1466,9 +1549,11 @@ describe("LibraryService", () => {
   describe("updateCoverArtPath", () => {
     test("updates cover art path for existing anime", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1483,14 +1568,17 @@ describe("LibraryService", () => {
         expect(updated?.coverArtPath).toBe("/media/Jujutsu Kaisen/cover.jpg");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("does not affect other anime fields", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1506,6 +1594,7 @@ describe("LibraryService", () => {
         expect(updated?.episodeCount).toBe(24);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1513,9 +1602,11 @@ describe("LibraryService", () => {
   describe("isAnimeInLibrary", () => {
     test("returns true when anime exists with given sourceDb", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1527,26 +1618,32 @@ describe("LibraryService", () => {
         expect(service.isAnimeInLibrary("tvdb-12345", "tvdb")).toBe(true);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("returns false when anime does not exist", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         expect(service.isAnimeInLibrary("tvdb-99999", "tvdb")).toBe(false);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("defaults sourceDb to tvdb when not provided", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1558,14 +1655,17 @@ describe("LibraryService", () => {
         expect(service.isAnimeInLibrary("tvdb-12345")).toBe(true);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("does not match wrong sourceDb", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1577,6 +1677,7 @@ describe("LibraryService", () => {
         expect(service.isAnimeInLibrary("tvdb-12345", "anidb")).toBe(false);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1584,9 +1685,11 @@ describe("LibraryService", () => {
   describe("episode groups", () => {
     test("returns episode groups for anime", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1615,14 +1718,17 @@ describe("LibraryService", () => {
         expect(groups[1]?.watchStatus).toBe("watching");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("updates episode group watch status", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1650,6 +1756,7 @@ describe("LibraryService", () => {
         expect(updated.rating).toBe(9.0);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1657,9 +1764,11 @@ describe("LibraryService", () => {
   describe("tracker mappings", () => {
     test("creates and retrieves tracker mappings", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1687,14 +1796,17 @@ describe("LibraryService", () => {
         expect(mappings[0]?.externalId).toBe("12345");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
 
     test("finds group by tracker external id", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1723,6 +1835,7 @@ describe("LibraryService", () => {
         expect(notFound).toBeNull();
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1730,9 +1843,11 @@ describe("LibraryService", () => {
   describe("setGroupWatchStatus", () => {
     test("updates episode group watch status", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1752,6 +1867,7 @@ describe("LibraryService", () => {
         expect(updated?.watchStatus).toBe("completed");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1759,9 +1875,11 @@ describe("LibraryService", () => {
   describe("updateEpisodeGroupMetadata", () => {
     test("updates group metadata", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1785,6 +1903,7 @@ describe("LibraryService", () => {
         expect(updated?.rating).toBe(9.0);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1792,9 +1911,11 @@ describe("LibraryService", () => {
   describe("deleteEpisodeGroup", () => {
     test("deletes episode group", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1814,6 +1935,7 @@ describe("LibraryService", () => {
         expect(service.getEpisodeGroup(group.id)).toBeNull();
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1821,9 +1943,11 @@ describe("LibraryService", () => {
   describe("getEpisodesByGroupId", () => {
     test("returns episodes belonging to group", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1852,6 +1976,7 @@ describe("LibraryService", () => {
         expect(groupEpisodes[0]?.episodeNumber).toBe(1);
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1859,9 +1984,11 @@ describe("LibraryService", () => {
   describe("getTrackerMapping", () => {
     test("returns single mapping", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1890,6 +2017,7 @@ describe("LibraryService", () => {
         expect(notFound).toBeNull();
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1897,9 +2025,11 @@ describe("LibraryService", () => {
   describe("removeTrackerMappingsBySource", () => {
     test("removes all mappings for source", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1933,6 +2063,7 @@ describe("LibraryService", () => {
         expect(mappings[0]?.source).toBe("anilist");
       } finally {
         sqlite.close();
+        evtSqlite.close();
       }
     });
   });
@@ -1940,9 +2071,11 @@ describe("LibraryService", () => {
   describe("removeTrackerMapping", () => {
     test("removes single mapping", () => {
       const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-        const service = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
 
         const anime = service.upsertAnime({
           externalId: "tvdb-12345",
@@ -1976,6 +2109,270 @@ describe("LibraryService", () => {
         expect(mappings[0]?.source).toBe("anilist");
       } finally {
         sqlite.close();
+        evtSqlite.close();
+      }
+    });
+  });
+
+  describe("event logging", () => {
+    test("setGroupWatchStatus records status_change event", () => {
+      const { db: libDb, sqlite: libSqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const libRepo = new LibraryRepository(libDb);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(libRepo, evtRepo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        service.setGroupWatchStatus(group.id, "completed");
+
+        const events = evtRepo.replay();
+        expect(events).toHaveLength(1);
+        expect(events[0]?.entityType).toBe("group");
+        expect(events[0]?.entityId).toBe(group.id);
+        expect(events[0]?.eventType).toBe("status_change");
+        expect(events[0]?.oldValue).toBe("plan_to_watch");
+        expect(events[0]?.newValue).toBe("completed");
+      } finally {
+        libSqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("setGroupWatchStatus skips event when status unchanged", () => {
+      const { db: libDb, sqlite: libSqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const libRepo = new LibraryRepository(libDb);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(libRepo, evtRepo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        service.setGroupWatchStatus(group.id, "watching");
+
+        const events = evtRepo.replay();
+        expect(events).toHaveLength(0);
+      } finally {
+        libSqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("setEpisodeWatched records watched_toggle event", () => {
+      const { db: libDb, sqlite: libSqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const libRepo = new LibraryRepository(libDb);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(libRepo, evtRepo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const ep = libRepo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: false,
+        });
+
+        service.setEpisodeWatched(ep.id, true);
+
+        const events = evtRepo.replay();
+        expect(events).toHaveLength(1);
+        expect(events[0]?.entityType).toBe("episode");
+        expect(events[0]?.entityId).toBe(ep.id);
+        expect(events[0]?.eventType).toBe("watched_toggle");
+        expect(events[0]?.oldValue).toBe("false");
+        expect(events[0]?.newValue).toBe("true");
+      } finally {
+        libSqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("setEpisodeWatched skips event when watched unchanged", () => {
+      const { db: libDb, sqlite: libSqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const libRepo = new LibraryRepository(libDb);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(libRepo, evtRepo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const ep = libRepo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: false,
+        });
+
+        service.setEpisodeWatched(ep.id, false);
+
+        const events = evtRepo.replay();
+        expect(events).toHaveLength(0);
+      } finally {
+        libSqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("updateEpisodeGroupMetadata records notes_update for synopsis change", () => {
+      const { db: libDb, sqlite: libSqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const libRepo = new LibraryRepository(libDb);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(libRepo, evtRepo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        service.updateEpisodeGroupMetadata(group.id, { synopsis: "A great anime" });
+
+        const events = evtRepo.replay();
+        expect(events).toHaveLength(1);
+        expect(events[0]?.entityType).toBe("group");
+        expect(events[0]?.entityId).toBe(group.id);
+        expect(events[0]?.eventType).toBe("notes_update");
+        expect(events[0]?.oldValue).toBeNull();
+        expect(events[0]?.newValue).toBe("A great anime");
+      } finally {
+        libSqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("updateEpisodeGroupMetadata records notes_update for rating change", () => {
+      const { db: libDb, sqlite: libSqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const libRepo = new LibraryRepository(libDb);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(libRepo, evtRepo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        service.updateEpisodeGroupMetadata(group.id, { rating: 8.5 });
+
+        const events = evtRepo.replay();
+        expect(events).toHaveLength(1);
+        expect(events[0]?.eventType).toBe("notes_update");
+        expect(events[0]?.oldValue).toBeNull();
+        expect(events[0]?.newValue).toBe("8.5");
+      } finally {
+        libSqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("updateEpisodeGroupMetadata skips event when synopsis unchanged", () => {
+      const { db: libDb, sqlite: libSqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const libRepo = new LibraryRepository(libDb);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(libRepo, evtRepo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+          synopsis: "Same synopsis",
+        });
+
+        service.updateEpisodeGroupMetadata(group.id, { synopsis: "Same synopsis" });
+
+        const events = evtRepo.replay();
+        expect(events).toHaveLength(0);
+      } finally {
+        libSqlite.close();
+        evtSqlite.close();
       }
     });
   });

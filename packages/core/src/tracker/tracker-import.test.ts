@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { EventRepository } from "../events/event-repository";
+import { createEventDb } from "../events/test-utils";
 import { createLibraryRepository } from "../fixtures";
 import { LibraryService } from "../library/library-service";
 import type { TrackerAnime, TrackerPlugin } from "../types";
@@ -36,8 +38,10 @@ describe("TrackerImportService", () => {
   describe("getImportPreview", () => {
     it("returns empty preview when tracker list is empty", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
         const tracker = createMockTrackerPlugin([]);
         const service = new TrackerImportService(libraryService, tracker, "anilist");
 
@@ -56,13 +60,16 @@ describe("TrackerImportService", () => {
         });
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("categorizes new entries as unmatched", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
         const tracker = createMockTrackerPlugin([
           {
             trackerId: "tl-1",
@@ -94,13 +101,16 @@ describe("TrackerImportService", () => {
         expect(preview.statusCounts.completed).toBe(1);
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("matches tracker entries to existing library anime by title", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         libraryService.upsertAnime({
           externalId: "tvdb-123",
@@ -142,13 +152,16 @@ describe("TrackerImportService", () => {
         expect(preview.conflicts).toHaveLength(0);
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("matches by alternative titles", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         libraryService.upsertAnime({
           externalId: "tvdb-123",
@@ -176,6 +189,7 @@ describe("TrackerImportService", () => {
         expect(preview.unmatched).toHaveLength(0);
       } finally {
         close();
+        evtSqlite.close();
       }
     });
   });
@@ -183,8 +197,10 @@ describe("TrackerImportService", () => {
   describe("confirmImport", () => {
     it("creates new anime and episode groups for unmatched entries", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
         const tracker = createMockTrackerPlugin([
           {
             trackerId: "tl-1",
@@ -216,13 +232,16 @@ describe("TrackerImportService", () => {
         expect(mappings[0]?.externalId).toBe("tl-1");
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("updates watch status for matched entries", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tvdb-123",
@@ -264,13 +283,16 @@ describe("TrackerImportService", () => {
         expect(mappings[0]?.externalId).toBe("tl-1");
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("skips entries already imported from the same tracker", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tvdb-123",
@@ -310,13 +332,16 @@ describe("TrackerImportService", () => {
         expect(result.skipped).toBe(1);
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("handles multiple seasons from tracker", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
         const tracker = createMockTrackerPlugin([
           {
             trackerId: "tl-s1",
@@ -348,13 +373,16 @@ describe("TrackerImportService", () => {
         expect(groups).toHaveLength(2);
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("detects conflicts when watch status differs", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tvdb-123",
@@ -395,13 +423,16 @@ describe("TrackerImportService", () => {
         expect(preview.conflicts[0]?.watchStatus).toBe("completed");
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("resolves conflict by keeping local status", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tvdb-123",
@@ -438,13 +469,16 @@ describe("TrackerImportService", () => {
         expect(updatedGroup?.watchStatus).toBe("watching");
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("resolves conflict by accepting tracker status", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tvdb-123",
@@ -481,13 +515,16 @@ describe("TrackerImportService", () => {
         expect(updatedGroup?.watchStatus).toBe("completed");
       } finally {
         close();
+        evtSqlite.close();
       }
     });
 
     it("links unmatched entry to existing group", async () => {
       const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(repo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tvdb-123",
@@ -528,6 +565,7 @@ describe("TrackerImportService", () => {
         expect(mappings[0]?.externalId).toBe("tl-1");
       } finally {
         close();
+        evtSqlite.close();
       }
     });
   });

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { EventRepository } from "../events/event-repository";
+import { createEventDb } from "../events/test-utils";
 import { createEventRepository, createLibraryRepository, createMockTracker } from "../fixtures";
 import { LibraryService } from "../library/library-service";
 import type { SyncConflict } from "./sync-engine";
@@ -9,8 +11,10 @@ describe("SyncEngine", () => {
     test("applies remote changes when no local events exist", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -58,14 +62,17 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
 
     test("flags conflict when local events exist for entity", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -125,14 +132,17 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
 
     test("pulls only tracked entries for this tracker", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime1 = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -202,14 +212,17 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
 
     test("does not flag conflict for already-pushed events", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -267,14 +280,17 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
 
     test("handles multiple entries from tracker", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime1 = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -353,6 +369,7 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
   });
@@ -361,8 +378,10 @@ describe("SyncEngine", () => {
     test("sends unpushed events to tracker and marks them as pushed", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -421,14 +440,17 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
 
     test("does not push events already pushed to this tracker", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -476,14 +498,17 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
 
     test("pushes to all connected trackers for multi-tracker support", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -542,6 +567,7 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
   });
@@ -550,8 +576,10 @@ describe("SyncEngine", () => {
     test("keeps local version when resolving with keepLocal", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -611,14 +639,17 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
 
     test("applies remote version when resolving with acceptRemote", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
-        const libraryService = new LibraryService(libraryRepo);
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const anime = libraryService.upsertAnime({
           externalId: "tracker-1",
@@ -677,6 +708,7 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
+        evtSqlite.close();
       }
     });
   });

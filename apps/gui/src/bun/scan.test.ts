@@ -17,6 +17,7 @@ import {
 } from "@kogoro/core";
 import {
   createAmbiguousMatcher,
+  createEventRepository,
   createLibraryRepository,
   createMatchCacheService,
   createMockDb,
@@ -252,7 +253,8 @@ describe("ScanOrchestrator", () => {
         expect(matches.length).toBeGreaterThan(0);
 
         const { repo: libraryRepo, close } = createLibraryRepository(dir);
-        const libraryService = new LibraryService(libraryRepo);
+        const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
         libraryService.rebuildFromMatches(matches);
 
         const animeList = libraryRepo.listAnime();
@@ -263,6 +265,7 @@ describe("ScanOrchestrator", () => {
         expect(episodes).toHaveLength(1);
         expect(episodes[0]?.episodeNumber).toBe(1);
 
+        closeEvt();
         close();
       });
     });
@@ -435,7 +438,8 @@ describe("ScanOrchestrator", () => {
         writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
 
         const { repo: libraryRepo } = createLibraryRepository(dir);
-        const libraryService = new LibraryService(libraryRepo);
+        const { repo: evtRepo } = createEventRepository(dir);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const handlers = createScanHandlers({
           pluginFactory: {
@@ -511,7 +515,8 @@ describe("ScanOrchestrator", () => {
         writeTempFile(dir, "[Group] My Anim - 01.mkv", "fake video content");
 
         const { repo: libraryRepo } = createLibraryRepository(dir);
-        const libraryService = new LibraryService(libraryRepo);
+        const { repo: evtRepo } = createEventRepository(dir);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
 
         const captured: { plan?: ReviewPlan } = {};
 

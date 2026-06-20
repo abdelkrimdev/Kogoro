@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { CredentialStore, LibraryService } from "@kogoro/core";
-import { createLibraryRepository, createMockKeytar } from "@kogoro/core/testing";
+import {
+  createEventRepository,
+  createLibraryRepository,
+  createMockKeytar,
+} from "@kogoro/core/testing";
 import {
   connectTracker,
   disconnectTracker,
@@ -156,14 +160,18 @@ describe("connectTracker", () => {
 describe("disconnectTracker", () => {
   let service: LibraryService;
   let closeService: () => void;
+  let closeEvtService: () => void;
 
   beforeEach(() => {
     const { repo, close } = createLibraryRepository();
-    service = new LibraryService(repo);
+    const { repo: evtRepo, close: closeEvt } = createEventRepository();
+    service = new LibraryService(repo, evtRepo);
     closeService = close;
+    closeEvtService = closeEvt;
   });
 
   afterEach(() => {
+    closeEvtService();
     closeService();
   });
 

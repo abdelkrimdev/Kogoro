@@ -4,6 +4,7 @@ import {
   CacheService,
   ConfigManager,
   createCredentialStore,
+  createEventsConnection,
   createLibraryConnection,
   createMatchCacheConnection,
   LibraryService,
@@ -52,12 +53,13 @@ const configManager = new ConfigManager();
 const credentialStore = createCredentialStore();
 const pluginFactory = new PluginFactory(configManager, credentialStore);
 
-const { cacheDbPath, libraryDbPath } = resolveDbPaths();
+const { cacheDbPath, libraryDbPath, eventsDbPath } = resolveDbPaths();
 const { matchRepo, scanStateRepo } = createMatchCacheConnection(cacheDbPath);
 const libraryRepo = createLibraryConnection(libraryDbPath);
+const eventsRepo = createEventsConnection(eventsDbPath);
 const cacheService = new CacheService(matchRepo, scanStateRepo);
 const scanStateService = new ScanStateService(scanStateRepo);
-const libraryService = new LibraryService(libraryRepo);
+const libraryService = new LibraryService(libraryRepo, eventsRepo);
 
 const libraryHandlers = createLibraryHandlers({
   libraryService,

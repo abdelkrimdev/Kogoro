@@ -5,6 +5,7 @@ import type { CacheService, DatabasePlugin } from "@kogoro/core";
 import { ConfigManager, LibraryService } from "@kogoro/core";
 import {
   createArtworkDb,
+  createEventRepository,
   createLibraryRepository,
   createMatchCacheService,
   createTrackingEnrichmentSend,
@@ -24,7 +25,14 @@ function createLibraryService(dir: string): {
   close: () => void;
 } {
   const { repo, close } = createLibraryRepository(dir);
-  return { svc: new LibraryService(repo), close };
+  const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+  return {
+    svc: new LibraryService(repo, evtRepo),
+    close: () => {
+      closeEvt();
+      close();
+    },
+  };
 }
 
 async function seedLibraryAndCache(
