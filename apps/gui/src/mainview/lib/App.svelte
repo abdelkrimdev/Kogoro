@@ -26,6 +26,7 @@
   import Settings from "./Settings.svelte";
   import Scan from "./Scan.svelte";
   import ImportPreview from "./ImportPreview.svelte";
+  import SyncConflictView from "./SyncConflictView.svelte";
   import Footer from "./Footer.svelte";
 
   interface Props {
@@ -81,6 +82,7 @@
   let currentDetailId = $state<string | null>(null);
   let importPreviewTracker = $state<string | null>(null);
   let importPreviewDisplayName = $state<string>("");
+  let syncConflictsData = $state<import("../../shared/types").SyncConflictInfo[]>([]);
   let isLoading = $state(true);
   let incompleteConfig = $state<{ incomplete: boolean; missingKey?: string } | null>(null);
   let keyringResult = $state<KeyringCheckResult | null>(null);
@@ -128,6 +130,21 @@
 
   function onImportPreviewCancel() {
     importPreviewTracker = null;
+    currentView = "settings";
+  }
+
+  function onOpenSyncConflicts(conflicts: import("../../shared/types").SyncConflictInfo[]) {
+    syncConflictsData = conflicts;
+    currentView = "sync-conflicts";
+  }
+
+  function onSyncConflictsComplete() {
+    syncConflictsData = [];
+    currentView = "settings";
+  }
+
+  function onSyncConflictsCancel() {
+    syncConflictsData = [];
     currentView = "settings";
   }
 
@@ -303,7 +320,7 @@
           </div>
         {:else if currentView === "settings"}
           <div class="flex-1 min-h-0 overflow-auto">
-            <Settings {rpc} {keyringResult} {onRerunOnboarding} onOpenImportPreview={onOpenImportPreview} />
+            <Settings {rpc} {keyringResult} {onRerunOnboarding} onOpenImportPreview={onOpenImportPreview} onOpenSyncConflicts={onOpenSyncConflicts} />
           </div>
         {:else if currentView === "import-preview" && importPreviewTracker}
           <ImportPreview
@@ -312,6 +329,13 @@
             trackerDisplayName={importPreviewDisplayName}
             onComplete={onImportPreviewComplete}
             onCancel={onImportPreviewCancel}
+          />
+        {:else if currentView === "sync-conflicts"}
+          <SyncConflictView
+            {rpc}
+            conflicts={syncConflictsData}
+            onComplete={onSyncConflictsComplete}
+            onCancel={onSyncConflictsCancel}
           />
         {:else if currentView === "details" && currentDetailId}
           <div class="flex-1 min-h-0 overflow-auto">

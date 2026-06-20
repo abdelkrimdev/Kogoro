@@ -9,7 +9,8 @@ export type View =
   | "details"
   | "settings"
   | "review"
-  | "import-preview";
+  | "import-preview"
+  | "sync-conflicts";
 
 interface NavItem {
   view: View;
