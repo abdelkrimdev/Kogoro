@@ -7,9 +7,7 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/fixtures.ts",
-    "./tracker-import": "./src/tracker/tracker-import.ts",
-    "./io/http-client": "./src/io/http-client.ts"
+    "./testing": "./src/fixtures.ts"
   },
   "scripts": {
     "check": "tsc --noEmit"

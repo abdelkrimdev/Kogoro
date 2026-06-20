@@ -1,5 +1,5 @@
 import type { ConfigManager, CredentialStore } from "@kogoro/core";
-import type { PluginInfo } from "@kogoro/plugins";
+import { type PluginInfo, PluginRegistry } from "@kogoro/plugins";
 
 type SettingsFormData = {
   primaryDb: string;
@@ -31,40 +31,9 @@ function maskApiKey(key: string | undefined): string {
 }
 
 function buildPluginList(
-  pluginsConfig: Record<string, { enabled?: boolean }> | undefined,
+  pluginsConfig: Record<string, { enabled: boolean }> | undefined,
 ): PluginInfo[] {
-  return [
-    {
-      name: "tvdb",
-      type: "database",
-      source: "built-in",
-      enabled: pluginsConfig?.["tvdb"]?.enabled ?? true,
-    },
-    {
-      name: "anidb",
-      type: "database",
-      source: "built-in",
-      enabled: pluginsConfig?.["anidb"]?.enabled ?? true,
-    },
-    {
-      name: "opensubtitles",
-      type: "subtitle",
-      source: "built-in",
-      enabled: pluginsConfig?.["opensubtitles"]?.enabled ?? true,
-    },
-    {
-      name: "anilist",
-      type: "tracker",
-      source: "built-in",
-      enabled: pluginsConfig?.["anilist"]?.enabled ?? true,
-    },
-    {
-      name: "kitsu",
-      type: "tracker",
-      source: "built-in",
-      enabled: pluginsConfig?.["kitsu"]?.enabled ?? true,
-    },
-  ];
+  return new PluginRegistry().list(pluginsConfig);
 }
 
 export async function buildSettingsFormData(

@@ -17,6 +17,7 @@ export interface TrackerCredentialField {
 interface TrackerDefinition {
   name: string;
   displayName: string;
+  credentialKey: string;
   fields: TrackerCredentialField[];
   buildCredential: (values: Record<string, string>) => string | null;
   extractAccountInfo: (credential: string) => string | undefined;
@@ -26,6 +27,7 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
   {
     name: "anilist",
     displayName: "AniList",
+    credentialKey: "anilist",
     fields: [
       {
         name: "token",
@@ -43,6 +45,7 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
   {
     name: "kitsu",
     displayName: "Kitsu",
+    credentialKey: "kitsu",
     fields: [
       { name: "username", label: "Username", type: "text", placeholder: "Kitsu username" },
       { name: "password", label: "Password", type: "password", placeholder: "Kitsu password" },
@@ -58,6 +61,24 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
       return colonIndex > 0 ? credential.slice(0, colonIndex) : undefined;
     },
   },
+  {
+    name: "myanimelist",
+    displayName: "MyAnimeList",
+    credentialKey: "mal",
+    fields: [
+      {
+        name: "token",
+        label: "Access Token",
+        type: "password",
+        placeholder: "Enter your MyAnimeList access token",
+      },
+    ],
+    buildCredential: (values) => {
+      const token = values["token"] ?? "";
+      return token || null;
+    },
+    extractAccountInfo: () => undefined,
+  },
 ];
 
 export async function getTrackerStatus(
@@ -65,7 +86,7 @@ export async function getTrackerStatus(
 ): Promise<TrackerConnectionInfo[]> {
   const statusList: TrackerConnectionInfo[] = [];
   for (const def of TRACKER_DEFINITIONS) {
-    const credential = await credentialStore.getCredential(def.name);
+    const credential = await credentialStore.getCredential(def.credentialKey);
     statusList.push({
       name: def.name,
       displayName: def.displayName,
@@ -94,7 +115,7 @@ export async function connectTracker(
     return { success: false, error: `${requiredFields} are required` };
   }
 
-  await credentialStore.setCredential(def.name, credential);
+  await credentialStore.setCredential(def.credentialKey, credential);
   return { success: true };
 }
 
@@ -107,6 +128,6 @@ export async function disconnectTracker(
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
   libraryService.removeTrackerMappingsBySource(def.name);
-  await credentialStore.deleteCredential(def.name);
+  await credentialStore.deleteCredential(def.credentialKey);
   return { success: true };
 }

@@ -25,9 +25,10 @@ describe("getTrackerStatus", () => {
   test("returns not-connected status when no credentials stored", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const status = await getTrackerStatus(store);
-    expect(status).toHaveLength(2);
+    expect(status).toHaveLength(3);
     expect(status.find((t) => t.name === "anilist")?.connected).toBe(false);
     expect(status.find((t) => t.name === "kitsu")?.connected).toBe(false);
+    expect(status.find((t) => t.name === "myanimelist")?.connected).toBe(false);
   });
 
   test("returns connected status with account info for anilist", async () => {
@@ -50,7 +51,7 @@ describe("getTrackerStatus", () => {
   test("returns display names for all trackers", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const status = await getTrackerStatus(store);
-    expect(status.map((t) => t.displayName)).toEqual(["AniList", "Kitsu"]);
+    expect(status.map((t) => t.displayName)).toEqual(["AniList", "Kitsu", "MyAnimeList"]);
   });
 });
 
@@ -70,6 +71,13 @@ describe("getTrackerConnectionFields", () => {
     expect(usernameField?.type).toBe("text");
     expect(passwordField?.name).toBe("password");
     expect(passwordField?.type).toBe("password");
+  });
+
+  test("returns token field for myanimelist", () => {
+    const fields = getTrackerConnectionFields("myanimelist");
+    expect(fields).toHaveLength(1);
+    expect(fields[0]?.name).toBe("token");
+    expect(fields[0]?.type).toBe("password");
   });
 });
 
@@ -114,14 +122,34 @@ describe("connectTracker", () => {
     expect(result.error).toBeDefined();
   });
 
+  test("stores myanimelist token credential", async () => {
+    const store = new CredentialStore({ keytar: createMockKeytar() });
+    const result = await connectTracker(store, {
+      name: "myanimelist",
+      values: { token: "my-mal-token" },
+    });
+    expect(result.success).toBe(true);
+    expect(await store.getCredential("mal")).toBe("my-mal-token");
+  });
+
+  test("returns error when myanimelist token is empty", async () => {
+    const store = new CredentialStore({ keytar: createMockKeytar() });
+    const result = await connectTracker(store, {
+      name: "myanimelist",
+      values: { token: "" },
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Token");
+  });
+
   test("returns error for unknown tracker", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const result = await connectTracker(store, {
-      name: "mal",
+      name: "invalid",
       values: {},
     });
     expect(result.success).toBe(false);
-    expect(result.error).toContain("mal");
+    expect(result.error).toContain("invalid");
   });
 });
 
@@ -155,11 +183,19 @@ describe("disconnectTracker", () => {
     expect(await store.getCredential("kitsu")).toBeUndefined();
   });
 
+  test("deletes myanimelist credential", async () => {
+    const store = new CredentialStore({ keytar: createMockKeytar() });
+    await store.setCredential("mal", "token");
+    const result = await disconnectTracker(store, service, { name: "myanimelist" });
+    expect(result.success).toBe(true);
+    expect(await store.getCredential("mal")).toBeUndefined();
+  });
+
   test("returns error for unknown tracker", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
-    const result = await disconnectTracker(store, service, { name: "mal" });
+    const result = await disconnectTracker(store, service, { name: "invalid" });
     expect(result.success).toBe(false);
-    expect(result.error).toContain("mal");
+    expect(result.error).toContain("invalid");
   });
 
   test("succeeds when no credential exists", async () => {

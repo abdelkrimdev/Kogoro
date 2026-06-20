@@ -9,8 +9,6 @@ import {
   type TrackerWatchStatus,
 } from "@kogoro/core";
 
-const GRAPHQL_URL = "https://graphql.anilist.co";
-
 interface AniListTitle {
   romaji: string | null;
   english: string | null;
@@ -184,10 +182,12 @@ query ($id: Int) {
 }`;
 
 export class AniListPlugin implements TrackerPlugin {
+  private baseUrl: string;
   private token: string | null;
   private httpClient: HttpClient;
 
-  constructor(options: { token?: string; httpClient?: HttpClient }) {
+  constructor(options: { baseUrl: string; token?: string; httpClient?: HttpClient }) {
+    this.baseUrl = options.baseUrl;
     this.token = options.token ?? null;
     this.httpClient = options.httpClient ?? new HttpClient();
   }
@@ -296,7 +296,7 @@ export class AniListPlugin implements TrackerPlugin {
       headers["Authorization"] = `Bearer ${this.token}`;
     }
 
-    const response = await this.httpClient.fetch(GRAPHQL_URL, {
+    const response = await this.httpClient.fetch(this.baseUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({ query, variables }),

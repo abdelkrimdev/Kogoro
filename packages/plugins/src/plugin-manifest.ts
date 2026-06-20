@@ -113,7 +113,7 @@ async function loadAnilist(
     minDelay: entry.rateLimit,
     ...debugOptions(ctx.debug),
   });
-  return new AniListPlugin({ token: token ?? undefined, httpClient });
+  return new AniListPlugin({ baseUrl: entry.baseUrl, token: token ?? undefined, httpClient });
 }
 
 async function loadKitsu(
@@ -147,6 +147,8 @@ async function loadMyAnimeList(
     ...debugOptions(ctx.debug),
   });
   return new MyAnimeListPlugin({
+    baseUrl: entry.baseUrl,
+    credentialKey: entry.credentialKey,
     credentialStore: ctx.credentialStore,
     httpClient,
   });

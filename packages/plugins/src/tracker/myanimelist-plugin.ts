@@ -103,22 +103,26 @@ function mapMediaType(mediaType: string | undefined): "tv" | "movie" | "ova" | "
 }
 
 export class MyAnimeListPlugin implements TrackerPlugin {
-  private static readonly BASE_URL = "https://api.myanimelist.net/v2";
-
+  private baseUrl: string;
+  private credentialKey: string;
   private accessToken: string | null = null;
   private credentialStore: CredentialStore;
   private httpClient: HttpClient;
 
   constructor(options: {
+    baseUrl: string;
+    credentialKey: string;
     credentialStore: CredentialStore;
     httpClient: HttpClient;
   }) {
+    this.baseUrl = options.baseUrl;
+    this.credentialKey = options.credentialKey;
     this.credentialStore = options.credentialStore;
     this.httpClient = options.httpClient;
   }
 
   async authenticate(): Promise<string> {
-    const token = await this.credentialStore.getCredential("mal");
+    const token = await this.credentialStore.getCredential(this.credentialKey);
     if (token) {
       this.accessToken = token;
       return token;
@@ -126,7 +130,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
 
     const codeVerifier = this.generateCodeVerifier();
     const codeChallenge = await this.generateCodeChallenge(codeVerifier);
-    await this.credentialStore.setCredential("mal_code_verifier", codeVerifier);
+    await this.credentialStore.setCredential(`${this.credentialKey}_code_verifier`, codeVerifier);
 
     const authUrl = new URL("https://myanimelist.net/v1/oauth2/authorize");
     authUrl.searchParams.set("client_id", process.env["MAL_CLIENT_ID"] || "");
@@ -150,7 +154,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
 
     while (true) {
       const data = await this.fetchJson<MALAnimeListResponse>(
-        `${MyAnimeListPlugin.BASE_URL}/users/@me/animelist?offset=${offset}&limit=${limit}&fields=list_status`,
+        `${this.baseUrl}/users/@me/animelist?offset=${offset}&limit=${limit}&fields=list_status`,
       );
 
       for (const item of data.data) {
@@ -186,7 +190,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     await this.ensureAuthenticated();
 
     const data = await this.fetchJson<MALAnimeDetailsResponse>(
-      `${MyAnimeListPlugin.BASE_URL}/anime/${trackerId}?fields=my_list_status,num_episodes`,
+      `${this.baseUrl}/anime/${trackerId}?fields=my_list_status,num_episodes`,
     );
 
     if (!data.my_list_status) {
@@ -225,7 +229,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     }
 
     const response = await this.httpClient.fetch(
-      `${MyAnimeListPlugin.BASE_URL}/anime/${trackerId}/my_list_status`,
+      `${this.baseUrl}/anime/${trackerId}/my_list_status`,
       {
         method: "PATCH",
         headers: {
@@ -244,7 +248,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     await this.ensureAuthenticated();
 
     const data = await this.fetchJson<MALAnimeDetailsResponse>(
-      `${MyAnimeListPlugin.BASE_URL}/anime/${trackerId}?fields=synopsis,mean,genres,studios,main_picture,alternative_titles,start_date,num_episodes,media_type`,
+      `${this.baseUrl}/anime/${trackerId}?fields=synopsis,mean,genres,studios,main_picture,alternative_titles,start_date,num_episodes,media_type`,
     );
 
     return {

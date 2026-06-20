@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowLeft, LoaderCircle, Check, Link, AlertTriangle, Search } from "@lucide/svelte";
   import { Dialog, Portal } from "@skeletonlabs/skeleton-svelte";
-  import type { ImportPreview, ImportResult } from "@kogoro/core/tracker-import";
+  import type { ImportPreview, ImportResult } from "@kogoro/core";
   import type { RPCClient } from "../shared";
   import { entryTypeLabel } from "../shared";
 

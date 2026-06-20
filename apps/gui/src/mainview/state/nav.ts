@@ -1,4 +1,4 @@
-import { LayoutDashboard, LayoutGrid, Search, Settings } from "@lucide/svelte";
+import { LayoutDashboard, Library, Search, Settings } from "@lucide/svelte";
 import type { RPCClient } from "../shared";
 
 export type View =
@@ -19,7 +19,7 @@ interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { view: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { view: "library", label: "Library", icon: LayoutGrid },
+  { view: "library", label: "Library", icon: Library },
   { view: "scan", label: "Scan", icon: Search },
   { view: "settings", label: "Settings", icon: Settings },
 ];

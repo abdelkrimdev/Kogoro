@@ -108,7 +108,15 @@ export type { ScanResult } from "./scan/scanner";
 export { Scanner } from "./scan/scanner";
 export type { PullResult, PushResult, SyncConflict } from "./tracker/sync-engine";
 export { SyncEngine } from "./tracker/sync-engine";
-export type { TrackerSource } from "./tracker/tracker-import";
+export type {
+  ImportPreview,
+  ImportPreviewEntry,
+  ImportResult,
+  ImportSelection,
+  MatchStatus,
+  TrackerSource,
+} from "./tracker/tracker-import";
+export { TrackerImportService } from "./tracker/tracker-import";
 export type {
   AnimeResult,
   ArtworkResult,

@@ -1,4 +1,4 @@
-import type { ImportPreview, ImportResult, ImportSelection } from "@kogoro/core/tracker-import";
+import type { ImportPreview, ImportResult, ImportSelection } from "@kogoro/core";
 import type { RPCClient } from "../shared";
 
 export type MatchStatus = "matched" | "unmatched" | "conflict";
