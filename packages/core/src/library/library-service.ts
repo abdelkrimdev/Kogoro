@@ -2,7 +2,9 @@ import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { stripTypeDir } from "../config/schema";
 import type { EventRepository } from "../events/event-repository";
-import type { EntryType, MatchEntry } from "../types";
+import type { TrackerSource } from "../tracker/tracker-import";
+import { mapTrackerStatus } from "../tracker/tracker-utils";
+import type { EntryType, MatchEntry, TrackerAnime, TrackerPlugin } from "../types";
 import type {
   EpisodeGroup,
   GroupTrackerMapping,
@@ -110,13 +112,48 @@ export class LibraryService {
   }
 
   rebuild(sourceDb?: string): void {
-    const allMatches = this.exportMatches();
-    const filtered = sourceDb ? allMatches.filter((m) => m.sourceDb === sourceDb) : allMatches;
-    const matches = filtered.filter((m) => existsSync(m.filePath));
-    this.rebuildFromMatches(matches);
+    this.rebuildFromMatches(this.getFilteredMatches(sourceDb));
   }
 
-  rebuildFromMatches(matches: MatchEntry[]): void {
+  async rebuildWithTrackers(
+    trackers: Array<{ plugin: TrackerPlugin; source: TrackerSource }>,
+    sourceDb?: string,
+  ): Promise<void> {
+    const matches = this.getFilteredMatches(sourceDb);
+
+    let oldEntitySnapshot:
+      | {
+          groupByCompositeKey: Map<string, number>;
+          episodeByCompositeKey: Map<string, number>;
+        }
+      | undefined;
+
+    this.rebuildFromMatches(matches, (snapshot) => {
+      oldEntitySnapshot = snapshot;
+    });
+
+    for (const { plugin, source } of trackers) {
+      await this.importFromTracker(plugin, source);
+    }
+
+    if (oldEntitySnapshot) {
+      this.replayUnpushedEvents(oldEntitySnapshot);
+    }
+  }
+
+  private getFilteredMatches(sourceDb?: string): MatchEntry[] {
+    const allMatches = this.exportMatches();
+    const filtered = sourceDb ? allMatches.filter((m) => m.sourceDb === sourceDb) : allMatches;
+    return filtered.filter((m) => existsSync(m.filePath));
+  }
+
+  rebuildFromMatches(
+    matches: MatchEntry[],
+    onBeforeWipe?: (snapshot: {
+      groupByCompositeKey: Map<string, number>;
+      episodeByCompositeKey: Map<string, number>;
+    }) => void,
+  ): void {
     this.library.transaction((tx) => {
       const oldState = tx.getAllEpisodesWithAnime();
 
@@ -147,6 +184,7 @@ export class LibraryService {
           coverArtPath?: string;
         }
       >();
+      const groupByCompositeKey = new Map<string, number>();
       for (const group of oldGroups) {
         oldGroupById.set(group.id, group);
         const animeInfo = oldAnimeById.get(group.animeId);
@@ -163,6 +201,7 @@ export class LibraryService {
           rating: group.rating,
           coverArtPath: group.coverArtPath,
         });
+        groupByCompositeKey.set(key, group.id);
       }
 
       const mappingsByKey = new Map<string, GroupTrackerMapping[]>();
@@ -188,6 +227,10 @@ export class LibraryService {
         } else {
           mappingsByKey.set(key, [mapped]);
         }
+      }
+
+      if (onBeforeWipe) {
+        onBeforeWipe({ groupByCompositeKey, episodeByCompositeKey: oldEpisodeKey });
       }
 
       tx.deleteAll();
@@ -476,6 +519,199 @@ export class LibraryService {
     }));
     const state = computeLibraryState(groupFiles);
     r.updateLibraryState(animeId, state);
+  }
+
+  private async importFromTracker(tracker: TrackerPlugin, source: TrackerSource): Promise<void> {
+    const trackerList = await tracker.getUserList();
+    const libraryAnime = this.library.listAnime();
+
+    for (const entry of trackerList) {
+      const existingMapping = this.library.findGroupByTrackerExternalId(source, entry.trackerId);
+      if (existingMapping) continue;
+
+      const existingAnime = this.findMatchingAnime(entry, libraryAnime);
+      if (existingAnime) {
+        this.importToExistingAnimeFromTracker(existingAnime, entry, source);
+      } else {
+        this.importAsNewAnimeFromTracker(entry, source);
+      }
+    }
+  }
+
+  private findMatchingAnime(
+    trackerEntry: TrackerAnime,
+    libraryAnimeList: Array<{ id: number; title: string; titleJapanese?: string }>,
+  ): { id: number; title: string } | null {
+    const titleLower = trackerEntry.title.toLowerCase();
+    const baseTitleLower = titleLower.replace(/\s+season\s+\d+/i, "").trim();
+
+    for (const anime of libraryAnimeList) {
+      const animeTitleLower = anime.title.toLowerCase();
+      if (animeTitleLower === titleLower) return anime;
+      if (animeTitleLower.replace(/\s+season\s+\d+/i, "").trim() === baseTitleLower) return anime;
+    }
+
+    if (trackerEntry.alternativeTitles) {
+      for (const altTitle of trackerEntry.alternativeTitles) {
+        const altLower = altTitle.toLowerCase();
+        const altBaseLower = altLower.replace(/\s+season\s+\d+/i, "").trim();
+        for (const anime of libraryAnimeList) {
+          const animeTitleLower = anime.title.toLowerCase();
+          if (animeTitleLower === altLower) return anime;
+          if (animeTitleLower.replace(/\s+season\s+\d+/i, "").trim() === altBaseLower) return anime;
+          if (anime.titleJapanese?.toLowerCase() === altLower) return anime;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private importToExistingAnimeFromTracker(
+    anime: { id: number; title: string },
+    trackerEntry: TrackerAnime,
+    source: TrackerSource,
+  ): void {
+    const groups = this.library.getEpisodeGroupsByAnimeId(anime.id);
+    const seasonNumber = this.extractSeasonNumber(trackerEntry);
+
+    const existingGroup = groups.find(
+      (g) =>
+        g.entryType === trackerEntry.entryType && (g.seasonNumber ?? 1) === (seasonNumber ?? 1),
+    );
+
+    if (existingGroup) {
+      this.library.updateEpisodeGroupStatus(
+        existingGroup.id,
+        mapTrackerStatus(trackerEntry.watchStatus),
+      );
+    } else {
+      this.library.upsertEpisodeGroup({
+        animeId: anime.id,
+        entryType: trackerEntry.entryType,
+        seasonNumber,
+        watchStatus: mapTrackerStatus(trackerEntry.watchStatus),
+      });
+    }
+
+    const group =
+      existingGroup ??
+      this.library
+        .getEpisodeGroupsByAnimeId(anime.id)
+        .find(
+          (g) =>
+            g.entryType === trackerEntry.entryType && (g.seasonNumber ?? 1) === (seasonNumber ?? 1),
+        );
+
+    if (group) {
+      this.library.upsertGroupTrackerMapping({
+        groupId: group.id,
+        source,
+        externalId: trackerEntry.trackerId,
+      });
+    }
+  }
+
+  private importAsNewAnimeFromTracker(trackerEntry: TrackerAnime, source: TrackerSource): void {
+    const anime = this.library.upsertAnime({
+      externalId: `tracker-${trackerEntry.trackerId}`,
+      sourceDb: source,
+      title: trackerEntry.title,
+      episodeCount: trackerEntry.totalEpisodes,
+    });
+
+    const seasonNumber = this.extractSeasonNumber(trackerEntry);
+
+    const group = this.library.upsertEpisodeGroup({
+      animeId: anime.id,
+      entryType: trackerEntry.entryType,
+      seasonNumber,
+      watchStatus: mapTrackerStatus(trackerEntry.watchStatus),
+    });
+
+    this.library.upsertGroupTrackerMapping({
+      groupId: group.id,
+      source,
+      externalId: trackerEntry.trackerId,
+    });
+  }
+
+  private extractSeasonNumber(trackerEntry: TrackerAnime): number | undefined {
+    const title = trackerEntry.title.toLowerCase();
+    const seasonMatch = title.match(/season\s+(\d+)/);
+    if (seasonMatch?.[1]) {
+      return Number.parseInt(seasonMatch[1], 10);
+    }
+    return undefined;
+  }
+
+  private replayUnpushedEvents(oldSnapshot: {
+    groupByCompositeKey: Map<string, number>;
+    episodeByCompositeKey: Map<string, number>;
+  }): void {
+    const unpushed = this.events.getUnpushed();
+    if (unpushed.length === 0) return;
+
+    const newGroupByCompositeKey = new Map<string, number>();
+    for (const a of this.library.listAnime()) {
+      for (const g of this.library.getEpisodeGroupsByAnimeId(a.id)) {
+        const key = groupCompositeKey(a.externalId, a.sourceDb, g.entryType, g.seasonNumber);
+        newGroupByCompositeKey.set(key, g.id);
+      }
+    }
+
+    this.library.transaction((tx) => {
+      for (const event of unpushed) {
+        if (event.entityType === "group") {
+          const oldGroupId = [...oldSnapshot.groupByCompositeKey.entries()].find(
+            ([, id]) => id === event.entityId,
+          )?.[0];
+          if (!oldGroupId) continue;
+
+          const newGroupId = newGroupByCompositeKey.get(oldGroupId);
+          if (newGroupId === undefined) continue;
+
+          if (event.eventType === "status_change" && event.newValue) {
+            tx.updateEpisodeGroupStatus(newGroupId, event.newValue as EpisodeGroup["watchStatus"]);
+          } else if (event.eventType === "notes_update" && event.newValue !== null) {
+            const group = tx.getEpisodeGroup(newGroupId);
+            if (!group) continue;
+            const metadata: { synopsis?: string; rating?: number } = {};
+            if (group.synopsis === event.oldValue) {
+              metadata.synopsis = event.newValue;
+            } else if (group.rating?.toString() === event.oldValue) {
+              metadata.rating = Number.parseFloat(event.newValue);
+            }
+            if (Object.keys(metadata).length > 0) {
+              tx.updateEpisodeGroupMetadata(newGroupId, metadata);
+            }
+          }
+        } else if (event.entityType === "episode") {
+          const oldEpKey = [...oldSnapshot.episodeByCompositeKey.entries()].find(
+            ([, id]) => id === event.entityId,
+          )?.[0];
+          if (!oldEpKey) continue;
+
+          const [animeExternalId, sourceDb, seasonStr, episodeStr] = oldEpKey.split(":");
+          const newAnime = tx.findAnime(animeExternalId ?? "", sourceDb ?? "");
+          if (!newAnime) continue;
+
+          const episodeNumber = Number.parseInt(episodeStr ?? "0", 10);
+          const season = Number.parseInt(seasonStr ?? "1", 10);
+
+          if (event.eventType === "watched_toggle" && event.newValue) {
+            const watched = event.newValue === "true";
+            const episodes = tx.getEpisodesByAnimeId(newAnime.id);
+            const ep = episodes.find(
+              (e) => e.episodeNumber === episodeNumber && (e.season ?? 1) === season,
+            );
+            if (ep) {
+              tx.setEpisodeWatched(ep.id, watched);
+            }
+          }
+        }
+      }
+    });
   }
 
   // Tracker Mappings
