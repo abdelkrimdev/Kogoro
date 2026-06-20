@@ -33,6 +33,7 @@ import {
   setSidebarCollapsed,
   setThemeMode,
 } from "./state";
+import { createSyncHandlers } from "./sync";
 import {
   connectTracker,
   disconnectTracker,
@@ -60,6 +61,13 @@ const eventsRepo = createEventsConnection(eventsDbPath);
 const cacheService = new CacheService(matchRepo, scanStateRepo);
 const scanStateService = new ScanStateService(scanStateRepo);
 const libraryService = new LibraryService(libraryRepo, eventsRepo);
+
+const syncHandlers = createSyncHandlers({
+  libraryService,
+  eventsRepo,
+  pluginFactory,
+  credentialStore,
+});
 
 const libraryHandlers = createLibraryHandlers({
   libraryService,
@@ -174,6 +182,10 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         disconnectTracker(credentialStore, libraryService, params),
       getImportPreview: async (params) => trackerImportHandlers.getImportPreview(params),
       confirmImport: async (params) => trackerImportHandlers.confirmImport(params),
+      syncAll: async () => syncHandlers.syncAll(),
+      syncAnime: async (params) => syncHandlers.syncAnime(params),
+      triggerManualSync: async () => syncHandlers.triggerManualSync(),
+      resolveSyncConflict: async (params) => syncHandlers.resolveSyncConflict(params),
       getDashboardData: async () => dashboardHandlers.getDashboardData(),
     },
     messages: {

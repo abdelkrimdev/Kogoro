@@ -272,7 +272,7 @@ describe("PluginLoader", () => {
           "loader-tracker-external",
           async (_dir, config, credentialStore) => {
             const loader = new PluginLoader();
-            const plugin = await loader.loadTracker("myanimelist", config.plugins, credentialStore);
+            const plugin = await loader.loadTracker("mal", config.plugins, credentialStore);
             expect(plugin).toBeDefined();
             expect(plugin?.authenticate).toBeInstanceOf(Function);
             expect(plugin?.getUserList).toBeInstanceOf(Function);
@@ -364,9 +364,9 @@ describe("PluginLoader", () => {
         await withTestConfig(
           "loader-tracker-disabled",
           async (_dir, config, credentialStore) => {
-            config.set("plugins.myanimelist.enabled", "false");
+            config.set("plugins.mal.enabled", "false");
             const loader = new PluginLoader();
-            const plugin = await loader.loadTracker("myanimelist", config.plugins, credentialStore);
+            const plugin = await loader.loadTracker("mal", config.plugins, credentialStore);
             expect(plugin).toBeUndefined();
           },
           null,

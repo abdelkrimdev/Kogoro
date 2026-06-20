@@ -200,7 +200,7 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     load: loadKitsu,
   },
   {
-    name: "myanimelist",
+    name: "mal",
     type: "tracker",
     description: "MyAnimeList.net plugin",
     baseUrl: "https://api.myanimelist.net/v2",

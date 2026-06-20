@@ -99,6 +99,7 @@
 
   $effect(() => {
     loadDetail();
+    rpc.request("syncAnime", { animeId }).catch(() => {});
   });
 </script>
 

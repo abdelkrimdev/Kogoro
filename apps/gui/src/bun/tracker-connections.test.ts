@@ -32,7 +32,7 @@ describe("getTrackerStatus", () => {
     expect(status).toHaveLength(3);
     expect(status.find((t) => t.name === "anilist")?.connected).toBe(false);
     expect(status.find((t) => t.name === "kitsu")?.connected).toBe(false);
-    expect(status.find((t) => t.name === "myanimelist")?.connected).toBe(false);
+    expect(status.find((t) => t.name === "mal")?.connected).toBe(false);
   });
 
   test("returns connected status with account info for anilist", async () => {
@@ -77,8 +77,8 @@ describe("getTrackerConnectionFields", () => {
     expect(passwordField?.type).toBe("password");
   });
 
-  test("returns token field for myanimelist", () => {
-    const fields = getTrackerConnectionFields("myanimelist");
+  test("returns token field for mal", () => {
+    const fields = getTrackerConnectionFields("mal");
     expect(fields).toHaveLength(1);
     expect(fields[0]?.name).toBe("token");
     expect(fields[0]?.type).toBe("password");
@@ -126,20 +126,20 @@ describe("connectTracker", () => {
     expect(result.error).toBeDefined();
   });
 
-  test("stores myanimelist token credential", async () => {
+  test("stores mal token credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const result = await connectTracker(store, {
-      name: "myanimelist",
+      name: "mal",
       values: { token: "my-mal-token" },
     });
     expect(result.success).toBe(true);
     expect(await store.getCredential("mal")).toBe("my-mal-token");
   });
 
-  test("returns error when myanimelist token is empty", async () => {
+  test("returns error when mal token is empty", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const result = await connectTracker(store, {
-      name: "myanimelist",
+      name: "mal",
       values: { token: "" },
     });
     expect(result.success).toBe(false);
@@ -191,10 +191,10 @@ describe("disconnectTracker", () => {
     expect(await store.getCredential("kitsu")).toBeUndefined();
   });
 
-  test("deletes myanimelist credential", async () => {
+  test("deletes mal credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("mal", "token");
-    const result = await disconnectTracker(store, service, { name: "myanimelist" });
+    const result = await disconnectTracker(store, service, { name: "mal" });
     expect(result.success).toBe(true);
     expect(await store.getCredential("mal")).toBeUndefined();
   });

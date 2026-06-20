@@ -23,6 +23,7 @@ import type {
   setSidebarCollapsed,
   setThemeMode,
 } from "../bun/state";
+import type { SyncHandlers } from "../bun/sync";
 import type {
   connectTracker,
   disconnectTracker,
@@ -240,6 +241,22 @@ export type AppRPC = {
       getDashboardData: {
         params: Record<string, never>;
         response: AwaitedReturnType<DashboardHandlers["getDashboardData"]>;
+      };
+      syncAll: {
+        params: Record<string, never>;
+        response: AwaitedReturnType<SyncHandlers["syncAll"]>;
+      };
+      syncAnime: {
+        params: { animeId: string };
+        response: AwaitedReturnType<SyncHandlers["syncAnime"]>;
+      };
+      triggerManualSync: {
+        params: Record<string, never>;
+        response: AwaitedReturnType<SyncHandlers["triggerManualSync"]>;
+      };
+      resolveSyncConflict: {
+        params: Parameters<SyncHandlers["resolveSyncConflict"]>[0];
+        response: AwaitedReturnType<SyncHandlers["resolveSyncConflict"]>;
       };
     };
     messages: {

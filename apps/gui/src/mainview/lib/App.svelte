@@ -195,6 +195,10 @@
 
     isLoading = false;
     currentView = view;
+
+    if (!onboardingResult.needsOnboarding) {
+      rpc.request("syncAll", {}).catch(() => {});
+    }
   });
 
   $effect(() => {

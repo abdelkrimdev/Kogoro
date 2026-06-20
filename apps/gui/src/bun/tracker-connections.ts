@@ -62,7 +62,7 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     },
   },
   {
-    name: "myanimelist",
+    name: "mal",
     displayName: "MyAnimeList",
     credentialKey: "mal",
     fields: [

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Switch, TagsInput, Toast, createToaster, Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
-  import type { KeyringCheckResult } from "@kogoro/core";
+  import type { KeyringCheckResult, SyncConflict } from "@kogoro/core";
   import SelectField from './SelectField.svelte';
   import KeyringNotice from './KeyringNotice.svelte';
   import { TEMPLATE_PRESETS } from "../shared";
@@ -55,6 +55,9 @@
   let connectDialogValues = $state<Record<string, string>>({});
   let connectingInProgress = $state(false);
   let disconnectDialogTracker = $state<string | null>(null);
+
+  let syncing = $state(false);
+  let syncResult = $state<{ applied: number; conflicts: SyncConflict[] } | null>(null);
 
   const apiKeys = $derived((settingsData["apiKeys"] as Record<string, string>) ?? {});
   const plugins = $derived(
@@ -208,6 +211,46 @@
       }
     } catch {
       showNotification("Failed to disconnect tracker");
+    }
+  }
+
+  async function handleSyncNow() {
+    syncing = true;
+    syncResult = null;
+    try {
+      const result = (await rpc.request("triggerManualSync", {})) as {
+        applied: number;
+        conflicts: SyncConflict[];
+        errors: Array<{ tracker: string; error: string }>;
+      };
+      syncResult = { applied: result.applied, conflicts: result.conflicts };
+      if (result.errors.length > 0) {
+        showNotification(`Sync completed with ${result.errors.length} error(s)`);
+      } else if (result.conflicts.length > 0) {
+        showNotification(`${result.conflicts.length} conflict(s) found`);
+      } else {
+        showNotification(`Synced — ${result.applied} change(s) applied`);
+      }
+    } catch {
+      showNotification("Sync failed");
+    } finally {
+      syncing = false;
+    }
+  }
+
+  async function handleResolveConflict(conflict: SyncConflict, resolution: "keepLocal" | "acceptRemote") {
+    try {
+      const result = (await rpc.request("resolveSyncConflict", { conflict, resolution })) as { success: boolean };
+      if (result.success) {
+        showNotification("Conflict resolved");
+        syncResult = syncResult
+          ? { ...syncResult, conflicts: syncResult.conflicts.filter((c) => c.groupId !== conflict.groupId || c.tracker !== conflict.tracker) }
+          : null;
+      } else {
+        showNotification("Failed to resolve conflict");
+      }
+    } catch {
+      showNotification("Failed to resolve conflict");
     }
   }
 
@@ -465,6 +508,59 @@
           </div>
         </div>
       {/each}
+    </div>
+
+    <div class="card preset-outlined-surface-300-700 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-surface-950-50">Sync Trackers</p>
+          <p class="text-xs text-surface-600-400 mt-1">
+            Pull latest status from connected trackers and push local changes.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm preset-filled-primary-500 rounded-lg font-medium"
+          onclick={handleSyncNow}
+          disabled={syncing}
+        >
+          {syncing ? "Syncing..." : "Sync Now"}
+        </button>
+      </div>
+      {#if syncResult && syncResult.conflicts.length > 0}
+        <div class="border-t border-surface-300-700 pt-3 space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge preset-tonal-warning text-xs">{syncResult.conflicts.length} conflict(s)</span>
+            <span class="text-xs text-surface-600-400">Local and remote changes differ</span>
+          </div>
+          {#each syncResult.conflicts as conflict (conflict.groupId + conflict.tracker)}
+            <div class="flex items-center justify-between text-sm p-2 rounded-lg bg-surface-200-800/50">
+              <div class="flex items-center gap-2">
+                <span class="text-surface-950-50">Group #{conflict.groupId}</span>
+                <span class="text-surface-600-400">({conflict.tracker})</span>
+                <span class="text-surface-600-400">→</span>
+                <span class="text-surface-700-300">{conflict.remoteChange.watchStatus}</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  class="btn btn-xs preset-tonal-surface rounded-lg"
+                  onclick={() => handleResolveConflict(conflict, "keepLocal")}
+                >
+                  Keep Local
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-xs preset-tonal-primary rounded-lg"
+                  onclick={() => handleResolveConflict(conflict, "acceptRemote")}
+                >
+                  Accept Remote
+                </button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   </section>
 

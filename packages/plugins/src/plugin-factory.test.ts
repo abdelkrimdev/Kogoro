@@ -286,7 +286,7 @@ describe("PluginFactory", () => {
         "factory-tracker-test",
         async (_dir, config, credentialStore) => {
           const factory = new PluginFactory(config, credentialStore);
-          const plugin = await factory.tracker("myanimelist");
+          const plugin = await factory.tracker("mal");
           expect(plugin).toBeDefined();
           expect(plugin?.authenticate).toBeInstanceOf(Function);
           expect(plugin?.getUserList).toBeInstanceOf(Function);
@@ -302,9 +302,9 @@ describe("PluginFactory", () => {
       await withTestConfig(
         "factory-tracker-disabled",
         async (_dir, config, credentialStore) => {
-          config.set("plugins.myanimelist.enabled", "false");
+          config.set("plugins.mal.enabled", "false");
           const factory = new PluginFactory(config, credentialStore);
-          const plugin = await factory.tracker("myanimelist");
+          const plugin = await factory.tracker("mal");
           expect(plugin).toBeUndefined();
         },
         null,

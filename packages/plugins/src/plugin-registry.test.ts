@@ -24,7 +24,7 @@ describe("PluginRegistry", () => {
       const trackerPlugins = plugins.filter((p) => p.type === "tracker");
       expect(trackerPlugins.some((p) => p.name === "anilist")).toBe(true);
       expect(trackerPlugins.some((p) => p.name === "kitsu")).toBe(true);
-      expect(trackerPlugins.some((p) => p.name === "myanimelist")).toBe(true);
+      expect(trackerPlugins.some((p) => p.name === "mal")).toBe(true);
     });
 
     test("marks disabled plugins", () => {
