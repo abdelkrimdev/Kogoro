@@ -68,7 +68,7 @@ const dashboardHandlers = createDashboardHandlers({ libraryService });
 
 const trackerImportHandlers = createTrackerImportHandlers({
   libraryService,
-  credentialStore,
+  pluginFactory,
 });
 
 const enrichmentHandlers = createEnrichmentHandlers({

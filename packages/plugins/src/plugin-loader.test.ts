@@ -5,7 +5,7 @@ import { PluginLoader } from "./plugin-loader";
 describe("PluginLoader", () => {
   describe("loadDatabase", () => {
     describe("tvdb", () => {
-      test("constructs TVDBPlugin with correct API key", async () => {
+      test("constructs TVDBPlugin with the provided API key", async () => {
         let loginBody: string | undefined;
 
         await withMockFetch(
@@ -96,8 +96,8 @@ describe("PluginLoader", () => {
       });
     });
 
-    describe("unknown plugin name", () => {
-      test("loads external plugin via dynamic import", async () => {
+    describe("external plugin", () => {
+      test("loads external database plugin via dynamic import", async () => {
         mock.module("kogoro-plugin-myextdb", () => ({
           default: class ExternalPlugin {
             async searchAnime() {
@@ -242,9 +242,9 @@ describe("PluginLoader", () => {
   });
 
   describe("loadTracker", () => {
-    describe("unknown tracker plugin name", () => {
-      test("loads external tracker plugin via dynamic import", async () => {
-        mock.module("kogoro-tracker-myanimelist", () => ({
+    describe("external tracker plugin", () => {
+      test("loads external tracker plugin via kogoro-plugin-* prefix", async () => {
+        mock.module("kogoro-plugin-myanimelist", () => ({
           default: class ExternalTrackerPlugin {
             async authenticate() {
               return "token";
@@ -285,7 +285,7 @@ describe("PluginLoader", () => {
       });
 
       test("caches external tracker plugin instance", async () => {
-        mock.module("kogoro-tracker-cached-trk", () => ({
+        mock.module("kogoro-plugin-cached-trk", () => ({
           default: class CachedTrackerPlugin {
             id = Math.random();
             async authenticate() {
@@ -323,7 +323,7 @@ describe("PluginLoader", () => {
       });
 
       test("returns undefined when default export is not a constructor", async () => {
-        mock.module("kogoro-tracker-badctor", () => ({
+        mock.module("kogoro-plugin-badctor", () => ({
           default: "not a constructor",
         }));
 
@@ -339,7 +339,7 @@ describe("PluginLoader", () => {
       });
 
       test("returns undefined when plugin does not implement TrackerPlugin", async () => {
-        mock.module("kogoro-tracker-badimpl", () => ({
+        mock.module("kogoro-plugin-badimpl-trk", () => ({
           default: class BadTrackerPlugin {
             async authenticate() {
               return "token";
@@ -351,7 +351,7 @@ describe("PluginLoader", () => {
           "loader-tracker-bad-impl",
           async (_dir, config, credentialStore) => {
             const loader = new PluginLoader();
-            const plugin = await loader.loadTracker("badimpl", config.plugins, credentialStore);
+            const plugin = await loader.loadTracker("badimpl-trk", config.plugins, credentialStore);
             expect(plugin).toBeUndefined();
           },
           null,

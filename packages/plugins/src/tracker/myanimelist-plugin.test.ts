@@ -3,11 +3,15 @@ import type { CredentialStore, TrackerWatchStatus } from "@kogoro/core";
 import { createMockHttpClient, createMockKeytar, withTestConfig } from "@kogoro/core/testing";
 import { MyAnimeListPlugin } from "./myanimelist-plugin";
 
+const MAL_BASE_URL = "https://api.myanimelist.net/v2";
+
 function createPlugin(
   credentialStore: CredentialStore,
   fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>,
 ): MyAnimeListPlugin {
   return new MyAnimeListPlugin({
+    baseUrl: MAL_BASE_URL,
+    credentialKey: "mal",
     credentialStore,
     httpClient: createMockHttpClient(fetch),
   });
@@ -103,7 +107,7 @@ describe("MyAnimeListPlugin", () => {
       );
     });
 
-    test("handles pagination correctly", async () => {
+    test("fetches across multiple pages", async () => {
       const page1Response = {
         data: [
           {
@@ -176,6 +180,59 @@ describe("MyAnimeListPlugin", () => {
         },
         createMockKeytar({ "kogoro:mal": "test-token" }),
       );
+    });
+
+    test("maps MAL statuses to Kogoro statuses", async () => {
+      const statusTests = [
+        { mal: "watching", expected: "watching" },
+        { mal: "completed", expected: "completed" },
+        { mal: "on_hold", expected: "on-hold" },
+        { mal: "dropped", expected: "dropped" },
+        { mal: "plan_to_watch", expected: "plan-to-watch" },
+      ];
+
+      for (const { mal, expected } of statusTests) {
+        const mockResponse = {
+          data: [
+            {
+              node: {
+                id: 1,
+                title: "Test",
+                media_type: "tv",
+                num_episodes: 12,
+              },
+              list_status: {
+                status: mal,
+                score: 0,
+                num_episodes_watched: 0,
+                is_rewatching: false,
+                updated_at: "2023-06-01T10:00:00+00:00",
+              },
+            },
+          ],
+          paging: {},
+        };
+
+        await withTestConfig(
+          `mal-status-${mal}`,
+          async (_dir, _config, credentialStore) => {
+            const plugin = createPlugin(
+              credentialStore,
+              async () =>
+                new Response(JSON.stringify(mockResponse), {
+                  status: 200,
+                  headers: { "Content-Type": "application/json" },
+                }),
+            );
+
+            await plugin.authenticate();
+            const list = await plugin.getUserList();
+
+            expect(list[0]?.watchStatus).toBe(expected as TrackerWatchStatus);
+          },
+          createMockKeytar({ "kogoro:mal": "test-token" }),
+        );
+      }
     });
   });
 
@@ -316,61 +373,6 @@ describe("MyAnimeListPlugin", () => {
         },
         createMockKeytar({ "kogoro:mal": "test-token" }),
       );
-    });
-  });
-
-  describe("status mapping", () => {
-    test("maps MAL statuses to Kogoro statuses correctly", async () => {
-      const statusTests = [
-        { mal: "watching", expected: "watching" },
-        { mal: "completed", expected: "completed" },
-        { mal: "on_hold", expected: "on-hold" },
-        { mal: "dropped", expected: "dropped" },
-        { mal: "plan_to_watch", expected: "plan-to-watch" },
-      ];
-
-      for (const { mal, expected } of statusTests) {
-        const mockResponse = {
-          data: [
-            {
-              node: {
-                id: 1,
-                title: "Test",
-                media_type: "tv",
-                num_episodes: 12,
-              },
-              list_status: {
-                status: mal,
-                score: 0,
-                num_episodes_watched: 0,
-                is_rewatching: false,
-                updated_at: "2023-06-01T10:00:00+00:00",
-              },
-            },
-          ],
-          paging: {},
-        };
-
-        await withTestConfig(
-          `mal-status-${mal}`,
-          async (_dir, _config, credentialStore) => {
-            const plugin = createPlugin(
-              credentialStore,
-              async () =>
-                new Response(JSON.stringify(mockResponse), {
-                  status: 200,
-                  headers: { "Content-Type": "application/json" },
-                }),
-            );
-
-            await plugin.authenticate();
-            const list = await plugin.getUserList();
-
-            expect(list[0]?.watchStatus).toBe(expected as TrackerWatchStatus);
-          },
-          createMockKeytar({ "kogoro:mal": "test-token" }),
-        );
-      }
     });
   });
 });

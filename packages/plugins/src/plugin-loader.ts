@@ -2,37 +2,27 @@ import type { CredentialStore, DatabasePlugin, SubtitlePlugin, TrackerPlugin } f
 import { getManifestEntry, type PluginLoadContext } from "./plugin-manifest";
 import { isPluginEnabled } from "./plugin-registry";
 
-function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
+function hasMethod(obj: unknown, method: string): boolean {
   if (obj === null || typeof obj !== "object") return false;
-  const p = obj as {
-    searchAnime?: unknown;
-    getAnime?: unknown;
-    getEpisodes?: unknown;
-    getArtwork?: unknown;
-  };
+  return typeof (obj as Record<string, unknown>)[method] === "function";
+}
+
+function isDatabasePlugin(obj: unknown): obj is DatabasePlugin {
   return (
-    typeof p.searchAnime === "function" &&
-    typeof p.getAnime === "function" &&
-    typeof p.getEpisodes === "function" &&
-    typeof p.getArtwork === "function"
+    hasMethod(obj, "searchAnime") &&
+    hasMethod(obj, "getAnime") &&
+    hasMethod(obj, "getEpisodes") &&
+    hasMethod(obj, "getArtwork")
   );
 }
 
 function isTrackerPlugin(obj: unknown): obj is TrackerPlugin {
-  if (obj === null || typeof obj !== "object") return false;
-  const p = obj as {
-    authenticate?: unknown;
-    getUserList?: unknown;
-    getEntry?: unknown;
-    updateEntry?: unknown;
-    getAnimeDetails?: unknown;
-  };
   return (
-    typeof p.authenticate === "function" &&
-    typeof p.getUserList === "function" &&
-    typeof p.getEntry === "function" &&
-    typeof p.updateEntry === "function" &&
-    typeof p.getAnimeDetails === "function"
+    hasMethod(obj, "authenticate") &&
+    hasMethod(obj, "getUserList") &&
+    hasMethod(obj, "getEntry") &&
+    hasMethod(obj, "updateEntry") &&
+    hasMethod(obj, "getAnimeDetails")
   );
 }
 
@@ -40,8 +30,7 @@ export class PluginLoader {
   private databaseCache: Map<string, DatabasePlugin> = new Map();
   private subtitleCache: Map<string, SubtitlePlugin> = new Map();
   private trackerCache: Map<string, TrackerPlugin> = new Map();
-  private externalCache: Map<string, DatabasePlugin> = new Map();
-  private externalTrackerCache: Map<string, TrackerPlugin> = new Map();
+  private externalCache: Map<string, DatabasePlugin | TrackerPlugin> = new Map();
 
   constructor(private debug?: boolean) {}
 
@@ -65,7 +54,7 @@ export class PluginLoader {
       }
       return plugin as DatabasePlugin | undefined;
     }
-    return this.loadExternalDatabasePlugin(name);
+    return this.loadExternalPlugin(name, isDatabasePlugin, "DatabasePlugin");
   }
 
   async loadSubtitle(
@@ -107,21 +96,19 @@ export class PluginLoader {
       }
       return plugin as TrackerPlugin | undefined;
     }
-    return this.loadExternalTrackerPlugin(name);
+    return this.loadExternalPlugin(name, isTrackerPlugin, "TrackerPlugin");
   }
 
   private async loadExternalPlugin<T>(
     name: string,
-    importPrefix: string,
     typeGuard: (obj: unknown) => obj is T,
-    cache: Map<string, T>,
     displayName: string,
   ): Promise<T | undefined> {
-    const cached = cache.get(name);
-    if (cached) return cached;
+    const cached = this.externalCache.get(name);
+    if (cached) return cached as T;
 
     try {
-      const mod = await import(`${importPrefix}${name}`);
+      const mod = await import(`kogoro-plugin-${name}`);
       const PluginConstructor = mod.default as new (options: Record<string, unknown>) => unknown;
       if (typeof PluginConstructor !== "function") {
         console.warn(`Plugin "${name}" does not export a constructor as default`);
@@ -132,31 +119,11 @@ export class PluginLoader {
         console.warn(`Plugin "${name}" does not implement ${displayName} interface`);
         return undefined;
       }
-      cache.set(name, instance);
-      return instance;
+      this.externalCache.set(name, instance as DatabasePlugin | TrackerPlugin);
+      return instance as T;
     } catch (err) {
       console.warn(`Failed to load external ${displayName} plugin "${name}": ${String(err)}`);
       return undefined;
     }
-  }
-
-  private async loadExternalDatabasePlugin(name: string): Promise<DatabasePlugin | undefined> {
-    return this.loadExternalPlugin(
-      name,
-      "kogoro-plugin-",
-      isDatabasePlugin,
-      this.externalCache,
-      "DatabasePlugin",
-    );
-  }
-
-  private async loadExternalTrackerPlugin(name: string): Promise<TrackerPlugin | undefined> {
-    return this.loadExternalPlugin(
-      name,
-      "kogoro-tracker-",
-      isTrackerPlugin,
-      this.externalTrackerCache,
-      "TrackerPlugin",
-    );
   }
 }

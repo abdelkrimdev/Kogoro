@@ -5,6 +5,17 @@ import { AniListPlugin } from "./anilist-plugin";
 
 const GRAPHQL_URL = "https://graphql.anilist.co";
 
+function createPlugin(
+  fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>,
+  token?: string,
+): AniListPlugin {
+  return new AniListPlugin({
+    baseUrl: GRAPHQL_URL,
+    token,
+    httpClient: createMockHttpClient(fetch),
+  });
+}
+
 function mockGraphQLFetch(
   resolver: (body: { query: string; variables?: Record<string, unknown> }) => unknown,
 ): (url: string | URL, init?: RequestInit) => Promise<Response> {
@@ -34,9 +45,7 @@ function mockGraphQLFetch(
 
 describe("AniListPlugin", () => {
   test("satisfies TrackerPlugin contract", () => {
-    const plugin: TrackerPlugin = new AniListPlugin({
-      httpClient: createMockHttpClient(mockGraphQLFetch(() => ({}))),
-    });
+    const plugin: TrackerPlugin = createPlugin(mockGraphQLFetch(() => ({})));
     expect(plugin.authenticate).toBeInstanceOf(Function);
     expect(plugin.getUserList).toBeInstanceOf(Function);
     expect(plugin.getEntry).toBeInstanceOf(Function);
@@ -46,20 +55,52 @@ describe("AniListPlugin", () => {
 
   describe("authenticate", () => {
     test("returns stored token from credential store", async () => {
-      const plugin = new AniListPlugin({
-        token: "stored-anilist-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => ({}))),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => ({})),
+        "stored-anilist-token",
+      );
       const token = await plugin.authenticate();
       expect(token).toBe("stored-anilist-token");
     });
 
     test("returns empty string when no token", async () => {
-      const plugin = new AniListPlugin({
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => ({}))),
-      });
+      const plugin = createPlugin(mockGraphQLFetch(() => ({})));
       const token = await plugin.authenticate();
       expect(token).toBe("");
+    });
+
+    test("includes Authorization header when token is set", async () => {
+      let capturedHeaders: Record<string, string> = {};
+
+      const fetch = async (_url: string | URL, init?: RequestInit) => {
+        capturedHeaders = Object.fromEntries(new Headers(init?.headers).entries());
+        return new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = createPlugin(fetch, "my-anilist-token");
+      await plugin.getUserList();
+
+      expect(capturedHeaders["authorization"]).toBe("Bearer my-anilist-token");
+    });
+
+    test("does not include Authorization header when no token", async () => {
+      let capturedHeaders: Record<string, string> = {};
+
+      const fetch = async (_url: string | URL, init?: RequestInit) => {
+        capturedHeaders = Object.fromEntries(new Headers(init?.headers).entries());
+        return new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = createPlugin(fetch);
+      await plugin.getUserList();
+
+      expect(capturedHeaders).not.toHaveProperty("authorization");
     });
   });
 
@@ -118,10 +159,10 @@ describe("AniListPlugin", () => {
         },
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => listResponse),
+        "test-token",
+      );
       const results = await plugin.getUserList();
 
       expect(results).toHaveLength(2);
@@ -183,16 +224,16 @@ describe("AniListPlugin", () => {
           },
         };
 
-        const plugin = new AniListPlugin({
-          token: "test-token",
-          httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
-        });
+        const plugin = createPlugin(
+          mockGraphQLFetch(() => listResponse),
+          "test-token",
+        );
         const results = await plugin.getUserList();
         expect(results[0]?.watchStatus).toBe(expectedStatus);
       }
     });
 
-    test("maps entry types correctly", async () => {
+    test("maps AniList formats to domain entry types", async () => {
       const formatMap: Array<[string, EntryType]> = [
         ["TV", "tv"],
         ["MOVIE", "movie"],
@@ -226,10 +267,10 @@ describe("AniListPlugin", () => {
           },
         };
 
-        const plugin = new AniListPlugin({
-          token: "test-token",
-          httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
-        });
+        const plugin = createPlugin(
+          mockGraphQLFetch(() => listResponse),
+          "test-token",
+        );
         const results = await plugin.getUserList();
         expect(results[0]?.entryType).toBe(expectedType);
       }
@@ -242,23 +283,21 @@ describe("AniListPlugin", () => {
         },
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => listResponse),
+        "test-token",
+      );
       const results = await plugin.getUserList();
       expect(results).toEqual([]);
     });
 
     test("returns empty array on GraphQL error", async () => {
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(
-          mockGraphQLFetch(() => {
-            throw new Error("Not Authenticated");
-          }),
-        ),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => {
+          throw new Error("Not Authenticated");
+        }),
+        "test-token",
+      );
       const results = await plugin.getUserList();
       expect(results).toEqual([]);
     });
@@ -307,14 +346,27 @@ describe("AniListPlugin", () => {
         },
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => listResponse)),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => listResponse),
+        "test-token",
+      );
       const results = await plugin.getUserList();
       expect(results).toHaveLength(2);
       expect(results[0]?.title).toBe("Watching");
       expect(results[1]?.title).toBe("Completed");
+    });
+
+    test("returns empty array when getUserList receives non-ok response", async () => {
+      const fetch = async () => {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = createPlugin(fetch, "bad-token");
+      const results = await plugin.getUserList();
+      expect(results).toEqual([]);
     });
   });
 
@@ -337,10 +389,10 @@ describe("AniListPlugin", () => {
         },
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => entryResponse)),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => entryResponse),
+        "test-token",
+      );
       const entry = await plugin.getEntry("999");
 
       expect(entry.trackerId).toBe("999");
@@ -369,10 +421,10 @@ describe("AniListPlugin", () => {
         },
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => entryResponse)),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => entryResponse),
+        "test-token",
+      );
       const entry = await plugin.getEntry("1");
       expect(entry.title).toBe("English Title");
     });
@@ -395,10 +447,10 @@ describe("AniListPlugin", () => {
         },
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => entryResponse)),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => entryResponse),
+        "test-token",
+      );
       const entry = await plugin.getEntry("1");
       expect(entry.title).toBe("Romaji Only");
     });
@@ -425,10 +477,7 @@ describe("AniListPlugin", () => {
         );
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(fetch),
-      });
+      const plugin = createPlugin(fetch, "test-token");
 
       await plugin.updateEntry("999", {
         watchStatus: "completed",
@@ -464,10 +513,7 @@ describe("AniListPlugin", () => {
         );
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(fetch),
-      });
+      const plugin = createPlugin(fetch, "test-token");
 
       await plugin.updateEntry("999", { episodesWatched: 13 });
 
@@ -497,10 +543,7 @@ describe("AniListPlugin", () => {
           });
         };
 
-        const plugin = new AniListPlugin({
-          token: "test-token",
-          httpClient: createMockHttpClient(fetch),
-        });
+        const plugin = createPlugin(fetch, "test-token");
 
         await plugin.updateEntry("1", { watchStatus: domainStatus as TrackerWatchStatus });
         const body = JSON.parse(capturedBody as string);
@@ -518,10 +561,7 @@ describe("AniListPlugin", () => {
         });
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(fetch),
-      });
+      const plugin = createPlugin(fetch, "test-token");
 
       await plugin.updateEntry("1", { score: 7 });
       const body = JSON.parse(capturedBody as string);
@@ -555,10 +595,10 @@ describe("AniListPlugin", () => {
         },
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => mediaResponse)),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => mediaResponse),
+        "test-token",
+      );
       const details = await plugin.getAnimeDetails("12345");
 
       expect(details.trackerId).toBe("12345");
@@ -596,10 +636,10 @@ describe("AniListPlugin", () => {
         },
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => mediaResponse)),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => mediaResponse),
+        "test-token",
+      );
       const details = await plugin.getAnimeDetails("1");
       expect(details.studio).toBe("Studio A");
       expect(details.entryType).toBe("movie");
@@ -622,10 +662,10 @@ describe("AniListPlugin", () => {
         },
       };
 
-      const plugin = new AniListPlugin({
-        token: "test-token",
-        httpClient: createMockHttpClient(mockGraphQLFetch(() => mediaResponse)),
-      });
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => mediaResponse),
+        "test-token",
+      );
       const details = await plugin.getAnimeDetails("1");
 
       expect(details.trackerId).toBe("1");
@@ -637,63 +677,6 @@ describe("AniListPlugin", () => {
       expect(details.totalEpisodes).toBeUndefined();
       expect(details.image).toBeUndefined();
       expect(details.year).toBeUndefined();
-    });
-  });
-
-  describe("error handling", () => {
-    test("returns empty array when getUserList receives non-ok response", async () => {
-      const fetch = async () => {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        });
-      };
-
-      const plugin = new AniListPlugin({
-        token: "bad-token",
-        httpClient: createMockHttpClient(fetch),
-      });
-      const results = await plugin.getUserList();
-      expect(results).toEqual([]);
-    });
-
-    test("includes Authorization header when token is set", async () => {
-      let capturedHeaders: Record<string, string> = {};
-
-      const fetch = async (_url: string | URL, init?: RequestInit) => {
-        capturedHeaders = Object.fromEntries(new Headers(init?.headers).entries());
-        return new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      };
-
-      const plugin = new AniListPlugin({
-        token: "my-anilist-token",
-        httpClient: createMockHttpClient(fetch),
-      });
-      await plugin.getUserList();
-
-      expect(capturedHeaders["authorization"]).toBe("Bearer my-anilist-token");
-    });
-
-    test("does not include Authorization header when no token", async () => {
-      let capturedHeaders: Record<string, string> = {};
-
-      const fetch = async (_url: string | URL, init?: RequestInit) => {
-        capturedHeaders = Object.fromEntries(new Headers(init?.headers).entries());
-        return new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      };
-
-      const plugin = new AniListPlugin({
-        httpClient: createMockHttpClient(fetch),
-      });
-      await plugin.getUserList();
-
-      expect(capturedHeaders).not.toHaveProperty("authorization");
     });
   });
 });

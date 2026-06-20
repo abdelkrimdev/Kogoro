@@ -433,55 +433,53 @@ describe("TVDBPlugin", () => {
       expect(enCallCount).toBe(1);
     });
 
-    describe("Japanese titles", () => {
-      test("merges Japanese episode titles into results", async () => {
-        const engEpisodesResponse = {
-          id: 12345,
-          name: "Jujutsu Kaisen",
-          episodes: [
-            {
-              id: 1001,
-              seasonNumber: 1,
-              number: 1,
-              name: "Ryomen Sukuna",
-              overview: "A boy swallows a cursed finger.",
-              aired: "2020-10-03",
-              isMovie: 0,
-            },
-          ],
-        };
+    test("merges Japanese episode titles into results", async () => {
+      const engEpisodesResponse = {
+        id: 12345,
+        name: "Jujutsu Kaisen",
+        episodes: [
+          {
+            id: 1001,
+            seasonNumber: 1,
+            number: 1,
+            name: "Ryomen Sukuna",
+            overview: "A boy swallows a cursed finger.",
+            aired: "2020-10-03",
+            isMovie: 0,
+          },
+        ],
+      };
 
-        const jpnEpisodesResponse = {
-          id: 12345,
-          name: "呪術廻戦",
-          episodes: [
-            {
-              id: 1001,
-              seasonNumber: 1,
-              number: 1,
-              name: "両面宿儺",
-              overview: "",
-              isMovie: 0,
-            },
-          ],
-        };
+      const jpnEpisodesResponse = {
+        id: 12345,
+        name: "呪術廻戦",
+        episodes: [
+          {
+            id: 1001,
+            seasonNumber: 1,
+            number: 1,
+            name: "両面宿儺",
+            overview: "",
+            isMovie: 0,
+          },
+        ],
+      };
 
-        const plugin = new TVDBPlugin({
-          apiKey: "test-key",
-          baseUrl: BASE_URL,
-          httpClient: createMockHttpClient(
-            mockFetchWithRoutes({
-              "/episodes/default/eng": engEpisodesResponse,
-              "/episodes/default/jpn": jpnEpisodesResponse,
-            }),
-          ),
-        });
-        const results = await plugin.getEpisodes("12345");
-
-        expect(results).toHaveLength(1);
-        expect(results[0]?.titleEn).toBe("Ryomen Sukuna");
-        expect(results[0]?.titleJa).toBe("両面宿儺");
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        baseUrl: BASE_URL,
+        httpClient: createMockHttpClient(
+          mockFetchWithRoutes({
+            "/episodes/default/eng": engEpisodesResponse,
+            "/episodes/default/jpn": jpnEpisodesResponse,
+          }),
+        ),
       });
+      const results = await plugin.getEpisodes("12345");
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.titleEn).toBe("Ryomen Sukuna");
+      expect(results[0]?.titleJa).toBe("両面宿儺");
     });
   });
 

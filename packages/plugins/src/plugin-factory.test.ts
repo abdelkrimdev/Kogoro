@@ -5,7 +5,7 @@ import { PluginFactory } from "./plugin-factory";
 describe("PluginFactory", () => {
   describe("database", () => {
     describe("tvdb", () => {
-      test("constructs TVDBPlugin with correct API key", async () => {
+      test("constructs TVDBPlugin with the provided API key", async () => {
         let loginBody: string | undefined;
 
         await withMockFetch(
@@ -68,7 +68,7 @@ describe("PluginFactory", () => {
     });
 
     describe("anidb", () => {
-      test("constructs AniDBPlugin with correct client:clientver", async () => {
+      test("constructs AniDBPlugin with the provided client:clientver", async () => {
         await withMockFetch(
           ((url: string | URL | Request) => {
             const urlStr = typeof url === "string" ? url : url.toString();
@@ -96,8 +96,8 @@ describe("PluginFactory", () => {
       });
     });
 
-    describe("unknown plugin name", () => {
-      test("loads external plugin via dynamic import", async () => {
+    describe("external plugin", () => {
+      test("loads external database plugin via dynamic import", async () => {
         mock.module("kogoro-plugin-myextdb", () => ({
           default: class ExternalPlugin {
             async searchAnime() {
@@ -257,8 +257,8 @@ describe("PluginFactory", () => {
   });
 
   describe("tracker", () => {
-    test("loads external tracker plugin via dynamic import", async () => {
-      mock.module("kogoro-tracker-myanimelist", () => ({
+    test("loads external tracker plugin via kogoro-plugin-* prefix", async () => {
+      mock.module("kogoro-plugin-myanimelist", () => ({
         default: class ExternalTrackerPlugin {
           async authenticate() {
             return "token";
@@ -312,7 +312,7 @@ describe("PluginFactory", () => {
     });
 
     test("caches external tracker plugin instance", async () => {
-      mock.module("kogoro-tracker-cached-ftrk", () => ({
+      mock.module("kogoro-plugin-cached-ftrk", () => ({
         default: class CachedTrackerPlugin {
           id = Math.random();
           async authenticate() {
