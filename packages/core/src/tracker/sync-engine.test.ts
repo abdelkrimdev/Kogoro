@@ -570,6 +570,170 @@ describe("SyncEngine", () => {
         evtSqlite.close();
       }
     });
+
+    test("pushes watched_toggle event with correct episodesWatched", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
+
+        const anime = libraryService.upsertAnime({
+          externalId: "tracker-1",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = libraryService.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        libraryService.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "tl-1",
+        });
+
+        libraryRepo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/ep1.mkv",
+          watched: true,
+        });
+        libraryRepo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 2,
+          filePath: "/ep2.mkv",
+          watched: true,
+        });
+        libraryRepo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 3,
+          filePath: "/ep3.mkv",
+          watched: false,
+        });
+
+        eventRepo.append({
+          entityType: "group",
+          entityId: group.id,
+          eventType: "watched_toggle",
+          oldValue: "false",
+          newValue: "true",
+        });
+
+        let capturedChanges: { watchStatus?: string; episodesWatched?: number } = {};
+
+        const tracker = createMockTracker({
+          async updateEntry(
+            _trackerId: string,
+            changes: { watchStatus?: string; episodesWatched?: number },
+          ) {
+            capturedChanges = changes;
+          },
+        });
+
+        const syncEngine = new SyncEngine(libraryService, eventRepo, tracker, "anilist");
+        const result = await syncEngine.push();
+
+        expect(result.pushed).toBe(1);
+        expect(capturedChanges.episodesWatched).toBe(2);
+        expect(capturedChanges.watchStatus).toBeUndefined();
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
+
+    test("merges status_change and watched_toggle into single update", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
+
+        const anime = libraryService.upsertAnime({
+          externalId: "tracker-1",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = libraryService.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        libraryService.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "tl-1",
+        });
+
+        libraryRepo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/ep1.mkv",
+          watched: true,
+        });
+        libraryRepo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 2,
+          filePath: "/ep2.mkv",
+          watched: true,
+        });
+
+        eventRepo.append({
+          entityType: "group",
+          entityId: group.id,
+          eventType: "status_change",
+          oldValue: "watching",
+          newValue: "completed",
+        });
+        eventRepo.append({
+          entityType: "group",
+          entityId: group.id,
+          eventType: "watched_toggle",
+          oldValue: "false",
+          newValue: "true",
+        });
+
+        let capturedChanges: { watchStatus?: string; episodesWatched?: number } = {};
+
+        const tracker = createMockTracker({
+          async updateEntry(
+            _trackerId: string,
+            changes: { watchStatus?: string; episodesWatched?: number },
+          ) {
+            capturedChanges = changes;
+          },
+        });
+
+        const syncEngine = new SyncEngine(libraryService, eventRepo, tracker, "anilist");
+        const result = await syncEngine.push();
+
+        expect(result.pushed).toBe(2);
+        expect(capturedChanges.watchStatus).toBe("completed");
+        expect(capturedChanges.episodesWatched).toBe(2);
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
   });
 
   describe("resolveConflict", () => {

@@ -112,14 +112,28 @@ export class SyncEngine {
 
       if (unpushedEvents.length === 0) continue;
 
-      const lastEvent = unpushedEvents[unpushedEvents.length - 1];
-      if (!lastEvent) continue;
+      const hasWatchedToggle = unpushedEvents.some((e) => e.eventType === "watched_toggle");
+      let watchedEpisodes: number | undefined;
+      if (hasWatchedToggle) {
+        const episodes = this.library.getEpisodesByGroupId(groupId);
+        watchedEpisodes = episodes.filter((ep) => ep.watched).length;
+      }
 
-      const changes = buildChangesFromEvent(lastEvent);
-      if (!changes) continue;
+      let mergedChanges: { watchStatus?: TrackerWatchStatus; episodesWatched?: number } = {};
+      let hasChanges = false;
+
+      for (const event of unpushedEvents) {
+        const changes = buildChangesFromEvent(event, watchedEpisodes);
+        if (changes) {
+          mergedChanges = { ...mergedChanges, ...changes };
+          hasChanges = true;
+        }
+      }
+
+      if (!hasChanges) continue;
 
       for (const mapping of mappings) {
-        await this.tracker.updateEntry(mapping.externalId, changes);
+        await this.tracker.updateEntry(mapping.externalId, mergedChanges);
       }
 
       pushed += unpushedEvents.length;
@@ -168,9 +182,15 @@ export class SyncEngine {
   }
 }
 
-function buildChangesFromEvent(event: Event): { watchStatus?: TrackerWatchStatus } | null {
+function buildChangesFromEvent(
+  event: Event,
+  watchedEpisodes?: number,
+): { watchStatus?: TrackerWatchStatus; episodesWatched?: number } | null {
   if (event.eventType === "status_change" && event.newValue) {
     return { watchStatus: mapLocalStatusToTracker(event.newValue) };
+  }
+  if (event.eventType === "watched_toggle" && watchedEpisodes !== undefined) {
+    return { episodesWatched: watchedEpisodes };
   }
   return null;
 }
