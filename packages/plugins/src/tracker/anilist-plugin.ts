@@ -47,6 +47,7 @@ interface AniListMediaListEntryResponse {
     status: string;
     score: number;
     progress: number;
+    privateNotes: string | null;
     media: {
       title: AniListTitle;
       episodes: number | null;
@@ -147,6 +148,7 @@ query ($id: Int) {
     status
     score
     progress
+    privateNotes
     media {
       title { romaji english }
       episodes
@@ -155,12 +157,13 @@ query ($id: Int) {
 }`;
 
 const SAVE_MEDIA_LIST_ENTRY_MUTATION = `
-mutation ($id: Int, $mediaId: Int, $status: MediaListStatus, $scoreRaw: Int, $progress: Int) {
-  SaveMediaListEntry(id: $id, mediaId: $mediaId, status: $status, scoreRaw: $scoreRaw, progress: $progress) {
+mutation ($id: Int, $mediaId: Int, $status: MediaListStatus, $scoreRaw: Int, $progress: Int, $privateNotes: String) {
+  SaveMediaListEntry(id: $id, mediaId: $mediaId, status: $status, scoreRaw: $scoreRaw, progress: $progress, privateNotes: $privateNotes) {
     id
     status
     score
     progress
+    privateNotes
   }
 }`;
 
@@ -241,6 +244,7 @@ export class AniListPlugin implements TrackerPlugin {
       episodesWatched: entry.progress,
       totalEpisodes: entry.media.episodes ?? 0,
       score: entry.score || undefined,
+      notes: entry.privateNotes ?? undefined,
     };
   }
 
@@ -256,6 +260,9 @@ export class AniListPlugin implements TrackerPlugin {
     }
     if (changes.score !== undefined) {
       variables["scoreRaw"] = changes.score * 100;
+    }
+    if (changes.notes !== undefined) {
+      variables["privateNotes"] = changes.notes;
     }
     await this.graphql(SAVE_MEDIA_LIST_ENTRY_MUTATION, variables);
   }

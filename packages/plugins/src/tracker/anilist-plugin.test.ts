@@ -454,6 +454,54 @@ describe("AniListPlugin", () => {
       const entry = await plugin.getEntry("1");
       expect(entry.title).toBe("Romaji Only");
     });
+
+    test("maps privateNotes to notes field", async () => {
+      const entryResponse = {
+        MediaList: {
+          id: 1,
+          mediaId: 100,
+          status: "CURRENT",
+          score: 0,
+          progress: 5,
+          privateNotes: "my note",
+          media: {
+            title: { romaji: "Test", english: null },
+            episodes: 12,
+          },
+        },
+      };
+
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => entryResponse),
+        "test-token",
+      );
+      const entry = await plugin.getEntry("1");
+      expect(entry.notes).toBe("my note");
+    });
+
+    test("maps null privateNotes to undefined notes", async () => {
+      const entryResponse = {
+        MediaList: {
+          id: 1,
+          mediaId: 100,
+          status: "CURRENT",
+          score: 0,
+          progress: 5,
+          privateNotes: null,
+          media: {
+            title: { romaji: "Test", english: null },
+            episodes: 12,
+          },
+        },
+      };
+
+      const plugin = createPlugin(
+        mockGraphQLFetch(() => entryResponse),
+        "test-token",
+      );
+      const entry = await plugin.getEntry("1");
+      expect(entry.notes).toBeUndefined();
+    });
   });
 
   describe("updateEntry", () => {
@@ -566,6 +614,46 @@ describe("AniListPlugin", () => {
       await plugin.updateEntry("1", { score: 7 });
       const body = JSON.parse(capturedBody as string);
       expect(body.variables.scoreRaw).toBe(700);
+    });
+
+    test("sends privateNotes when notes is provided", async () => {
+      let capturedBody: string | undefined;
+      const fetch = async (_url: string | URL, init?: RequestInit) => {
+        capturedBody = init?.body as string;
+        return new Response(JSON.stringify({ data: { SaveMediaListEntry: { id: 1 } } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = createPlugin(fetch, "test-token");
+
+      await plugin.updateEntry("1", { notes: "my note" });
+      const body = JSON.parse(capturedBody as string);
+      expect(body.variables.privateNotes).toBe("my note");
+    });
+
+    test("sends privateNotes alongside other fields", async () => {
+      let capturedBody: string | undefined;
+      const fetch = async (_url: string | URL, init?: RequestInit) => {
+        capturedBody = init?.body as string;
+        return new Response(JSON.stringify({ data: { SaveMediaListEntry: { id: 1 } } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = createPlugin(fetch, "test-token");
+
+      await plugin.updateEntry("1", {
+        watchStatus: "completed",
+        episodesWatched: 25,
+        notes: "finale was great",
+      });
+      const body = JSON.parse(capturedBody as string);
+      expect(body.variables.status).toBe("COMPLETED");
+      expect(body.variables.progress).toBe(25);
+      expect(body.variables.privateNotes).toBe("finale was great");
     });
   });
 

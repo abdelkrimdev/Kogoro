@@ -484,8 +484,10 @@ describe("enrichTracker", () => {
 
       const { repo: libraryRepo } = createLibraryRepository(dir);
       const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      const [group] = groups;
+      expect(group).toBeDefined();
       libraryRepo.upsertGroupTrackerMapping({
-        groupId: groups[0]!.id,
+        groupId: group?.id as number,
         source: "anilist",
         externalId: "anilist-123",
       });
@@ -522,7 +524,7 @@ describe("enrichTracker", () => {
       expect(result.success).toBe(true);
       expect(result.summary?.enriched).toBe(1);
 
-      const updatedGroup = libraryRepo.getEpisodeGroup(groups[0]!.id);
+      const updatedGroup = libraryRepo.getEpisodeGroup(group?.id as number);
       expect(updatedGroup?.synopsis).toBe("A great anime about testing");
       expect(updatedGroup?.rating).toBe(8.5);
       closeCache();
@@ -541,8 +543,10 @@ describe("enrichTracker", () => {
 
         const { repo: libraryRepo } = createLibraryRepository(dir);
         const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+        const [group] = groups;
+        expect(group).toBeDefined();
         libraryRepo.upsertGroupTrackerMapping({
-          groupId: groups[0]!.id,
+          groupId: group?.id as number,
           source: "anilist",
           externalId: "anilist-123",
         });
@@ -588,12 +592,14 @@ describe("enrichTracker", () => {
 
       const { repo: libraryRepo } = createLibraryRepository(dir);
       const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      const [group] = groups;
+      expect(group).toBeDefined();
       libraryRepo.upsertGroupTrackerMapping({
-        groupId: groups[0]!.id,
+        groupId: group?.id as number,
         source: "anilist",
         externalId: "anilist-123",
       });
-      libraryRepo.updateEpisodeGroupMetadata(groups[0]!.id, {
+      libraryRepo.updateEpisodeGroupMetadata(group?.id as number, {
         synopsis: "Existing synopsis",
       });
 
@@ -626,7 +632,7 @@ describe("enrichTracker", () => {
       const result = await handlers.enrichTracker({ id: String(animeId) });
       expect(result.success).toBe(true);
 
-      const updatedGroup = libraryRepo.getEpisodeGroup(groups[0]!.id);
+      const updatedGroup = libraryRepo.getEpisodeGroup(group?.id as number);
       expect(updatedGroup?.synopsis).toBe("Existing synopsis");
       closeCache();
       close();
@@ -641,8 +647,10 @@ describe("enrichTracker", () => {
 
       const { repo: libraryRepo } = createLibraryRepository(dir);
       const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      const [group] = groups;
+      expect(group).toBeDefined();
       libraryRepo.upsertGroupTrackerMapping({
-        groupId: groups[0]!.id,
+        groupId: group?.id as number,
         source: "anilist",
         externalId: "anilist-123",
       });

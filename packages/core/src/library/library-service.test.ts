@@ -2369,9 +2369,10 @@ describe("LibraryService", () => {
         service.rebuildFromMatches(matches);
 
         const anime = repo.findAnime("tvdb-12345", "tvdb");
+        expect(anime).toBeDefined();
         expect(anime?.libraryState).toBe("on_disk");
 
-        service.deleteEpisodesByAnimeId(anime!.id);
+        service.deleteEpisodesByAnimeId(anime?.id as number);
 
         expect(repo.findAnime("tvdb-12345", "tvdb")?.libraryState).toBe("not_on_disk");
       } finally {
@@ -2418,11 +2419,13 @@ describe("LibraryService", () => {
         service.rebuildFromMatches(matches);
 
         const anime = repo.findAnime("tvdb-12345", "tvdb");
+        expect(anime).toBeDefined();
         expect(anime?.libraryState).toBe("on_disk");
 
-        const episodes = repo.getEpisodesByAnimeId(anime!.id);
-        const s1ep1 = episodes.find((e) => e.season === 1 && e.episodeNumber === 1)!;
-        service.deleteEpisodesByIds([s1ep1.id]);
+        const episodes = repo.getEpisodesByAnimeId(anime?.id as number);
+        const s1ep1 = episodes.find((e) => e.season === 1 && e.episodeNumber === 1);
+        expect(s1ep1).toBeDefined();
+        service.deleteEpisodesByIds([s1ep1?.id as number]);
 
         expect(repo.findAnime("tvdb-12345", "tvdb")?.libraryState).toBe("partially_on_disk");
       } finally {
@@ -2456,9 +2459,10 @@ describe("LibraryService", () => {
         service.rebuildFromMatches(matches);
 
         const anime = repo.findAnime("tvdb-12345", "tvdb");
+        expect(anime).toBeDefined();
         expect(anime?.libraryState).toBe("on_disk");
 
-        const episodes = repo.getEpisodesByAnimeId(anime!.id);
+        const episodes = repo.getEpisodesByAnimeId(anime?.id as number);
         service.deleteEpisodesByIds(episodes.map((e) => e.id));
 
         expect(repo.findAnime("tvdb-12345", "tvdb")?.libraryState).toBe("not_on_disk");
