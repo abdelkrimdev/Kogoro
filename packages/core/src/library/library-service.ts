@@ -182,6 +182,14 @@ export class LibraryService {
         oldWatched.set(row.episodeId, row.watched);
       }
 
+      const oldNotes = new Map<number, string | undefined>();
+      for (const row of oldState) {
+        const ep = tx.getEpisode(row.episodeId);
+        if (ep) {
+          oldNotes.set(row.episodeId, ep.notes);
+        }
+      }
+
       const oldGroups = tx.getAllEpisodeGroups();
       const oldAnimeById = new Map<number, { externalId: string; sourceDb: string }>();
       for (const a of tx.listAnime()) {
@@ -320,6 +328,10 @@ export class LibraryService {
             const oldWatchedValue = oldWatched.get(oldEpId);
             if (oldWatchedValue !== undefined) {
               tx.migrateEpisodeWatched(epResult.id, oldWatchedValue);
+            }
+            const oldNotesValue = oldNotes.get(oldEpId);
+            if (oldNotesValue !== undefined) {
+              tx.migrateEpisodeNotes(epResult.id, oldNotesValue);
             }
           }
         }
@@ -510,6 +522,26 @@ export class LibraryService {
 
   deleteEpisodeGroup(groupId: number): void {
     this.library.deleteEpisodeGroup(groupId);
+  }
+
+  deleteEpisodesByAnimeId(animeId: number): void {
+    this.library.deleteEpisodesByAnimeId(animeId);
+    this.computeAndPersistLibraryState(animeId);
+  }
+
+  deleteEpisodesByIds(ids: number[]): void {
+    if (ids.length === 0) return;
+    const affectedAnimeIds = new Set<number>();
+    for (const id of ids) {
+      const episode = this.library.getEpisode(id);
+      if (episode) {
+        affectedAnimeIds.add(episode.animeId);
+      }
+    }
+    this.library.deleteEpisodesByIds(ids);
+    for (const animeId of affectedAnimeIds) {
+      this.computeAndPersistLibraryState(animeId);
+    }
   }
 
   getEpisodesByGroupId(groupId: number): LibraryEpisode[] {
@@ -766,6 +798,21 @@ export class LibraryService {
         eventType: "watched_toggle",
         oldValue: String(oldWatched),
         newValue: String(watched),
+      });
+    }
+    return result;
+  }
+
+  updateEpisodeNotes(episodeId: number, notes: string): LibraryEpisode | null {
+    const oldEpisode = this.library.getEpisode(episodeId);
+    const result = this.library.setEpisodeNotes(episodeId, notes);
+    if (result && oldEpisode && oldEpisode.notes !== notes) {
+      this.events.append({
+        entityType: "episode",
+        entityId: episodeId,
+        eventType: "notes_update",
+        oldValue: oldEpisode.notes ?? null,
+        newValue: notes,
       });
     }
     return result;

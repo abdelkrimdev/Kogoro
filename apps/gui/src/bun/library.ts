@@ -38,6 +38,7 @@ export interface LibraryAnimeDetail {
       titleEn: string;
       filePath: string;
       watched: boolean;
+      notes?: string;
     }>;
   }>;
   filesOnDisk: number;
@@ -108,6 +109,7 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
             titleEn: ep.title ?? `Episode ${ep.episodeNumber}`,
             filePath: ep.filePath,
             watched: ep.watched,
+            notes: ep.notes,
           }));
           const onDiskCount = episodes.filter((ep) => ep.filePath !== "").length;
           return {
@@ -178,6 +180,14 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       watched: boolean;
     }): Promise<{ success: boolean }> {
       const result = svc.setEpisodeWatched(Number(params.episodeId), params.watched);
+      return { success: result !== null };
+    },
+
+    async updateEpisodeNotes(params: {
+      episodeId: string;
+      notes: string;
+    }): Promise<{ success: boolean }> {
+      const result = svc.updateEpisodeNotes(Number(params.episodeId), params.notes);
       return { success: result !== null };
     },
 

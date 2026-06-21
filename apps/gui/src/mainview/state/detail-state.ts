@@ -13,6 +13,7 @@ export interface EpisodeGroupEpisode {
   titleEn: string;
   filePath: string;
   watched: boolean;
+  notes?: string;
 }
 
 export interface EpisodeGroupRow {

@@ -26,6 +26,7 @@ export interface LibraryEpisode {
   title?: string;
   season?: number;
   watched: boolean;
+  notes?: string;
 }
 
 export interface EpisodeGroup {
@@ -176,6 +177,7 @@ export class LibraryRepository {
           title: episodeData.title ?? null,
           groupId: episodeData.groupId,
           watched: episodeData.watched,
+          notes: episodeData.notes || null,
         })
         .where(eq(episodes.id, existing.id))
         .run();
@@ -192,6 +194,7 @@ export class LibraryRepository {
         title: episodeData.title ?? null,
         season: episodeData.season ?? 1,
         watched: episodeData.watched,
+        notes: episodeData.notes || null,
       })
       .returning()
       .get();
@@ -220,6 +223,15 @@ export class LibraryRepository {
 
   setEpisodeWatched(episodeId: number, watched: boolean): LibraryEpisode | null {
     this.db.update(episodes).set({ watched }).where(eq(episodes.id, episodeId)).run();
+    return this.getEpisode(episodeId);
+  }
+
+  setEpisodeNotes(episodeId: number, notes: string): LibraryEpisode | null {
+    this.db
+      .update(episodes)
+      .set({ notes: notes || null })
+      .where(eq(episodes.id, episodeId))
+      .run();
     return this.getEpisode(episodeId);
   }
 
@@ -324,6 +336,14 @@ export class LibraryRepository {
 
   migrateEpisodeWatched(episodeId: number, watched: boolean): void {
     this.db.update(episodes).set({ watched }).where(eq(episodes.id, episodeId)).run();
+  }
+
+  migrateEpisodeNotes(episodeId: number, notes: string): void {
+    this.db
+      .update(episodes)
+      .set({ notes: notes || null })
+      .where(eq(episodes.id, episodeId))
+      .run();
   }
 
   transaction<T>(fn: (repo: LibraryRepository) => T): T {
@@ -685,6 +705,7 @@ export class LibraryRepository {
     title: string | null;
     season: number | null;
     watched: boolean;
+    notes: string | null;
   }): LibraryEpisode {
     return {
       id: row.id,
@@ -695,6 +716,7 @@ export class LibraryRepository {
       title: row.title ?? undefined,
       season: row.season ?? undefined,
       watched: row.watched,
+      notes: row.notes ?? undefined,
     };
   }
 

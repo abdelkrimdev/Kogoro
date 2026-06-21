@@ -1466,4 +1466,154 @@ describe("LibraryRepository", () => {
       }
     });
   });
+
+  describe("episode notes", () => {
+    test("stores and retrieves notes for episode", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        const ep = repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: false,
+        });
+
+        expect(ep.notes).toBeUndefined();
+
+        const updated = repo.setEpisodeNotes(ep.id, "Great episode!");
+        expect(updated?.notes).toBe("Great episode!");
+
+        const retrieved = repo.getEpisode(ep.id);
+        expect(retrieved?.notes).toBe("Great episode!");
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("clears notes with empty string", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        const ep = repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: false,
+          notes: "Some notes",
+        });
+
+        expect(ep.notes).toBe("Some notes");
+
+        const cleared = repo.setEpisodeNotes(ep.id, "");
+        expect(cleared?.notes).toBeUndefined();
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("addEpisode persists notes", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        const ep = repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: false,
+          notes: "First episode notes",
+        });
+
+        expect(ep.notes).toBe("First episode notes");
+
+        const retrieved = repo.getEpisode(ep.id);
+        expect(retrieved?.notes).toBe("First episode notes");
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("rowToEpisode maps notes correctly", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: false,
+          notes: "Test notes",
+        });
+
+        const episodes = repo.getEpisodesByAnimeId(anime.id);
+        expect(episodes[0]?.notes).toBe("Test notes");
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
 });

@@ -2343,6 +2343,132 @@ describe("LibraryService", () => {
     });
   });
 
+  describe("deleteEpisodesByAnimeId", () => {
+    test("recomputes library state after deleting all episodes for anime", () => {
+      const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        service.rebuildFromMatches(matches);
+
+        const anime = repo.findAnime("tvdb-12345", "tvdb");
+        expect(anime?.libraryState).toBe("on_disk");
+
+        service.deleteEpisodesByAnimeId(anime!.id);
+
+        expect(repo.findAnime("tvdb-12345", "tvdb")?.libraryState).toBe("not_on_disk");
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
+      }
+    });
+  });
+
+  describe("deleteEpisodesByIds", () => {
+    test("recomputes library state after deleting specific episodes", () => {
+      const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "201",
+            episode: 1,
+            season: 2,
+            title: "Episode 1",
+            filePath: "/media/Jujutsu Kaisen/S02E01.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        service.rebuildFromMatches(matches);
+
+        const anime = repo.findAnime("tvdb-12345", "tvdb");
+        expect(anime?.libraryState).toBe("on_disk");
+
+        const episodes = repo.getEpisodesByAnimeId(anime!.id);
+        const s1ep1 = episodes.find((e) => e.season === 1 && e.episodeNumber === 1)!;
+        service.deleteEpisodesByIds([s1ep1.id]);
+
+        expect(repo.findAnime("tvdb-12345", "tvdb")?.libraryState).toBe("partially_on_disk");
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("sets not_on_disk when all episodes deleted via ids", () => {
+      const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        service.rebuildFromMatches(matches);
+
+        const anime = repo.findAnime("tvdb-12345", "tvdb");
+        expect(anime?.libraryState).toBe("on_disk");
+
+        const episodes = repo.getEpisodesByAnimeId(anime!.id);
+        service.deleteEpisodesByIds(episodes.map((e) => e.id));
+
+        expect(repo.findAnime("tvdb-12345", "tvdb")?.libraryState).toBe("not_on_disk");
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
+      }
+    });
+  });
+
   describe("deleteEpisodeGroup", () => {
     test("deletes episode group", () => {
       const { db, sqlite } = createLibraryDb();
@@ -2807,6 +2933,181 @@ describe("LibraryService", () => {
         expect(events).toHaveLength(0);
       } finally {
         libSqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("updateEpisodeNotes records notes_update event", () => {
+      const { db: libDb, sqlite: libSqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const libRepo = new LibraryRepository(libDb);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(libRepo, evtRepo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const ep = libRepo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: false,
+        });
+
+        service.updateEpisodeNotes(ep.id, "Great pilot episode");
+
+        const events = evtRepo.replay();
+        expect(events).toHaveLength(1);
+        expect(events[0]?.entityType).toBe("episode");
+        expect(events[0]?.entityId).toBe(ep.id);
+        expect(events[0]?.eventType).toBe("notes_update");
+        expect(events[0]?.oldValue).toBeNull();
+        expect(events[0]?.newValue).toBe("Great pilot episode");
+      } finally {
+        libSqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("updateEpisodeNotes skips event when notes unchanged", () => {
+      const { db: libDb, sqlite: libSqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const libRepo = new LibraryRepository(libDb);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(libRepo, evtRepo);
+
+        const anime = service.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = service.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const ep = libRepo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          season: 1,
+          watched: false,
+          notes: "Same notes",
+        });
+
+        service.updateEpisodeNotes(ep.id, "Same notes");
+
+        const events = evtRepo.replay();
+        expect(events).toHaveLength(0);
+      } finally {
+        libSqlite.close();
+        evtSqlite.close();
+      }
+    });
+  });
+
+  describe("rebuildFromMatches - episode notes", () => {
+    test("preserves episode notes across rebuild", () => {
+      const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const evtRepo = new EventRepository(evtDb);
+        const service = new LibraryService(repo, evtRepo);
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 2,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 1,
+          filePath: "/media/S01E01.mkv",
+          title: "Ryomen Sukuna",
+          season: 1,
+          watched: true,
+          notes: "Amazing pilot",
+        });
+        repo.addEpisode({
+          animeId: anime.id,
+          groupId: group.id,
+          episodeNumber: 2,
+          filePath: "/media/S01E02.mkv",
+          title: "Cursed Womb Must Die",
+          season: 1,
+          watched: false,
+          notes: "",
+        });
+
+        const matches: MatchEntry[] = [
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "101",
+            episode: 1,
+            season: 1,
+            title: "Ryomen Sukuna",
+            filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
+            sourceDb: "tvdb",
+          },
+          {
+            animeId: "tvdb-12345",
+            animeTitle: "Jujutsu Kaisen",
+            entryType: "tv",
+            episodeId: "102",
+            episode: 2,
+            season: 1,
+            title: "Cursed Womb Must Die",
+            filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
+            sourceDb: "tvdb",
+          },
+        ];
+
+        service.rebuildFromMatches(matches);
+
+        const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
+        const episodes = repo.getEpisodesByAnimeId(rebuilt?.id as number);
+        expect(episodes).toHaveLength(2);
+
+        const ep1 = episodes.find((e) => e.episodeNumber === 1);
+        expect(ep1?.notes).toBe("Amazing pilot");
+
+        const ep2 = episodes.find((e) => e.episodeNumber === 2);
+        expect(ep2?.notes).toBeUndefined();
+      } finally {
+        sqlite.close();
         evtSqlite.close();
       }
     });

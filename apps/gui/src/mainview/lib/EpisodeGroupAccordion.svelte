@@ -101,6 +101,19 @@
       localEpisodes = group.episodes;
     }
   }
+
+  async function updateEpisodeNotes(episodeId: string, notes: string) {
+    localEpisodes = localEpisodes.map((e) =>
+      e.id === episodeId ? { ...e, notes } : e
+    );
+
+    try {
+      await rpc.request("updateEpisodeNotes", { episodeId, notes });
+    } catch (err) {
+      console.error("Failed to update episode notes:", err);
+      localEpisodes = group.episodes;
+    }
+  }
 </script>
 
 <div class="card preset-outlined-surface-300-700 rounded-xl overflow-hidden">
@@ -193,6 +206,7 @@
                 <th class="font-medium">Title</th>
                 <th class="font-medium">File Path</th>
                 <th class="font-medium text-center w-16">Watched</th>
+                <th class="font-medium">Notes</th>
               </tr>
             </thead>
             <tbody class="[&>tr]:hover:preset-tonal-primary">
@@ -216,6 +230,20 @@
                     <Checkbox
                       checked={ep.watched}
                       onchange={() => toggleEpisodeWatched(ep.id)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      class="input text-sm w-full"
+                      placeholder="Add a note..."
+                      value={ep.notes ?? ''}
+                      onblur={(e) => updateEpisodeNotes(ep.id, (e.target as HTMLInputElement).value)}
+                      onkeydown={(e) => {
+                        if (e.key === 'Enter') {
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
                     />
                   </td>
                 </tr>

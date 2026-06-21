@@ -68,6 +68,7 @@ export const episodes = sqliteTable(
     title: text("title"),
     season: integer("season").default(1),
     watched: integer("watched", { mode: "boolean" }).notNull().default(false),
+    notes: text("notes"),
   },
   (t) => [
     unique("episodes_anime_id_episode_number_season_unique").on(

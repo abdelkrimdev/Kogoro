@@ -131,6 +131,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       setWatchStatus: (params) => libraryHandlers.setWatchStatus(params),
       updateGroupStatus: (params) => libraryHandlers.updateGroupStatus(params),
       toggleEpisodeWatched: (params) => libraryHandlers.toggleEpisodeWatched(params),
+      updateEpisodeNotes: (params) => libraryHandlers.updateEpisodeNotes(params),
       getSettingsData: async () => buildSettingsFormData(configManager, credentialStore),
       updateSettings: (params) => applySettingsUpdate(configManager, params),
       updateApiKey: (params) => updateApiKey(credentialStore, params),
