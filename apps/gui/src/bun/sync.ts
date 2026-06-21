@@ -38,6 +38,34 @@ export interface SyncAllResult {
   errors: Array<{ tracker: string; error: string }>;
 }
 
+async function runPushForGroup(
+  options: SyncHandlerOptions,
+  groupId: number,
+): Promise<{ pushed: number; errors: Array<{ tracker: string; error: string }> }> {
+  const errors: Array<{ tracker: string; error: string }> = [];
+  const pairs = await buildTrackerPairs(options, errors);
+  const allMappings = options.libraryService.getAllTrackerMappings();
+
+  let pushed = 0;
+  for (const { source, tracker } of pairs) {
+    const hasMapping = allMappings.some((m) => m.source === source && m.groupId === groupId);
+    if (!hasMapping) continue;
+
+    try {
+      const engine = new SyncEngine(options.libraryService, options.eventsRepo, tracker, source);
+      const result = await engine.push(groupId);
+      pushed += result.pushed;
+    } catch (err) {
+      errors.push({
+        tracker: source,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return { pushed, errors };
+}
+
 export type SyncHandlers = ReturnType<typeof createSyncHandlers>;
 
 const TRACKER_SOURCES = [
@@ -122,6 +150,12 @@ export function createSyncHandlers(options: SyncHandlerOptions) {
 
     async triggerManualSync(): Promise<SyncAllResult> {
       return this.syncAll();
+    },
+
+    async pushAnime(params: {
+      groupId: string;
+    }): Promise<{ pushed: number; errors: Array<{ tracker: string; error: string }> }> {
+      return runPushForGroup(options, Number(params.groupId));
     },
 
     async resolveSyncConflict(params: {

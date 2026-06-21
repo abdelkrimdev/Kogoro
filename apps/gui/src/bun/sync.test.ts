@@ -4,6 +4,7 @@ import {
   createEventRepository,
   createLibraryRepository,
   createMockKeytar,
+  createMockTracker,
   withMockFetch,
 } from "@kogoro/core/testing";
 import { PluginFactory } from "@kogoro/plugins";
@@ -136,6 +137,136 @@ describe("SyncHandlers", () => {
     });
   });
 
+  describe("pushAnime", () => {
+    it("returns zero pushed when no trackers connected", async () => {
+      const setup = createTestSetup();
+      try {
+        const handlers = createSyncHandlers({
+          libraryService: setup.libraryService,
+          eventsRepo: setup.eventsRepo,
+          pluginFactory: setup.pluginFactory,
+          credentialStore: setup.credentialStore,
+        });
+
+        const result = await handlers.pushAnime({ groupId: "1" });
+
+        expect(result.pushed).toBe(0);
+        expect(result.errors).toHaveLength(0);
+      } finally {
+        setup.close();
+      }
+    });
+
+    it("pushes unpushed events for a mapped group", async () => {
+      const setup = createTestSetup();
+      await setup.credentialStore.setCredential("anilist", "test-token");
+
+      const anime = setup.libraryService.upsertAnime({
+        externalId: "tvdb-1",
+        sourceDb: "tvdb",
+        title: "Frieren",
+        episodeCount: 28,
+      });
+
+      const group = setup.libraryService.upsertEpisodeGroup({
+        animeId: anime.id,
+        entryType: "tv",
+        seasonNumber: 1,
+        watchStatus: "watching",
+      });
+
+      setup.libraryService.upsertGroupTrackerMapping({
+        groupId: group.id,
+        source: "anilist",
+        externalId: "al-1",
+      });
+
+      setup.eventsRepo.append({
+        entityType: "group",
+        entityId: group.id,
+        eventType: "status_change",
+        oldValue: "watching",
+        newValue: "completed",
+      });
+
+      let updateCalled = false;
+      const mockTracker = createMockTracker({
+        updateEntry: async () => {
+          updateCalled = true;
+        },
+      });
+
+      const mockPluginFactory = {
+        ...setup.pluginFactory,
+        tracker: async () => mockTracker,
+      } as unknown as typeof setup.pluginFactory;
+
+      try {
+        const handlers = createSyncHandlers({
+          libraryService: setup.libraryService,
+          eventsRepo: setup.eventsRepo,
+          pluginFactory: mockPluginFactory,
+          credentialStore: setup.credentialStore,
+        });
+
+        const result = await handlers.pushAnime({ groupId: String(group.id) });
+
+        expect(result.pushed).toBeGreaterThan(0);
+        expect(updateCalled).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      } finally {
+        setup.close();
+      }
+    });
+
+    it("skips groups with no tracker mapping", async () => {
+      const setup = createTestSetup();
+      await setup.credentialStore.setCredential("anilist", "test-token");
+
+      const anime = setup.libraryService.upsertAnime({
+        externalId: "tvdb-2",
+        sourceDb: "tvdb",
+        title: "Mushishi",
+        episodeCount: 26,
+      });
+
+      const group = setup.libraryService.upsertEpisodeGroup({
+        animeId: anime.id,
+        entryType: "tv",
+        seasonNumber: 1,
+        watchStatus: "watching",
+      });
+
+      let updateCalled = false;
+      const mockTracker = createMockTracker({
+        updateEntry: async () => {
+          updateCalled = true;
+        },
+      });
+
+      const mockPluginFactory = {
+        ...setup.pluginFactory,
+        tracker: async () => mockTracker,
+      } as unknown as typeof setup.pluginFactory;
+
+      try {
+        const handlers = createSyncHandlers({
+          libraryService: setup.libraryService,
+          eventsRepo: setup.eventsRepo,
+          pluginFactory: mockPluginFactory,
+          credentialStore: setup.credentialStore,
+        });
+
+        const result = await handlers.pushAnime({ groupId: String(group.id) });
+
+        expect(result.pushed).toBe(0);
+        expect(updateCalled).toBe(false);
+      } finally {
+        setup.close();
+      }
+    });
+  });
+
   describe("triggerManualSync", () => {
     it("delegates to syncAll", async () => {
       const setup = createTestSetup();
@@ -225,7 +356,7 @@ describe("SyncHandlers", () => {
         newValue: "completed",
       });
 
-      const mockTracker = {
+      const mockTracker = createMockTracker({
         async getUserList() {
           return [
             {
@@ -238,17 +369,7 @@ describe("SyncHandlers", () => {
             },
           ];
         },
-        async updateEntry() {},
-        async authenticate() {
-          return "mock-token";
-        },
-        async getEntry() {
-          return null;
-        },
-        async getAnimeDetails() {
-          return null;
-        },
-      };
+      });
 
       const mockPluginFactory = {
         ...setup.pluginFactory,

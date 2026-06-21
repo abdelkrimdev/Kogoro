@@ -259,6 +259,10 @@ export type AppRPC = {
         params: { animeId: string };
         response: AwaitedReturnType<SyncHandlers["syncAnime"]>;
       };
+      pushAnime: {
+        params: { groupId: string };
+        response: AwaitedReturnType<SyncHandlers["pushAnime"]>;
+      };
       triggerManualSync: {
         params: Record<string, never>;
         response: AwaitedReturnType<SyncHandlers["triggerManualSync"]>;

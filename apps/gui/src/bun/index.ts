@@ -168,13 +168,20 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       checkKeyring: async () => checkKeyringStatus(),
       getTrackerStatus: async () => getTrackerStatus(credentialStore),
       getTrackerConnectionFields: (params) => getTrackerConnectionFields(params),
-      connectTracker: async (params) => connectTracker(credentialStore, params),
+      connectTracker: async (params) => {
+        const result = await connectTracker(credentialStore, params);
+        if (result.success) {
+          syncHandlers.syncAll().catch(() => {});
+        }
+        return result;
+      },
       disconnectTracker: async (params) =>
         disconnectTracker(credentialStore, libraryService, eventsRepo, params),
       getImportPreview: async (params) => trackerImportHandlers.getImportPreview(params),
       confirmImport: async (params) => trackerImportHandlers.confirmImport(params),
       syncAll: async () => syncHandlers.syncAll(),
       syncAnime: async (params) => syncHandlers.syncAnime(params),
+      pushAnime: async (params) => syncHandlers.pushAnime(params),
       triggerManualSync: async () => syncHandlers.triggerManualSync(),
       resolveSyncConflict: async (params) => syncHandlers.resolveSyncConflict(params),
       getDashboardData: async () => dashboardHandlers.getDashboardData(),

@@ -4,6 +4,7 @@
   import type { EpisodeGroupRow } from "../state/detail-state";
   import { groupLabel } from "../state/detail-state";
   import { computeWatchProgress } from "../state/watch-state";
+  import { debouncePush } from "./debounce";
 
   interface Props {
     group: EpisodeGroupRow;
@@ -75,10 +76,17 @@
     return ENTRY_TYPE_BADGE[entryType] ?? "badge preset-tonal-primary";
   }
 
+  function schedulePush() {
+    debouncePush(group.id, () =>
+      rpc.request("pushAnime", { groupId: group.id }).catch(() => {}),
+    );
+  }
+
   async function handleStatusChange(newStatus: string) {
     watchStatus = newStatus;
     try {
       await rpc.request("updateGroupStatus", { groupId: group.id, status: newStatus });
+      schedulePush();
     } catch (err) {
       console.error("Failed to update group status:", err);
       watchStatus = group.watchStatus;
@@ -96,6 +104,7 @@
 
     try {
       await rpc.request("toggleEpisodeWatched", { episodeId, watched: newWatched });
+      schedulePush();
     } catch (err) {
       console.error("Failed to toggle episode watched:", err);
       localEpisodes = group.episodes;
@@ -109,6 +118,7 @@
 
     try {
       await rpc.request("updateEpisodeNotes", { episodeId, notes });
+      schedulePush();
     } catch (err) {
       console.error("Failed to update episode notes:", err);
       localEpisodes = group.episodes;

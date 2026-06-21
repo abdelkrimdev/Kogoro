@@ -89,11 +89,12 @@ export class SyncEngine {
     return { applied, conflicts };
   }
 
-  async push(): Promise<PushResult> {
+  async push(groupId?: number): Promise<PushResult> {
     const allMappings = this.library.getAllTrackerMappings();
     const mappingsByGroupId = new Map<number, Array<{ source: string; externalId: string }>>();
 
     for (const mapping of allMappings) {
+      if (groupId !== undefined && mapping.groupId !== groupId) continue;
       const existing = mappingsByGroupId.get(mapping.groupId);
       if (existing) {
         existing.push(mapping);
@@ -105,17 +106,17 @@ export class SyncEngine {
     let pushed = 0;
     const eventIdsToMark: number[] = [];
 
-    for (const [groupId, mappings] of mappingsByGroupId) {
+    for (const [gid, mappings] of mappingsByGroupId) {
       const unpushedEvents = this.eventRepo
         .getUnpushed(this.source)
-        .filter((e) => e.entityType === "group" && e.entityId === groupId);
+        .filter((e) => e.entityType === "group" && e.entityId === gid);
 
       if (unpushedEvents.length === 0) continue;
 
       const hasWatchedToggle = unpushedEvents.some((e) => e.eventType === "watched_toggle");
       let watchedEpisodes: number | undefined;
       if (hasWatchedToggle) {
-        const episodes = this.library.getEpisodesByGroupId(groupId);
+        const episodes = this.library.getEpisodesByGroupId(gid);
         watchedEpisodes = episodes.filter((ep) => ep.watched).length;
       }
 
