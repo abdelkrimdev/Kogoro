@@ -1,4 +1,6 @@
 pre-commit:
   commands:
+    embed:migrations:
+      run: bun apps/cli/scripts/embed-migrations.ts
     check:all:
       run: bun run check:all
