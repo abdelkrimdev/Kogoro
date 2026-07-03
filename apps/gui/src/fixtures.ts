@@ -44,6 +44,7 @@ export function makeFile(overrides: Partial<FileRow> = {}): FileRow {
     status: "matched",
     animeId: "a1",
     episodeId: "e1",
+    season: 1,
     episode: 1,
     episodeName: "Prologue",
     ...overrides,

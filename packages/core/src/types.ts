@@ -97,6 +97,7 @@ export interface FileRow {
   status: ScanFileStatus;
   animeId: string | null;
   episodeId: string | null;
+  season: number | null;
   episode: number | null;
   episodeName: string | null;
   failureReason?: string;

@@ -787,6 +787,123 @@ describe("aggregateReviewPlan", () => {
     expect(plan.groups[0]?.mergeMode).toBe(false);
   });
 
+  test("sorts files within group by season then episode number", async () => {
+    const results = [
+      makeAggScanResult("/a/s2e1.mkv", {
+        match: {
+          anime: { id: "100", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+          episode: {
+            id: "1003",
+            animeId: "100",
+            season: 2,
+            episode: 1,
+            titleEn: "Ep S2E1",
+            entryType: "tv",
+          },
+          score: 1,
+        },
+        plan: {
+          sourcePath: "/a/s2e1.mkv",
+          targetPath: "Jujutsu Kaisen/Season 2/S02E01.mkv",
+          targetDir: "Jujutsu Kaisen/Season 2",
+          targetFilename: "S02E01.mkv",
+          action: "move",
+        },
+        status: "matched",
+      }),
+      makeAggScanResult("/a/s1e3.mkv", {
+        match: {
+          anime: { id: "100", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+          episode: {
+            id: "1004",
+            animeId: "100",
+            season: 1,
+            episode: 3,
+            titleEn: "Ep S1E3",
+            entryType: "tv",
+          },
+          score: 1,
+        },
+        plan: {
+          sourcePath: "/a/s1e3.mkv",
+          targetPath: "Jujutsu Kaisen/Season 1/S01E03.mkv",
+          targetDir: "Jujutsu Kaisen/Season 1",
+          targetFilename: "S01E03.mkv",
+          action: "move",
+        },
+        status: "matched",
+      }),
+      makeAggScanResult("/a/s1e1.mkv", {
+        match: {
+          anime: { id: "100", titleEn: "Jujutsu Kaisen", entryType: "tv" },
+          episode: {
+            id: "1001",
+            animeId: "100",
+            season: 1,
+            episode: 1,
+            titleEn: "Ep S1E1",
+            entryType: "tv",
+          },
+          score: 1,
+        },
+        plan: {
+          sourcePath: "/a/s1e1.mkv",
+          targetPath: "Jujutsu Kaisen/Season 1/S01E01.mkv",
+          targetDir: "Jujutsu Kaisen/Season 1",
+          targetFilename: "S01E01.mkv",
+          action: "move",
+        },
+        status: "matched",
+      }),
+    ];
+
+    const plan = await aggregateReviewPlan(results, "session-1");
+
+    expect(plan.groups[0]?.files[0]?.sourcePath).toBe("/a/s1e1.mkv");
+    expect(plan.groups[0]?.files[1]?.sourcePath).toBe("/a/s1e3.mkv");
+    expect(plan.groups[0]?.files[2]?.sourcePath).toBe("/a/s2e1.mkv");
+  });
+
+  test("sorts groups alphabetically by anime title", async () => {
+    const results = [
+      makeAggScanResult("/a/ep1.mkv", {
+        match: {
+          anime: { id: "200", titleEn: "Zeta Gundam", entryType: "tv" },
+          episode: {
+            id: "2001",
+            animeId: "200",
+            season: 1,
+            episode: 1,
+            titleEn: "Ep 1",
+            entryType: "tv",
+          },
+          score: 1,
+        },
+        status: "matched",
+      }),
+      makeAggScanResult("/b/ep1.mkv", {
+        match: {
+          anime: { id: "100", titleEn: "Akira", entryType: "tv" },
+          episode: {
+            id: "1001",
+            animeId: "100",
+            season: 1,
+            episode: 1,
+            titleEn: "Ep 1",
+            entryType: "tv",
+          },
+          score: 1,
+        },
+        status: "matched",
+      }),
+    ];
+
+    const plan = await aggregateReviewPlan(results, "session-1");
+
+    expect(plan.groups[0]?.animeTitle).toBe("Akira");
+    expect(plan.groups[1]?.animeTitle).toBe("Zeta Gundam");
+  });
+
   test("fills topCandidates for ambiguous files when callback is provided", async () => {
     const results = [
       makeAggScanResult("/a/ep1.mkv", {
@@ -833,6 +950,7 @@ describe("buildCanonicalIdMap", () => {
               status: "matched",
               animeId: "100",
               episodeId: null,
+              season: null,
               episode: null,
               episodeName: null,
             },
@@ -843,6 +961,7 @@ describe("buildCanonicalIdMap", () => {
               status: "matched",
               animeId: "200",
               episodeId: null,
+              season: null,
               episode: null,
               episodeName: null,
             },
@@ -875,6 +994,7 @@ describe("buildCanonicalIdMap", () => {
               status: "matched",
               animeId: "100",
               episodeId: null,
+              season: null,
               episode: null,
               episodeName: null,
             },
@@ -918,6 +1038,7 @@ describe("buildCanonicalIdMap", () => {
               status: "matched",
               animeId: "300",
               episodeId: null,
+              season: null,
               episode: null,
               episodeName: null,
             },
@@ -936,6 +1057,7 @@ describe("buildCanonicalIdMap", () => {
               status: "matched",
               animeId: "400",
               episodeId: null,
+              season: null,
               episode: null,
               episodeName: null,
             },
@@ -968,6 +1090,7 @@ describe("buildCanonicalIdMap", () => {
               status: "matched",
               animeId: null,
               episodeId: null,
+              season: null,
               episode: null,
               episodeName: null,
             },

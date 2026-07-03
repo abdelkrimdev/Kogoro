@@ -238,7 +238,7 @@ function toSwapInputFromRow(row: FileRow): SwapInputEntry | null {
     fileId: row.fileId,
     filePath: row.sourcePath,
     animeId: row.animeId,
-    season: 1,
+    season: row.season ?? 1,
     episode: row.episode,
     proposedEpisode,
     proposedSeason,
@@ -266,6 +266,7 @@ function toFileRow(result: ScanResult, fileId: string): FileRow {
     status,
     animeId: result.match?.anime.id ?? null,
     episodeId: result.match?.episode?.id ?? null,
+    season: result.match?.episode?.season ?? null,
     episode: result.match?.episode?.episode ?? null,
     episodeName: result.match?.episode?.titleEn ?? null,
     failureReason: result.failureReason,
@@ -325,9 +326,17 @@ export async function aggregateReviewPlan(
         libraryService.isAnimeInLibrary(group.animeId, sourceDb);
     }
 
+    group.files.sort((a, b) => {
+      const aSeason = a.season ?? 0;
+      const bSeason = b.season ?? 0;
+      if (aSeason !== bSeason) return aSeason - bSeason;
+      return (a.episode ?? 0) - (b.episode ?? 0);
+    });
     group.swapPairs = detectSwapsFromRows(group.files);
     groupList.push(group);
   }
+
+  groupList.sort((a, b) => a.animeTitle.localeCompare(b.animeTitle));
 
   if (computeTopCandidates) {
     for (const group of groupList) {
