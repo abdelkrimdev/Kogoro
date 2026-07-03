@@ -71,12 +71,10 @@
 
   async function approveAll() {
     try {
-      for (const group of plan.groups) {
-        if (!group.rejected) {
-          await rpc.request("approveGroup", { sessionId, animeId: group.animeId });
-        }
-      }
-      await rpc.request("approvePlan", { sessionId });
+      const rejectedAnimeIds = plan.groups
+        .filter((g) => g.rejected)
+        .map((g) => g.animeId);
+      await rpc.request("approvePlan", { rejectedAnimeIds });
       onComplete();
     } catch (err) {
       console.error("Failed to approve plan:", err);

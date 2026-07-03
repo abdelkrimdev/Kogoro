@@ -56,6 +56,7 @@ export interface ScanSessionStore {
   get(sessionId: string): ScanSessionEntry | undefined;
   set(sessionId: string, entry: ScanSessionEntry): void;
   delete(sessionId: string): void;
+  entries(): IterableIterator<[string, ScanSessionEntry]>;
 }
 
 function createInMemoryScanSessionStore(): ScanSessionStore {
@@ -231,9 +232,21 @@ export function createScanHandlers(dependencies: {
       return { sessionId };
     },
 
-    async approvePlan(params: { sessionId: string }) {
-      const { orchestrator } = requireSession(params.sessionId);
-      await orchestrator.approvePlan();
+    async approvePlan(params?: { rejectedAnimeIds?: string[] }) {
+      const rejectedAnimeIds = params?.rejectedAnimeIds ?? [];
+      const pending = [...store.entries()];
+      for (const [, session] of pending) {
+        if (session.orchestrator.getState() === "review") {
+          for (const animeId of rejectedAnimeIds) {
+            try {
+              session.orchestrator.rejectGroup(animeId);
+            } catch {
+              // Group may not exist in this session's plan
+            }
+          }
+          await session.orchestrator.approvePlan();
+        }
+      }
       return undefined;
     },
 

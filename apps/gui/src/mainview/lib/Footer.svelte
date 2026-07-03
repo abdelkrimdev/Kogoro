@@ -1,6 +1,5 @@
 <script lang="ts">
   import { CircleCheck, LoaderCircle } from "@lucide/svelte";
-  import { onMount } from "svelte";
   import { statusKindFor } from "../state/footer";
 
   type LibraryStats = { animeCount: number; episodeCount: number };
@@ -16,10 +15,12 @@
 
   let stats: LibraryStats | null = $state(null);
 
-  onMount(async () => {
-    try {
-      stats = (await rpc.request("getLibraryStats", {})) as LibraryStats;
-    } catch {}
+  $effect(() => {
+    (async () => {
+      try {
+        stats = (await rpc.request("getLibraryStats", {})) as LibraryStats;
+      } catch {}
+    })();
   });
 
   const statusKind = $derived(statusKindFor(statusText));
