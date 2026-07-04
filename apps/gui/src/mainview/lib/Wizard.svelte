@@ -34,6 +34,7 @@
   let connectDialogTracker = $state<string | null>(null);
   let connectDialogFields = $state<Array<{ name: string; label: string; type: "text" | "password"; placeholder?: string }>>([]);
   let connectDialogValues = $state<Record<string, string>>({});
+  let connectDialogAuthInfo = $state<{ authUrl?: string; instructions?: string }>({});
   let connectingInProgress = $state(false);
 
   let importPreviewTracker = $state<string | null>(null);
@@ -110,9 +111,14 @@
   async function openConnectDialog(trackerName: string) {
     try {
       const fields = (await rpc.request("getTrackerConnectionFields", trackerName)) as typeof connectDialogFields;
+      const authInfo = (await rpc.request("getTrackerAuthInfo", trackerName)) as typeof connectDialogAuthInfo;
       connectDialogTracker = trackerName;
       connectDialogFields = fields;
       connectDialogValues = {};
+      connectDialogAuthInfo = authInfo;
+      if (authInfo.authUrl) {
+        rpc.request("openExternal", { url: authInfo.authUrl });
+      }
     } catch {
       // Fields loading is optional
     }
@@ -338,7 +344,25 @@
         <div class="p-4">
           <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Connect {connectDialogTracker ?? ""}</Dialog.Title>
           <Dialog.Description class="text-sm text-surface-600-400 mb-4">
-            Enter your credentials to connect this tracker.
+            {#if connectDialogAuthInfo.instructions}
+              <div class="whitespace-pre-line mb-2">{connectDialogAuthInfo.instructions}</div>
+              {#if connectDialogAuthInfo.authUrl}
+                <button
+                  type="button"
+                  class="text-primary-500 underline hover:text-primary-600 text-left break-all cursor-pointer bg-transparent border-0 p-0"
+                  onclick={async () => {
+                    const result = (await rpc.request("openExternal", { url: connectDialogAuthInfo.authUrl! })) as { success: boolean; url?: string };
+                    if (!result.success && result.url) {
+                      error = `Open this URL manually:\n${result.url}`;
+                    }
+                  }}
+                >
+                  Open Authorization Link
+                </button>
+              {/if}
+            {:else}
+              Enter your credentials to connect this tracker.
+            {/if}
           </Dialog.Description>
           <div class="space-y-3">
             {#each connectDialogFields as field}

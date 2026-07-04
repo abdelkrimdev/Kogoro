@@ -1,4 +1,5 @@
 import {
+  type CredentialStore,
   type EntryType,
   HttpClient,
   type TrackerAnime,
@@ -186,20 +187,87 @@ query ($id: Int) {
 
 export class AniListPlugin implements TrackerPlugin {
   private baseUrl: string;
+  private clientId: string;
+  private clientSecret: string;
   private token: string | null;
+  private credentialStore: CredentialStore | null;
   private httpClient: HttpClient;
 
-  constructor(options: { baseUrl: string; token?: string; httpClient?: HttpClient }) {
+  constructor(options: {
+    baseUrl: string;
+    clientId?: string;
+    clientSecret?: string;
+    token?: string;
+    credentialStore?: CredentialStore;
+    httpClient?: HttpClient;
+  }) {
     this.baseUrl = options.baseUrl;
+    this.clientId = options.clientId ?? "";
+    this.clientSecret = options.clientSecret ?? "";
     this.token = options.token ?? null;
+    this.credentialStore = options.credentialStore ?? null;
     this.httpClient = options.httpClient ?? new HttpClient();
   }
 
   async authenticate(): Promise<string> {
-    return this.token ?? "";
+    if (this.token) return this.token;
+
+    if (this.credentialStore) {
+      const stored = await this.credentialStore.getCredential("anilist");
+      if (stored) {
+        this.token = stored;
+        return stored;
+      }
+    }
+
+    const authUrl = new URL("https://anilist.co/api/v2/oauth/authorize");
+    authUrl.searchParams.set("client_id", this.clientId);
+    authUrl.searchParams.set("redirect_uri", "https://anilist.co/api/v2/oauth/pin");
+    authUrl.searchParams.set("response_type", "code");
+
+    throw new Error(
+      `AniList authentication requires OAuth flow. Please visit: ${authUrl.toString()} and complete authentication, then provide the PIN code.`,
+    );
+  }
+
+  async exchangeCode(code: string): Promise<string> {
+    const response = await this.httpClient.fetch("https://anilist.co/api/v2/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        redirect_uri: "https://anilist.co/api/v2/oauth/pin",
+        code,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+      };
+      throw new Error(
+        `AniList token exchange failed: ${error.message ?? error.error ?? response.statusText}`,
+      );
+    }
+
+    const data = (await response.json()) as { access_token: string };
+    this.token = data.access_token;
+
+    if (this.credentialStore) {
+      await this.credentialStore.setCredential("anilist", data.access_token);
+    }
+
+    return data.access_token;
   }
 
   async getUserList(): Promise<TrackerAnime[]> {
+    await this.ensureAuthenticated();
     const data = await this.graphql<AniListMediaListResponse>(MEDIA_LIST_COLLECTION_QUERY);
     if (!data?.MediaListCollection) return [];
 
@@ -224,6 +292,7 @@ export class AniListPlugin implements TrackerPlugin {
   }
 
   async getEntry(trackerId: string): Promise<TrackerEntry> {
+    await this.ensureAuthenticated();
     const data = await this.graphql<AniListMediaListEntryResponse>(MEDIA_LIST_ENTRY_QUERY, {
       id: Number.parseInt(trackerId, 10),
     });
@@ -249,6 +318,7 @@ export class AniListPlugin implements TrackerPlugin {
   }
 
   async updateEntry(trackerId: string, changes: TrackerEntryChanges): Promise<void> {
+    await this.ensureAuthenticated();
     const variables: Record<string, unknown> = {
       id: Number.parseInt(trackerId, 10),
     };
@@ -268,6 +338,7 @@ export class AniListPlugin implements TrackerPlugin {
   }
 
   async getAnimeDetails(trackerId: string): Promise<TrackerAnimeDetails> {
+    await this.ensureAuthenticated();
     const data = await this.graphql<AniListMediaResponse>(MEDIA_QUERY, {
       id: Number.parseInt(trackerId, 10),
     });
@@ -292,6 +363,12 @@ export class AniListPlugin implements TrackerPlugin {
       studio: media.studios.nodes[0]?.name ?? undefined,
       totalEpisodes: media.episodes ?? undefined,
     };
+  }
+
+  private async ensureAuthenticated(): Promise<void> {
+    if (!this.token) {
+      await this.authenticate();
+    }
   }
 
   private async graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {

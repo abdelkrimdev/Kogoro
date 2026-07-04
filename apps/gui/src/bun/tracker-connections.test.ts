@@ -60,11 +60,11 @@ describe("getTrackerStatus", () => {
 });
 
 describe("getTrackerConnectionFields", () => {
-  test("returns token field for anilist", () => {
+  test("returns pin field for anilist", () => {
     const fields = getTrackerConnectionFields("anilist");
     expect(fields).toHaveLength(1);
-    expect(fields[0]?.name).toBe("token");
-    expect(fields[0]?.type).toBe("password");
+    expect(fields[0]?.name).toBe("pin");
+    expect(fields[0]?.type).toBe("text");
   });
 
   test("returns username and password fields for kitsu", () => {
@@ -86,11 +86,22 @@ describe("getTrackerConnectionFields", () => {
 });
 
 describe("connectTracker", () => {
-  test("stores anilist token credential", async () => {
+  test("stores anilist pin credential via onBeforeStore", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const result = await connectTracker(store, {
       name: "anilist",
-      values: { token: "my-anilist-token" },
+      values: { pin: "123456" },
+      onBeforeStore: async () => "exchanged-anilist-token",
+    });
+    expect(result.success).toBe(true);
+    expect(await store.getCredential("anilist")).toBe("exchanged-anilist-token");
+  });
+
+  test("stores anilist pin directly when no onBeforeStore", async () => {
+    const store = new CredentialStore({ keytar: createMockKeytar() });
+    const result = await connectTracker(store, {
+      name: "anilist",
+      values: { pin: "my-anilist-token" },
     });
     expect(result.success).toBe(true);
     expect(await store.getCredential("anilist")).toBe("my-anilist-token");
@@ -106,14 +117,14 @@ describe("connectTracker", () => {
     expect(await store.getCredential("kitsu")).toBe("myuser:mypass");
   });
 
-  test("returns error when anilist token is empty", async () => {
+  test("returns error when anilist pin is empty", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const result = await connectTracker(store, {
       name: "anilist",
-      values: { token: "" },
+      values: { pin: "" },
     });
     expect(result.success).toBe(false);
-    expect(result.error).toContain("Token");
+    expect(result.error).toContain("PIN Code");
   });
 
   test("returns error when kitsu username is missing", async () => {

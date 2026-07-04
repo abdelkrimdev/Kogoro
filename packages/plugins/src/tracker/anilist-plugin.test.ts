@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { EntryType, TrackerPlugin, TrackerWatchStatus } from "@kogoro/core";
-import { createMockHttpClient, toUrlString } from "@kogoro/core/testing";
+import { createMockHttpClient, toUrlString, withTestConfig } from "@kogoro/core/testing";
 import { AniListPlugin } from "./anilist-plugin";
 
 const GRAPHQL_URL = "https://graphql.anilist.co";
@@ -63,10 +63,11 @@ describe("AniListPlugin", () => {
       expect(token).toBe("stored-anilist-token");
     });
 
-    test("returns empty string when no token", async () => {
+    test("throws when no token is available", async () => {
       const plugin = createPlugin(mockGraphQLFetch(() => ({})));
-      const token = await plugin.authenticate();
-      expect(token).toBe("");
+      await expect(plugin.authenticate()).rejects.toThrow(
+        "AniList authentication requires OAuth flow",
+      );
     });
 
     test("includes Authorization header when token is set", async () => {
@@ -86,21 +87,77 @@ describe("AniListPlugin", () => {
       expect(capturedHeaders["authorization"]).toBe("Bearer my-anilist-token");
     });
 
-    test("does not include Authorization header when no token", async () => {
-      let capturedHeaders: Record<string, string> = {};
+    test("throws when making request without token", async () => {
+      const plugin = createPlugin(mockGraphQLFetch(() => ({})));
+      await expect(plugin.getUserList()).rejects.toThrow(
+        "AniList authentication requires OAuth flow",
+      );
+    });
+  });
 
-      const fetch = async (_url: string | URL, init?: RequestInit) => {
-        capturedHeaders = Object.fromEntries(new Headers(init?.headers).entries());
-        return new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
+  describe("exchangeCode", () => {
+    test("exchanges OAuth pin/code for access token and stores it", async () => {
+      await withTestConfig("anilist-exchange-code", async (_dir, _config, credentialStore) => {
+        let capturedUrl = "";
+        let capturedBody: Record<string, string> | undefined;
+
+        const mockFetch = async (url: string | URL, init?: RequestInit) => {
+          capturedUrl = toUrlString(url);
+          capturedBody = JSON.parse(init?.body as string);
+          return new Response(JSON.stringify({ access_token: "exchanged-access-token" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        };
+
+        const plugin = new AniListPlugin({
+          baseUrl: GRAPHQL_URL,
+          clientId: "my-client-id",
+          clientSecret: "my-client-secret",
+          credentialStore,
+          httpClient: createMockHttpClient(mockFetch),
         });
-      };
 
-      const plugin = createPlugin(fetch);
-      await plugin.getUserList();
+        const token = await plugin.exchangeCode("my-pin-code");
+        expect(token).toBe("exchanged-access-token");
+        expect(capturedUrl).toBe("https://anilist.co/api/v2/oauth/token");
+        expect(capturedBody).toEqual({
+          grant_type: "authorization_code",
+          client_id: "my-client-id",
+          client_secret: "my-client-secret",
+          redirect_uri: "https://anilist.co/api/v2/oauth/pin",
+          code: "my-pin-code",
+        });
 
-      expect(capturedHeaders).not.toHaveProperty("authorization");
+        const storedToken = await credentialStore.getCredential("anilist");
+        expect(storedToken).toBe("exchanged-access-token");
+      });
+    });
+
+    test("throws meaningful error on exchange failure", async () => {
+      await withTestConfig("anilist-exchange-fail", async (_dir, _config, credentialStore) => {
+        const mockFetch = async () => {
+          return new Response(
+            JSON.stringify({ error: "invalid_grant", message: "Invalid authorization code" }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        };
+
+        const plugin = new AniListPlugin({
+          baseUrl: GRAPHQL_URL,
+          clientId: "my-client-id",
+          clientSecret: "my-client-secret",
+          credentialStore,
+          httpClient: createMockHttpClient(mockFetch),
+        });
+
+        await expect(plugin.exchangeCode("bad-pin")).rejects.toThrow(
+          "AniList token exchange failed: Invalid authorization code",
+        );
+      });
     });
   });
 

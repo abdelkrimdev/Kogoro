@@ -37,6 +37,7 @@ import { createSyncHandlers } from "./sync";
 import {
   connectTracker,
   disconnectTracker,
+  getTrackerAuthInfo,
   getTrackerConnectionFields,
   getTrackerStatus,
 } from "./tracker-connections";
@@ -168,8 +169,31 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       checkKeyring: async () => checkKeyringStatus(),
       getTrackerStatus: async () => getTrackerStatus(credentialStore),
       getTrackerConnectionFields: (params) => getTrackerConnectionFields(params),
+      getTrackerAuthInfo: (params) => getTrackerAuthInfo(params),
+      openExternal: (params) => {
+        try {
+          Utils.openExternal(params.url);
+          return { success: true };
+        } catch {
+          return { success: false, url: params.url };
+        }
+      },
       connectTracker: async (params) => {
-        const result = await connectTracker(credentialStore, params);
+        const result = await connectTracker(credentialStore, {
+          ...params,
+          onBeforeStore: async (name, values) => {
+            if (name === "anilist") {
+              const pin = values["pin"] ?? "";
+              if (!pin) return null;
+              const plugin = await pluginFactory.tracker("anilist");
+              if (!plugin || !("exchangeCode" in plugin)) return pin;
+              return await (
+                plugin as { exchangeCode: (code: string) => Promise<string> }
+              ).exchangeCode(pin);
+            }
+            return null;
+          },
+        });
         if (result.success) {
           syncHandlers.syncAll().catch(() => {});
         }

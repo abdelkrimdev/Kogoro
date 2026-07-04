@@ -113,7 +113,14 @@ async function loadAnilist(
     minDelay: entry.rateLimit,
     ...debugOptions(ctx.debug),
   });
-  return new AniListPlugin({ baseUrl: entry.baseUrl, token: token ?? undefined, httpClient });
+  return new AniListPlugin({
+    baseUrl: entry.baseUrl,
+    token: token ?? undefined,
+    credentialStore: ctx.credentialStore,
+    clientId: process.env["ANILIST_CLIENT_ID"] || "",
+    clientSecret: process.env["ANILIST_CLIENT_SECRET"] || "",
+    httpClient,
+  });
 }
 
 async function loadKitsu(

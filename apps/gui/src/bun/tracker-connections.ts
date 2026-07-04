@@ -14,11 +14,19 @@ export interface TrackerCredentialField {
   placeholder?: string;
 }
 
+export interface TrackerAuthInfo {
+  authUrl?: string;
+  instructions?: string;
+}
+
 interface TrackerDefinition {
   name: string;
   displayName: string;
   credentialKey: string;
   fields: TrackerCredentialField[];
+  authUrl?: string;
+  authUrlEnvVars?: Record<string, string>;
+  instructions?: string;
   buildCredential: (values: Record<string, string>) => string | null;
   extractAccountInfo: (credential: string) => string | undefined;
 }
@@ -30,15 +38,20 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     credentialKey: "anilist",
     fields: [
       {
-        name: "token",
-        label: "API Token",
-        type: "password",
-        placeholder: "Enter your AniList API token",
+        name: "pin",
+        label: "PIN Code",
+        type: "text",
+        placeholder: "Paste the PIN code from AniList",
       },
     ],
+    authUrl:
+      "https://anilist.co/api/v2/oauth/authorize?client_id={client_id}&redirect_uri=https%3A%2F%2Fanilist.co%2Fapi%2Fv2%2Foauth%2Fpin&response_type=code",
+    authUrlEnvVars: { client_id: "ANILIST_CLIENT_ID" },
+    instructions:
+      "1. Click the link below to authorize on AniList\n2. Copy the PIN code shown after authorizing\n3. Paste it here",
     buildCredential: (values) => {
-      const token = values["token"] ?? "";
-      return token || null;
+      const pin = values["pin"] ?? "";
+      return pin || null;
     },
     extractAccountInfo: () => undefined,
   },
@@ -102,14 +115,40 @@ export function getTrackerConnectionFields(name: string): TrackerCredentialField
   return def?.fields ?? [];
 }
 
+export function getTrackerAuthInfo(name: string): TrackerAuthInfo {
+  const def = TRACKER_DEFINITIONS.find((d) => d.name === name);
+  let authUrl = def?.authUrl;
+  if (authUrl && def?.authUrlEnvVars) {
+    for (const [placeholder, envKey] of Object.entries(def.authUrlEnvVars)) {
+      const value = process.env[envKey];
+      if (value) {
+        authUrl = authUrl.replace(`{${placeholder}}`, value);
+      }
+    }
+  }
+  return { authUrl, instructions: def?.instructions };
+}
+
 export async function connectTracker(
   credentialStore: CredentialStore,
-  params: { name: string; values: Record<string, string> },
+  params: {
+    name: string;
+    values: Record<string, string>;
+    onBeforeStore?: (name: string, values: Record<string, string>) => Promise<string | null>;
+  },
 ): Promise<{ success: boolean; error?: string }> {
   const def = TRACKER_DEFINITIONS.find((d) => d.name === params.name);
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
-  const credential = def.buildCredential(params.values);
+  let credential: string | null;
+  if (params.onBeforeStore) {
+    credential = await params.onBeforeStore(def.name, params.values);
+    if (credential === null) {
+      credential = def.buildCredential(params.values);
+    }
+  } else {
+    credential = def.buildCredential(params.values);
+  }
   if (!credential) {
     const requiredFields = def.fields.map((f) => f.label).join(" and ");
     return { success: false, error: `${requiredFields} are required` };

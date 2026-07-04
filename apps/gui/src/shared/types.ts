@@ -27,6 +27,7 @@ import type { SyncHandlers } from "../bun/sync";
 import type {
   connectTracker,
   disconnectTracker,
+  getTrackerAuthInfo,
   getTrackerConnectionFields,
   getTrackerStatus,
 } from "../bun/tracker-connections";
@@ -219,6 +220,14 @@ export type AppRPC = {
       getTrackerConnectionFields: {
         params: Parameters<typeof getTrackerConnectionFields>[0];
         response: ReturnType<typeof getTrackerConnectionFields>;
+      };
+      getTrackerAuthInfo: {
+        params: Parameters<typeof getTrackerAuthInfo>[0];
+        response: ReturnType<typeof getTrackerAuthInfo>;
+      };
+      openExternal: {
+        params: { url: string };
+        response: { success: boolean };
       };
       connectTracker: {
         params: Parameters<typeof connectTracker>[1];
