@@ -187,6 +187,45 @@ describe("TVDBPlugin", () => {
 
       expect(results[0]?.id).toBe("999999");
     });
+
+    test("falls back to shorter query when full title returns no results", async () => {
+      const capturedUrls: string[] = [];
+      const searchResponse = [
+        {
+          id: 429310,
+          slug: "zom-100-bucket-list-of-the-dead",
+          name: "Zom 100: Bucket List of the Dead",
+        },
+      ];
+
+      const fetch = async (url: string | URL, _init?: RequestInit) => {
+        const urlStr = toUrlString(url);
+        if (urlStr.includes("/login")) {
+          return new Response(JSON.stringify({ data: { token: "mock-token" } }), {
+            status: 200,
+          });
+        }
+        capturedUrls.push(urlStr);
+        if (urlStr.includes("Zom%20100%20Bucket%20List%20of%20the%20Dead")) {
+          return new Response(JSON.stringify({ data: [] }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ data: searchResponse }), { status: 200 });
+      };
+
+      const plugin = new TVDBPlugin({
+        apiKey: "test-key",
+        baseUrl: BASE_URL,
+        httpClient: createMockHttpClient(fetch),
+      });
+
+      const results = await plugin.searchAnime("Zom 100 Bucket List of the Dead");
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.titleEn).toBe("Zom 100: Bucket List of the Dead");
+      expect(capturedUrls).toHaveLength(2);
+      expect(capturedUrls[0]).toContain("Zom%20100%20Bucket%20List%20of%20the%20Dead");
+      expect(capturedUrls[1]).toContain("Zom%20100");
+    });
   });
 
   describe("getEpisodes", () => {

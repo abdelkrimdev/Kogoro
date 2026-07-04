@@ -146,25 +146,36 @@ export class TVDBPlugin implements DatabasePlugin {
   }
 
   async searchAnime(title: string): Promise<AnimeResult[]> {
-    const data = await this.apiRequest<TVDBSearchResult[]>(
-      `/search?query=${encodeURIComponent(title)}&type=series`,
-    );
+    const normalizedTitle = title
+      .replace(/[:\-_,.!?'"]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const words = normalizedTitle.split(" ");
 
-    if (!data) return [];
+    for (let end = words.length; end >= 1; end--) {
+      const query = words.slice(0, end).join(" ");
+      const data = await this.apiRequest<TVDBSearchResult[]>(
+        `/search?query=${encodeURIComponent(query)}&type=series`,
+      );
 
-    return data.map(
-      (item): AnimeResult => ({
-        id: item.tvdb_id ?? String(item.id).replace(/^series-/, ""),
-        slug: item.slug,
-        titleEn: item.translations?.eng ?? item.name_translated ?? item.name,
-        titleJa: item.aliases?.[0],
-        overview: item.overview,
-        year: item.year ? Number.parseInt(item.year, 10) : undefined,
-        image: item.image,
-        status: item.status,
-        entryType: "tv",
-      }),
-    );
+      if (data && data.length > 0) {
+        return data.map(
+          (item): AnimeResult => ({
+            id: item.tvdb_id ?? String(item.id).replace(/^series-/, ""),
+            slug: item.slug,
+            titleEn: item.translations?.eng ?? item.name_translated ?? item.name,
+            titleJa: item.aliases?.[0],
+            overview: item.overview,
+            year: item.year ? Number.parseInt(item.year, 10) : undefined,
+            image: item.image,
+            status: item.status,
+            entryType: "tv",
+          }),
+        );
+      }
+    }
+
+    return [];
   }
 
   async getAnime(animeId: string): Promise<AnimeResult | null> {
