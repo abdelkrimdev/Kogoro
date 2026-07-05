@@ -140,15 +140,9 @@ export async function connectTracker(
   const def = TRACKER_DEFINITIONS.find((d) => d.name === params.name);
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
-  let credential: string | null;
-  if (params.onBeforeStore) {
-    credential = await params.onBeforeStore(def.name, params.values);
-    if (credential === null) {
-      credential = def.buildCredential(params.values);
-    }
-  } else {
-    credential = def.buildCredential(params.values);
-  }
+  const credential =
+    (params.onBeforeStore ? await params.onBeforeStore(def.name, params.values) : null) ??
+    def.buildCredential(params.values);
   if (!credential) {
     const requiredFields = def.fields.map((f) => f.label).join(" and ");
     return { success: false, error: `${requiredFields} are required` };

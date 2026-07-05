@@ -21,3 +21,8 @@ html, body {
   margin: 0;
   padding: 0;
 }
+
+body.macos header {
+  padding-top: 28px;
+  height: 64px;
+}

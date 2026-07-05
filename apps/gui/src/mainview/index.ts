@@ -32,6 +32,10 @@ const rpc = Electroview.defineRPC<AppRPC>({
 const electrobun = new Electroview({ rpc });
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (navigator.userAgent.includes("Mac")) {
+    document.body.classList.add("macos");
+  }
+
   const appRpc = rpc as { request: (method: string, params: unknown) => Promise<unknown> };
 
   const target = document.getElementById("content");

@@ -2,6 +2,7 @@
   import { Switch, TagsInput, Toast, createToaster, Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import type { KeyringCheckResult } from "@kogoro/core";
   import type { SyncConflictInfo } from "../../shared/types";
+  import ConnectTrackerDialog from './ConnectTrackerDialog.svelte';
   import SelectField from './SelectField.svelte';
   import KeyringNotice from './KeyringNotice.svelte';
   import { TEMPLATE_PRESETS } from "../shared";
@@ -54,9 +55,7 @@
   let trackerStatus = $state<Array<{ name: string; displayName: string; connected: boolean; accountInfo?: string }>>([]);
   let connectDialogTracker = $state<string | null>(null);
   let connectDialogFields = $state<Array<{ name: string; label: string; type: "text" | "password"; placeholder?: string }>>([]);
-  let connectDialogValues = $state<Record<string, string>>({});
   let connectDialogAuthInfo = $state<{ authUrl?: string; instructions?: string }>({});
-  let connectingInProgress = $state(false);
   let disconnectDialogTracker = $state<string | null>(null);
 
   let syncing = $state(false);
@@ -166,7 +165,6 @@
       const authInfo = (await rpc.request("getTrackerAuthInfo", trackerName)) as typeof connectDialogAuthInfo;
       connectDialogTracker = trackerName;
       connectDialogFields = fields;
-      connectDialogValues = {};
       connectDialogAuthInfo = authInfo;
       if (authInfo.authUrl) {
         rpc.request("openExternal", { url: authInfo.authUrl });
@@ -176,25 +174,17 @@
     }
   }
 
-  async function handleConnect() {
-    if (!connectDialogTracker) return;
-    connectingInProgress = true;
-    try {
-      const result = (await rpc.request("connectTracker", {
-        name: connectDialogTracker,
-        values: connectDialogValues,
-      })) as { success: boolean; error?: string };
-      if (result.success) {
-        showNotification(`${connectDialogTracker} connected successfully`);
-        connectDialogTracker = null;
-        await loadTrackerStatus();
-      } else {
-        showNotification(`Error: ${result.error}`);
-      }
-    } catch {
-      showNotification("Failed to connect tracker");
-    } finally {
-      connectingInProgress = false;
+  async function handleConnectTracker(trackerName: string, values: Record<string, string>) {
+    const result = (await rpc.request("connectTracker", {
+      name: trackerName,
+      values,
+    })) as { success: boolean; error?: string };
+    if (result.success) {
+      showNotification(`${trackerName} connected successfully`);
+      connectDialogTracker = null;
+      await loadTrackerStatus();
+    } else {
+      showNotification(`Error: ${result.error}`);
     }
   }
 
@@ -604,65 +594,15 @@
     </Portal>
   </Dialog>
 
-  <Dialog open={!!connectDialogTracker} onOpenChange={(details) => { if (!details.open) connectDialogTracker = null; }}>
-    <Portal>
-      <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-950/60 backdrop-blur-sm" />
-      <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-sm p-0 shadow-xl">
-          <div class="p-4">
-            <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Connect {connectDialogTracker ?? ""}</Dialog.Title>
-            <Dialog.Description class="text-sm text-surface-600-400 mb-4">
-              {#if connectDialogAuthInfo.instructions}
-                <div class="whitespace-pre-line mb-2">{connectDialogAuthInfo.instructions}</div>
-                {#if connectDialogAuthInfo.authUrl}
-                  <button
-                    type="button"
-                    class="text-primary-500 underline hover:text-primary-600 text-left break-all cursor-pointer bg-transparent border-0 p-0"
-                    onclick={async () => {
-                      const result = (await rpc.request("openExternal", { url: connectDialogAuthInfo.authUrl! })) as { success: boolean; url?: string };
-                      if (!result.success && result.url) {
-                        showNotification(`Open this URL manually:\n${result.url}`);
-                      }
-                    }}
-                  >
-                    Open Authorization Link
-                  </button>
-                {/if}
-              {:else}
-                Enter your credentials to connect this tracker.
-              {/if}
-            </Dialog.Description>
-            <div class="space-y-3">
-              {#each connectDialogFields as field}
-                <label class="label">
-                  <span class="label-text">{field.label}</span>
-                  <input
-                    type={field.type}
-                    placeholder={field.placeholder ?? ""}
-                    oninput={(e) => { connectDialogValues[field.name] = (e.target as HTMLInputElement).value; }}
-                    class="input"
-                  />
-                </label>
-              {/each}
-            </div>
-          </div>
-          <div class="p-4 border-t border-surface-300-700 flex justify-end gap-3">
-            <Dialog.CloseTrigger class="btn preset-tonal-surface rounded-lg font-medium">
-              Cancel
-            </Dialog.CloseTrigger>
-            <button
-              type="button"
-              class="btn preset-filled-primary-500 rounded-lg font-medium"
-              onclick={handleConnect}
-              disabled={connectingInProgress}
-            >
-              {connectingInProgress ? "Connecting..." : "Connect"}
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Portal>
-  </Dialog>
+  <ConnectTrackerDialog
+    {rpc}
+    trackerName={connectDialogTracker}
+    fields={connectDialogFields}
+    authInfo={connectDialogAuthInfo}
+    onConnect={handleConnectTracker}
+    onOpenExternalError={(url) => showNotification(`Open this URL manually:\n${url}`)}
+    onCancel={() => { connectDialogTracker = null; }}
+  />
 
   <Dialog open={!!disconnectDialogTracker} onOpenChange={(details) => { if (!details.open) disconnectDialogTracker = null; }}>
     <Portal>
