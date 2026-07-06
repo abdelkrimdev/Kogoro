@@ -37,6 +37,14 @@ interface TrackerDefinition {
   instructions?: string;
   buildCredential: (values: Record<string, string>) => string | null;
   extractAccountInfo: (credential: string) => string | undefined;
+  oauth?: {
+    clientId: string;
+    baseUrl: string;
+    redirectPath: string;
+    responseType: string;
+    includeRedirectUri?: boolean;
+    extraParams?: (verifier: string) => Record<string, string>;
+  };
 }
 
 const TRACKER_DEFINITIONS: TrackerDefinition[] = [
@@ -48,6 +56,13 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     instructions: "You'll be redirected to AniList to authorize.",
     buildCredential: () => null,
     extractAccountInfo: (credential) => credentialDisplayLabel(credential),
+    oauth: {
+      clientId: "45221",
+      baseUrl: "https://anilist.co/api/v2/oauth/authorize",
+      redirectPath: "/callback/anilist",
+      responseType: "token",
+      includeRedirectUri: false,
+    },
   },
   {
     name: "kitsu",
@@ -79,10 +94,25 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     instructions: "You'll be redirected to MyAnimeList to authorize.",
     buildCredential: () => null,
     extractAccountInfo: () => undefined,
+    oauth: {
+      clientId: "97e4bfe9c07f9e679ec96e4906862030",
+      baseUrl: "https://myanimelist.net/v1/oauth2/authorize",
+      redirectPath: "/callback/mal",
+      responseType: "code",
+      extraParams: (verifier) => ({
+        code_challenge: verifier,
+        code_challenge_method: "plain",
+        scope: "write:users",
+      }),
+    },
   },
 ];
 
 let callbackServer: CallbackServer | null = null;
+
+function findTrackerDef(name: string): TrackerDefinition | undefined {
+  return TRACKER_DEFINITIONS.find((d) => d.name === name);
+}
 
 export async function getTrackerStatus(
   credentialStore: CredentialStore,
@@ -101,13 +131,11 @@ export async function getTrackerStatus(
 }
 
 export function getTrackerConnectionFields(name: string): TrackerCredentialField[] {
-  const def = TRACKER_DEFINITIONS.find((d) => d.name === name);
-  return def?.fields ?? [];
+  return findTrackerDef(name)?.fields ?? [];
 }
 
 export function getTrackerAuthInfo(name: string): TrackerAuthInfo {
-  const def = TRACKER_DEFINITIONS.find((d) => d.name === name);
-  return { instructions: def?.instructions };
+  return { instructions: findTrackerDef(name)?.instructions };
 }
 
 export async function connectTracker(
@@ -118,7 +146,7 @@ export async function connectTracker(
     onBeforeStore?: (name: string, values: Record<string, string>) => Promise<string | null>;
   },
 ): Promise<{ success: boolean; error?: string }> {
-  const def = TRACKER_DEFINITIONS.find((d) => d.name === params.name);
+  const def = findTrackerDef(params.name);
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
   const credential =
@@ -142,7 +170,7 @@ export async function disconnectTracker(
   eventRepo: EventRepository,
   params: { name: string },
 ): Promise<{ success: boolean; error?: string }> {
-  const def = TRACKER_DEFINITIONS.find((d) => d.name === params.name);
+  const def = findTrackerDef(params.name);
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
   libraryService.removeTrackerMappingsBySource(def.name);
@@ -151,43 +179,12 @@ export async function disconnectTracker(
   return { success: true };
 }
 
-const OAUTH_CONFIGS: Record<
-  string,
-  {
-    clientId: string;
-    baseUrl: string;
-    redirectPath: string;
-    responseType: string;
-    includeRedirectUri?: boolean;
-    extraParams?: (verifier: string) => Record<string, string>;
-  }
-> = {
-  anilist: {
-    clientId: "45221",
-    baseUrl: "https://anilist.co/api/v2/oauth/authorize",
-    redirectPath: "/callback/anilist",
-    responseType: "token",
-    includeRedirectUri: false,
-  },
-  mal: {
-    clientId: "97e4bfe9c07f9e679ec96e4906862030",
-    baseUrl: "https://myanimelist.net/v1/oauth2/authorize",
-    redirectPath: "/callback/mal",
-    responseType: "code",
-    extraParams: (verifier) => ({
-      code_challenge: verifier,
-      code_challenge_method: "plain",
-      scope: "write:users",
-    }),
-  },
-};
-
 export async function startTrackerAuth(
   trackerName: string,
   credentialStore?: CredentialStore,
 ): Promise<{ authUrl: string; state: string }> {
-  const config = OAUTH_CONFIGS[trackerName];
-  if (!config) {
+  const def = findTrackerDef(trackerName);
+  if (!def?.oauth) {
     throw new TrackerError("unknown", `OAuth flow not supported for ${trackerName}`, trackerName);
   }
 
@@ -197,26 +194,26 @@ export async function startTrackerAuth(
   await callbackServer.start();
 
   const state = callbackServer.generateState();
-  const clientId = config.clientId;
+  const { oauth } = def;
 
   let codeVerifier: string | undefined;
-  if (config.extraParams) {
+  if (oauth.extraParams) {
     codeVerifier = generateCodeVerifier();
     if (credentialStore) {
       await credentialStore.setCredential(`${trackerName}_code_verifier`, codeVerifier);
     }
   }
 
-  const authUrl = new URL(config.baseUrl);
-  authUrl.searchParams.set("client_id", clientId);
-  if (config.includeRedirectUri !== false) {
-    authUrl.searchParams.set("redirect_uri", `http://localhost:43219${config.redirectPath}`);
+  const authUrl = new URL(oauth.baseUrl);
+  authUrl.searchParams.set("client_id", oauth.clientId);
+  if (oauth.includeRedirectUri !== false) {
+    authUrl.searchParams.set("redirect_uri", `http://localhost:43219${oauth.redirectPath}`);
   }
-  authUrl.searchParams.set("response_type", config.responseType);
+  authUrl.searchParams.set("response_type", oauth.responseType);
   authUrl.searchParams.set("state", state);
 
-  if (config.extraParams && codeVerifier) {
-    for (const [key, value] of Object.entries(config.extraParams(codeVerifier))) {
+  if (oauth.extraParams && codeVerifier) {
+    for (const [key, value] of Object.entries(oauth.extraParams(codeVerifier))) {
       authUrl.searchParams.set(key, value);
     }
   }
