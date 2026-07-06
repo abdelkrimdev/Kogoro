@@ -142,7 +142,14 @@ describe("AniListPlugin OAuth", () => {
         async (_dir, _config, credentialStore) => {
           await credentialStore.setCredential("anilist", JSON.stringify(credential));
 
-          const mockFetch = async () => {
+          const mockFetch = async (_url: string | URL, init?: RequestInit) => {
+            const body = JSON.parse(init?.body as string) as { query: string };
+            if (body.query.includes("Viewer")) {
+              return new Response(JSON.stringify({ data: { Viewer: { id: 1 } } }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
             return new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
               status: 200,
               headers: { "Content-Type": "application/json" },

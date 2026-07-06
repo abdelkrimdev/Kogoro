@@ -125,9 +125,16 @@ function mapStatus(status: string): TrackerWatchStatus {
   return ANILIST_STATUS_MAP[status] ?? "plan-to-watch";
 }
 
+const VIEWER_QUERY = `
+query {
+  Viewer {
+    id
+  }
+}`;
+
 const MEDIA_LIST_COLLECTION_QUERY = `
-query ($userId: Int) {
-  MediaListCollection(userId: $userId, type: ANIME) {
+query ($type: MediaType!, $userId: Int!) {
+  MediaListCollection(type: $type, userId: $userId) {
     lists {
       entries {
         mediaId
@@ -289,7 +296,17 @@ export class AniListPlugin implements TrackerPlugin {
 
   async getUserList(): Promise<TrackerAnime[]> {
     await this.ensureAuthenticated();
-    const data = await this.graphql<AniListMediaListResponse>(MEDIA_LIST_COLLECTION_QUERY);
+
+    // First get the authenticated user's ID
+    const viewerData = await this.graphql<{ Viewer: { id: number } }>(VIEWER_QUERY);
+    if (!viewerData?.Viewer?.id) {
+      throw new TrackerError("auth_invalid", "Could not retrieve authenticated user ID", "anilist");
+    }
+
+    const data = await this.graphql<AniListMediaListResponse>(MEDIA_LIST_COLLECTION_QUERY, {
+      type: "ANIME",
+      userId: viewerData.Viewer.id,
+    });
     if (!data?.MediaListCollection) return [];
 
     const results: TrackerAnime[] = [];
@@ -401,17 +418,13 @@ export class AniListPlugin implements TrackerPlugin {
       body: JSON.stringify({ query, variables }),
     });
 
-    if (!response.ok) {
-      throwHttpError(response, "anilist");
-    }
+    const json = (await response.json()) as {
+      data?: T;
+      errors?: Array<{ message: string; status?: number }>;
+    };
 
-    const json = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
-    if (json.errors?.length) {
-      throw new TrackerError(
-        "unknown",
-        `AniList GraphQL error: ${json.errors[0]?.message ?? "Unknown error"}`,
-        "anilist",
-      );
+    if (!response.ok || json.errors?.length) {
+      throwHttpError(response, "anilist", undefined, json.errors);
     }
     return json.data ?? null;
   }

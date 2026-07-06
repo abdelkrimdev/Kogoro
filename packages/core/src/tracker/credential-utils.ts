@@ -11,30 +11,51 @@ export function generateCodeVerifier(): string {
   return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-export function throwHttpError(response: Response, trackerName: string, context?: string): never {
+function isAuthErrorMessage(msg: string): boolean {
+  return msg === "Invalid token" || msg === "Unauthorized.";
+}
+
+interface GraphQLErrorEntry {
+  message: string;
+  status?: number;
+}
+
+export function throwHttpError(
+  response: Response,
+  trackerName: string,
+  context?: string,
+  graphqlErrors?: GraphQLErrorEntry[],
+): never {
   const label = context ? `${context}: ` : "";
-  switch (response.status) {
-    case 401:
-      throw new TrackerError("auth_expired", `${label}${trackerName} token expired`, trackerName);
-    case 403:
-      throw new TrackerError(
-        "auth_invalid",
-        `${label}${trackerName} access denied (check token permissions)`,
-        trackerName,
-      );
-    case 429:
-      throw new TrackerError(
-        "rate_limited",
-        `${label}${trackerName} rate limit exceeded`,
-        trackerName,
-      );
-    default:
-      throw new TrackerError(
-        "unknown",
-        `${label}${trackerName} API error: ${response.status} ${response.statusText}`,
-        trackerName,
-      );
+  const gqlError = graphqlErrors?.[0];
+  const effectiveStatus = gqlError?.status ?? response.status;
+  const msg = gqlError?.message ?? response.statusText;
+
+  if (effectiveStatus === 401 || (gqlError && isAuthErrorMessage(msg))) {
+    throw new TrackerError("auth_expired", `${label}${trackerName} token expired`, trackerName);
   }
+  if (effectiveStatus === 403) {
+    throw new TrackerError(
+      "auth_invalid",
+      `${label}${trackerName} access denied (check token permissions)`,
+      trackerName,
+    );
+  }
+  if (effectiveStatus === 429) {
+    throw new TrackerError(
+      "rate_limited",
+      `${label}${trackerName} rate limit exceeded`,
+      trackerName,
+    );
+  }
+  if (!response.ok) {
+    throw new TrackerError(
+      "unknown",
+      `${label}${trackerName} API error: ${response.status} ${msg}`,
+      trackerName,
+    );
+  }
+  throw new TrackerError("unknown", `${label}${trackerName} GraphQL error: ${msg}`, trackerName);
 }
 
 async function parseStoredCredential(

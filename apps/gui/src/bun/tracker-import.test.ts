@@ -17,6 +17,24 @@ function createTestFactory(credentials?: Record<string, string>): PluginFactory 
   return new PluginFactory(config, credentialStore);
 }
 
+function mockAnilistFetch(
+  listData: unknown = { data: { MediaListCollection: { lists: [] } } },
+): (url: string | URL, init?: RequestInit) => Promise<Response> {
+  return async (_url: string | URL, init?: RequestInit) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("Viewer")) {
+      return new Response(JSON.stringify({ data: { Viewer: { id: 1 } } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify(listData), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+}
+
 describe("TrackerImportHandlers", () => {
   describe("getImportPreview", () => {
     it("returns preview for anilist tracker", async () => {
@@ -26,24 +44,17 @@ describe("TrackerImportHandlers", () => {
       try {
         const libraryService = new LibraryService(repo, evtRepo);
 
-        await withMockFetch(
-          (() =>
-            new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            })) as unknown as typeof fetch,
-          async () => {
-            const handlers = createTrackerImportHandlers({
-              libraryService,
-              pluginFactory: factory,
-            });
-            const result = await handlers.getImportPreview({ trackerName: "anilist" });
+        await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
+          const handlers = createTrackerImportHandlers({
+            libraryService,
+            pluginFactory: factory,
+          });
+          const result = await handlers.getImportPreview({ trackerName: "anilist" });
 
-            expect(result.error).toBeUndefined();
-            expect(result.preview).not.toBeNull();
-            expect(result.preview?.totalEntries).toBe(0);
-          },
-        );
+          expect(result.error).toBeUndefined();
+          expect(result.preview).not.toBeNull();
+          expect(result.preview?.totalEntries).toBe(0);
+        });
       } finally {
         closeEvt();
         close();
@@ -77,24 +88,17 @@ describe("TrackerImportHandlers", () => {
       try {
         const libraryService = new LibraryService(repo, evtRepo);
 
-        await withMockFetch(
-          (() =>
-            new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            })) as unknown as typeof fetch,
-          async () => {
-            const handlers = createTrackerImportHandlers({
-              libraryService,
-              pluginFactory: factory,
-            });
-            const result = await handlers.confirmImport({ trackerName: "anilist" });
+        await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
+          const handlers = createTrackerImportHandlers({
+            libraryService,
+            pluginFactory: factory,
+          });
+          const result = await handlers.confirmImport({ trackerName: "anilist" });
 
-            expect(result.error).toBeUndefined();
-            expect(result.result).not.toBeNull();
-            expect(result.result?.imported).toBe(0);
-          },
-        );
+          expect(result.error).toBeUndefined();
+          expect(result.result).not.toBeNull();
+          expect(result.result?.imported).toBe(0);
+        });
       } finally {
         closeEvt();
         close();

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Switch, TagsInput, Toast, createToaster, Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import type { KeyringCheckResult } from "@kogoro/core";
-  import type { SyncConflictInfo } from "../../shared/types";
+  import type { SyncConflictInfo, TrackerConnectionInfo } from "../../shared/types";
   import ConnectTrackerDialog from './ConnectTrackerDialog.svelte';
   import SelectField from './SelectField.svelte';
   import KeyringNotice from './KeyringNotice.svelte';
@@ -52,7 +52,7 @@
   let rebuilding = $state(false);
   let showRebuildConfirm = $state(false);
 
-  let trackerStatus = $state<Array<{ name: string; displayName: string; connected: boolean; accountInfo?: string }>>([]);
+  let trackerStatus = $state<TrackerConnectionInfo[]>([]);
   let connectDialogTracker = $state<string | null>(null);
   let connectDialogFields = $state<Array<{ name: string; label: string; type: "text" | "password"; placeholder?: string }>>([]);
   let connectDialogAuthInfo = $state<{ instructions?: string }>({});
@@ -458,9 +458,6 @@
             <span class="font-medium text-sm text-surface-950-50">{tracker.displayName}</span>
             {#if tracker.connected}
               <span class="badge preset-tonal-success text-xs">Connected</span>
-              {#if tracker.accountInfo}
-                <span class="text-surface-600-400 text-sm">{tracker.accountInfo}</span>
-              {/if}
             {:else}
               <span class="badge preset-tonal-surface text-xs">Not connected</span>
             {/if}
@@ -600,6 +597,7 @@
   <ConnectTrackerDialog
     {rpc}
     trackerName={connectDialogTracker}
+    {trackerStatus}
     fields={connectDialogFields}
     authInfo={connectDialogAuthInfo}
     onConnect={handleConnectTracker}

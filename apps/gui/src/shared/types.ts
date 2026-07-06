@@ -53,6 +53,7 @@ export type { LibraryAnimeDetail as AnimeDetail } from "../bun/library";
 export type { ResolveCandidateEntry as ResolveCandidate } from "../bun/scan";
 export type { ThemeMode } from "../bun/state";
 export type { SyncConflictInfo } from "../bun/sync";
+export type { TrackerConnectionInfo } from "../bun/tracker-connections";
 export type { WatchedFolder } from "../bun/watched-folders";
 
 type AwaitedReturnType<T extends (...args: never[]) => unknown> = Awaited<ReturnType<T>>;

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import type { RPCClient } from "../shared";
+  import type { TrackerConnectionInfo } from "../../shared/types";
 
   interface AuthInfo {
     instructions?: string;
@@ -16,6 +17,7 @@
   interface Props {
     rpc: RPCClient;
     trackerName: string | null;
+    trackerStatus: TrackerConnectionInfo[];
     fields: Field[];
     authInfo: AuthInfo;
     onConnect: (trackerName: string, values: Record<string, string>) => Promise<void>;
@@ -23,7 +25,11 @@
     onCancel: () => void;
   }
 
-  let { rpc, trackerName, fields, authInfo, onConnect, onOpenExternalError, onCancel }: Props = $props();
+  let { rpc, trackerName, trackerStatus, fields, authInfo, onConnect, onOpenExternalError, onCancel }: Props = $props();
+
+  const displayName = $derived(
+    trackerStatus.find((t) => t.name === trackerName)?.displayName ?? trackerName ?? ""
+  );
 
   let values = $state<Record<string, string>>({});
   let connecting = $state(false);
@@ -32,6 +38,15 @@
   let errorMessage = $state<string | null>(null);
 
   const isOAuthTracker = $derived(fields.length === 0);
+
+  $effect(() => {
+    trackerName;
+    values = {};
+    connecting = false;
+    waitingForCallback = false;
+    callbackCancelled = false;
+    errorMessage = null;
+  });
 
   async function handleOpenAuthUrl() {
     if (!trackerName) return;
@@ -91,7 +106,7 @@
     <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-sm p-0 shadow-xl">
         <div class="p-4">
-          <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Connect {trackerName ?? ""}</Dialog.Title>
+          <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Connect {displayName}</Dialog.Title>
           <Dialog.Description class="text-sm text-surface-600-400 mb-4">
             {#if waitingForCallback}
               <div class="flex flex-col items-center gap-3 py-4">
@@ -100,7 +115,7 @@
                 <div class="text-surface-600-400 text-xs text-center">Complete the authorization in your browser</div>
               </div>
             {:else if isOAuthTracker}
-              <div class="whitespace-pre-line mb-2">{authInfo.instructions ?? `You'll be redirected to ${trackerName} to authorize.`}</div>
+              <div class="whitespace-pre-line mb-2">{authInfo.instructions ?? `You'll be redirected to ${displayName} to authorize.`}</div>
             {:else}
               Enter your credentials to connect this tracker.
             {/if}

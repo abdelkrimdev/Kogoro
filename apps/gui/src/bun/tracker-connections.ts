@@ -2,20 +2,10 @@ import type { CredentialStore, EventRepository, LibraryService } from "@kogoro/c
 import { generateCodeVerifier, TrackerError } from "@kogoro/core";
 import { type CallbackResult, CallbackServer } from "./callback-server";
 
-function credentialDisplayLabel(credential: string, fallback?: string): string | undefined {
-  try {
-    JSON.parse(credential);
-    return "Connected";
-  } catch {
-    return fallback;
-  }
-}
-
 export interface TrackerConnectionInfo {
   name: string;
   displayName: string;
   connected: boolean;
-  accountInfo?: string;
 }
 
 export interface TrackerCredentialField {
@@ -36,7 +26,6 @@ interface TrackerDefinition {
   fields: TrackerCredentialField[];
   instructions?: string;
   buildCredential: (values: Record<string, string>) => string | null;
-  extractAccountInfo: (credential: string) => string | undefined;
   oauth?: {
     clientId: string;
     baseUrl: string;
@@ -55,7 +44,6 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     fields: [],
     instructions: "You'll be redirected to AniList to authorize.",
     buildCredential: () => null,
-    extractAccountInfo: (credential) => credentialDisplayLabel(credential),
     oauth: {
       clientId: "45221",
       baseUrl: "https://anilist.co/api/v2/oauth/authorize",
@@ -78,13 +66,6 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
       if (!username) return null;
       return `${username}:${password}`;
     },
-    extractAccountInfo: (credential) => {
-      const colonIndex = credential.indexOf(":");
-      return credentialDisplayLabel(
-        credential,
-        colonIndex > 0 ? credential.slice(0, colonIndex) : undefined,
-      );
-    },
   },
   {
     name: "mal",
@@ -93,7 +74,6 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     fields: [],
     instructions: "You'll be redirected to MyAnimeList to authorize.",
     buildCredential: () => null,
-    extractAccountInfo: () => undefined,
     oauth: {
       clientId: "97e4bfe9c07f9e679ec96e4906862030",
       baseUrl: "https://myanimelist.net/v1/oauth2/authorize",
@@ -124,7 +104,6 @@ export async function getTrackerStatus(
       name: def.name,
       displayName: def.displayName,
       connected: !!credential,
-      accountInfo: credential ? def.extractAccountInfo(credential) : undefined,
     });
   }
   return statusList;

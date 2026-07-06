@@ -38,7 +38,7 @@ describe("getTrackerStatus", () => {
     expect(status.find((t) => t.name === "mal")?.connected).toBe(false);
   });
 
-  test("returns connected status with account info for anilist", async () => {
+  test("returns connected status for anilist", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("anilist", "test-token-12345");
     const status = await getTrackerStatus(store);
@@ -46,13 +46,12 @@ describe("getTrackerStatus", () => {
     expect(anilist?.connected).toBe(true);
   });
 
-  test("returns connected status with username for kitsu", async () => {
+  test("returns connected status for kitsu with username:password credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("kitsu", "myuser:mypass");
     const status = await getTrackerStatus(store);
     const kitsu = status.find((t) => t.name === "kitsu");
     expect(kitsu?.connected).toBe(true);
-    expect(kitsu?.accountInfo).toBe("myuser");
   });
 
   test("returns connected status for kitsu with JSON blob credential", async () => {
@@ -66,7 +65,6 @@ describe("getTrackerStatus", () => {
     const status = await getTrackerStatus(store);
     const kitsu = status.find((t) => t.name === "kitsu");
     expect(kitsu?.connected).toBe(true);
-    expect(kitsu?.accountInfo).toBe("Connected");
   });
 
   test("returns connected status for anilist with JSON blob credential", async () => {
@@ -79,7 +77,6 @@ describe("getTrackerStatus", () => {
     const status = await getTrackerStatus(store);
     const anilist = status.find((t) => t.name === "anilist");
     expect(anilist?.connected).toBe(true);
-    expect(anilist?.accountInfo).toBe("Connected");
   });
 
   test("returns display names for all trackers", async () => {

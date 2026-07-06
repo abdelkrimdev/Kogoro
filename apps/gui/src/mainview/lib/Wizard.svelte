@@ -3,6 +3,7 @@
   import { Steps } from '@skeletonlabs/skeleton-svelte';
   import type { KeyringCheckResult } from "@kogoro/core";
   import { TEMPLATE_PRESETS, type RPCClient } from "../shared";
+  import type { TrackerConnectionInfo } from "../../shared/types";
   import ConnectTrackerDialog from "./ConnectTrackerDialog.svelte";
   import KeyringNotice from "./KeyringNotice.svelte";
   import ImportPreview from "./ImportPreview.svelte";
@@ -31,7 +32,7 @@
   let saving = $state(false);
   const customPlaceholder = "{anime} - {season}x{episode:02} - {title}";
 
-  let trackerStatus = $state<Array<{ name: string; displayName: string; connected: boolean; accountInfo?: string }>>([]);
+  let trackerStatus = $state<TrackerConnectionInfo[]>([]);
   let connectDialogTracker = $state<string | null>(null);
   let connectDialogFields = $state<Array<{ name: string; label: string; type: "text" | "password"; placeholder?: string }>>([]);
   let connectDialogAuthInfo = $state<{ instructions?: string }>({});
@@ -325,6 +326,7 @@
 <ConnectTrackerDialog
   {rpc}
   trackerName={connectDialogTracker}
+  {trackerStatus}
   fields={connectDialogFields}
   authInfo={connectDialogAuthInfo}
   onConnect={handleConnectTracker}

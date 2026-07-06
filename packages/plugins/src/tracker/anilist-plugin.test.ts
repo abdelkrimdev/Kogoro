@@ -49,6 +49,23 @@ function mockGraphQLFetch(
   };
 }
 
+function mockGraphQLFetchWithViewer(
+  viewerId: number,
+  resolver: (body: { query: string; variables?: Record<string, unknown> }) => unknown,
+): (url: string | URL, init?: RequestInit) => Promise<Response> {
+  const baseFetch = mockGraphQLFetch(resolver);
+  return async (url: string | URL, init?: RequestInit) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("Viewer")) {
+      return new Response(JSON.stringify({ data: { Viewer: { id: viewerId } } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return baseFetch(url, init);
+  };
+}
+
 describe("AniListPlugin", () => {
   test("satisfies TrackerPlugin contract", () => {
     const plugin: TrackerPlugin = createPlugin(mockGraphQLFetch(() => ({})));
@@ -77,12 +94,12 @@ describe("AniListPlugin", () => {
     test("includes Authorization header when token is set", async () => {
       let capturedHeaders: Record<string, string> = {};
 
-      const fetch = async (_url: string | URL, init?: RequestInit) => {
+      const baseFetch = mockGraphQLFetchWithViewer(1, () => ({
+        MediaListCollection: { lists: [] },
+      }));
+      const fetch: typeof baseFetch = async (url, init) => {
         capturedHeaders = Object.fromEntries(new Headers(init?.headers).entries());
-        return new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return baseFetch(url, init);
       };
 
       const plugin = createPlugin(fetch, "my-anilist-token");
@@ -226,7 +243,7 @@ describe("AniListPlugin", () => {
       };
 
       const plugin = createPlugin(
-        mockGraphQLFetch(() => listResponse),
+        mockGraphQLFetchWithViewer(12345, () => listResponse),
         "test-token",
       );
       const results = await plugin.getUserList();
@@ -291,7 +308,7 @@ describe("AniListPlugin", () => {
         };
 
         const plugin = createPlugin(
-          mockGraphQLFetch(() => listResponse),
+          mockGraphQLFetchWithViewer(1, () => listResponse),
           "test-token",
         );
         const results = await plugin.getUserList();
@@ -334,7 +351,7 @@ describe("AniListPlugin", () => {
         };
 
         const plugin = createPlugin(
-          mockGraphQLFetch(() => listResponse),
+          mockGraphQLFetchWithViewer(1, () => listResponse),
           "test-token",
         );
         const results = await plugin.getUserList();
@@ -350,7 +367,7 @@ describe("AniListPlugin", () => {
       };
 
       const plugin = createPlugin(
-        mockGraphQLFetch(() => listResponse),
+        mockGraphQLFetchWithViewer(1, () => listResponse),
         "test-token",
       );
       const results = await plugin.getUserList();
@@ -359,7 +376,7 @@ describe("AniListPlugin", () => {
 
     test("returns empty array on GraphQL error", async () => {
       const plugin = createPlugin(
-        mockGraphQLFetch(() => {
+        mockGraphQLFetchWithViewer(1, () => {
           throw new Error("Not Authenticated");
         }),
         "test-token",
@@ -413,7 +430,7 @@ describe("AniListPlugin", () => {
       };
 
       const plugin = createPlugin(
-        mockGraphQLFetch(() => listResponse),
+        mockGraphQLFetchWithViewer(1, () => listResponse),
         "test-token",
       );
       const results = await plugin.getUserList();
@@ -909,6 +926,25 @@ describe("AniListPlugin", () => {
       };
 
       const plugin = createPlugin(fetch, "test-token");
+
+      await expect(plugin.getUserList()).rejects.toThrow(TrackerError);
+    });
+
+    test("throws TrackerError when response is 200 but GraphQL errors are present", async () => {
+      const fetch = async () => {
+        return new Response(
+          JSON.stringify({
+            data: null,
+            errors: [{ message: "Not authenticated" }],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      };
+
+      const plugin = createPlugin(fetch, "bad-token");
 
       await expect(plugin.getUserList()).rejects.toThrow(TrackerError);
     });
