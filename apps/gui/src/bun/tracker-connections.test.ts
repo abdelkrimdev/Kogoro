@@ -222,7 +222,6 @@ describe("connectTracker", () => {
     expect(result.success).toBe(true);
     const credential = await store.getCredential("mal");
     expect(credential).toBeDefined();
-    // Credential should be valid JSON with access_token field
     const parsed = JSON.parse(credential ?? "{}");
     expect(parsed.access_token).toBe("my-mal-token");
     expect(parsed.expires_at).toBeDefined();
@@ -491,7 +490,6 @@ describe("waitForTrackerCallback", () => {
 
     const callbackPromise = waitForTrackerCallback("test-state");
 
-    // Cancel after a short delay
     setTimeout(() => cancelTrackerAuth(), 50);
 
     const result = await callbackPromise;

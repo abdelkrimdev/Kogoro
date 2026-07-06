@@ -145,28 +145,22 @@ describe("CallbackServer", () => {
       receivedResult = result;
     });
 
-    // Verify server is running before callback
     const preResponse = await fetch("http://localhost:43228/unknown");
     expect(preResponse.status).toBe(404);
 
-    // Simulate callback
     await fetch(`http://localhost:43228/callback/mal?code=test-code&state=${state}`);
 
     expect(receivedResult).toEqual({ code: "test-code", state });
 
-    // Server should auto-stop after successful callback
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // Verify server is stopped by trying to connect
     try {
       await fetch("http://localhost:43228/callback/mal?code=test&state=test");
-      // If we get here, server is still running (test should fail)
       expect(true).toBe(false);
     } catch {
-      // Expected - server should be stopped
       expect(true).toBe(true);
     }
 
-    server = null; // Already stopped
+    server = null;
   });
 });
