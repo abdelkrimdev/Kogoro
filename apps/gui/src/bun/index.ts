@@ -1,13 +1,18 @@
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  buildCredentialFromToken,
   CacheService,
   ConfigManager,
+  type CredentialStore,
   createCredentialStore,
   createEventsConnection,
   createLibraryConnection,
   createMatchCacheConnection,
+  HttpClient,
   LibraryService,
+  MAL_CLIENT_ID,
+  MAL_REDIRECT_URI,
   resolveDbPaths,
   ScanStateService,
 } from "@kogoro/core";
@@ -119,6 +124,47 @@ function openDirectoryPickerResult(paths: string[]): { path: string } | null {
   return dir ? { path: dir } : null;
 }
 
+async function exchangeMalCode(
+  code: string,
+  credentialStore: CredentialStore,
+): Promise<string | null> {
+  const verifier = await credentialStore.getCredential("mal_code_verifier");
+  if (!verifier) return null;
+
+  const body = new URLSearchParams({
+    client_id: MAL_CLIENT_ID,
+    code,
+    code_verifier: verifier,
+    grant_type: "authorization_code",
+    redirect_uri: MAL_REDIRECT_URI,
+  });
+
+  const httpClient = new HttpClient({ minDelay: 0, maxRetries: 0 });
+  const response = await httpClient.fetch("https://myanimelist.net/v1/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  let json: Record<string, string>;
+  try {
+    json = (await response.json()) as Record<string, string>;
+  } catch {
+    return null;
+  }
+
+  if (!response.ok || !json["access_token"]) return null;
+
+  await credentialStore.deleteCredential("mal_code_verifier");
+  return JSON.stringify(
+    buildCredentialFromToken(
+      json["access_token"],
+      Number(json["expires_in"]),
+      json["refresh_token"],
+    ),
+  );
+}
+
 const rpc = BrowserView.defineRPC<AppRPC>({
   handlers: {
     requests: {
@@ -185,13 +231,15 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         const result = await connectTracker(credentialStore, {
           ...params,
           onBeforeStore: async (name, values) => {
-            if (name === "anilist" || name === "mal") {
+            if (name === "anilist") {
               const accessToken = values["code"] ?? "";
               if (!accessToken) return null;
-              return JSON.stringify({
-                access_token: accessToken,
-                expires_at: Date.now() + 365 * 24 * 60 * 60 * 1000,
-              });
+              return JSON.stringify(buildCredentialFromToken(accessToken, 365 * 24 * 60 * 60));
+            }
+            if (name === "mal") {
+              const code = values["code"] ?? "";
+              if (!code) return null;
+              return exchangeMalCode(code, credentialStore);
             }
             return null;
           },

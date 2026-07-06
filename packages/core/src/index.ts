@@ -128,6 +128,12 @@ export type {
   TrackerSource,
 } from "./tracker/tracker-import";
 export { TrackerImportService } from "./tracker/tracker-import";
+export {
+  ANILIST_CLIENT_ID,
+  ANILIST_REDIRECT_URI,
+  MAL_CLIENT_ID,
+  MAL_REDIRECT_URI,
+} from "./tracker/tracker-utils";
 export type {
   AnimeResult,
   ArtworkResult,

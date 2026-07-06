@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { CredentialStore } from "@kogoro/core";
-import { TrackerError } from "@kogoro/core";
+import { ANILIST_REDIRECT_URI, type CredentialStore, TrackerError } from "@kogoro/core";
 import { createMockHttpClient, createMockKeytar, withTestConfig } from "@kogoro/core/testing";
 import { AniListPlugin } from "./anilist-plugin";
 
@@ -13,7 +12,6 @@ function createPlugin(
   return new AniListPlugin({
     baseUrl: GRAPHQL_URL,
     clientId: "test-client-id",
-    clientSecret: "test-client-secret",
     credentialStore,
     httpClient: createMockHttpClient(fetch),
   });
@@ -59,7 +57,7 @@ describe("AniListPlugin OAuth", () => {
           const decodedUrl = decodeURIComponent(authUrl);
 
           expect(decodedUrl).toContain("response_type=code");
-          expect(decodedUrl).toContain("redirect_uri=http://localhost:43219/callback/anilist");
+          expect(decodedUrl).toContain(`redirect_uri=${ANILIST_REDIRECT_URI}`);
         },
         createMockKeytar(),
       );
@@ -97,8 +95,7 @@ describe("AniListPlugin OAuth", () => {
           expect(capturedBody).toEqual({
             grant_type: "authorization_code",
             client_id: "test-client-id",
-            client_secret: "test-client-secret",
-            redirect_uri: "http://localhost:43219/callback/anilist",
+            redirect_uri: ANILIST_REDIRECT_URI,
             code: "test-auth-code",
           });
 

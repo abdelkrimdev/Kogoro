@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import type { EntryType, TrackerPlugin, TrackerWatchStatus } from "@kogoro/core";
-import { CredentialStore, TrackerError } from "@kogoro/core";
+import {
+  ANILIST_REDIRECT_URI,
+  CredentialStore,
+  type EntryType,
+  TrackerError,
+  type TrackerPlugin,
+  type TrackerWatchStatus,
+} from "@kogoro/core";
 import {
   createMockHttpClient,
   createMockKeytar,
@@ -139,7 +145,6 @@ describe("AniListPlugin", () => {
         const plugin = new AniListPlugin({
           baseUrl: GRAPHQL_URL,
           clientId: "my-client-id",
-          clientSecret: "my-client-secret",
           credentialStore,
           httpClient: createMockHttpClient(mockFetch),
         });
@@ -150,8 +155,7 @@ describe("AniListPlugin", () => {
         expect(capturedBody).toEqual({
           grant_type: "authorization_code",
           client_id: "my-client-id",
-          client_secret: "my-client-secret",
-          redirect_uri: "http://localhost:43219/callback/anilist",
+          redirect_uri: ANILIST_REDIRECT_URI,
           code: "my-pin-code",
         });
 
@@ -177,7 +181,6 @@ describe("AniListPlugin", () => {
         const plugin = new AniListPlugin({
           baseUrl: GRAPHQL_URL,
           clientId: "my-client-id",
-          clientSecret: "my-client-secret",
           credentialStore,
           httpClient: createMockHttpClient(mockFetch),
         });

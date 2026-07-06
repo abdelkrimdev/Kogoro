@@ -1,4 +1,5 @@
 import {
+  ANILIST_REDIRECT_URI,
   buildCredentialFromToken,
   type CredentialStore,
   type EntryType,
@@ -201,7 +202,6 @@ query ($id: Int) {
 export class AniListPlugin implements TrackerPlugin {
   private baseUrl: string;
   private clientId: string;
-  private clientSecret: string;
   private token: string | null;
   private credentialStore: CredentialStore | null;
   private httpClient: HttpClient;
@@ -209,14 +209,12 @@ export class AniListPlugin implements TrackerPlugin {
   constructor(options: {
     baseUrl: string;
     clientId?: string;
-    clientSecret?: string;
     token?: string;
     credentialStore?: CredentialStore;
     httpClient?: HttpClient;
   }) {
     this.baseUrl = options.baseUrl;
     this.clientId = options.clientId ?? "";
-    this.clientSecret = options.clientSecret ?? "";
     this.token = options.token ?? null;
     this.credentialStore = options.credentialStore ?? null;
     this.httpClient = options.httpClient ?? new HttpClient();
@@ -241,7 +239,7 @@ export class AniListPlugin implements TrackerPlugin {
   async generateAuthUrl(): Promise<string> {
     const authUrl = new URL("https://anilist.co/api/v2/oauth/authorize");
     authUrl.searchParams.set("client_id", this.clientId);
-    authUrl.searchParams.set("redirect_uri", "http://localhost:43219/callback/anilist");
+    authUrl.searchParams.set("redirect_uri", ANILIST_REDIRECT_URI);
     authUrl.searchParams.set("response_type", "code");
     return authUrl.toString();
   }
@@ -256,8 +254,7 @@ export class AniListPlugin implements TrackerPlugin {
       body: JSON.stringify({
         grant_type: "authorization_code",
         client_id: this.clientId,
-        client_secret: this.clientSecret,
-        redirect_uri: "http://localhost:43219/callback/anilist",
+        redirect_uri: ANILIST_REDIRECT_URI,
         code,
       }),
     });
@@ -418,10 +415,12 @@ export class AniListPlugin implements TrackerPlugin {
       body: JSON.stringify({ query, variables }),
     });
 
-    const json = (await response.json()) as {
-      data?: T;
-      errors?: Array<{ message: string; status?: number }>;
-    };
+    let json: { data?: T; errors?: Array<{ message: string; status?: number }> };
+    try {
+      json = (await response.json()) as typeof json;
+    } catch {
+      throwHttpError(response, "anilist");
+    }
 
     if (!response.ok || json.errors?.length) {
       throwHttpError(response, "anilist", undefined, json.errors);

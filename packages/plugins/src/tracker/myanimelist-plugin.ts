@@ -14,6 +14,7 @@ import {
   generateCodeVerifier,
   loadOrRefreshCredential,
   loadStoredCredential,
+  MAL_REDIRECT_URI,
   type OAuthTokenResponse,
   parseOAuthTokenResponse,
   TrackerError,
@@ -149,7 +150,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
 
     const authUrl = new URL("https://myanimelist.net/v1/oauth2/authorize");
     authUrl.searchParams.set("client_id", this.clientId);
-    authUrl.searchParams.set("redirect_uri", "http://localhost:43219/callback/mal");
+    authUrl.searchParams.set("redirect_uri", MAL_REDIRECT_URI);
     authUrl.searchParams.set("response_type", "code");
     authUrl.searchParams.set("code_challenge", codeVerifier);
     authUrl.searchParams.set("code_challenge_method", "plain");
@@ -171,6 +172,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
       code,
       code_verifier: verifier,
       grant_type: "authorization_code",
+      redirect_uri: MAL_REDIRECT_URI,
     });
 
     const response = await this.httpClient.fetch("https://myanimelist.net/v1/oauth2/token", {

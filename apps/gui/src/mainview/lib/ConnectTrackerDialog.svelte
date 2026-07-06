@@ -63,6 +63,7 @@
       if (callbackCancelled) return;
       if (callbackResult.code) {
         await onConnect(trackerName, { code: callbackResult.code });
+        waitingForCallback = false;
       } else {
         waitingForCallback = false;
         errorMessage = "Authorization timed out. Please try again.";

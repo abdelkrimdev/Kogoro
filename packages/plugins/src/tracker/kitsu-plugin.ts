@@ -253,6 +253,7 @@ export class KitsuPlugin implements TrackerPlugin {
   }
 
   async getUserList(): Promise<TrackerAnime[]> {
+    await this.ensureAuthenticated();
     const userResponse = await this.authenticatedGet("/users?filter[self]=true");
 
     const userData = singleOrFirst(userResponse.data);
@@ -296,6 +297,7 @@ export class KitsuPlugin implements TrackerPlugin {
   }
 
   async getEntry(trackerId: string): Promise<TrackerEntry> {
+    await this.ensureAuthenticated();
     const response = await this.authenticatedGet(`/library-entries/${trackerId}?include=anime`);
 
     const entry = singleOrFirst(response.data);
@@ -323,6 +325,7 @@ export class KitsuPlugin implements TrackerPlugin {
   }
 
   async updateEntry(trackerId: string, changes: TrackerEntryChanges): Promise<void> {
+    await this.ensureAuthenticated();
     const attributes: Record<string, unknown> = {};
     if (changes.watchStatus !== undefined) {
       attributes["status"] = KITSU_STATUS_REVERSE_MAP[changes.watchStatus];
@@ -347,6 +350,7 @@ export class KitsuPlugin implements TrackerPlugin {
   }
 
   async getAnimeDetails(trackerId: string): Promise<TrackerAnimeDetails> {
+    await this.ensureAuthenticated();
     const response = await this.authenticatedGet(`/anime/${trackerId}?include=categories`);
 
     const anime = singleOrFirst(response.data);

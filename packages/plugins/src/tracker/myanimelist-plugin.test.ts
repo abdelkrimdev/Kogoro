@@ -49,6 +49,26 @@ describe("MyAnimeListPlugin", () => {
         await expect(plugin.authenticate()).rejects.toThrow("mal credentials not found");
       });
     });
+
+    test("authenticates when credential is JSON blob with access_token", async () => {
+      await withTestConfig(
+        "mal-auth-stored-token",
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(credentialStore);
+
+          const token = await plugin.authenticate();
+
+          expect(token).toBe("real-mal-token");
+        },
+        createMockKeytar({
+          "kogoro:mal": JSON.stringify({
+            access_token: "real-mal-token",
+            refresh_token: "refresh",
+            expires_at: Date.now() + 3600000,
+          }),
+        }),
+      );
+    });
   });
 
   describe("getUserList", () => {

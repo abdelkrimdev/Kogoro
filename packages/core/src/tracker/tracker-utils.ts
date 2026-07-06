@@ -1,5 +1,10 @@
 import type { TrackerWatchStatus } from "../types";
 
+export const ANILIST_CLIENT_ID = "45221";
+export const ANILIST_REDIRECT_URI = "http://localhost:43219/callback/anilist";
+export const MAL_CLIENT_ID = "97e4bfe9c07f9e679ec96e4906862030";
+export const MAL_REDIRECT_URI = "http://localhost:43219/callback/mal";
+
 export type LocalWatchStatus = "watching" | "completed" | "plan_to_watch" | "on_hold" | "dropped";
 
 export function mapTrackerStatus(status: TrackerWatchStatus): LocalWatchStatus {

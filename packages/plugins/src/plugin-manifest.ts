@@ -1,8 +1,10 @@
 import {
+  ANILIST_CLIENT_ID,
   type CredentialStore,
   type DatabasePlugin,
   type DebugEntry,
   HttpClient,
+  MAL_CLIENT_ID,
   type SubtitlePlugin,
   type TrackerPlugin,
 } from "@kogoro/core";
@@ -116,17 +118,17 @@ async function loadAnilist(
   ctx: PluginLoadContext,
   entry: PluginManifestEntry,
 ): Promise<TrackerPlugin | undefined> {
-  const token = await ctx.credentialStore.getCredential(entry.credentialKey);
+  const raw = await ctx.credentialStore.getCredential(entry.credentialKey);
+  const token = raw ? parseJsonCredential(raw)?.access_token : undefined;
   const httpClient = new HttpClient({
     minDelay: entry.rateLimit,
     ...debugOptions(ctx.debug),
   });
   return new AniListPlugin({
     baseUrl: entry.baseUrl,
-    token: token ?? undefined,
+    token,
     credentialStore: ctx.credentialStore,
-    clientId: process.env["ANILIST_CLIENT_ID"] || "",
-    clientSecret: process.env["ANILIST_CLIENT_SECRET"] || "",
+    clientId: process.env["ANILIST_CLIENT_ID"] || ANILIST_CLIENT_ID,
     httpClient,
   });
 }
@@ -174,7 +176,7 @@ async function loadMyAnimeList(
   return new MyAnimeListPlugin({
     baseUrl: entry.baseUrl,
     credentialKey: entry.credentialKey,
-    clientId: process.env["MAL_CLIENT_ID"] || "",
+    clientId: process.env["MAL_CLIENT_ID"] || MAL_CLIENT_ID,
     credentialStore: ctx.credentialStore,
     httpClient,
   });

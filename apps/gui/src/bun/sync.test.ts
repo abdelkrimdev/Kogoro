@@ -34,10 +34,15 @@ function createTestSetup() {
 }
 
 const emptyAnilistResponse = (() =>
-  new Response(JSON.stringify({ data: { MediaListCollection: { lists: [] } } }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  })) as unknown as typeof fetch;
+  new Response(
+    JSON.stringify({
+      data: { Viewer: { id: 1 }, MediaListCollection: { lists: [] } },
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    },
+  )) as unknown as typeof fetch;
 
 describe("SyncHandlers", () => {
   describe("syncAll", () => {
@@ -64,7 +69,10 @@ describe("SyncHandlers", () => {
 
     it("syncs connected anilist tracker", async () => {
       const setup = createTestSetup();
-      await setup.credentialStore.setCredential("anilist", "test-token");
+      await setup.credentialStore.setCredential(
+        "anilist",
+        JSON.stringify({ access_token: "test-token" }),
+      );
       try {
         const handlers = createSyncHandlers({
           libraryService: setup.libraryService,

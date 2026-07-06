@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CredentialStore } from "@kogoro/core";
 import { getManifestEntry, type PluginLoadContext } from "./plugin-manifest";
+import { AniListPlugin } from "./tracker/anilist-plugin";
 import { KitsuPlugin } from "./tracker/kitsu-plugin";
 
 function createMockCredentialStore(overrides: Record<string, string> = {}): CredentialStore & {
@@ -125,6 +126,38 @@ describe("plugin-manifest", () => {
       } catch (error) {
         expect((error as Error).message).not.toContain("No credential store available");
       }
+    });
+  });
+
+  describe("loadAnilist", () => {
+    test("extracts access_token from JSON credential blob", async () => {
+      const credential = JSON.stringify({
+        access_token: "real-anilist-token",
+        expires_at: Date.now() + 365 * 24 * 60 * 60 * 1000,
+      });
+
+      const mockStore = createMockCredentialStore({ anilist: credential });
+      const ctx: PluginLoadContext = { credentialStore: mockStore };
+
+      const entry = getManifestEntry("anilist");
+      expect(entry).toBeDefined();
+
+      const plugin = (await entry?.load(ctx, entry)) as AniListPlugin;
+      expect(plugin).toBeDefined();
+      expect(plugin).toBeInstanceOf(AniListPlugin);
+
+      const token = await plugin.authenticate();
+      expect(token).toBe("real-anilist-token");
+    });
+
+    test("creates plugin with undefined token when no credential is stored", async () => {
+      const mockStore = createMockCredentialStore({});
+      const ctx: PluginLoadContext = { credentialStore: mockStore };
+
+      const entry = getManifestEntry("anilist");
+      const plugin = await entry?.load(ctx, entry);
+
+      expect(plugin).toBeDefined();
     });
   });
 });

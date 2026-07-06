@@ -1,5 +1,12 @@
 import type { CredentialStore, EventRepository, LibraryService } from "@kogoro/core";
-import { generateCodeVerifier, TrackerError } from "@kogoro/core";
+import {
+  ANILIST_CLIENT_ID,
+  ANILIST_REDIRECT_URI,
+  generateCodeVerifier,
+  MAL_CLIENT_ID,
+  MAL_REDIRECT_URI,
+  TrackerError,
+} from "@kogoro/core";
 import { type CallbackResult, CallbackServer } from "./callback-server";
 
 export interface TrackerConnectionInfo {
@@ -29,7 +36,7 @@ interface TrackerDefinition {
   oauth?: {
     clientId: string;
     baseUrl: string;
-    redirectPath: string;
+    redirectUri: string;
     responseType: string;
     includeRedirectUri?: boolean;
     extraParams?: (verifier: string) => Record<string, string>;
@@ -45,9 +52,9 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     instructions: "You'll be redirected to AniList to authorize.",
     buildCredential: () => null,
     oauth: {
-      clientId: "45221",
+      clientId: ANILIST_CLIENT_ID,
       baseUrl: "https://anilist.co/api/v2/oauth/authorize",
-      redirectPath: "/callback/anilist",
+      redirectUri: ANILIST_REDIRECT_URI,
       responseType: "token",
       includeRedirectUri: false,
     },
@@ -75,9 +82,9 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     instructions: "You'll be redirected to MyAnimeList to authorize.",
     buildCredential: () => null,
     oauth: {
-      clientId: "97e4bfe9c07f9e679ec96e4906862030",
+      clientId: MAL_CLIENT_ID,
       baseUrl: "https://myanimelist.net/v1/oauth2/authorize",
-      redirectPath: "/callback/mal",
+      redirectUri: MAL_REDIRECT_URI,
       responseType: "code",
       extraParams: (verifier) => ({
         code_challenge: verifier,
@@ -186,7 +193,7 @@ export async function startTrackerAuth(
   const authUrl = new URL(oauth.baseUrl);
   authUrl.searchParams.set("client_id", oauth.clientId);
   if (oauth.includeRedirectUri !== false) {
-    authUrl.searchParams.set("redirect_uri", `http://localhost:43219${oauth.redirectPath}`);
+    authUrl.searchParams.set("redirect_uri", oauth.redirectUri);
   }
   authUrl.searchParams.set("response_type", oauth.responseType);
   authUrl.searchParams.set("state", state);

@@ -38,7 +38,9 @@ function mockAnilistFetch(
 describe("TrackerImportHandlers", () => {
   describe("getImportPreview", () => {
     it("returns preview for anilist tracker", async () => {
-      const factory = createTestFactory({ "kogoro:anilist": "test-token" });
+      const factory = createTestFactory({
+        "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
+      });
       const { repo, close } = createLibraryRepository();
       const { repo: evtRepo, close: closeEvt } = createEventRepository();
       try {
@@ -82,7 +84,9 @@ describe("TrackerImportHandlers", () => {
 
   describe("confirmImport", () => {
     it("returns result for anilist tracker", async () => {
-      const factory = createTestFactory({ "kogoro:anilist": "test-token" });
+      const factory = createTestFactory({
+        "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
+      });
       const { repo, close } = createLibraryRepository();
       const { repo: evtRepo, close: closeEvt } = createEventRepository();
       try {
