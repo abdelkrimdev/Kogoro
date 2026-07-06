@@ -10,7 +10,6 @@ import {
   LibraryService,
   resolveDbPaths,
   ScanStateService,
-  type TrackerCredential,
 } from "@kogoro/core";
 import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow, PATHS, Utils } from "electrobun/bun";
@@ -186,15 +185,13 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         const result = await connectTracker(credentialStore, {
           ...params,
           onBeforeStore: async (name, values) => {
-            if (name === "anilist") {
-              const code = values["code"] ?? "";
-              if (!code) return null;
-              const plugin = await pluginFactory.tracker("anilist");
-              if (!plugin || !("exchangeCode" in plugin)) return code;
-              const credential = await (
-                plugin as { exchangeCode: (code: string) => Promise<TrackerCredential> }
-              ).exchangeCode(code);
-              return JSON.stringify(credential);
+            if (name === "anilist" || name === "mal") {
+              const accessToken = values["code"] ?? "";
+              if (!accessToken) return null;
+              return JSON.stringify({
+                access_token: accessToken,
+                expires_at: Date.now() + 365 * 24 * 60 * 60 * 1000,
+              });
             }
             return null;
           },

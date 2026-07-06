@@ -105,56 +105,26 @@ describe("getTrackerConnectionFields", () => {
     expect(passwordField?.type).toBe("password");
   });
 
-  test("returns token field for mal", () => {
+  test("returns empty fields for mal (callback flow)", () => {
     const fields = getTrackerConnectionFields("mal");
-    expect(fields).toHaveLength(1);
-    expect(fields[0]?.name).toBe("token");
-    expect(fields[0]?.type).toBe("password");
+    expect(fields).toHaveLength(0);
   });
 });
 
 describe("connectTracker", () => {
-  test("stores anilist code credential via onBeforeStore", async () => {
-    const store = new CredentialStore({ keytar: createMockKeytar() });
-    const result = await connectTracker(store, {
-      name: "anilist",
-      values: { code: "123456" },
-      onBeforeStore: async () => "exchanged-anilist-token",
-    });
-    expect(result.success).toBe(true);
-    expect(await store.getCredential("anilist")).toBe("exchanged-anilist-token");
-  });
-
-  test("onBeforeStore receives code field from dialog", async () => {
-    const store = new CredentialStore({ keytar: createMockKeytar() });
-    let receivedValues: Record<string, string> = {};
-    await connectTracker(store, {
-      name: "anilist",
-      values: { code: "auth-code-123" },
-      onBeforeStore: async (_name, values) => {
-        receivedValues = values;
-        return "exchanged-token";
-      },
-    });
-    expect(receivedValues["code"]).toBe("auth-code-123");
-    expect(receivedValues["pin"]).toBeUndefined();
-  });
-
-  test("stores anilist JSON credential from onBeforeStore", async () => {
+  test("stores anilist credential via onBeforeStore callback flow", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const credential = JSON.stringify({
-      access_token: "exchanged-token",
+      access_token: "anilist-implicit-token",
       expires_at: Date.now() + 3600000,
     });
     const result = await connectTracker(store, {
       name: "anilist",
-      values: { code: "123456" },
+      values: {},
       onBeforeStore: async () => credential,
     });
     expect(result.success).toBe(true);
-    const stored = await store.getCredential("anilist");
-    expect(stored).toBe(credential);
-    expect(() => JSON.parse(stored ?? "")).not.toThrow();
+    expect(await store.getCredential("anilist")).toBe(credential);
   });
 
   test("returns error for anilist without onBeforeStore (callback flow required)", async () => {
@@ -165,21 +135,6 @@ describe("connectTracker", () => {
     });
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
-  });
-
-  test("stores anilist credential via onBeforeStore callback flow", async () => {
-    const store = new CredentialStore({ keytar: createMockKeytar() });
-    const credential = JSON.stringify({
-      access_token: "exchanged-token",
-      expires_at: Date.now() + 3600000,
-    });
-    const result = await connectTracker(store, {
-      name: "anilist",
-      values: {},
-      onBeforeStore: async () => credential,
-    });
-    expect(result.success).toBe(true);
-    expect(await store.getCredential("anilist")).toBe(credential);
   });
 
   test("stores kitsu username:password credential", async () => {
@@ -213,28 +168,29 @@ describe("connectTracker", () => {
     expect(result.error).toBeDefined();
   });
 
-  test("stores mal token credential as JSON blob", async () => {
+  test("returns error for mal without onBeforeStore (callback flow required)", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const result = await connectTracker(store, {
       name: "mal",
-      values: { token: "my-mal-token" },
-    });
-    expect(result.success).toBe(true);
-    const credential = await store.getCredential("mal");
-    expect(credential).toBeDefined();
-    const parsed = JSON.parse(credential ?? "{}");
-    expect(parsed.access_token).toBe("my-mal-token");
-    expect(parsed.expires_at).toBeDefined();
-  });
-
-  test("returns error when mal token is empty", async () => {
-    const store = new CredentialStore({ keytar: createMockKeytar() });
-    const result = await connectTracker(store, {
-      name: "mal",
-      values: { token: "" },
+      values: {},
     });
     expect(result.success).toBe(false);
-    expect(result.error).toContain("Token");
+    expect(result.error).toBeDefined();
+  });
+
+  test("stores mal credential via onBeforeStore callback flow", async () => {
+    const store = new CredentialStore({ keytar: createMockKeytar() });
+    const credential = JSON.stringify({
+      access_token: "exchanged-mal-token",
+      expires_at: Date.now() + 3600000,
+    });
+    const result = await connectTracker(store, {
+      name: "mal",
+      values: {},
+      onBeforeStore: async () => credential,
+    });
+    expect(result.success).toBe(true);
+    expect(await store.getCredential("mal")).toBe(credential);
   });
 
   test("returns error for unknown tracker", async () => {
@@ -418,23 +374,21 @@ describe("startTrackerAuth", () => {
     await cancelTrackerAuth();
   });
 
-  test("returns auth URL for anilist", async () => {
-    process.env["ANILIST_CLIENT_ID"] = "test-client-id";
+  test("returns auth URL for anilist with implicit grant (response_type=token)", async () => {
     const result = await startTrackerAuth("anilist");
 
     expect(result.authUrl).toContain("anilist.co/api/v2/oauth/authorize");
-    expect(result.authUrl).toContain("client_id=test-client-id");
-    expect(result.authUrl).toContain("response_type=code");
+    expect(result.authUrl).toContain("client_id=45221");
+    expect(result.authUrl).toContain("response_type=token");
     expect(result.state).toBeDefined();
     expect(result.state.length).toBe(64);
   });
 
-  test("returns auth URL for mal with PKCE parameters", async () => {
-    process.env["MAL_CLIENT_ID"] = "test-mal-client-id";
+  test("returns auth URL for mal with hardcoded client ID and PKCE parameters", async () => {
     const result = await startTrackerAuth("mal");
 
     expect(result.authUrl).toContain("myanimelist.net/v1/oauth2/authorize");
-    expect(result.authUrl).toContain("client_id=test-mal-client-id");
+    expect(result.authUrl).toContain("client_id=97e4bfe9c07f9e679ec96e4906862030");
     expect(result.authUrl).toContain("response_type=code");
     expect(result.authUrl).toContain("code_challenge_method=plain");
     expect(result.authUrl).toContain("scope=write%3Ausers");
@@ -446,7 +400,6 @@ describe("startTrackerAuth", () => {
   });
 
   test("stores MAL code verifier in credential store for later exchange", async () => {
-    process.env["MAL_CLIENT_ID"] = "test-mal-client-id";
     const store = new CredentialStore({ keytar: createMockKeytar() });
     const result = await startTrackerAuth("mal", store);
 
@@ -462,14 +415,15 @@ describe("startTrackerAuth", () => {
     await expect(startTrackerAuth("kitsu")).rejects.toThrow(TrackerError);
   });
 
-  test("throws when ANILIST_CLIENT_ID not set", async () => {
+  test("works without environment variables set", async () => {
     delete process.env["ANILIST_CLIENT_ID"];
-    await expect(startTrackerAuth("anilist")).rejects.toThrow(TrackerError);
-  });
-
-  test("throws when MAL_CLIENT_ID not set", async () => {
     delete process.env["MAL_CLIENT_ID"];
-    await expect(startTrackerAuth("mal")).rejects.toThrow(TrackerError);
+
+    const anilistResult = await startTrackerAuth("anilist");
+    expect(anilistResult.authUrl).toContain("client_id=45221");
+
+    const malResult = await startTrackerAuth("mal");
+    expect(malResult.authUrl).toContain("client_id=97e4bfe9c07f9e679ec96e4906862030");
   });
 });
 
@@ -485,7 +439,6 @@ describe("waitForTrackerCallback", () => {
   });
 
   test("resolves when cancelled", async () => {
-    process.env["ANILIST_CLIENT_ID"] = "test-client-id";
     await startTrackerAuth("anilist");
 
     const callbackPromise = waitForTrackerCallback("test-state");

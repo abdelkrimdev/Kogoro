@@ -10,6 +10,54 @@ export interface CallbackResult {
 
 export type CallbackHandler = (result: CallbackResult) => void;
 
+function authorizationSuccessHtml(trackerName: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <title>${trackerName} Authorization</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px; }
+    .success { color: #22c55e; font-size: 24px; }
+    .message { color: #666; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="success">Authorization Successful!</div>
+  <div class="message">You can close this window and return to Kogoro.</div>
+</body>
+</html>`;
+}
+
+function fragmentHandlerHtml(): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <title>AniList Authorization</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px; }
+    .success { color: #22c55e; font-size: 24px; }
+    .message { color: #666; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="success">Processing authorization...</div>
+  <div class="message">Please wait while we complete your authorization.</div>
+  <script>
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get('access_token');
+    const state = params.get('state');
+    if (accessToken && state) {
+      window.location.href = '/callback/anilist?access_token=' + encodeURIComponent(accessToken) + '&state=' + encodeURIComponent(state);
+    } else {
+      document.querySelector('.success').textContent = 'Authorization Failed';
+      document.querySelector('.message').textContent = 'Missing access token or state parameter.';
+    }
+  </script>
+</body>
+</html>`;
+}
+
 export class CallbackServer {
   private port: number;
   private timeout: number;
@@ -70,10 +118,22 @@ export class CallbackServer {
 
     if (url.pathname === "/callback/mal" || url.pathname === "/callback/anilist") {
       const code = url.searchParams.get("code");
+      const accessToken = url.searchParams.get("access_token");
       const state = url.searchParams.get("state");
+      const trackerName = url.pathname.includes("mal") ? "MyAnimeList" : "AniList";
 
-      if (!code || !state) {
-        return new Response("Missing code or state parameter", { status: 400 });
+      // For AniList without query params, serve HTML with JS to handle fragment
+      if (url.pathname === "/callback/anilist" && !code && !accessToken && !state) {
+        return new Response(fragmentHandlerHtml(), {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }
+
+      // Handle normal callback with code or access_token
+      const token = code || accessToken;
+      if (!token || !state) {
+        return new Response("Missing code/state or access_token/state parameter", { status: 400 });
       }
 
       const pending = this.pendingStates.get(state);
@@ -84,35 +144,17 @@ export class CallbackServer {
       clearTimeout(pending.timer);
       this.pendingStates.delete(state);
 
-      pending.handler({ code, state });
+      pending.handler({ code: token, state });
 
       if (this.pendingStates.size === 0 && this.server) {
         this.server.stop();
         this.server = null;
       }
 
-      const trackerName = url.pathname.includes("mal") ? "MyAnimeList" : "AniList";
-      return new Response(
-        `<!DOCTYPE html>
-<html>
-<head>
-  <title>${trackerName} Authorization</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px; }
-    .success { color: #22c55e; font-size: 24px; }
-    .message { color: #666; margin-top: 20px; }
-  </style>
-</head>
-<body>
-  <div class="success">Authorization Successful!</div>
-  <div class="message">You can close this window and return to Kogoro.</div>
-</body>
-</html>`,
-        {
-          status: 200,
-          headers: { "Content-Type": "text/html" },
-        },
-      );
+      return new Response(authorizationSuccessHtml(trackerName), {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      });
     }
 
     return new Response("Not Found", { status: 404 });

@@ -3,7 +3,6 @@
   import type { RPCClient } from "../shared";
 
   interface AuthInfo {
-    authUrl?: string;
     instructions?: string;
   }
 
@@ -32,8 +31,10 @@
   let callbackCancelled = $state(false);
   let errorMessage = $state<string | null>(null);
 
+  const isOAuthTracker = $derived(fields.length === 0);
+
   async function handleOpenAuthUrl() {
-    if (!authInfo.authUrl || !trackerName) return;
+    if (!trackerName) return;
     waitingForCallback = true;
     callbackCancelled = false;
     errorMessage = null;
@@ -98,24 +99,15 @@
                 <div class="text-surface-950-50 text-center">Waiting for authorization...</div>
                 <div class="text-surface-600-400 text-xs text-center">Complete the authorization in your browser</div>
               </div>
-            {:else if authInfo.instructions}
-              <div class="whitespace-pre-line mb-2">{authInfo.instructions}</div>
-              {#if authInfo.authUrl}
-                <button
-                  type="button"
-                  class="text-primary-500 underline hover:text-primary-600 text-left break-all cursor-pointer bg-transparent border-0 p-0"
-                  onclick={handleOpenAuthUrl}
-                >
-                  Open Authorization Link
-                </button>
-              {/if}
+            {:else if isOAuthTracker}
+              <div class="whitespace-pre-line mb-2">{authInfo.instructions ?? `You'll be redirected to ${trackerName} to authorize.`}</div>
             {:else}
               Enter your credentials to connect this tracker.
             {/if}
           </Dialog.Description>
           {#if errorMessage}
             <div class="text-sm text-error-500 mb-4 p-2 rounded bg-error-500/10">{errorMessage}</div>
-            {#if authInfo.authUrl}
+            {#if isOAuthTracker}
               <button
                 type="button"
                 class="btn preset-filled-primary-500 rounded-lg font-medium mb-4"
@@ -156,7 +148,7 @@
             <button
               type="button"
               class="btn preset-filled-primary-500 rounded-lg font-medium"
-              onclick={handleConnect}
+              onclick={isOAuthTracker ? handleOpenAuthUrl : handleConnect}
               disabled={connecting}
             >
               {connecting ? "Connecting..." : "Connect"}

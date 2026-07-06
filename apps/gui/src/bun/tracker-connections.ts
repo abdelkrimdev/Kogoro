@@ -26,7 +26,6 @@ export interface TrackerCredentialField {
 }
 
 export interface TrackerAuthInfo {
-  authUrl?: string;
   instructions?: string;
 }
 
@@ -35,8 +34,6 @@ interface TrackerDefinition {
   displayName: string;
   credentialKey: string;
   fields: TrackerCredentialField[];
-  authUrl?: string;
-  authUrlEnvVars?: Record<string, string>;
   instructions?: string;
   buildCredential: (values: Record<string, string>) => string | null;
   extractAccountInfo: (credential: string) => string | undefined;
@@ -48,9 +45,7 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     displayName: "AniList",
     credentialKey: "anilist",
     fields: [],
-    authUrl:
-      "https://anilist.co/api/v2/oauth/authorize?client_id={client_id}&redirect_uri=http%3A%2F%2Flocalhost%3A43219%2Fcallback%2Fanilist&response_type=code",
-    authUrlEnvVars: { client_id: "ANILIST_CLIENT_ID" },
+    instructions: "You'll be redirected to AniList to authorize.",
     buildCredential: () => null,
     extractAccountInfo: (credential) => credentialDisplayLabel(credential),
   },
@@ -80,22 +75,9 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     name: "mal",
     displayName: "MyAnimeList",
     credentialKey: "mal",
-    fields: [
-      {
-        name: "token",
-        label: "Access Token",
-        type: "password",
-        placeholder: "Enter your MyAnimeList access token",
-      },
-    ],
-    buildCredential: (values) => {
-      const token = values["token"] ?? "";
-      if (!token) return null;
-      return JSON.stringify({
-        access_token: token,
-        expires_at: Date.now() + 365 * 24 * 60 * 60 * 1000,
-      });
-    },
+    fields: [],
+    instructions: "You'll be redirected to MyAnimeList to authorize.",
+    buildCredential: () => null,
     extractAccountInfo: () => undefined,
   },
 ];
@@ -125,16 +107,7 @@ export function getTrackerConnectionFields(name: string): TrackerCredentialField
 
 export function getTrackerAuthInfo(name: string): TrackerAuthInfo {
   const def = TRACKER_DEFINITIONS.find((d) => d.name === name);
-  let authUrl = def?.authUrl;
-  if (authUrl && def?.authUrlEnvVars) {
-    for (const [placeholder, envKey] of Object.entries(def.authUrlEnvVars)) {
-      const value = process.env[envKey];
-      if (value) {
-        authUrl = authUrl.replace(`{${placeholder}}`, value);
-      }
-    }
-  }
-  return { authUrl, instructions: def?.instructions };
+  return { instructions: def?.instructions };
 }
 
 export async function connectTracker(
@@ -181,21 +154,26 @@ export async function disconnectTracker(
 const OAUTH_CONFIGS: Record<
   string,
   {
-    envKey: string;
+    clientId: string;
     baseUrl: string;
     redirectPath: string;
+    responseType: string;
+    includeRedirectUri?: boolean;
     extraParams?: (verifier: string) => Record<string, string>;
   }
 > = {
   anilist: {
-    envKey: "ANILIST_CLIENT_ID",
+    clientId: "45221",
     baseUrl: "https://anilist.co/api/v2/oauth/authorize",
     redirectPath: "/callback/anilist",
+    responseType: "token",
+    includeRedirectUri: false,
   },
   mal: {
-    envKey: "MAL_CLIENT_ID",
+    clientId: "97e4bfe9c07f9e679ec96e4906862030",
     baseUrl: "https://myanimelist.net/v1/oauth2/authorize",
     redirectPath: "/callback/mal",
+    responseType: "code",
     extraParams: (verifier) => ({
       code_challenge: verifier,
       code_challenge_method: "plain",
@@ -219,10 +197,7 @@ export async function startTrackerAuth(
   await callbackServer.start();
 
   const state = callbackServer.generateState();
-  const clientId = process.env[config.envKey];
-  if (!clientId) {
-    throw new TrackerError("unknown", `${config.envKey} environment variable not set`, trackerName);
-  }
+  const clientId = config.clientId;
 
   let codeVerifier: string | undefined;
   if (config.extraParams) {
@@ -234,8 +209,10 @@ export async function startTrackerAuth(
 
   const authUrl = new URL(config.baseUrl);
   authUrl.searchParams.set("client_id", clientId);
-  authUrl.searchParams.set("redirect_uri", `http://localhost:43219${config.redirectPath}`);
-  authUrl.searchParams.set("response_type", "code");
+  if (config.includeRedirectUri !== false) {
+    authUrl.searchParams.set("redirect_uri", `http://localhost:43219${config.redirectPath}`);
+  }
+  authUrl.searchParams.set("response_type", config.responseType);
   authUrl.searchParams.set("state", state);
 
   if (config.extraParams && codeVerifier) {

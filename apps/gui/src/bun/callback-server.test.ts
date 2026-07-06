@@ -62,7 +62,7 @@ describe("CallbackServer", () => {
     expect(receivedResult).toEqual({ code: "auth-code-123", state });
   });
 
-  test("handles AniList callback with valid state", async () => {
+  test("handles AniList callback with access_token (implicit grant)", async () => {
     server = new CallbackServer({ port: 43223 });
     await server.start();
 
@@ -74,7 +74,7 @@ describe("CallbackServer", () => {
     });
 
     const response = await fetch(
-      `http://localhost:43223/callback/anilist?code=anilist-code-456&state=${state}`,
+      `http://localhost:43223/callback/anilist?access_token=anilist-token-789&state=${state}`,
     );
 
     expect(response.status).toBe(200);
@@ -82,7 +82,22 @@ describe("CallbackServer", () => {
     expect(html).toContain("Authorization Successful");
     expect(html).toContain("AniList");
 
-    expect(receivedResult).toEqual({ code: "anilist-code-456", state });
+    expect(receivedResult).toEqual({ code: "anilist-token-789", state });
+  });
+
+  test("serves HTML with JS for AniList fragment handling when no params", async () => {
+    server = new CallbackServer({ port: 43229 });
+    await server.start();
+
+    const response = await fetch("http://localhost:43229/callback/anilist");
+
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain("window.location.hash");
+    expect(html).toContain("access_token");
+    expect(html).toContain("state");
+    expect(html).toContain("/callback/anilist?");
   });
 
   test("rejects callback with invalid state", async () => {
@@ -106,7 +121,7 @@ describe("CallbackServer", () => {
 
     expect(response.status).toBe(400);
     const text = await response.text();
-    expect(text).toContain("Missing code or state parameter");
+    expect(text).toContain("Missing code/state or access_token/state parameter");
   });
 
   test("returns 404 for unknown paths", async () => {

@@ -34,7 +34,7 @@
   let trackerStatus = $state<Array<{ name: string; displayName: string; connected: boolean; accountInfo?: string }>>([]);
   let connectDialogTracker = $state<string | null>(null);
   let connectDialogFields = $state<Array<{ name: string; label: string; type: "text" | "password"; placeholder?: string }>>([]);
-  let connectDialogAuthInfo = $state<{ authUrl?: string; instructions?: string }>({});
+  let connectDialogAuthInfo = $state<{ instructions?: string }>({});
 
   let importPreviewTracker = $state<string | null>(null);
   let importPreviewDisplayName = $state<string>("");
@@ -114,9 +114,6 @@
       connectDialogTracker = trackerName;
       connectDialogFields = fields;
       connectDialogAuthInfo = authInfo;
-      if (authInfo.authUrl) {
-        rpc.request("openExternal", { url: authInfo.authUrl });
-      }
     } catch {
       // Fields loading is optional
     }
