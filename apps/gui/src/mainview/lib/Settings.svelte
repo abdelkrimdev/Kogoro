@@ -61,9 +61,15 @@
   let syncing = $state(false);
   let syncResult = $state<{ applied: number; conflicts: SyncConflictInfo[] } | null>(null);
 
-  const apiKeys = $derived((settingsData["apiKeys"] as Record<string, string>) ?? {});
   const plugins = $derived(
     (settingsData["plugins"] as Array<{ name: string; type: string; source: string; enabled: boolean }>) ?? [],
+  );
+  const apiKeys = $derived(
+    Object.fromEntries(
+      Object.entries((settingsData["apiKeys"] as Record<string, string>) ?? {}).filter(
+        ([name]) => !plugins.some((p) => p.name === name && p.type === "tracker"),
+      ),
+    ),
   );
   const primaryDbKey = $derived((settingsData["primaryDb"] as string) ?? "tvdb");
 
