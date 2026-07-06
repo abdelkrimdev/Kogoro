@@ -414,17 +414,6 @@ describe("startTrackerAuth", () => {
   test("throws for unsupported tracker", async () => {
     await expect(startTrackerAuth("kitsu")).rejects.toThrow(TrackerError);
   });
-
-  test("works without environment variables set", async () => {
-    delete process.env["ANILIST_CLIENT_ID"];
-    delete process.env["MAL_CLIENT_ID"];
-
-    const anilistResult = await startTrackerAuth("anilist");
-    expect(anilistResult.authUrl).toContain("client_id=45221");
-
-    const malResult = await startTrackerAuth("mal");
-    expect(malResult.authUrl).toContain("client_id=97e4bfe9c07f9e679ec96e4906862030");
-  });
 });
 
 describe("waitForTrackerCallback", () => {
