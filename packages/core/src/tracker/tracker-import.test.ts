@@ -11,6 +11,7 @@ function createMockTrackerPlugin(list: TrackerAnime[] = []): TrackerPlugin {
     async authenticate() {
       return "mock-token";
     },
+    async ensureAuthenticated() {},
     async getUserList() {
       return list;
     },

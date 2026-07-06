@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { CacheService, DatabasePlugin } from "@kogoro/core";
@@ -20,6 +20,12 @@ import {
   writeTempFile,
 } from "@kogoro/core/testing";
 import { createEnrichmentHandlers } from "./enrichment";
+
+afterEach(() => {
+  for (const k of Object.keys(process.env)) {
+    if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
+  }
+});
 
 function createLibraryService(dir: string): {
   svc: LibraryService;

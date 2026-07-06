@@ -1,4 +1,15 @@
 import type { CredentialStore, EventRepository, LibraryService } from "@kogoro/core";
+import { generateCodeVerifier, TrackerError } from "@kogoro/core";
+import { type CallbackResult, CallbackServer } from "./callback-server";
+
+function credentialDisplayLabel(credential: string, fallback?: string): string | undefined {
+  try {
+    JSON.parse(credential);
+    return "Connected";
+  } catch {
+    return fallback;
+  }
+}
 
 export interface TrackerConnectionInfo {
   name: string;
@@ -36,24 +47,12 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     name: "anilist",
     displayName: "AniList",
     credentialKey: "anilist",
-    fields: [
-      {
-        name: "pin",
-        label: "PIN Code",
-        type: "text",
-        placeholder: "Paste the PIN code from AniList",
-      },
-    ],
+    fields: [],
     authUrl:
-      "https://anilist.co/api/v2/oauth/authorize?client_id={client_id}&redirect_uri=https%3A%2F%2Fanilist.co%2Fapi%2Fv2%2Foauth%2Fpin&response_type=code",
+      "https://anilist.co/api/v2/oauth/authorize?client_id={client_id}&redirect_uri=http%3A%2F%2Flocalhost%3A43219%2Fcallback%2Fanilist&response_type=code",
     authUrlEnvVars: { client_id: "ANILIST_CLIENT_ID" },
-    instructions:
-      "1. Click the link below to authorize on AniList\n2. Copy the PIN code shown after authorizing\n3. Paste it here",
-    buildCredential: (values) => {
-      const pin = values["pin"] ?? "";
-      return pin || null;
-    },
-    extractAccountInfo: () => undefined,
+    buildCredential: () => null,
+    extractAccountInfo: (credential) => credentialDisplayLabel(credential),
   },
   {
     name: "kitsu",
@@ -71,7 +70,10 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     },
     extractAccountInfo: (credential) => {
       const colonIndex = credential.indexOf(":");
-      return colonIndex > 0 ? credential.slice(0, colonIndex) : undefined;
+      return credentialDisplayLabel(
+        credential,
+        colonIndex > 0 ? credential.slice(0, colonIndex) : undefined,
+      );
     },
   },
   {
@@ -88,11 +90,17 @@ const TRACKER_DEFINITIONS: TrackerDefinition[] = [
     ],
     buildCredential: (values) => {
       const token = values["token"] ?? "";
-      return token || null;
+      if (!token) return null;
+      return JSON.stringify({
+        access_token: token,
+        expires_at: Date.now() + 365 * 24 * 60 * 60 * 1000,
+      });
     },
     extractAccountInfo: () => undefined,
   },
 ];
+
+let callbackServer: CallbackServer | null = null;
 
 export async function getTrackerStatus(
   credentialStore: CredentialStore,
@@ -145,7 +153,10 @@ export async function connectTracker(
     def.buildCredential(params.values);
   if (!credential) {
     const requiredFields = def.fields.map((f) => f.label).join(" and ");
-    return { success: false, error: `${requiredFields} are required` };
+    return {
+      success: false,
+      error: requiredFields ? `${requiredFields} are required` : "Authentication required",
+    };
   }
 
   await credentialStore.setCredential(def.credentialKey, credential);
@@ -165,4 +176,93 @@ export async function disconnectTracker(
   eventRepo.dropForSource(def.name);
   await credentialStore.deleteCredential(def.credentialKey);
   return { success: true };
+}
+
+const OAUTH_CONFIGS: Record<
+  string,
+  {
+    envKey: string;
+    baseUrl: string;
+    redirectPath: string;
+    extraParams?: (verifier: string) => Record<string, string>;
+  }
+> = {
+  anilist: {
+    envKey: "ANILIST_CLIENT_ID",
+    baseUrl: "https://anilist.co/api/v2/oauth/authorize",
+    redirectPath: "/callback/anilist",
+  },
+  mal: {
+    envKey: "MAL_CLIENT_ID",
+    baseUrl: "https://myanimelist.net/v1/oauth2/authorize",
+    redirectPath: "/callback/mal",
+    extraParams: (verifier) => ({
+      code_challenge: verifier,
+      code_challenge_method: "plain",
+      scope: "write:users",
+    }),
+  },
+};
+
+export async function startTrackerAuth(
+  trackerName: string,
+  credentialStore?: CredentialStore,
+): Promise<{ authUrl: string; state: string }> {
+  const config = OAUTH_CONFIGS[trackerName];
+  if (!config) {
+    throw new TrackerError("unknown", `OAuth flow not supported for ${trackerName}`, trackerName);
+  }
+
+  if (!callbackServer) {
+    callbackServer = new CallbackServer();
+  }
+  await callbackServer.start();
+
+  const state = callbackServer.generateState();
+  const clientId = process.env[config.envKey];
+  if (!clientId) {
+    throw new TrackerError("unknown", `${config.envKey} environment variable not set`, trackerName);
+  }
+
+  let codeVerifier: string | undefined;
+  if (config.extraParams) {
+    codeVerifier = generateCodeVerifier();
+    if (credentialStore) {
+      await credentialStore.setCredential(`${trackerName}_code_verifier`, codeVerifier);
+    }
+  }
+
+  const authUrl = new URL(config.baseUrl);
+  authUrl.searchParams.set("client_id", clientId);
+  authUrl.searchParams.set("redirect_uri", `http://localhost:43219${config.redirectPath}`);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("state", state);
+
+  if (config.extraParams && codeVerifier) {
+    for (const [key, value] of Object.entries(config.extraParams(codeVerifier))) {
+      authUrl.searchParams.set(key, value);
+    }
+  }
+
+  return { authUrl: authUrl.toString(), state };
+}
+
+export function waitForTrackerCallback(state: string): Promise<CallbackResult> {
+  return new Promise((resolve) => {
+    if (!callbackServer) {
+      resolve({ code: "", state: "" });
+      return;
+    }
+
+    callbackServer.waitForCallback(state, (result) => {
+      resolve(result);
+    });
+  });
+}
+
+export async function cancelTrackerAuth(): Promise<void> {
+  if (callbackServer) {
+    await callbackServer.stop();
+    callbackServer = null;
+  }
 }

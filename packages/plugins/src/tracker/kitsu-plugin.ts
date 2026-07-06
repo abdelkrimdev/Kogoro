@@ -1,13 +1,23 @@
 import type {
+  CredentialStore,
   EntryType,
   TrackerAnime,
   TrackerAnimeDetails,
+  TrackerCredential,
   TrackerEntry,
   TrackerEntryChanges,
   TrackerPlugin,
   TrackerWatchStatus,
 } from "@kogoro/core";
-import { HttpClient } from "@kogoro/core";
+import {
+  HttpClient,
+  loadOrRefreshCredential,
+  loadStoredCredential,
+  type OAuthTokenResponse,
+  parseOAuthTokenResponse,
+  TrackerError,
+  throwHttpError,
+} from "@kogoro/core";
 
 const KITSU_STATUS_MAP: Record<string, TrackerWatchStatus> = {
   current: "watching",
@@ -38,6 +48,7 @@ interface KitsuPluginOptions {
   baseUrl?: string;
   oauthUrl?: string;
   httpClient?: HttpClient;
+  credentialStore?: CredentialStore;
   username?: string;
   password?: string;
 }
@@ -97,6 +108,7 @@ export class KitsuPlugin implements TrackerPlugin {
   private baseUrl: string;
   private oauthUrl: string;
   private httpClient: HttpClient;
+  private credentialStore: CredentialStore | null;
   private username: string;
   private password: string;
   private accessToken: string | null = null;
@@ -105,12 +117,15 @@ export class KitsuPlugin implements TrackerPlugin {
     this.baseUrl = options.baseUrl ?? "https://kitsu.io/api/edge";
     this.oauthUrl = options.oauthUrl ?? "https://kitsu.io/api/oauth";
     this.httpClient = options.httpClient ?? new HttpClient({ minDelay: 500 });
+    this.credentialStore = options.credentialStore ?? null;
     this.username = options.username ?? "";
     this.password = options.password ?? "";
   }
 
-  private async authenticatedGet(path: string): Promise<KitsuJsonApiResponse | null> {
-    if (!this.accessToken) return null;
+  private async authenticatedGet(path: string): Promise<KitsuJsonApiResponse> {
+    if (!this.accessToken) {
+      throw new TrackerError("auth_invalid", "Not authenticated", "kitsu");
+    }
     const response = await this.httpClient.fetch(`${this.baseUrl}${path}`, {
       method: "GET",
       headers: {
@@ -118,12 +133,16 @@ export class KitsuPlugin implements TrackerPlugin {
         Accept: "application/vnd.api+json",
       },
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      throwHttpError(response, "kitsu", "Failed to fetch");
+    }
     return (await response.json()) as KitsuJsonApiResponse;
   }
 
-  private async authenticatedPatch(path: string, body: Record<string, unknown>): Promise<boolean> {
-    if (!this.accessToken) return false;
+  private async authenticatedPatch(path: string, body: Record<string, unknown>): Promise<void> {
+    if (!this.accessToken) {
+      throw new TrackerError("auth_invalid", "Not authenticated", "kitsu");
+    }
     const response = await this.httpClient.fetch(`${this.baseUrl}${path}`, {
       method: "PATCH",
       headers: {
@@ -133,10 +152,33 @@ export class KitsuPlugin implements TrackerPlugin {
       },
       body: JSON.stringify(body),
     });
-    return response.ok;
+    if (!response.ok) {
+      throwHttpError(response, "kitsu", "Failed to update");
+    }
   }
 
   async authenticate(): Promise<string> {
+    if (this.accessToken) return this.accessToken;
+
+    if (this.credentialStore) {
+      try {
+        const credential = await loadOrRefreshCredential(this.credentialStore, "kitsu", () =>
+          this.refreshSession(),
+        );
+        this.accessToken = credential.access_token;
+        return this.accessToken;
+      } catch (error) {
+        if (error instanceof TrackerError && error.type === "auth_invalid") {
+          return this.authenticateWithPassword();
+        }
+        throw error;
+      }
+    }
+
+    return this.authenticateWithPassword();
+  }
+
+  private async authenticateWithPassword(): Promise<string> {
     const body = new URLSearchParams({
       grant_type: "password",
       username: this.username,
@@ -149,21 +191,69 @@ export class KitsuPlugin implements TrackerPlugin {
       body: body.toString(),
     });
 
+    const json = (await response.json()) as OAuthTokenResponse;
+
     if (!response.ok) {
-      const error = (await response.json()) as { error?: string; error_description?: string };
-      throw new Error(
-        `Kitsu authentication failed: ${error.error_description ?? error.error ?? response.statusText}`,
+      throw new TrackerError(
+        "auth_invalid",
+        `Kitsu authentication failed: ${json.error_description ?? json.error ?? response.statusText}`,
+        "kitsu",
       );
     }
 
-    const json = (await response.json()) as { access_token: string };
-    this.accessToken = json.access_token;
+    const credential = parseOAuthTokenResponse(json);
+
+    if (this.credentialStore) {
+      await this.credentialStore.setCredential("kitsu", JSON.stringify(credential));
+    }
+
+    this.accessToken = credential.access_token;
     return this.accessToken;
+  }
+
+  async refreshSession(): Promise<TrackerCredential> {
+    if (!this.credentialStore) {
+      throw new TrackerError("auth_invalid", "No credential store available", "kitsu");
+    }
+
+    const credential = await loadStoredCredential(this.credentialStore, "kitsu");
+
+    if (!credential.refresh_token) {
+      throw new TrackerError("auth_expired", "kitsu has no refresh token", "kitsu");
+    }
+
+    const body = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: credential.refresh_token,
+    });
+
+    const response = await this.httpClient.fetch(`${this.oauthUrl}/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    const json = (await response.json()) as OAuthTokenResponse;
+
+    if (!response.ok) {
+      throw new TrackerError(
+        "auth_expired",
+        `Kitsu token refresh failed: ${json.error_description ?? json.error ?? response.statusText}`,
+        "kitsu",
+      );
+    }
+
+    const refreshed = parseOAuthTokenResponse(json);
+    await this.credentialStore.setCredential("kitsu", JSON.stringify(refreshed));
+    return refreshed;
+  }
+
+  async ensureAuthenticated(): Promise<void> {
+    await this.authenticate();
   }
 
   async getUserList(): Promise<TrackerAnime[]> {
     const userResponse = await this.authenticatedGet("/users?filter[self]=true");
-    if (!userResponse) return [];
 
     const userData = singleOrFirst(userResponse.data);
     if (!userData) return [];
@@ -172,7 +262,6 @@ export class KitsuPlugin implements TrackerPlugin {
     const libraryResponse = await this.authenticatedGet(
       `/users/${userId}/library-entries?include=anime`,
     );
-    if (!libraryResponse) return [];
 
     const entries = Array.isArray(libraryResponse.data) ? libraryResponse.data : [];
     const included = libraryResponse.included ?? [];
@@ -208,13 +297,10 @@ export class KitsuPlugin implements TrackerPlugin {
 
   async getEntry(trackerId: string): Promise<TrackerEntry> {
     const response = await this.authenticatedGet(`/library-entries/${trackerId}?include=anime`);
-    if (!response) {
-      throw new Error(`Library entry ${trackerId} not found`);
-    }
 
     const entry = singleOrFirst(response.data);
     if (!entry) {
-      throw new Error(`Library entry ${trackerId} not found`);
+      throw new TrackerError("not_found", `Library entry ${trackerId} not found`, "kitsu");
     }
 
     const included = response.included ?? [];
@@ -262,13 +348,10 @@ export class KitsuPlugin implements TrackerPlugin {
 
   async getAnimeDetails(trackerId: string): Promise<TrackerAnimeDetails> {
     const response = await this.authenticatedGet(`/anime/${trackerId}?include=categories`);
-    if (!response) {
-      throw new Error(`Anime ${trackerId} not found`);
-    }
 
     const anime = singleOrFirst(response.data);
     if (!anime) {
-      throw new Error(`Anime ${trackerId} not found`);
+      throw new TrackerError("not_found", `Anime ${trackerId} not found`, "kitsu");
     }
 
     const attrs = anime.attributes ?? {};

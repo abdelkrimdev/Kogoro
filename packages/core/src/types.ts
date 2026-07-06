@@ -142,6 +142,39 @@ export interface ScanSummary {
 
 export type TrackerWatchStatus = "watching" | "completed" | "plan-to-watch" | "on-hold" | "dropped";
 
+export type TrackerErrorType =
+  | "auth_expired"
+  | "auth_invalid"
+  | "rate_limited"
+  | "not_found"
+  | "network"
+  | "unknown";
+
+export class TrackerError extends Error {
+  readonly type: TrackerErrorType;
+  readonly tracker?: string;
+
+  constructor(type: TrackerErrorType, message: string, tracker?: string) {
+    super(message);
+    this.name = "TrackerError";
+    this.type = type;
+    this.tracker = tracker;
+  }
+}
+
+export function isAuthError(error: unknown): error is TrackerError {
+  return (
+    error instanceof TrackerError &&
+    (error.type === "auth_expired" || error.type === "auth_invalid")
+  );
+}
+
+export interface TrackerCredential {
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: number;
+}
+
 export interface TrackerAnime {
   trackerId: string;
   title: string;
@@ -188,8 +221,12 @@ export interface TrackerAnimeDetails {
 
 export interface TrackerPlugin {
   authenticate(): Promise<string>;
+  ensureAuthenticated(): Promise<void>;
   getUserList(): Promise<TrackerAnime[]>;
   getEntry(trackerId: string): Promise<TrackerEntry>;
   updateEntry(trackerId: string, changes: TrackerEntryChanges): Promise<void>;
   getAnimeDetails(trackerId: string): Promise<TrackerAnimeDetails>;
+  refreshSession?(): Promise<TrackerCredential>;
+  generateAuthUrl?(): Promise<string>;
+  exchangeCode?(code: string): Promise<TrackerCredential>;
 }

@@ -10,6 +10,7 @@ import {
   LibraryService,
   resolveDbPaths,
   ScanStateService,
+  type TrackerCredential,
 } from "@kogoro/core";
 import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow, PATHS, Utils } from "electrobun/bun";
@@ -35,11 +36,14 @@ import {
 } from "./state";
 import { createSyncHandlers } from "./sync";
 import {
+  cancelTrackerAuth,
   connectTracker,
   disconnectTracker,
   getTrackerAuthInfo,
   getTrackerConnectionFields,
   getTrackerStatus,
+  startTrackerAuth,
+  waitForTrackerCallback,
 } from "./tracker-connections";
 import { createTrackerImportHandlers } from "./tracker-import";
 import {
@@ -183,13 +187,14 @@ const rpc = BrowserView.defineRPC<AppRPC>({
           ...params,
           onBeforeStore: async (name, values) => {
             if (name === "anilist") {
-              const pin = values["pin"] ?? "";
-              if (!pin) return null;
+              const code = values["code"] ?? "";
+              if (!code) return null;
               const plugin = await pluginFactory.tracker("anilist");
-              if (!plugin || !("exchangeCode" in plugin)) return pin;
-              return await (
-                plugin as { exchangeCode: (code: string) => Promise<string> }
-              ).exchangeCode(pin);
+              if (!plugin || !("exchangeCode" in plugin)) return code;
+              const credential = await (
+                plugin as { exchangeCode: (code: string) => Promise<TrackerCredential> }
+              ).exchangeCode(code);
+              return JSON.stringify(credential);
             }
             return null;
           },
@@ -199,6 +204,9 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         }
         return result;
       },
+      startTrackerAuth: async (params) => startTrackerAuth(params.trackerName, credentialStore),
+      waitForTrackerCallback: async (params) => waitForTrackerCallback(params.state),
+      cancelTrackerAuth: async () => cancelTrackerAuth(),
       disconnectTracker: async (params) =>
         disconnectTracker(credentialStore, libraryService, eventsRepo, params),
       getImportPreview: async (params) => trackerImportHandlers.getImportPreview(params),

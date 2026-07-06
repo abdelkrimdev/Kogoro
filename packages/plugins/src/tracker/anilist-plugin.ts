@@ -1,13 +1,19 @@
 import {
+  buildCredentialFromToken,
   type CredentialStore,
   type EntryType,
   HttpClient,
+  loadOrRefreshCredential,
+  type OAuthTokenResponse,
   type TrackerAnime,
   type TrackerAnimeDetails,
+  type TrackerCredential,
   type TrackerEntry,
   type TrackerEntryChanges,
+  TrackerError,
   type TrackerPlugin,
   type TrackerWatchStatus,
+  throwHttpError,
 } from "@kogoro/core";
 
 interface AniListTitle {
@@ -212,25 +218,28 @@ export class AniListPlugin implements TrackerPlugin {
   async authenticate(): Promise<string> {
     if (this.token) return this.token;
 
-    if (this.credentialStore) {
-      const stored = await this.credentialStore.getCredential("anilist");
-      if (stored) {
-        this.token = stored;
-        return stored;
-      }
+    if (!this.credentialStore) {
+      throw new TrackerError("auth_invalid", "No credential store available", "anilist");
     }
 
-    const authUrl = new URL("https://anilist.co/api/v2/oauth/authorize");
-    authUrl.searchParams.set("client_id", this.clientId);
-    authUrl.searchParams.set("redirect_uri", "https://anilist.co/api/v2/oauth/pin");
-    authUrl.searchParams.set("response_type", "code");
-
-    throw new Error(
-      `AniList authentication requires OAuth flow. Please visit: ${authUrl.toString()} and complete authentication, then provide the PIN code.`,
+    const credential = await loadOrRefreshCredential(
+      this.credentialStore,
+      "anilist",
+      this.refreshSession.bind(this),
     );
+    this.token = credential.access_token;
+    return this.token;
   }
 
-  async exchangeCode(code: string): Promise<string> {
+  async generateAuthUrl(): Promise<string> {
+    const authUrl = new URL("https://anilist.co/api/v2/oauth/authorize");
+    authUrl.searchParams.set("client_id", this.clientId);
+    authUrl.searchParams.set("redirect_uri", "http://localhost:43219/callback/anilist");
+    authUrl.searchParams.set("response_type", "code");
+    return authUrl.toString();
+  }
+
+  async exchangeCode(code: string): Promise<TrackerCredential> {
     const response = await this.httpClient.fetch("https://anilist.co/api/v2/oauth/token", {
       method: "POST",
       headers: {
@@ -241,29 +250,41 @@ export class AniListPlugin implements TrackerPlugin {
         grant_type: "authorization_code",
         client_id: this.clientId,
         client_secret: this.clientSecret,
-        redirect_uri: "https://anilist.co/api/v2/oauth/pin",
+        redirect_uri: "http://localhost:43219/callback/anilist",
         code,
       }),
     });
 
+    const body = (await response.json().catch(() => ({}))) as OAuthTokenResponse;
+
     if (!response.ok) {
-      const error = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        message?: string;
-      };
-      throw new Error(
-        `AniList token exchange failed: ${error.message ?? error.error ?? response.statusText}`,
+      throw new TrackerError(
+        "auth_invalid",
+        `AniList token exchange failed: ${body.message ?? body.error ?? response.statusText}`,
+        "anilist",
       );
     }
 
-    const data = (await response.json()) as { access_token: string };
-    this.token = data.access_token;
+    const credential = buildCredentialFromToken(body.access_token ?? "", body.expires_in);
 
     if (this.credentialStore) {
-      await this.credentialStore.setCredential("anilist", data.access_token);
+      await this.credentialStore.setCredential("anilist", JSON.stringify(credential));
     }
 
-    return data.access_token;
+    this.token = credential.access_token;
+    return credential;
+  }
+
+  async ensureAuthenticated(): Promise<void> {
+    await this.authenticate();
+  }
+
+  async refreshSession(): Promise<TrackerCredential> {
+    throw new TrackerError(
+      "auth_expired",
+      "AniList does not support token refresh. Please re-authenticate.",
+      "anilist",
+    );
   }
 
   async getUserList(): Promise<TrackerAnime[]> {
@@ -365,12 +386,6 @@ export class AniListPlugin implements TrackerPlugin {
     };
   }
 
-  private async ensureAuthenticated(): Promise<void> {
-    if (!this.token) {
-      await this.authenticate();
-    }
-  }
-
   private async graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -386,10 +401,18 @@ export class AniListPlugin implements TrackerPlugin {
       body: JSON.stringify({ query, variables }),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      throwHttpError(response, "anilist");
+    }
 
     const json = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
-    if (json.errors?.length) return null;
+    if (json.errors?.length) {
+      throw new TrackerError(
+        "unknown",
+        `AniList GraphQL error: ${json.errors[0]?.message ?? "Unknown error"}`,
+        "anilist",
+      );
+    }
     return json.data ?? null;
   }
 }

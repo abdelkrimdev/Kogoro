@@ -25,11 +25,14 @@ import type {
 } from "../bun/state";
 import type { SyncHandlers } from "../bun/sync";
 import type {
+  cancelTrackerAuth,
   connectTracker,
   disconnectTracker,
   getTrackerAuthInfo,
   getTrackerConnectionFields,
   getTrackerStatus,
+  startTrackerAuth,
+  waitForTrackerCallback,
 } from "../bun/tracker-connections";
 import type { createTrackerImportHandlers } from "../bun/tracker-import";
 import type {
@@ -227,7 +230,7 @@ export type AppRPC = {
       };
       openExternal: {
         params: { url: string };
-        response: { success: boolean };
+        response: { success: boolean; url?: string };
       };
       connectTracker: {
         params: Parameters<typeof connectTracker>[1];
@@ -236,6 +239,18 @@ export type AppRPC = {
       disconnectTracker: {
         params: Parameters<typeof disconnectTracker>[3];
         response: AwaitedReturnType<typeof disconnectTracker>;
+      };
+      startTrackerAuth: {
+        params: { trackerName: string };
+        response: AwaitedReturnType<typeof startTrackerAuth>;
+      };
+      waitForTrackerCallback: {
+        params: { state: string };
+        response: AwaitedReturnType<typeof waitForTrackerCallback>;
+      };
+      cancelTrackerAuth: {
+        params: Record<string, never>;
+        response: AwaitedReturnType<typeof cancelTrackerAuth>;
       };
       getImportPreview: {
         params: { trackerName: string };

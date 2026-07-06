@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { CredentialStore, TrackerWatchStatus } from "@kogoro/core";
+import { TrackerError } from "@kogoro/core";
 import { createMockHttpClient, createMockKeytar, withTestConfig } from "@kogoro/core/testing";
 import { MyAnimeListPlugin } from "./myanimelist-plugin";
 
@@ -12,8 +13,18 @@ function createPlugin(
   return new MyAnimeListPlugin({
     baseUrl: MAL_BASE_URL,
     credentialKey: "mal",
+    clientId: "test-client-id",
     credentialStore,
     httpClient: createMockHttpClient(fetch),
+  });
+}
+
+function makeCredential(overrides: Record<string, unknown> = {}) {
+  return JSON.stringify({
+    access_token: "test-token",
+    refresh_token: "refresh-token",
+    expires_at: Date.now() + 3600000,
+    ...overrides,
   });
 }
 
@@ -27,7 +38,7 @@ describe("MyAnimeListPlugin", () => {
           const token = await plugin.authenticate();
           expect(token).toBe("test-token");
         },
-        createMockKeytar({ "kogoro:mal": "test-token" }),
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
       );
     });
 
@@ -35,9 +46,7 @@ describe("MyAnimeListPlugin", () => {
       await withTestConfig("mal-auth-no-token", async (_dir, _config, credentialStore) => {
         const plugin = createPlugin(credentialStore);
 
-        await expect(plugin.authenticate()).rejects.toThrow(
-          "MAL authentication requires OAuth flow",
-        );
+        await expect(plugin.authenticate()).rejects.toThrow("mal credentials not found");
       });
     });
   });
@@ -103,7 +112,7 @@ describe("MyAnimeListPlugin", () => {
             score: 8,
           });
         },
-        createMockKeytar({ "kogoro:mal": "test-token" }),
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
       );
     });
 
@@ -178,7 +187,7 @@ describe("MyAnimeListPlugin", () => {
           expect(list[1]?.trackerId).toBe("2");
           expect(callCount).toBe(2);
         },
-        createMockKeytar({ "kogoro:mal": "test-token" }),
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
       );
     });
 
@@ -230,7 +239,7 @@ describe("MyAnimeListPlugin", () => {
 
             expect(list[0]?.watchStatus).toBe(expected as TrackerWatchStatus);
           },
-          createMockKeytar({ "kogoro:mal": "test-token" }),
+          createMockKeytar({ "kogoro:mal": makeCredential() }),
         );
       }
     });
@@ -275,7 +284,7 @@ describe("MyAnimeListPlugin", () => {
             score: 8,
           });
         },
-        createMockKeytar({ "kogoro:mal": "test-token" }),
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
       );
     });
   });
@@ -312,7 +321,7 @@ describe("MyAnimeListPlugin", () => {
           expect(capturedBody).toContain("num_watched_episodes=12");
           expect(capturedBody).toContain("score=9");
         },
-        createMockKeytar({ "kogoro:mal": "test-token" }),
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
       );
     });
   });
@@ -371,7 +380,71 @@ describe("MyAnimeListPlugin", () => {
             totalEpisodes: 12,
           });
         },
-        createMockKeytar({ "kogoro:mal": "test-token" }),
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
+      );
+    });
+  });
+
+  describe("error handling", () => {
+    test("fetchJson throws TrackerError on non-ok response", async () => {
+      await withTestConfig(
+        "mal-fetch-json-error",
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(
+            credentialStore,
+            async () =>
+              new Response(JSON.stringify({ error: "Unauthorized" }), {
+                status: 401,
+                headers: { "Content-Type": "application/json" },
+              }),
+          );
+
+          await plugin.authenticate();
+          await expect(plugin.getUserList()).rejects.toThrow(TrackerError);
+        },
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
+      );
+    });
+
+    test("getEntry throws TrackerError when anime not in user's list", async () => {
+      await withTestConfig(
+        "mal-get-entry-error",
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(
+            credentialStore,
+            async () =>
+              new Response(JSON.stringify({ id: 1234, title: "Test" }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              }),
+          );
+
+          await plugin.authenticate();
+          await expect(plugin.getEntry("1234")).rejects.toThrow(TrackerError);
+        },
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
+      );
+    });
+
+    test("updateEntry throws TrackerError on failure", async () => {
+      await withTestConfig(
+        "mal-update-entry-error",
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(
+            credentialStore,
+            async () =>
+              new Response(JSON.stringify({ error: "Not Found" }), {
+                status: 404,
+                headers: { "Content-Type": "application/json" },
+              }),
+          );
+
+          await plugin.authenticate();
+          await expect(plugin.updateEntry("1234", { watchStatus: "completed" })).rejects.toThrow(
+            TrackerError,
+          );
+        },
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
       );
     });
   });

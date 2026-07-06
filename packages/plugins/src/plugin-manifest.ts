@@ -31,6 +31,14 @@ export interface PluginManifestEntry {
   ) => Promise<DatabasePlugin | SubtitlePlugin | TrackerPlugin | undefined>;
 }
 
+function parseJsonCredential(credential: string): { access_token?: string } | undefined {
+  try {
+    return JSON.parse(credential) as { access_token?: string };
+  } catch {
+    return undefined;
+  }
+}
+
 function debugOptions(debug?: boolean): { onDebug?: (entry: DebugEntry) => void } {
   if (!debug) return {};
   return {
@@ -132,14 +140,24 @@ async function loadKitsu(
     console.error(`No ${entry.name} credentials configured. Run 'kogoro config init' first.`);
     return undefined;
   }
-  const [username, password] = credential.split(":", 2);
   const httpClient = new HttpClient({
     minDelay: entry.rateLimit,
     ...debugOptions(ctx.debug),
   });
+  const jsonCredential = parseJsonCredential(credential);
+  if (jsonCredential?.access_token) {
+    return new KitsuPlugin({
+      baseUrl: entry.baseUrl,
+      httpClient,
+      credentialStore: ctx.credentialStore,
+    });
+  }
+
+  const [username, password] = credential.split(":", 2);
   return new KitsuPlugin({
     baseUrl: entry.baseUrl,
     httpClient,
+    credentialStore: ctx.credentialStore,
     username: username ?? credential,
     password: password ?? "",
   });
@@ -156,6 +174,7 @@ async function loadMyAnimeList(
   return new MyAnimeListPlugin({
     baseUrl: entry.baseUrl,
     credentialKey: entry.credentialKey,
+    clientId: process.env["MAL_CLIENT_ID"] || "",
     credentialStore: ctx.credentialStore,
     httpClient,
   });

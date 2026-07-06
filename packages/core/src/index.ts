@@ -106,6 +106,15 @@ export type {
 export { ScanOrchestrator } from "./scan/scan-orchestrator";
 export type { ScanResult } from "./scan/scanner";
 export { Scanner } from "./scan/scanner";
+export type { OAuthTokenResponse, RefreshFn } from "./tracker/credential-utils";
+export {
+  buildCredentialFromToken,
+  generateCodeVerifier,
+  loadOrRefreshCredential,
+  loadStoredCredential,
+  parseOAuthTokenResponse,
+  throwHttpError,
+} from "./tracker/credential-utils";
 export type { PullResult, PushResult, SyncConflict } from "./tracker/sync-engine";
 export { SyncEngine } from "./tracker/sync-engine";
 export type { CrossTrackerConflict, OrchestratorResult } from "./tracker/sync-orchestrator";
@@ -137,8 +146,11 @@ export type {
   SwapPair,
   TrackerAnime,
   TrackerAnimeDetails,
+  TrackerCredential,
   TrackerEntry,
   TrackerEntryChanges,
+  TrackerErrorType,
   TrackerPlugin,
   TrackerWatchStatus,
 } from "./types";
+export { isAuthError, TrackerError } from "./types";

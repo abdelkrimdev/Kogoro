@@ -3,10 +3,21 @@ import type {
   HttpClient,
   TrackerAnime,
   TrackerAnimeDetails,
+  TrackerCredential,
   TrackerEntry,
   TrackerEntryChanges,
   TrackerPlugin,
   TrackerWatchStatus,
+} from "@kogoro/core";
+import {
+  buildCredentialFromToken,
+  generateCodeVerifier,
+  loadOrRefreshCredential,
+  loadStoredCredential,
+  type OAuthTokenResponse,
+  parseOAuthTokenResponse,
+  TrackerError,
+  throwHttpError,
 } from "@kogoro/core";
 
 interface MALNode {
@@ -105,6 +116,7 @@ function mapMediaType(mediaType: string | undefined): "tv" | "movie" | "ova" | "
 export class MyAnimeListPlugin implements TrackerPlugin {
   private baseUrl: string;
   private credentialKey: string;
+  private clientId: string;
   private accessToken: string | null = null;
   private credentialStore: CredentialStore;
   private httpClient: HttpClient;
@@ -112,37 +124,123 @@ export class MyAnimeListPlugin implements TrackerPlugin {
   constructor(options: {
     baseUrl: string;
     credentialKey: string;
+    clientId: string;
     credentialStore: CredentialStore;
     httpClient: HttpClient;
   }) {
     this.baseUrl = options.baseUrl;
     this.credentialKey = options.credentialKey;
+    this.clientId = options.clientId;
     this.credentialStore = options.credentialStore;
     this.httpClient = options.httpClient;
   }
 
   async authenticate(): Promise<string> {
-    const token = await this.credentialStore.getCredential(this.credentialKey);
-    if (token) {
-      this.accessToken = token;
-      return token;
-    }
+    const credential = await loadOrRefreshCredential(this.credentialStore, this.credentialKey, () =>
+      this.refreshSession(),
+    );
+    this.accessToken = credential.access_token;
+    return this.accessToken;
+  }
 
-    const codeVerifier = this.generateCodeVerifier();
-    const codeChallenge = await this.generateCodeChallenge(codeVerifier);
+  async generateAuthUrl(): Promise<string> {
+    const codeVerifier = generateCodeVerifier();
     await this.credentialStore.setCredential(`${this.credentialKey}_code_verifier`, codeVerifier);
 
     const authUrl = new URL("https://myanimelist.net/v1/oauth2/authorize");
-    authUrl.searchParams.set("client_id", process.env["MAL_CLIENT_ID"] || "");
-    authUrl.searchParams.set("redirect_uri", "http://localhost:3000/callback");
+    authUrl.searchParams.set("client_id", this.clientId);
+    authUrl.searchParams.set("redirect_uri", "http://localhost:43219/callback/mal");
     authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("code_challenge", codeChallenge);
-    authUrl.searchParams.set("code_challenge_method", "S256");
+    authUrl.searchParams.set("code_challenge", codeVerifier);
+    authUrl.searchParams.set("code_challenge_method", "plain");
     authUrl.searchParams.set("scope", "write:users");
 
-    throw new Error(
-      `MAL authentication requires OAuth flow. Please visit: ${authUrl.toString()} and complete authentication.`,
+    return authUrl.toString();
+  }
+
+  async exchangeCode(code: string): Promise<TrackerCredential> {
+    const verifier = await this.credentialStore.getCredential(
+      `${this.credentialKey}_code_verifier`,
     );
+    if (!verifier) {
+      throw new TrackerError("auth_invalid", "Code verifier not found", this.credentialKey);
+    }
+
+    const body = new URLSearchParams({
+      client_id: this.clientId,
+      code,
+      code_verifier: verifier,
+      grant_type: "authorization_code",
+    });
+
+    const response = await this.httpClient.fetch("https://myanimelist.net/v1/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    const json = (await response.json().catch(() => ({}))) as OAuthTokenResponse;
+
+    if (!response.ok) {
+      throw new TrackerError(
+        "auth_invalid",
+        `MAL token exchange failed: ${json.message ?? json.error ?? response.statusText}`,
+        this.credentialKey,
+      );
+    }
+
+    const credential = buildCredentialFromToken(
+      json.access_token ?? "",
+      json.expires_in,
+      json.refresh_token,
+    );
+
+    await this.credentialStore.setCredential(this.credentialKey, JSON.stringify(credential));
+    await this.credentialStore.deleteCredential(`${this.credentialKey}_code_verifier`);
+
+    return credential;
+  }
+
+  async refreshSession(): Promise<TrackerCredential> {
+    const credential = await loadStoredCredential(this.credentialStore, this.credentialKey);
+
+    if (!credential.refresh_token) {
+      throw new TrackerError(
+        "auth_expired",
+        `${this.credentialKey} has no refresh token`,
+        this.credentialKey,
+      );
+    }
+
+    const body = new URLSearchParams({
+      client_id: this.clientId,
+      grant_type: "refresh_token",
+      refresh_token: credential.refresh_token,
+    });
+
+    const response = await this.httpClient.fetch("https://myanimelist.net/v1/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    const json = (await response.json()) as OAuthTokenResponse;
+
+    if (!response.ok) {
+      throw new TrackerError(
+        "auth_expired",
+        `MAL token refresh failed: ${json.message ?? json.error ?? response.statusText}`,
+        this.credentialKey,
+      );
+    }
+
+    const refreshed = parseOAuthTokenResponse(json);
+    await this.credentialStore.setCredential(this.credentialKey, JSON.stringify(refreshed));
+    return refreshed;
+  }
+
+  async ensureAuthenticated(): Promise<void> {
+    await this.authenticate();
   }
 
   async getUserList(): Promise<TrackerAnime[]> {
@@ -194,7 +292,11 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     );
 
     if (!data.my_list_status) {
-      throw new Error(`Anime ${trackerId} not in user's list`);
+      throw new TrackerError(
+        "not_found",
+        `Anime ${trackerId} not in user's list`,
+        this.credentialKey,
+      );
     }
 
     return {
@@ -240,7 +342,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to update MAL entry: ${response.status}`);
+      throwHttpError(response, "mal", "Failed to update MAL entry");
     }
   }
 
@@ -282,34 +384,9 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch MAL data: ${response.status}`);
+      throwHttpError(response, "mal", "Failed to fetch MAL data");
     }
 
     return (await response.json()) as T;
-  }
-
-  private generateCodeVerifier(): string {
-    const array = new Uint8Array(32);
-    crypto.getRandomValues(array);
-    return this.base64UrlEncode(array);
-  }
-
-  private async generateCodeChallenge(codeVerifier: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(codeVerifier);
-    const digest = await crypto.subtle.digest("SHA-256", data);
-    return this.base64UrlEncode(new Uint8Array(digest));
-  }
-
-  private base64UrlEncode(buffer: Uint8Array): string {
-    const binary = Array.from(buffer, (b) => String.fromCharCode(b)).join("");
-    const base64 = btoa(binary);
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  }
-
-  private async ensureAuthenticated(): Promise<void> {
-    if (!this.accessToken) {
-      await this.authenticate();
-    }
   }
 }

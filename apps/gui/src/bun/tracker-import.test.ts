@@ -9,10 +9,10 @@ import {
 import { PluginFactory } from "@kogoro/plugins";
 import { createTrackerImportHandlers } from "./tracker-import";
 
-function createTestFactory(keytar?: Record<string, string>): PluginFactory {
+function createTestFactory(credentials?: Record<string, string>): PluginFactory {
   const config = new ConfigManager();
   const credentialStore = new CredentialStore({
-    keytar: keytar ? createMockKeytar(keytar) : null,
+    keytar: createMockKeytar(credentials),
   });
   return new PluginFactory(config, credentialStore);
 }
@@ -20,7 +20,7 @@ function createTestFactory(keytar?: Record<string, string>): PluginFactory {
 describe("TrackerImportHandlers", () => {
   describe("getImportPreview", () => {
     it("returns preview for anilist tracker", async () => {
-      const factory = createTestFactory();
+      const factory = createTestFactory({ "kogoro:anilist": "test-token" });
       const { repo, close } = createLibraryRepository();
       const { repo: evtRepo, close: closeEvt } = createEventRepository();
       try {
@@ -71,7 +71,7 @@ describe("TrackerImportHandlers", () => {
 
   describe("confirmImport", () => {
     it("returns result for anilist tracker", async () => {
-      const factory = createTestFactory();
+      const factory = createTestFactory({ "kogoro:anilist": "test-token" });
       const { repo, close } = createLibraryRepository();
       const { repo: evtRepo, close: closeEvt } = createEventRepository();
       try {

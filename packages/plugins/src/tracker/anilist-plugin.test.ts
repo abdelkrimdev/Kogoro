@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { EntryType, TrackerPlugin, TrackerWatchStatus } from "@kogoro/core";
-import { createMockHttpClient, toUrlString, withTestConfig } from "@kogoro/core/testing";
+import { CredentialStore, TrackerError } from "@kogoro/core";
+import {
+  createMockHttpClient,
+  createMockKeytar,
+  toUrlString,
+  withTestConfig,
+} from "@kogoro/core/testing";
 import { AniListPlugin } from "./anilist-plugin";
 
 const GRAPHQL_URL = "https://graphql.anilist.co";
@@ -65,9 +71,7 @@ describe("AniListPlugin", () => {
 
     test("throws when no token is available", async () => {
       const plugin = createPlugin(mockGraphQLFetch(() => ({})));
-      await expect(plugin.authenticate()).rejects.toThrow(
-        "AniList authentication requires OAuth flow",
-      );
+      await expect(plugin.authenticate()).rejects.toThrow(TrackerError);
     });
 
     test("includes Authorization header when token is set", async () => {
@@ -89,9 +93,7 @@ describe("AniListPlugin", () => {
 
     test("throws when making request without token", async () => {
       const plugin = createPlugin(mockGraphQLFetch(() => ({})));
-      await expect(plugin.getUserList()).rejects.toThrow(
-        "AniList authentication requires OAuth flow",
-      );
+      await expect(plugin.getUserList()).rejects.toThrow(TrackerError);
     });
   });
 
@@ -104,10 +106,17 @@ describe("AniListPlugin", () => {
         const mockFetch = async (url: string | URL, init?: RequestInit) => {
           capturedUrl = toUrlString(url);
           capturedBody = JSON.parse(init?.body as string);
-          return new Response(JSON.stringify({ access_token: "exchanged-access-token" }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({
+              access_token: "exchanged-access-token",
+              token_type: "Bearer",
+              expires_in: 3600,
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
         };
 
         const plugin = new AniListPlugin({
@@ -118,19 +127,21 @@ describe("AniListPlugin", () => {
           httpClient: createMockHttpClient(mockFetch),
         });
 
-        const token = await plugin.exchangeCode("my-pin-code");
-        expect(token).toBe("exchanged-access-token");
+        const result = await plugin.exchangeCode("my-pin-code");
+        expect(result.access_token).toBe("exchanged-access-token");
         expect(capturedUrl).toBe("https://anilist.co/api/v2/oauth/token");
         expect(capturedBody).toEqual({
           grant_type: "authorization_code",
           client_id: "my-client-id",
           client_secret: "my-client-secret",
-          redirect_uri: "https://anilist.co/api/v2/oauth/pin",
+          redirect_uri: "http://localhost:43219/callback/anilist",
           code: "my-pin-code",
         });
 
         const storedToken = await credentialStore.getCredential("anilist");
-        expect(storedToken).toBe("exchanged-access-token");
+        expect(storedToken).toBeDefined();
+        const parsed = JSON.parse(storedToken ?? "{}");
+        expect(parsed.access_token).toBe("exchanged-access-token");
       });
     });
 
@@ -154,9 +165,7 @@ describe("AniListPlugin", () => {
           httpClient: createMockHttpClient(mockFetch),
         });
 
-        await expect(plugin.exchangeCode("bad-pin")).rejects.toThrow(
-          "AniList token exchange failed: Invalid authorization code",
-        );
+        await expect(plugin.exchangeCode("bad-pin")).rejects.toThrow(TrackerError);
       });
     });
   });
@@ -355,8 +364,8 @@ describe("AniListPlugin", () => {
         }),
         "test-token",
       );
-      const results = await plugin.getUserList();
-      expect(results).toEqual([]);
+
+      await expect(plugin.getUserList()).rejects.toThrow(TrackerError);
     });
 
     test("collects entries from multiple lists", async () => {
@@ -422,8 +431,8 @@ describe("AniListPlugin", () => {
       };
 
       const plugin = createPlugin(fetch, "bad-token");
-      const results = await plugin.getUserList();
-      expect(results).toEqual([]);
+
+      await expect(plugin.getUserList()).rejects.toThrow(TrackerError);
     });
   });
 
@@ -822,6 +831,86 @@ describe("AniListPlugin", () => {
       expect(details.totalEpisodes).toBeUndefined();
       expect(details.image).toBeUndefined();
       expect(details.year).toBeUndefined();
+    });
+  });
+
+  describe("refreshSession", () => {
+    test("throws TrackerError indicating re-authentication is required", async () => {
+      const store = new CredentialStore({ keytar: createMockKeytar() });
+      const expiredCredential = JSON.stringify({
+        access_token: "expired-token",
+        expires_at: Date.now() - 1000, // Expired
+      });
+      await store.setCredential("anilist", expiredCredential);
+
+      const plugin = new AniListPlugin({
+        baseUrl: GRAPHQL_URL,
+        credentialStore: store,
+        httpClient: createMockHttpClient(async () => new Response("{}", { status: 200 })),
+      });
+
+      await expect(plugin.refreshSession?.()).rejects.toThrow(TrackerError);
+      await expect(plugin.refreshSession?.()).rejects.toThrow("re-authenticate");
+    });
+
+    test("authenticate throws TrackerError for expired token", async () => {
+      const store = new CredentialStore({ keytar: createMockKeytar() });
+      const expiredCredential = JSON.stringify({
+        access_token: "expired-token",
+        expires_at: Date.now() - 1000, // Expired
+      });
+      await store.setCredential("anilist", expiredCredential);
+
+      const plugin = new AniListPlugin({
+        baseUrl: GRAPHQL_URL,
+        credentialStore: store,
+        httpClient: createMockHttpClient(async () => new Response("{}", { status: 200 })),
+      });
+
+      await expect(plugin.authenticate()).rejects.toThrow(TrackerError);
+    });
+  });
+
+  describe("graphql error handling", () => {
+    test("throws TrackerError with rate_limited type for 429 responses", async () => {
+      const fetch = async () => {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = createPlugin(fetch, "test-token");
+
+      await expect(plugin.getUserList()).rejects.toThrow(
+        expect.objectContaining({ type: "rate_limited" }),
+      );
+    });
+
+    test("throws TrackerError for 500 server errors", async () => {
+      const fetch = async () => {
+        return new Response(JSON.stringify({ error: "Internal Server Error" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = createPlugin(fetch, "test-token");
+
+      await expect(plugin.getUserList()).rejects.toThrow(TrackerError);
+    });
+
+    test("throws TrackerError for 403 forbidden errors", async () => {
+      const fetch = async () => {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const plugin = createPlugin(fetch, "test-token");
+
+      await expect(plugin.getUserList()).rejects.toThrow(TrackerError);
     });
   });
 });

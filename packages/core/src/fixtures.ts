@@ -606,6 +606,7 @@ export function createMockTracker(overrides: Partial<TrackerPlugin> = {}): Track
       };
     },
     async updateEntry() {},
+    async ensureAuthenticated() {},
     async getAnimeDetails(trackerId: string) {
       return {
         trackerId,
