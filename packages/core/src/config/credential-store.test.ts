@@ -1,26 +1,22 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { createMockKeytar, silentBunSecrets, stubBunSecrets } from "../fixtures";
+import { createMockKeytar, silentBunSecrets, stubBunSecrets, withKogoroEnv } from "../fixtures";
 import { CredentialStore, createCredentialStore } from "./credential-store";
 
-function setEnv(key: string, value: string): void {
-  process.env[key] = value;
-}
+let cleanupKogoroEnv: () => void;
+
+beforeEach(() => {
+  cleanupKogoroEnv = withKogoroEnv();
+});
+
+afterEach(() => {
+  cleanupKogoroEnv();
+});
 
 describe("CredentialStore", () => {
   let mockKeytar: ReturnType<typeof createMockKeytar>;
 
-  const originalEnv = process.env;
-
   beforeEach(() => {
     mockKeytar = createMockKeytar();
-    process.env = { ...originalEnv };
-    for (const k of Object.keys(process.env)) {
-      if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
-    }
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
   });
 
   test("setCredential stores and getCredential retrieves", async () => {
@@ -45,21 +41,21 @@ describe("CredentialStore", () => {
   });
 
   test("falls back to env var when keytar is unavailable", async () => {
-    setEnv("KOGORO_ANIDB_KEY", "env-key-456");
+    process.env["KOGORO_ANIDB_KEY"] = "env-key-456";
     const store = new CredentialStore({ keytar: null });
     const val = await store.getCredential("anidb");
     expect(val).toBe("env-key-456");
   });
 
   test("reads credential from KOGORO_{SERVICE}_KEY env var", async () => {
-    setEnv("KOGORO_TVDB_KEY", "tvdb-key");
+    process.env["KOGORO_TVDB_KEY"] = "tvdb-key";
     const store = new CredentialStore({ keytar: null });
     const val = await store.getCredential("tvdb");
     expect(val).toBe("tvdb-key");
   });
 
   test("keytar takes priority over env var", async () => {
-    setEnv("KOGORO_ANIDB_KEY", "env-key");
+    process.env["KOGORO_ANIDB_KEY"] = "env-key";
     const store = new CredentialStore({ keytar: mockKeytar });
     await store.setCredential("anidb", "keytar-key");
     const val = await store.getCredential("anidb");
@@ -67,7 +63,7 @@ describe("CredentialStore", () => {
   });
 
   test("getCredential returns env var when keytar has no value", async () => {
-    setEnv("KOGORO_ANIDB_KEY", "fallback-key");
+    process.env["KOGORO_ANIDB_KEY"] = "fallback-key";
     const store = new CredentialStore({ keytar: mockKeytar });
     const val = await store.getCredential("anidb");
     expect(val).toBe("fallback-key");
@@ -81,15 +77,9 @@ describe("CredentialStore", () => {
 
 describe("createCredentialStore", () => {
   const originalSecrets = Bun.secrets;
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-  });
 
   afterEach(() => {
     stubBunSecrets(originalSecrets);
-    process.env = originalEnv;
   });
 
   test("returns a CredentialStore with BunSecretsKeytar wired in", () => {
@@ -115,7 +105,7 @@ describe("createCredentialStore", () => {
   });
 
   test("falls back to env var when keyring returns null", async () => {
-    setEnv("KOGORO_ANIDB_KEY", "env-val");
+    process.env["KOGORO_ANIDB_KEY"] = "env-val";
     stubBunSecrets(silentBunSecrets());
     const store = createCredentialStore();
     const val = await store.getCredential("anidb");

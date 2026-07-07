@@ -290,6 +290,26 @@ export async function seedCacheEntry(
   return { matchRepo, videoPath, hash };
 }
 
+export function withKogoroEnv(): () => void {
+  const saved: Record<string, string | undefined> = {};
+  for (const k of Object.keys(process.env)) {
+    if (k.startsWith("KOGORO_")) {
+      saved[k] = process.env[k];
+      delete process.env[k];
+    }
+  }
+  return () => {
+    for (const k of Object.keys(process.env)) {
+      if (k.startsWith("KOGORO_")) {
+        delete process.env[k];
+      }
+    }
+    for (const [k, v] of Object.entries(saved)) {
+      if (v !== undefined) process.env[k] = v;
+    }
+  };
+}
+
 export async function withMockFetch(
   mockImpl: typeof globalThis.fetch,
   fn: () => Promise<void>,

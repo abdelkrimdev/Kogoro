@@ -4,6 +4,7 @@ import {
   createEventRepository,
   createLibraryRepository,
   createMockKeytar,
+  withKogoroEnv,
 } from "@kogoro/core/testing";
 import {
   cancelTrackerAuth,
@@ -15,17 +16,14 @@ import {
   waitForTrackerCallback,
 } from "./tracker-connections";
 
-const originalEnv = process.env;
+let cleanupKogoroEnv: () => void;
 
 beforeEach(() => {
-  process.env = { ...originalEnv };
-  for (const k of Object.keys(process.env)) {
-    if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
-  }
+  cleanupKogoroEnv = withKogoroEnv();
 });
 
 afterEach(() => {
-  process.env = originalEnv;
+  cleanupKogoroEnv();
 });
 
 describe("getTrackerStatus", () => {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { KeytarLike } from "@kogoro/core";
 import { ConfigManager, CredentialStore } from "@kogoro/core";
-import { createMockKeytar, withTempDir, writeTempFile } from "@kogoro/core/testing";
+import { createMockKeytar, withKogoroEnv, withTempDir, writeTempFile } from "@kogoro/core/testing";
 import {
   checkIncompleteOnboarding,
   shouldShowOnboarding,
@@ -21,20 +21,17 @@ describe("shouldShowOnboarding", () => {
   });
 });
 
+let cleanupKogoroEnv: () => void;
+
+beforeEach(() => {
+  cleanupKogoroEnv = withKogoroEnv();
+});
+
+afterEach(() => {
+  cleanupKogoroEnv();
+});
+
 describe("writeOnboardingConfig", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-    for (const k of Object.keys(process.env)) {
-      if (k.startsWith("KOGORO_") && k.endsWith("_KEY")) delete process.env[k];
-    }
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
   test("writes primary db and template preset", async () => {
     await withTempDir("onboarding-config", async (dir) => {
       const store = new CredentialStore({ keytar: createMockKeytar() });
@@ -138,7 +135,7 @@ describe("writeOnboardingConfig", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(process.env["KOGORO_TVDB_KEY"]).toBe("secret-key");
+      expect(await store.getCredential("tvdb")).toBe("secret-key");
     });
   });
 
@@ -161,13 +158,12 @@ describe("writeOnboardingConfig", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(process.env["KOGORO_TVDB_KEY"]).toBe("secret-key");
+      expect(await store.getCredential("tvdb")).toBe("secret-key");
     });
   });
 
   test("writes sensible defaults when api key is empty", async () => {
     await withTempDir("onboarding-skip", async (dir) => {
-      delete process.env["KOGORO_TVDB_KEY"];
       const store = new CredentialStore({ keytar: createMockKeytar() });
       const config = new ConfigManager({ configDir: dir });
 
@@ -189,7 +185,6 @@ describe("writeOnboardingConfig", () => {
 describe("checkIncompleteOnboarding", () => {
   test("returns incomplete when api key is missing", async () => {
     await withTempDir("incomplete-missing-key", async (dir) => {
-      delete process.env["KOGORO_TVDB_KEY"];
       const config = new ConfigManager({ configDir: dir });
       const store = new CredentialStore({ keytar: createMockKeytar() });
       config.set("primaryDb", "tvdb");
@@ -215,7 +210,6 @@ describe("checkIncompleteOnboarding", () => {
 
   test("returns incomplete when keyring is unavailable", async () => {
     await withTempDir("incomplete-keyring-unavailable", async (dir) => {
-      delete process.env["KOGORO_TVDB_KEY"];
       const throwingKeytar: KeytarLike = {
         setPassword: async () => {
           throw new Error("org.freedesktop.DBus.Error.NotSupported");

@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { withKogoroEnv } from "@kogoro/core/testing";
 import {
   addWatchedFolder,
   addWatchedFolderHandler,
@@ -13,28 +14,30 @@ import {
 
 const testDir = join(import.meta.dir, "__test_watched_folders__");
 
+let cleanupKogoroEnv: () => void;
+
+beforeEach(() => {
+  cleanupKogoroEnv = withKogoroEnv();
+  mkdirSync(testDir, { recursive: true });
+  process.env["KOGORO_STATE_DIR"] = testDir;
+});
+
 afterEach(() => {
   rmSync(testDir, { recursive: true, force: true });
-  delete process.env["KOGORO_STATE_DIR"];
+  cleanupKogoroEnv();
 });
 
 describe("loadWatchedFolders", () => {
   test("returns empty array when file does not exist", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     expect(loadWatchedFolders()).toEqual([]);
   });
 
   test("returns empty array for corrupt JSON", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     writeFileSync(join(testDir, ".watched-folders.json"), "not json");
     expect(loadWatchedFolders()).toEqual([]);
   });
 
   test("returns folders from saved file", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     const folders = [
       { path: "/anime/One Piece", addedAt: "2026-01-01T00:00:00.000Z" },
       {
@@ -50,8 +53,6 @@ describe("loadWatchedFolders", () => {
 
 describe("addWatchedFolder", () => {
   test("adds a folder to an empty list", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolder("/anime/One Piece");
     const folders = loadWatchedFolders();
     expect(folders).toHaveLength(1);
@@ -60,8 +61,6 @@ describe("addWatchedFolder", () => {
   });
 
   test("prevents duplicate folders", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolder("/anime/One Piece");
     addWatchedFolder("/anime/One Piece");
     const folders = loadWatchedFolders();
@@ -69,8 +68,6 @@ describe("addWatchedFolder", () => {
   });
 
   test("adds second folder", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolder("/anime/One Piece");
     addWatchedFolder("/anime/Naruto");
     const folders = loadWatchedFolders();
@@ -80,8 +77,6 @@ describe("addWatchedFolder", () => {
 
 describe("removeWatchedFolder", () => {
   test("removes a folder by path", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolder("/anime/One Piece");
     addWatchedFolder("/anime/Naruto");
     removeWatchedFolder("/anime/One Piece");
@@ -91,8 +86,6 @@ describe("removeWatchedFolder", () => {
   });
 
   test("does nothing when path not found", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolder("/anime/One Piece");
     removeWatchedFolder("/anime/Naruto");
     const folders = loadWatchedFolders();
@@ -103,8 +96,6 @@ describe("removeWatchedFolder", () => {
 
 describe("markWatchedFolderScanned", () => {
   test("sets lastScannedAt for an existing folder", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolder("/anime/One Piece");
     const result = markWatchedFolderScanned("/anime/One Piece");
     expect(result).not.toBeNull();
@@ -114,14 +105,10 @@ describe("markWatchedFolderScanned", () => {
   });
 
   test("returns null for a folder that does not exist", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     expect(markWatchedFolderScanned("/nonexistent")).toBeNull();
   });
 
   test("persists lastScannedAt to disk", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolder("/anime/Naruto");
     markWatchedFolderScanned("/anime/Naruto");
     const folders = loadWatchedFolders();
@@ -131,14 +118,10 @@ describe("markWatchedFolderScanned", () => {
 
 describe("getWatchedFoldersHandler", () => {
   test("returns empty array when no folders tracked", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     expect(getWatchedFoldersHandler()).toEqual([]);
   });
 
   test("returns exists:false for folders that do not exist on disk", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolderHandler({ path: "/nonexistent/folder" });
     const folders = getWatchedFoldersHandler();
     expect(folders).toHaveLength(1);
@@ -146,8 +129,6 @@ describe("getWatchedFoldersHandler", () => {
   });
 
   test("returns exists:true for folders that exist on disk", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolderHandler({ path: testDir });
     const folders = getWatchedFoldersHandler();
     expect(folders).toHaveLength(1);
@@ -157,8 +138,6 @@ describe("getWatchedFoldersHandler", () => {
 
 describe("addWatchedFolderHandler", () => {
   test("adds a folder and returns success", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     const result = addWatchedFolderHandler({ path: "/anime/One Piece" });
     expect(result).toEqual({ success: true });
     const folders = getWatchedFoldersHandler();
@@ -168,8 +147,6 @@ describe("addWatchedFolderHandler", () => {
 
 describe("removeWatchedFolderHandler", () => {
   test("removes a folder and returns success", () => {
-    mkdirSync(testDir, { recursive: true });
-    process.env["KOGORO_STATE_DIR"] = testDir;
     addWatchedFolderHandler({ path: "/anime/One Piece" });
     addWatchedFolderHandler({ path: "/anime/Naruto" });
     const result = removeWatchedFolderHandler({ path: "/anime/One Piece" });
