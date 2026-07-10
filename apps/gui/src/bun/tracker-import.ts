@@ -62,17 +62,6 @@ export function createTrackerImportHandlers(options: TrackerImportHandlerOptions
       );
 
       try {
-        if (selections) {
-          for (const selection of selections) {
-            if (selection.groupId) {
-              service.linkEntry(selection.trackerId, selection.groupId);
-            }
-            if (selection.resolution) {
-              service.resolveConflict(selection.trackerId, selection.resolution);
-            }
-          }
-        }
-
         const result = await service.confirmImport(selections);
         return { result };
       } catch (err) {

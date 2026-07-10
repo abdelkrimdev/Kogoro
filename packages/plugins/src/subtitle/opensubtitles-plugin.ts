@@ -1,4 +1,4 @@
-import { HttpClient, type SubtitlePlugin, type SubtitleResult } from "@kogoro/core";
+import type { HttpClient, SubtitlePlugin, SubtitleResult } from "@kogoro/core";
 
 interface OSSearchAttributes {
   subtitle_id: number;

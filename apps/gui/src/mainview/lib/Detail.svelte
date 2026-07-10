@@ -193,8 +193,8 @@
 
           <div class="flex-1 min-w-0">
             <h1 class="text-xl font-bold text-surface-950-50">{detail.anime.titleEn}</h1>
-            {#if detail.anime.titleJa}
-              <p class="text-surface-700-300 text-sm mt-1">{detail.anime.titleJa}</p>
+            {#if detail.anime.alternativeTitles?.length}
+              <p class="text-surface-700-300 text-sm mt-1">{detail.anime.alternativeTitles.join(" / ")}</p>
             {/if}
             <div class="flex flex-wrap items-center gap-3 mt-3">
               <span class="text-sm text-surface-700-300">{sourceDbLabel(detail.anime.sourceDb)}</span>

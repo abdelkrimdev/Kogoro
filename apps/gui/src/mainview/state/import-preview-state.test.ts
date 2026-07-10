@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { createMockRPC } from "../../fixtures";
-import { createImportPreviewState } from "./import-preview-state";
+import { createImportPreviewState, type ImportPreviewState } from "./import-preview-state";
+
+function snap(state: ImportPreviewState) {
+  return state.snapshot();
+}
 
 function makePreviewResponse(overrides: Record<string, unknown> = {}) {
   return {
@@ -62,63 +66,112 @@ describe("createImportPreviewState", () => {
       const rpc = createMockRPC({
         getImportPreview: makePreviewResponse(),
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
-      expect(state.loading).toBe(false);
+      expect(snap(state).loading).toBe(false);
 
       const promise = state.loadPreview("anilist");
-      expect(state.loading).toBe(true);
+      expect(snap(state).loading).toBe(true);
 
       await promise;
-      expect(state.loading).toBe(false);
+      expect(snap(state).loading).toBe(false);
     });
 
     it("populates preview data on success", async () => {
       const rpc = createMockRPC({
         getImportPreview: makePreviewResponse(),
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.loadPreview("anilist");
 
-      expect(state.preview).not.toBeNull();
-      expect(state.preview?.totalEntries).toBe(3);
-      expect(state.preview?.matchedCount).toBe(1);
-      expect(state.preview?.unmatchedCount).toBe(1);
-      expect(state.preview?.conflictCount).toBe(1);
-      expect(state.matched).toHaveLength(1);
-      expect(state.matched[0]?.title).toBe("Attack on Titan");
-      expect(state.matched[0]?.matchStatus).toBe("matched");
-      expect(state.unmatched).toHaveLength(1);
-      expect(state.unmatched[0]?.title).toBe("Death Note");
-      expect(state.unmatched[0]?.matchStatus).toBe("unmatched");
-      expect(state.conflicts).toHaveLength(1);
-      expect(state.conflicts[0]?.title).toBe("Naruto");
-      expect(state.conflicts[0]?.matchStatus).toBe("conflict");
-      expect(state.conflicts[0]?.localWatchStatus).toBe("watching");
+      expect(snap(state).preview).not.toBeNull();
+      expect(snap(state).preview?.totalEntries).toBe(3);
+      expect(snap(state).preview?.matchedCount).toBe(1);
+      expect(snap(state).preview?.unmatchedCount).toBe(1);
+      expect(snap(state).preview?.conflictCount).toBe(1);
+      expect(snap(state).matched).toHaveLength(1);
+      expect(snap(state).matched[0]?.title).toBe("Attack on Titan");
+      expect(snap(state).matched[0]?.matchStatus).toBe("matched");
+      expect(snap(state).unmatched).toHaveLength(1);
+      expect(snap(state).unmatched[0]?.title).toBe("Death Note");
+      expect(snap(state).unmatched[0]?.matchStatus).toBe("unmatched");
+      expect(snap(state).conflicts).toHaveLength(1);
+      expect(snap(state).conflicts[0]?.title).toBe("Naruto");
+      expect(snap(state).conflicts[0]?.matchStatus).toBe("conflict");
+      expect(snap(state).conflicts[0]?.localWatchStatus).toBe("watching");
+    });
+
+    it("sets default activeTab to conflicts when conflicts exist", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
+      });
+      const state = createImportPreviewState(() => rpc);
+
+      await state.loadPreview("anilist");
+
+      expect(snap(state).activeTab).toBe("conflicts");
+    });
+
+    it("sets default activeTab to new when no conflicts but unmatched exist", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse({
+          conflicts: [],
+          unmatched: [
+            {
+              trackerId: "tl-2",
+              title: "Death Note",
+              entryType: "tv",
+              watchStatus: "watching",
+              episodesWatched: 12,
+              totalEpisodes: 37,
+              matchStatus: "unmatched",
+            },
+          ],
+        }),
+      });
+      const state = createImportPreviewState(() => rpc);
+
+      await state.loadPreview("anilist");
+
+      expect(snap(state).activeTab).toBe("new");
+    });
+
+    it("sets default activeTab to matched when no conflicts or unmatched", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse({
+          unmatched: [],
+          conflicts: [],
+        }),
+      });
+      const state = createImportPreviewState(() => rpc);
+
+      await state.loadPreview("anilist");
+
+      expect(snap(state).activeTab).toBe("matched");
     });
 
     it("sets error when RPC returns error", async () => {
       const rpc = createMockRPC({
         getImportPreview: { preview: null, error: "Tracker not connected" },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.loadPreview("anilist");
 
-      expect(state.error).toBe("Tracker not connected");
-      expect(state.preview).toBeNull();
+      expect(snap(state).error).toBe("Tracker not connected");
+      expect(snap(state).preview).toBeNull();
     });
 
     it("sets error when preview is null", async () => {
       const rpc = createMockRPC({
         getImportPreview: { preview: null },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.loadPreview("anilist");
 
-      expect(state.error).toBe("No preview data received");
+      expect(snap(state).error).toBe("No preview data received");
     });
 
     it("sets error on RPC failure", async () => {
@@ -126,32 +179,32 @@ describe("createImportPreviewState", () => {
       rpc.request = async () => {
         throw new Error("Network error");
       };
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.loadPreview("anilist");
 
-      expect(state.error).toBe("Network error");
+      expect(snap(state).error).toBe("Network error");
     });
 
     it("clears previous error on new load", async () => {
       const rpc = createMockRPC({
         getImportPreview: { preview: null, error: "Failed" },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.loadPreview("anilist");
-      expect(state.error).toBe("Failed");
+      expect(snap(state).error).toBe("Failed");
 
       rpc.request = async () => makePreviewResponse();
       await state.loadPreview("anilist");
-      expect(state.error).toBeNull();
+      expect(snap(state).error).toBeNull();
     });
 
     it("sends correct RPC params", async () => {
       const rpc = createMockRPC({
         getImportPreview: makePreviewResponse(),
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.loadPreview("kitsu");
 
@@ -160,30 +213,22 @@ describe("createImportPreviewState", () => {
     });
   });
 
-  describe("linkEntry", () => {
-    it("adds a link selection", async () => {
+  describe("setActiveTab", () => {
+    it("changes active tab", async () => {
       const rpc = createMockRPC({
         getImportPreview: makePreviewResponse(),
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
       await state.loadPreview("anilist");
 
-      state.linkEntry("tl-2", 5);
+      state.setActiveTab("matched");
+      expect(snap(state).activeTab).toBe("matched");
 
-      expect(state.linkSelections.get("tl-2")).toBe(5);
-    });
+      state.setActiveTab("new");
+      expect(snap(state).activeTab).toBe("new");
 
-    it("overwrites previous link for same tracker", async () => {
-      const rpc = createMockRPC({
-        getImportPreview: makePreviewResponse(),
-      });
-      const state = createImportPreviewState(rpc);
-      await state.loadPreview("anilist");
-
-      state.linkEntry("tl-2", 5);
-      state.linkEntry("tl-2", 10);
-
-      expect(state.linkSelections.get("tl-2")).toBe(10);
+      state.setActiveTab("conflicts");
+      expect(snap(state).activeTab).toBe("conflicts");
     });
   });
 
@@ -192,25 +237,53 @@ describe("createImportPreviewState", () => {
       const rpc = createMockRPC({
         getImportPreview: makePreviewResponse(),
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
       await state.loadPreview("anilist");
 
       state.resolveConflict("tl-3", "keepLocal");
 
-      expect(state.conflictSelections.get("tl-3")).toBe("keepLocal");
+      expect(snap(state).conflictSelections.get("tl-3")).toBe("keepLocal");
     });
 
     it("overwrites previous resolution for same tracker", async () => {
       const rpc = createMockRPC({
         getImportPreview: makePreviewResponse(),
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
       await state.loadPreview("anilist");
 
       state.resolveConflict("tl-3", "keepLocal");
       state.resolveConflict("tl-3", "acceptTracker");
 
-      expect(state.conflictSelections.get("tl-3")).toBe("acceptTracker");
+      expect(snap(state).conflictSelections.get("tl-3")).toBe("acceptTracker");
+    });
+  });
+
+  describe("bulkResolveConflicts", () => {
+    it("resolves all unresolved conflicts", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
+      });
+      const state = createImportPreviewState(() => rpc);
+      await state.loadPreview("anilist");
+
+      state.bulkResolveConflicts("keepLocal");
+
+      expect(snap(state).conflictSelections.get("tl-3")).toBe("keepLocal");
+      expect(snap(state).conflictSelections.size).toBe(1);
+    });
+
+    it("does not overwrite existing resolutions", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
+      });
+      const state = createImportPreviewState(() => rpc);
+      await state.loadPreview("anilist");
+
+      state.resolveConflict("tl-3", "acceptTracker");
+      state.bulkResolveConflicts("keepLocal");
+
+      expect(snap(state).conflictSelections.get("tl-3")).toBe("acceptTracker");
     });
   });
 
@@ -219,7 +292,7 @@ describe("createImportPreviewState", () => {
       const rpc = createMockRPC({
         confirmImport: { result: { imported: 3, skipped: 0 } },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.confirmImport("anilist");
 
@@ -227,14 +300,14 @@ describe("createImportPreviewState", () => {
       expect(rpc.calls[0]?.params).toEqual({ trackerName: "anilist" });
     });
 
-    it("includes selections when link and conflict selections exist", async () => {
+    it("includes conflict selections and unmatched entries", async () => {
       const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
         confirmImport: { result: { imported: 3, skipped: 0 } },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
       await state.loadPreview("anilist");
 
-      state.linkEntry("tl-2", 5);
       state.resolveConflict("tl-3", "keepLocal");
 
       await state.confirmImport("anilist");
@@ -243,56 +316,62 @@ describe("createImportPreviewState", () => {
         trackerName: string;
         selections: Array<{
           trackerId: string;
-          groupId?: number;
           resolution?: string;
+          inferredAnimeTitle?: string;
         }>;
       };
       expect(params.selections).toHaveLength(2);
-      expect(params.selections).toContainEqual({
-        trackerId: "tl-2",
-        groupId: 5,
-        resolution: undefined,
-      });
-      expect(params.selections).toContainEqual({
+      expect(params.selections.find((s) => s.trackerId === "tl-3")).toEqual({
         trackerId: "tl-3",
-        groupId: undefined,
         resolution: "keepLocal",
+        inferredAnimeTitle: undefined,
+      });
+      expect(params.selections.find((s) => s.trackerId === "tl-2")).toEqual({
+        trackerId: "tl-2",
+        resolution: undefined,
+        inferredAnimeTitle: "Death Note",
       });
     });
 
-    it("omits selections when no user decisions made", async () => {
+    it("includes inferredAnimeTitle for unmatched entries even without user decisions", async () => {
       const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
         confirmImport: { result: { imported: 3, skipped: 0 } },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
       await state.loadPreview("anilist");
 
       await state.confirmImport("anilist");
 
-      const params = rpc.calls[1]?.params as { trackerName: string; selections?: unknown };
-      expect(params.selections).toBeUndefined();
+      const params = rpc.calls[1]?.params as {
+        trackerName: string;
+        selections?: Array<{ trackerId: string; inferredAnimeTitle?: string }>;
+      };
+      expect(params.selections).toHaveLength(1);
+      expect(params.selections?.[0]?.trackerId).toBe("tl-2");
+      expect(params.selections?.[0]?.inferredAnimeTitle).toBe("Death Note");
     });
 
     it("sets result on success", async () => {
       const rpc = createMockRPC({
         confirmImport: { result: { imported: 2, skipped: 1 } },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.confirmImport("anilist");
 
-      expect(state.result).toEqual({ imported: 2, skipped: 1 });
+      expect(snap(state).result).toEqual({ imported: 2, skipped: 1 });
     });
 
     it("sets error when RPC returns error", async () => {
       const rpc = createMockRPC({
         confirmImport: { result: null, error: "Import failed" },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.confirmImport("anilist");
 
-      expect(state.error).toBe("Import failed");
+      expect(snap(state).error).toBe("Import failed");
     });
 
     it("sets error on RPC failure", async () => {
@@ -300,26 +379,37 @@ describe("createImportPreviewState", () => {
       rpc.request = async () => {
         throw new Error("Connection lost");
       };
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
       await state.confirmImport("anilist");
 
-      expect(state.error).toBe("Connection lost");
+      expect(snap(state).error).toBe("Connection lost");
     });
 
-    it("sets importing state during call", async () => {
+    it("sets importPhase during call", async () => {
       const rpc = createMockRPC({
         confirmImport: { result: { imported: 1, skipped: 0 } },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
 
-      expect(state.importing).toBe(false);
+      expect(snap(state).importPhase).toBe("preview");
 
       const promise = state.confirmImport("anilist");
-      expect(state.importing).toBe(true);
+      expect(snap(state).importPhase).toBe("importing");
 
       await promise;
-      expect(state.importing).toBe(false);
+      expect(snap(state).importPhase).toBe("success");
+    });
+
+    it("sets importPhase to error on failure", async () => {
+      const rpc = createMockRPC({
+        confirmImport: { result: null, error: "Failed" },
+      });
+      const state = createImportPreviewState(() => rpc);
+
+      await state.confirmImport("anilist");
+
+      expect(snap(state).importPhase).toBe("error");
     });
   });
 
@@ -329,22 +419,22 @@ describe("createImportPreviewState", () => {
         getImportPreview: makePreviewResponse(),
         confirmImport: { result: { imported: 3, skipped: 0 } },
       });
-      const state = createImportPreviewState(rpc);
+      const state = createImportPreviewState(() => rpc);
       await state.loadPreview("anilist");
 
-      state.linkEntry("tl-2", 5);
       state.resolveConflict("tl-3", "keepLocal");
 
       state.reset();
 
-      expect(state.preview).toBeNull();
-      expect(state.matched).toHaveLength(0);
-      expect(state.unmatched).toHaveLength(0);
-      expect(state.conflicts).toHaveLength(0);
-      expect(state.linkSelections.size).toBe(0);
-      expect(state.conflictSelections.size).toBe(0);
-      expect(state.result).toBeNull();
-      expect(state.error).toBeNull();
+      expect(snap(state).preview).toBeNull();
+      expect(snap(state).matched).toHaveLength(0);
+      expect(snap(state).conflicts).toHaveLength(0);
+      expect(snap(state).unmatched).toHaveLength(0);
+      expect(snap(state).conflictSelections.size).toBe(0);
+      expect(snap(state).result).toBeNull();
+      expect(snap(state).error).toBeNull();
+      expect(snap(state).activeTab).toBe("matched");
+      expect(snap(state).importPhase).toBe("preview");
     });
   });
 });

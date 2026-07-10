@@ -8,7 +8,7 @@ import {
   type DatabasePlugin,
   type EntryType,
   type EpisodeResult,
-  HttpClient,
+  type HttpClient,
 } from "@kogoro/core";
 
 const TITLE_CACHE_FILENAME = "anime-titles.xml";

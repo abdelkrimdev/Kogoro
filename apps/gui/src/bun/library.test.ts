@@ -12,7 +12,7 @@ function seedLibrary(repo: LibraryRepository, coverDir?: string) {
     externalId: "tvdb-12345",
     sourceDb: "tvdb",
     title: "Jujutsu Kaisen",
-    titleJapanese: "呪術廻戦",
+    alternativeTitles: ["呪術廻戦", "Jujutsu Kaisen"],
     episodeCount: 24,
     coverArtPath: coverDir ? join(coverDir, "jjk.jpg") : undefined,
   });
@@ -126,7 +126,7 @@ describe("getAnimeDetail handler", () => {
 
       expect(result).not.toBeNull();
       expect(result?.anime.titleEn).toBe("Jujutsu Kaisen");
-      expect(result?.anime.titleJa).toBe("呪術廻戦");
+      expect(result?.anime.alternativeTitles).toContain("呪術廻戦");
       expect(result?.anime.coverArt).toStartWith("data:image/jpeg;base64,");
       expect(result?.groups).toHaveLength(1);
       expect(result?.groups[0]?.episodes).toHaveLength(2);

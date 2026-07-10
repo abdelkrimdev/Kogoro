@@ -266,6 +266,7 @@ export type AppRPC = {
             trackerId: string;
             groupId?: number;
             resolution?: "keepLocal" | "acceptTracker";
+            inferredAnimeTitle?: string;
           }>;
         };
         response: AwaitedReturnType<

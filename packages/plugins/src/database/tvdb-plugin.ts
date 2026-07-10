@@ -1,10 +1,10 @@
-import {
-  type AnimeResult,
-  type ArtworkResult,
-  type ArtworkType,
-  type DatabasePlugin,
-  type EntryType,
-  type EpisodeResult,
+import type {
+  AnimeResult,
+  ArtworkResult,
+  ArtworkType,
+  DatabasePlugin,
+  EntryType,
+  EpisodeResult,
   HttpClient,
 } from "@kogoro/core";
 
