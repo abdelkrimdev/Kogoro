@@ -8,7 +8,7 @@ export interface LibraryAnime {
   externalId: string;
   sourceDb: string;
   title: string;
-  titleJapanese?: string;
+  alternativeTitles?: string[];
   episodeCount: number;
   filesOnDisk?: number;
   coverArtPath?: string;
@@ -75,7 +75,7 @@ export class LibraryRepository {
         .update(anime)
         .set({
           title: animeData.title,
-          titleJapanese: animeData.titleJapanese ?? null,
+          alternativeTitles: animeData.alternativeTitles ?? null,
           episodeCount: animeData.episodeCount,
           coverArtPath: animeData.coverArtPath ?? null,
           genres: animeData.genres ?? null,
@@ -93,7 +93,7 @@ export class LibraryRepository {
         externalId: animeData.externalId,
         sourceDb: animeData.sourceDb,
         title: animeData.title,
-        titleJapanese: animeData.titleJapanese ?? null,
+        alternativeTitles: animeData.alternativeTitles ?? null,
         episodeCount: animeData.episodeCount,
         coverArtPath: animeData.coverArtPath ?? null,
         genres: animeData.genres ?? null,
@@ -136,7 +136,7 @@ export class LibraryRepository {
         externalId: anime.externalId,
         sourceDb: anime.sourceDb,
         title: anime.title,
-        titleJapanese: anime.titleJapanese,
+        alternativeTitles: anime.alternativeTitles,
         episodeCount: anime.episodeCount,
         coverArtPath: anime.coverArtPath,
         genres: anime.genres,
@@ -675,7 +675,7 @@ export class LibraryRepository {
     externalId: string;
     sourceDb: string;
     title: string;
-    titleJapanese: string | null;
+    alternativeTitles: string[] | null;
     episodeCount: number;
     coverArtPath: string | null;
     genres: string[] | null;
@@ -687,7 +687,7 @@ export class LibraryRepository {
       externalId: row.externalId,
       sourceDb: row.sourceDb,
       title: row.title,
-      titleJapanese: row.titleJapanese ?? undefined,
+      alternativeTitles: row.alternativeTitles ?? undefined,
       episodeCount: row.episodeCount,
       coverArtPath: row.coverArtPath ?? undefined,
       genres: row.genres ?? undefined,

@@ -12,7 +12,7 @@ describe("LibraryRepository", () => {
           externalId: "tvdb-12345",
           sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
-          titleJapanese: "呪術廻戦",
+          alternativeTitles: ["呪術廻戦", "Jujutsu Kaisen"],
           episodeCount: 24,
           genres: ["action", "supernatural"],
           libraryState: "on_disk",
@@ -22,7 +22,7 @@ describe("LibraryRepository", () => {
         expect(anime.externalId).toBe("tvdb-12345");
         expect(anime.sourceDb).toBe("tvdb");
         expect(anime.title).toBe("Jujutsu Kaisen");
-        expect(anime.titleJapanese).toBe("呪術廻戦");
+        expect(anime.alternativeTitles).toEqual(["呪術廻戦", "Jujutsu Kaisen"]);
         expect(anime.episodeCount).toBe(24);
         expect(anime.genres).toEqual(["action", "supernatural"]);
         expect(anime.libraryState).toBe("on_disk");

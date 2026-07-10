@@ -1979,6 +1979,49 @@ describe("LibraryService", () => {
         rmSync(dir, { recursive: true });
       }
     });
+
+    test("stores alternativeTitles from tracker entry", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "library-rebuild-trackers-alt-"));
+      try {
+        const ep1Path = join(dir, "S01E01.mkv");
+        writeFileSync(ep1Path, "");
+
+        const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const evtRepo = new EventRepository(evtDb);
+          const service = new LibraryService(repo, evtRepo);
+
+          const trackerAnime = [
+            {
+              trackerId: "mal-88888",
+              title: "進撃の巨人",
+              alternativeTitles: ["Attack on Titan", "Shingeki no Kyojin"],
+              entryType: "tv" as const,
+              watchStatus: "completed" as const,
+              episodesWatched: 25,
+              totalEpisodes: 25,
+            },
+          ];
+
+          const mockTracker = createMockTracker({
+            getUserList: () => Promise.resolve(trackerAnime),
+          });
+
+          await service.rebuildWithTrackers([{ plugin: mockTracker, source: "mal" }]);
+
+          const anime = repo.findAnime("tracker-mal-88888", "mal");
+          expect(anime).not.toBeNull();
+          expect(anime?.alternativeTitles).toEqual(["Attack on Titan", "Shingeki no Kyojin"]);
+        } finally {
+          sqlite.close();
+          evtSqlite.close();
+        }
+      } finally {
+        rmSync(dir, { recursive: true });
+      }
+    });
   });
 
   describe("updateCoverArtPath", () => {

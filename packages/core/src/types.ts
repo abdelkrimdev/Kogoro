@@ -19,6 +19,7 @@ export interface AnimeResult {
   slug?: string;
   titleEn: string;
   titleJa?: string;
+  alternativeTitles?: string[];
   overview?: string;
   year?: number;
   image?: string;

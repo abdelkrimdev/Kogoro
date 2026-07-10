@@ -84,9 +84,33 @@ export class SyncEngine {
         this.library.setGroupWatchStatus(group.id, newStatus);
         applied++;
       }
+
+      if (entry.alternativeTitles && entry.alternativeTitles.length > 0) {
+        this.mergeAlternativeTitles(group.animeId, entry.alternativeTitles);
+      }
     }
 
     return { applied, conflicts };
+  }
+
+  private mergeAlternativeTitles(animeId: number, newTitles: string[]): void {
+    const anime = this.library.getAnime(animeId);
+    if (!anime) return;
+
+    const existing = anime.alternativeTitles ?? [];
+    const merged = [...new Set([...existing, ...newTitles])];
+    if (merged.length <= existing.length) return;
+
+    this.library.upsertAnime({
+      externalId: anime.externalId,
+      sourceDb: anime.sourceDb,
+      title: anime.title,
+      alternativeTitles: merged,
+      episodeCount: anime.episodeCount,
+      coverArtPath: anime.coverArtPath,
+      genres: anime.genres,
+      filesOnDisk: anime.filesOnDisk,
+    });
   }
 
   async push(groupId?: number): Promise<PushResult> {

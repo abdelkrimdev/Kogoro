@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,6 +33,52 @@ function resolveMigrationsFolder(): string {
 
 const MIGRATIONS_FOLDER = resolveMigrationsFolder();
 
+function computeMigrationHash(sql: string): string {
+  return createHash("sha256").update(sql).digest("hex");
+}
+
+function getAppliedMigrationHashes(sqlite: Database): Set<string> {
+  const rows = sqlite.query("SELECT hash FROM __drizzle_migrations").all() as Array<{
+    hash: string;
+  }>;
+  return new Set(rows.map((r) => r.hash));
+}
+
+function recordMigration(sqlite: Database, tag: string, when: number): void {
+  const rawSql = migrations[tag];
+  if (!rawSql) return;
+  const hash = computeMigrationHash(rawSql);
+  sqlite.run("INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)", [hash, when]);
+}
+
+function isDuplicateColumnError(err: unknown): boolean {
+  if (err instanceof Error) {
+    if (err.message.includes("duplicate column name")) return true;
+    if (err.cause instanceof Error && err.cause.message.includes("duplicate column name"))
+      return true;
+  }
+  return false;
+}
+
+function safeMigrate(db: ReturnType<typeof drizzle>): void {
+  try {
+    migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  } catch (err) {
+    if (!isDuplicateColumnError(err)) throw err;
+
+    const sqlite = db.$client as Database;
+    const applied = getAppliedMigrationHashes(sqlite);
+    for (const entry of journal.entries) {
+      const sql = migrations[entry.tag];
+      if (!sql) continue;
+      const rawHash = computeMigrationHash(sql);
+      if (!applied.has(rawHash)) {
+        recordMigration(sqlite, entry.tag, entry.when);
+      }
+    }
+  }
+}
+
 export interface MatchCacheConnection {
   matchRepo: MatchRepository;
   scanStateRepo: ScanStateRepository;
@@ -40,7 +87,7 @@ export interface MatchCacheConnection {
 export function createMatchCacheConnection(dbPath: string): MatchCacheConnection {
   const sqlite = new Database(dbPath);
   const db = drizzle(sqlite, { schema: { matches, scanState } });
-  migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  safeMigrate(db);
   return {
     matchRepo: new MatchRepository(db),
     scanStateRepo: new ScanStateRepository(db),
@@ -51,7 +98,7 @@ export function createLibraryConnection(dbPath: string): LibraryRepository {
   const sqlite = new Database(dbPath);
   sqlite.run("PRAGMA foreign_keys = ON");
   const db = drizzle(sqlite, { schema: { anime, episodeGroups, episodes, groupTrackerMappings } });
-  migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  safeMigrate(db);
   return new LibraryRepository(db);
 }
 

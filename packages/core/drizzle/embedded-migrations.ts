@@ -18,6 +18,13 @@ export const journal = {
       tag: "0001_redundant_bill_hollister",
       breakpoints: true,
     },
+    {
+      idx: 2,
+      version: "6",
+      when: 1783607384722,
+      tag: "0002_add_alternative_titles",
+      breakpoints: true,
+    },
   ],
 } as const;
 
@@ -25,4 +32,6 @@ export const migrations: Record<string, string> = {
   "0000_shallow_morbius":
     "CREATE TABLE `anime` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`external_id` text NOT NULL,\n\t`source_db` text NOT NULL,\n\t`title` text NOT NULL,\n\t`title_japanese` text,\n\t`episode_count` integer DEFAULT 0 NOT NULL,\n\t`cover_art_path` text,\n\t`genres` text,\n\t`library_state` text DEFAULT 'not_on_disk' NOT NULL,\n\t`last_synced` text NOT NULL\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `anime_external_id_source_db_unique` ON `anime` (`external_id`,`source_db`);--> statement-breakpoint\nCREATE TABLE `episode_groups` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`anime_id` integer NOT NULL,\n\t`entry_type` text NOT NULL,\n\t`season_number` integer,\n\t`watch_status` text DEFAULT 'plan_to_watch' NOT NULL,\n\t`synopsis` text,\n\t`rating` real,\n\t`cover_art_path` text,\n\t`last_synced` text NOT NULL,\n\tFOREIGN KEY (`anime_id`) REFERENCES `anime`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `episode_groups_anime_id_entry_type_season_number_unique` ON `episode_groups` (`anime_id`,`entry_type`,`season_number`);--> statement-breakpoint\nCREATE TABLE `episodes` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`anime_id` integer NOT NULL,\n\t`group_id` integer NOT NULL,\n\t`episode_number` integer NOT NULL,\n\t`file_path` text NOT NULL,\n\t`title` text,\n\t`season` integer DEFAULT 1,\n\t`watched` integer DEFAULT false NOT NULL,\n\tFOREIGN KEY (`anime_id`) REFERENCES `anime`(`id`) ON UPDATE no action ON DELETE cascade,\n\tFOREIGN KEY (`group_id`) REFERENCES `episode_groups`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `episodes_anime_id_episode_number_season_unique` ON `episodes` (`anime_id`,`episode_number`,`season`);--> statement-breakpoint\nCREATE TABLE `group_tracker_mappings` (\n\t`group_id` integer NOT NULL,\n\t`source` text NOT NULL,\n\t`external_id` text NOT NULL,\n\tFOREIGN KEY (`group_id`) REFERENCES `episode_groups`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `group_tracker_mappings_source_external_id_unique` ON `group_tracker_mappings` (`source`,`external_id`);--> statement-breakpoint\nCREATE TABLE `matches` (\n\t`hash` text PRIMARY KEY NOT NULL,\n\t`anime_id` text NOT NULL,\n\t`anime_title` text,\n\t`episode_id` text,\n\t`entry_type` text NOT NULL,\n\t`season` integer,\n\t`episode` integer,\n\t`title` text,\n\t`source_db` text DEFAULT 'tvdb' NOT NULL,\n\t`timestamp` text NOT NULL\n);\n--> statement-breakpoint\nCREATE INDEX `idx_matches_hash_source_db` ON `matches` (`hash`,`source_db`);--> statement-breakpoint\nCREATE TABLE `scan_state` (\n\t`path` text PRIMARY KEY NOT NULL,\n\t`size` integer NOT NULL,\n\t`mtime` integer NOT NULL,\n\t`hash` text DEFAULT '' NOT NULL\n);\n",
   "0001_redundant_bill_hollister": "ALTER TABLE `episodes` ADD `notes` text;",
+  "0002_add_alternative_titles":
+    "-- Custom SQL migration file, put your code below! --\nALTER TABLE `anime` ADD `alternative_titles` text;\n--> statement-breakpoint\nUPDATE `anime` SET `alternative_titles` = CASE WHEN `title_japanese` IS NOT NULL THEN json_array(`title_japanese`) ELSE NULL END WHERE `title_japanese` IS NOT NULL;\n--> statement-breakpoint\nALTER TABLE `anime` DROP COLUMN `title_japanese`;",
 } as const;

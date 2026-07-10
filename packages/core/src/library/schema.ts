@@ -7,7 +7,7 @@ export const anime = sqliteTable(
     externalId: text("external_id").notNull(),
     sourceDb: text("source_db").notNull(),
     title: text("title").notNull(),
-    titleJapanese: text("title_japanese"),
+    alternativeTitles: text("alternative_titles", { mode: "json" }).$type<string[]>(),
     episodeCount: integer("episode_count").notNull().default(0),
     coverArtPath: text("cover_art_path"),
     genres: text({ mode: "json" }).$type<string[]>(),

@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { stripTypeDir } from "../config/schema";
 import type { EventRepository } from "../events/event-repository";
 import type { TrackerSource } from "../tracker/tracker-import";
-import { mapTrackerStatus } from "../tracker/tracker-utils";
+import { extractSeasonNumber, findMatchingAnime, mapTrackerStatus } from "../tracker/tracker-utils";
 import type { EntryType, MatchEntry, TrackerAnime, TrackerPlugin } from "../types";
 import type {
   EpisodeGroup,
@@ -85,7 +85,7 @@ export class LibraryService {
       externalId: existing.externalId,
       sourceDb: existing.sourceDb,
       title: existing.title,
-      titleJapanese: existing.titleJapanese,
+      alternativeTitles: existing.alternativeTitles,
       episodeCount: existing.episodeCount,
       coverArtPath,
       genres: existing.genres,
@@ -575,7 +575,7 @@ export class LibraryService {
       const existingMapping = this.library.findGroupByTrackerExternalId(source, entry.trackerId);
       if (existingMapping) continue;
 
-      const existingAnime = this.findMatchingAnime(entry, libraryAnime);
+      const existingAnime = findMatchingAnime(entry, libraryAnime);
       if (existingAnime) {
         this.importToExistingAnimeFromTracker(existingAnime, entry, source);
       } else {
@@ -584,42 +584,13 @@ export class LibraryService {
     }
   }
 
-  private findMatchingAnime(
-    trackerEntry: TrackerAnime,
-    libraryAnimeList: Array<{ id: number; title: string; titleJapanese?: string }>,
-  ): { id: number; title: string } | null {
-    const titleLower = trackerEntry.title.toLowerCase();
-    const baseTitleLower = titleLower.replace(/\s+season\s+\d+/i, "").trim();
-
-    for (const anime of libraryAnimeList) {
-      const animeTitleLower = anime.title.toLowerCase();
-      if (animeTitleLower === titleLower) return anime;
-      if (animeTitleLower.replace(/\s+season\s+\d+/i, "").trim() === baseTitleLower) return anime;
-    }
-
-    if (trackerEntry.alternativeTitles) {
-      for (const altTitle of trackerEntry.alternativeTitles) {
-        const altLower = altTitle.toLowerCase();
-        const altBaseLower = altLower.replace(/\s+season\s+\d+/i, "").trim();
-        for (const anime of libraryAnimeList) {
-          const animeTitleLower = anime.title.toLowerCase();
-          if (animeTitleLower === altLower) return anime;
-          if (animeTitleLower.replace(/\s+season\s+\d+/i, "").trim() === altBaseLower) return anime;
-          if (anime.titleJapanese?.toLowerCase() === altLower) return anime;
-        }
-      }
-    }
-
-    return null;
-  }
-
   private importToExistingAnimeFromTracker(
     anime: { id: number; title: string },
     trackerEntry: TrackerAnime,
     source: TrackerSource,
   ): void {
     const groups = this.library.getEpisodeGroupsByAnimeId(anime.id);
-    const seasonNumber = this.extractSeasonNumber(trackerEntry);
+    const seasonNumber = extractSeasonNumber(trackerEntry);
 
     const existingGroup = groups.find(
       (g) =>
@@ -663,10 +634,11 @@ export class LibraryService {
       externalId: `tracker-${trackerEntry.trackerId}`,
       sourceDb: source,
       title: trackerEntry.title,
+      alternativeTitles: trackerEntry.alternativeTitles,
       episodeCount: trackerEntry.totalEpisodes,
     });
 
-    const seasonNumber = this.extractSeasonNumber(trackerEntry);
+    const seasonNumber = extractSeasonNumber(trackerEntry);
 
     const group = this.library.upsertEpisodeGroup({
       animeId: anime.id,
@@ -680,15 +652,6 @@ export class LibraryService {
       source,
       externalId: trackerEntry.trackerId,
     });
-  }
-
-  private extractSeasonNumber(trackerEntry: TrackerAnime): number | undefined {
-    const title = trackerEntry.title.toLowerCase();
-    const seasonMatch = title.match(/season\s+(\d+)/);
-    if (seasonMatch?.[1]) {
-      return Number.parseInt(seasonMatch[1], 10);
-    }
-    return undefined;
   }
 
   private replayUnpushedEvents(oldSnapshot: {

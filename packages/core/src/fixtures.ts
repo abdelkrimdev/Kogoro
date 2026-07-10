@@ -482,6 +482,7 @@ interface MockAnime {
   animeId: string;
   title: string;
   entryType?: "tv" | "movie" | "ova" | "special";
+  alternativeTitles?: string[];
   episodes: Array<{ id: string; season: number; episode: number; titleEn: string }>;
 }
 
@@ -586,7 +587,12 @@ export function createDataMockDb(animes: MockAnime[]): DatabasePlugin {
     async searchAnime(title: string) {
       return animes
         .filter((a) => a.title.toLowerCase().includes(title.toLowerCase()))
-        .map((a) => ({ id: a.animeId, titleEn: a.title, entryType: a.entryType ?? "tv" }));
+        .map((a) => ({
+          id: a.animeId,
+          titleEn: a.title,
+          entryType: a.entryType ?? "tv",
+          alternativeTitles: a.alternativeTitles,
+        }));
     },
     async getEpisodes(animeId: string) {
       const anime = animes.find((a) => a.animeId === animeId);
@@ -620,6 +626,7 @@ export function createMockTracker(overrides: Partial<TrackerPlugin> = {}): Track
       return {
         trackerId,
         title: "Test Anime",
+        alternativeTitles: [],
         watchStatus: "watching",
         episodesWatched: 5,
         totalEpisodes: 12,
@@ -632,6 +639,7 @@ export function createMockTracker(overrides: Partial<TrackerPlugin> = {}): Track
         trackerId,
         title: "Test Anime",
         entryType: "tv",
+        alternativeTitles: [],
       };
     },
     ...overrides,

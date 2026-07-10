@@ -66,6 +66,128 @@ describe("SyncEngine", () => {
       }
     });
 
+    test("merges alternativeTitles from tracker into library", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
+
+        const anime = libraryService.upsertAnime({
+          externalId: "tracker-1",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          alternativeTitles: ["Shingeki no Kyojin"],
+          episodeCount: 25,
+        });
+
+        const group = libraryService.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        libraryService.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "tl-1",
+        });
+
+        const tracker = createMockTracker({
+          async getUserList() {
+            return [
+              {
+                trackerId: "tl-1",
+                title: "Attack on Titan",
+                alternativeTitles: ["Shingeki no Kyojin", "進撃の巨人"],
+                entryType: "tv",
+                watchStatus: "completed",
+                episodesWatched: 25,
+                totalEpisodes: 25,
+              },
+            ];
+          },
+        });
+
+        const syncEngine = new SyncEngine(libraryService, eventRepo, tracker, "anilist");
+        const result = await syncEngine.pull();
+
+        expect(result.applied).toBe(1);
+
+        const updatedAnime = libraryRepo.findAnime("tracker-1", "anilist");
+        expect(updatedAnime?.alternativeTitles).toEqual(["Shingeki no Kyojin", "進撃の巨人"]);
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
+
+    test("deduplicates alternativeTitles when merging", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(libraryRepo, evtRepo);
+
+        const anime = libraryService.upsertAnime({
+          externalId: "tracker-1",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          alternativeTitles: ["Shingeki no Kyojin", "進撃の巨人"],
+          episodeCount: 25,
+        });
+
+        const group = libraryService.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        libraryService.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "tl-1",
+        });
+
+        const tracker = createMockTracker({
+          async getUserList() {
+            return [
+              {
+                trackerId: "tl-1",
+                title: "Attack on Titan",
+                alternativeTitles: ["Shingeki no Kyojin", "AOT"],
+                entryType: "tv",
+                watchStatus: "completed",
+                episodesWatched: 25,
+                totalEpisodes: 25,
+              },
+            ];
+          },
+        });
+
+        const syncEngine = new SyncEngine(libraryService, eventRepo, tracker, "anilist");
+        const result = await syncEngine.pull();
+
+        expect(result.applied).toBe(1);
+
+        const updatedAnime = libraryRepo.findAnime("tracker-1", "anilist");
+        expect(updatedAnime?.alternativeTitles).toEqual([
+          "Shingeki no Kyojin",
+          "進撃の巨人",
+          "AOT",
+        ]);
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
+
     test("flags conflict when local events exist for entity", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
