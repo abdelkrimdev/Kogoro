@@ -60,6 +60,10 @@ _Avoid_: disk status, file presence
 A per-**Episode Group** status indicating the user's viewing progress: watching, completed, plan to watch, on hold, or dropped. Each **Episode** also has an independent `watched` boolean.
 _Avoid_: viewing state, progress state
 
+**Alternative Titles**:
+A collection of title variants for an **Anime** (e.g. English, Japanese, synonyms). Used for matching **Tracker** entries against **Library** entries, and for display. Populated by both **Tracker** imports and **Database** matches.
+_Avoid_: alt titles, alternative names, synonyms
+
 **Auto-Merge**:
 The process of matching new scan results to existing **Library** entries by **Database** external ID, appending new **Episodes** to existing **Episode Groups** without creating duplicates.
 _Avoid_: dedup, merge, reconciliation
@@ -136,6 +140,7 @@ _Avoid_: tracker integration, list plugin
 - A **Match** may have one or more **Overrides** (user corrections)
 - A **Match** is resolved against one primary **Database**
 - A **Library** entry is identified by (external ID, source **Database**)
+- An **Anime** has exactly one canonical **romaji** title and zero or more **Alternative Titles**
 - An **Episode Group** may be mapped to zero or more **Tracker** entries via `group_tracker_mappings`
 - The **Scan Workflow** produces a **Rename Plan** that the user approves via the **Review Screen**
 - **Auto-Merge** links new **Episodes** to existing **Episode Groups** without duplicates
