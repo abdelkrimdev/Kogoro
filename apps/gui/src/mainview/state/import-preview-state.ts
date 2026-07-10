@@ -66,7 +66,6 @@ function buildSelections(
     if (!conflictSelections.has(entry.trackerId)) {
       selections.push({
         trackerId: entry.trackerId,
-        inferredAnimeTitle: entry.title,
       });
     }
   }

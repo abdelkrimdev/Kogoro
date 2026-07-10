@@ -36,7 +36,6 @@ export interface ImportSelection {
   trackerId: string;
   groupId?: number;
   resolution?: "keepLocal" | "acceptTracker";
-  inferredAnimeTitle?: string;
 }
 
 export class TrackerImportService {
@@ -172,7 +171,7 @@ export class TrackerImportService {
       if (existingAnime) {
         this.importToExistingAnime(existingAnime, entry, selection);
       } else {
-        this.importAsNewAnime(entry, selection);
+        this.importAsNewAnime(entry);
       }
 
       imported++;
@@ -225,22 +224,14 @@ export class TrackerImportService {
     });
   }
 
-  private importAsNewAnime(trackerEntry: TrackerAnime, selection?: ImportSelection): void {
-    const title = selection?.inferredAnimeTitle ?? trackerEntry.title;
-
-    const existing = selection?.inferredAnimeTitle
-      ? this.library.findAnimeByTitle(title, this.source)
-      : null;
-
-    const anime =
-      existing ??
-      this.library.upsertAnime({
-        externalId: `tracker-${trackerEntry.trackerId}`,
-        sourceDb: this.source,
-        title,
-        alternativeTitles: trackerEntry.alternativeTitles,
-        episodeCount: trackerEntry.totalEpisodes,
-      });
+  private importAsNewAnime(trackerEntry: TrackerAnime): void {
+    const anime = this.library.upsertAnime({
+      externalId: `tracker-${trackerEntry.trackerId}`,
+      sourceDb: this.source,
+      title: trackerEntry.title,
+      alternativeTitles: trackerEntry.alternativeTitles,
+      episodeCount: trackerEntry.totalEpisodes,
+    });
 
     const seasonNumber = extractSeasonNumber(trackerEntry);
 

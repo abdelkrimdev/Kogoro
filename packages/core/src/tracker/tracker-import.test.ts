@@ -698,50 +698,5 @@ describe("TrackerImportService", () => {
         evtSqlite.close();
       }
     });
-
-    it("uses inferredAnimeTitle from selection when creating new anime", async () => {
-      const { repo, close } = createLibraryRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-      try {
-        const evtRepo = new EventRepository(evtDb);
-        const libraryService = new LibraryService(repo, evtRepo);
-        const tracker = createMockTrackerPlugin([
-          {
-            trackerId: "tl-1",
-            title: "Attack on Titan Season 1",
-            entryType: "tv",
-            watchStatus: "completed",
-            episodesWatched: 25,
-            totalEpisodes: 25,
-          },
-          {
-            trackerId: "tl-2",
-            title: "Attack on Titan Season 2",
-            entryType: "tv",
-            watchStatus: "watching",
-            episodesWatched: 10,
-            totalEpisodes: 12,
-          },
-        ]);
-        const service = new TrackerImportService(libraryService, tracker, "anilist");
-
-        const result = await service.confirmImport([
-          { trackerId: "tl-1", inferredAnimeTitle: "Attack on Titan" },
-          { trackerId: "tl-2", inferredAnimeTitle: "Attack on Titan" },
-        ]);
-
-        expect(result.imported).toBe(2);
-
-        const animeList = libraryService.listAnime();
-        expect(animeList).toHaveLength(1);
-        expect(animeList[0]?.title).toBe("Attack on Titan");
-
-        const groups = libraryService.getEpisodeGroupsByAnimeId(animeList[0]?.id ?? 0);
-        expect(groups).toHaveLength(2);
-      } finally {
-        close();
-        evtSqlite.close();
-      }
-    });
   });
 });

@@ -317,23 +317,20 @@ describe("createImportPreviewState", () => {
         selections: Array<{
           trackerId: string;
           resolution?: string;
-          inferredAnimeTitle?: string;
         }>;
       };
       expect(params.selections).toHaveLength(2);
       expect(params.selections.find((s) => s.trackerId === "tl-3")).toEqual({
         trackerId: "tl-3",
         resolution: "keepLocal",
-        inferredAnimeTitle: undefined,
       });
       expect(params.selections.find((s) => s.trackerId === "tl-2")).toEqual({
         trackerId: "tl-2",
         resolution: undefined,
-        inferredAnimeTitle: "Death Note",
       });
     });
 
-    it("includes inferredAnimeTitle for unmatched entries even without user decisions", async () => {
+    it("includes unmatched entries even without user decisions", async () => {
       const rpc = createMockRPC({
         getImportPreview: makePreviewResponse(),
         confirmImport: { result: { imported: 3, skipped: 0 } },
@@ -345,11 +342,10 @@ describe("createImportPreviewState", () => {
 
       const params = rpc.calls[1]?.params as {
         trackerName: string;
-        selections?: Array<{ trackerId: string; inferredAnimeTitle?: string }>;
+        selections?: Array<{ trackerId: string }>;
       };
       expect(params.selections).toHaveLength(1);
       expect(params.selections?.[0]?.trackerId).toBe("tl-2");
-      expect(params.selections?.[0]?.inferredAnimeTitle).toBe("Death Note");
     });
 
     it("sets result on success", async () => {
