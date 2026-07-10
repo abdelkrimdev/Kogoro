@@ -10,7 +10,7 @@ import type {
   TrackerWatchStatus,
 } from "@kogoro/core";
 import {
-  HttpClient,
+  type HttpClient,
   loadOrRefreshCredential,
   loadStoredCredential,
   type OAuthTokenResponse,
@@ -47,7 +47,7 @@ const KITSU_STATUS_REVERSE_MAP: Record<TrackerWatchStatus, string> = {
 interface KitsuPluginOptions {
   baseUrl?: string;
   oauthUrl?: string;
-  httpClient?: HttpClient;
+  httpClient: HttpClient;
   credentialStore?: CredentialStore;
   username?: string;
   password?: string;
@@ -66,6 +66,12 @@ interface KitsuJsonApiData {
 interface KitsuJsonApiResponse {
   data: KitsuJsonApiData | KitsuJsonApiData[];
   included?: KitsuJsonApiData[];
+  links?: {
+    first?: string;
+    prev?: string;
+    next?: string;
+    last?: string;
+  };
 }
 
 function extractAnimeId(entry: KitsuJsonApiData): string {
@@ -99,6 +105,32 @@ function singleOrFirst<T>(value: T | T[]): T | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function pickTitle(attrs: Record<string, unknown>): string {
+  const titles = attrs["titles"] as Record<string, unknown> | undefined;
+  return str(titles?.["en_jp"]) ?? str(attrs["canonicalTitle"]) ?? "";
+}
+
+function extractAltTitles(attrs: Record<string, unknown>): string[] | undefined {
+  const titles = attrs["titles"] as Record<string, unknown> | undefined;
+  const mainTitle = pickTitle(attrs);
+  const altTitlesSet = new Set<string>();
+  if (titles) {
+    for (const key of ["en", "en_jp", "ja_jp"]) {
+      const val = str(titles[key]);
+      if (val && val !== mainTitle) altTitlesSet.add(val);
+    }
+  }
+  const abbreviatedTitles = attrs["abbreviatedTitles"];
+  if (Array.isArray(abbreviatedTitles)) {
+    for (const t of abbreviatedTitles) {
+      const val = str(t);
+      if (val && val !== mainTitle) altTitlesSet.add(val);
+    }
+  }
+  const result = [...altTitlesSet];
+  return result.length > 0 ? result : undefined;
+}
+
 function posterUrl(attrs: Record<string, unknown> | undefined): string | undefined {
   const poster = attrs?.["posterImage"] as Record<string, unknown> | undefined;
   return typeof poster?.["original"] === "string" ? poster["original"] : undefined;
@@ -113,10 +145,10 @@ export class KitsuPlugin implements TrackerPlugin {
   private password: string;
   private accessToken: string | null = null;
 
-  constructor(options: KitsuPluginOptions = {}) {
+  constructor(options: KitsuPluginOptions) {
     this.baseUrl = options.baseUrl ?? "https://kitsu.io/api/edge";
     this.oauthUrl = options.oauthUrl ?? "https://kitsu.io/api/oauth";
-    this.httpClient = options.httpClient ?? new HttpClient({ minDelay: 500 });
+    this.httpClient = options.httpClient;
     this.credentialStore = options.credentialStore ?? null;
     this.username = options.username ?? "";
     this.password = options.password ?? "";
@@ -260,20 +292,32 @@ export class KitsuPlugin implements TrackerPlugin {
     if (!userData) return [];
 
     const userId = String(userData.id);
-    const libraryResponse = await this.authenticatedGet(
-      `/users/${userId}/library-entries?include=anime`,
-    );
-
-    const entries = Array.isArray(libraryResponse.data) ? libraryResponse.data : [];
-    const included = libraryResponse.included ?? [];
+    const limit = 500;
+    let offset = 0;
+    const allEntries = new Map<string, KitsuJsonApiData>();
     const animeById = new Map<string, KitsuJsonApiData>();
-    for (const item of included) {
-      if (item.type === "anime") {
-        animeById.set(String(item.id), item);
+
+    while (true) {
+      const libraryResponse = await this.authenticatedGet(
+        `/users/${userId}/library-entries?include=anime&page[limit]=${limit}&page[offset]=${offset}`,
+      );
+
+      const entries = Array.isArray(libraryResponse.data) ? libraryResponse.data : [];
+      for (const entry of entries) {
+        allEntries.set(String(entry.id), entry);
       }
+
+      for (const item of libraryResponse.included ?? []) {
+        if (item.type === "anime") {
+          animeById.set(String(item.id), item);
+        }
+      }
+
+      if (!libraryResponse.links?.next) break;
+      offset += limit;
     }
 
-    return entries.map((entry): TrackerAnime => {
+    return [...allEntries.values()].map((entry): TrackerAnime => {
       const animeId = extractAnimeId(entry);
       const anime = animeById.get(animeId);
       const attrs = entry.attributes ?? {};
@@ -284,14 +328,15 @@ export class KitsuPlugin implements TrackerPlugin {
 
       return {
         trackerId: String(entry.id),
-        title: str(animeAttrs["canonicalTitle"]) ?? "",
+        title: pickTitle(animeAttrs),
         image: posterUrl(animeAttrs),
         year: parseYear(animeAttrs["startDate"]),
-        entryType: KITSU_SUBTYPE_MAP[str(animeAttrs["subtype"]) ?? ""] ?? "tv",
+        entryType: KITSU_SUBTYPE_MAP[str(animeAttrs["subtype"])?.toLowerCase() ?? ""] ?? "tv",
         watchStatus: KITSU_STATUS_MAP[status] ?? "watching",
         episodesWatched: numOr(attrs["progress"], 0),
         totalEpisodes: numOr(animeAttrs["episodeCount"], 0),
         score: ratingTwenty != null ? ratingTwenty / 2 : undefined,
+        alternativeTitles: extractAltTitles(animeAttrs),
       };
     });
   }
@@ -315,7 +360,7 @@ export class KitsuPlugin implements TrackerPlugin {
 
     return {
       trackerId: String(entry.id),
-      title: str(animeAttrs["canonicalTitle"]) ?? "",
+      title: pickTitle(animeAttrs),
       watchStatus: KITSU_STATUS_MAP[status] ?? "watching",
       episodesWatched: numOr(attrs["progress"], 0),
       totalEpisodes: numOr(animeAttrs["episodeCount"], 0),
@@ -367,10 +412,11 @@ export class KitsuPlugin implements TrackerPlugin {
 
     return {
       trackerId: String(anime.id),
-      title: str(attrs["canonicalTitle"]) ?? "",
+      title: pickTitle(attrs),
+      alternativeTitles: extractAltTitles(attrs),
       image: posterUrl(attrs),
       year: parseYear(attrs["startDate"]),
-      entryType: KITSU_SUBTYPE_MAP[str(attrs["subtype"]) ?? ""] ?? "tv",
+      entryType: KITSU_SUBTYPE_MAP[str(attrs["subtype"])?.toLowerCase() ?? ""] ?? "tv",
       synopsis: str(attrs["synopsis"]),
       rating:
         typeof attrs["averageRating"] === "string"

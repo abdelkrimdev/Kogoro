@@ -38,6 +38,7 @@ describe("AniDBPlugin", () => {
           clientver: "1",
           baseUrl: BASE_URL,
           cacheDir: dir,
+          httpClient: createMockHttpClient(),
         });
         const results = await plugin.searchAnime("Jujutsu Kaisen");
         expect(results).toHaveLength(1);
@@ -56,6 +57,7 @@ describe("AniDBPlugin", () => {
           clientver: "1",
           baseUrl: BASE_URL,
           cacheDir: dir,
+          httpClient: createMockHttpClient(),
         });
         const results = await plugin.searchAnime("Nonexistent Anime");
         expect(results).toEqual([]);
@@ -70,6 +72,7 @@ describe("AniDBPlugin", () => {
           clientver: "1",
           baseUrl: BASE_URL,
           cacheDir: dir,
+          httpClient: createMockHttpClient(),
         });
         const results = await plugin.searchAnime("attack on titan");
         expect(results).toHaveLength(1);
@@ -85,6 +88,7 @@ describe("AniDBPlugin", () => {
           clientver: "1",
           baseUrl: BASE_URL,
           cacheDir: dir,
+          httpClient: createMockHttpClient(),
         });
         const results = await plugin.searchAnime("Titan");
         expect(results).toHaveLength(1);
@@ -107,6 +111,7 @@ describe("AniDBPlugin", () => {
           clientver: "1",
           baseUrl: BASE_URL,
           cacheDir: dir,
+          httpClient: createMockHttpClient(),
         });
         const results = await plugin.searchAnime("Zom 100 Bucket List of the Dead");
         expect(results).toHaveLength(1);
@@ -130,6 +135,7 @@ describe("AniDBPlugin", () => {
           clientver: "1",
           baseUrl: BASE_URL,
           cacheDir: dir,
+          httpClient: createMockHttpClient(),
         });
         const results = await plugin.searchAnime(
           "Zom 100: Zombie ni Naru made ni Shitai 100 no Koto",
@@ -156,6 +162,7 @@ describe("AniDBPlugin", () => {
           clientver: "1",
           baseUrl: BASE_URL,
           cacheDir: dir,
+          httpClient: createMockHttpClient(),
         });
         const results = await plugin.searchAnime("Jujutsu");
         expect(results).toHaveLength(1);
@@ -776,6 +783,7 @@ describe("AniDBPlugin", () => {
       client: "kogoro",
       clientver: "1",
       baseUrl: "http://api.anidb.net:9001/httpapi",
+      httpClient: createMockHttpClient(),
     });
     expect(plugin.searchAnime).toBeInstanceOf(Function);
     expect(plugin.getEpisodes).toBeInstanceOf(Function);

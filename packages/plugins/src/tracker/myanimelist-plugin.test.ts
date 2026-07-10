@@ -136,6 +136,133 @@ describe("MyAnimeListPlugin", () => {
       );
     });
 
+    test("requests alternative_titles in user list fields", async () => {
+      const mockResponse = {
+        data: [
+          {
+            node: {
+              id: 9999,
+              title: "Alt Titles Anime",
+              alternative_titles: {
+                en: "Alt Titles English",
+                ja: "替代タイトル",
+              },
+              media_type: "tv",
+              num_episodes: 6,
+            },
+            list_status: {
+              status: "completed",
+              score: 7,
+              num_episodes_watched: 6,
+              is_rewatching: false,
+              updated_at: "2023-06-01T10:00:00+00:00",
+            },
+          },
+        ],
+        paging: {},
+      };
+
+      await withTestConfig(
+        "mal-user-list-alt-titles",
+        async (_dir, _config, credentialStore) => {
+          let capturedUrl = "";
+          const plugin = createPlugin(credentialStore, async (url) => {
+            capturedUrl = url.toString();
+            return new Response(JSON.stringify(mockResponse), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          });
+
+          await plugin.authenticate();
+          const list = await plugin.getUserList();
+
+          expect(list).toHaveLength(1);
+          expect(list[0]?.alternativeTitles).toEqual(["Alt Titles English", "替代タイトル"]);
+          expect(capturedUrl).toContain(
+            "fields=list_status,num_episodes,alternative_titles,media_type",
+          );
+        },
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
+      );
+    });
+
+    test("maps media_type to entryType correctly", async () => {
+      const mockResponse = {
+        data: [
+          {
+            node: {
+              id: 1001,
+              title: "OVA Anime",
+              media_type: "ova",
+              num_episodes: 2,
+            },
+            list_status: {
+              status: "completed",
+              score: 7,
+              num_episodes_watched: 2,
+              is_rewatching: false,
+              updated_at: "2023-06-01T10:00:00+00:00",
+            },
+          },
+          {
+            node: {
+              id: 1002,
+              title: "Movie Anime",
+              media_type: "movie",
+              num_episodes: 1,
+            },
+            list_status: {
+              status: "completed",
+              score: 9,
+              num_episodes_watched: 1,
+              is_rewatching: false,
+              updated_at: "2023-06-01T10:00:00+00:00",
+            },
+          },
+          {
+            node: {
+              id: 1003,
+              title: "TV Special Anime",
+              media_type: "tv_special",
+              num_episodes: 1,
+            },
+            list_status: {
+              status: "completed",
+              score: 6,
+              num_episodes_watched: 1,
+              is_rewatching: false,
+              updated_at: "2023-06-01T10:00:00+00:00",
+            },
+          },
+        ],
+        paging: {},
+      };
+
+      await withTestConfig(
+        "mal-media-type-mapping",
+        async (_dir, _config, credentialStore) => {
+          const plugin = createPlugin(
+            credentialStore,
+            async () =>
+              new Response(JSON.stringify(mockResponse), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              }),
+          );
+
+          await plugin.authenticate();
+          const list = await plugin.getUserList();
+
+          expect(list).toHaveLength(3);
+          expect(list[0]?.entryType).toBe("ova");
+          expect(list[1]?.entryType).toBe("movie");
+          expect(list[2]?.entryType).toBe("tv");
+        },
+        createMockKeytar({ "kogoro:mal": makeCredential() }),
+      );
+    });
+
     test("fetches across multiple pages", async () => {
       const page1Response = {
         data: [

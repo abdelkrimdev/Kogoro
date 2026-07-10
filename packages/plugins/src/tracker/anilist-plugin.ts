@@ -3,7 +3,7 @@ import {
   buildCredentialFromToken,
   type CredentialStore,
   type EntryType,
-  HttpClient,
+  type HttpClient,
   loadOrRefreshCredential,
   type OAuthTokenResponse,
   type TrackerAnime,
@@ -105,17 +105,25 @@ const FORMAT_MAP: Record<string, EntryType> = {
 };
 
 function pickTitle(title: AniListTitle): string {
-  return title.english ?? title.romaji ?? "";
+  return title.romaji ?? "";
 }
 
-function pickAlternativeTitles(title: AniListTitle, synonyms: string[]): string[] {
+function pickAlternativeTitles(title: AniListTitle, synonyms: string[]): string[] | undefined {
+  const seen = new Set<string>();
   const alts: string[] = [];
-  if (title.romaji && title.romaji !== title.english) alts.push(title.romaji);
-  if (title.native) alts.push(title.native);
+
+  const add = (value: string) => {
+    if (seen.has(value)) return;
+    seen.add(value);
+    alts.push(value);
+  };
+
+  if (title.english && title.english !== title.romaji) add(title.english);
+  if (title.native) add(title.native);
   for (const s of synonyms) {
-    if (s !== title.english && s !== title.romaji) alts.push(s);
+    if (s !== title.romaji) add(s);
   }
-  return alts;
+  return alts.length > 0 ? alts : undefined;
 }
 
 function mapFormat(format: string): EntryType {
@@ -211,13 +219,13 @@ export class AniListPlugin implements TrackerPlugin {
     clientId?: string;
     token?: string;
     credentialStore?: CredentialStore;
-    httpClient?: HttpClient;
+    httpClient: HttpClient;
   }) {
     this.baseUrl = options.baseUrl;
     this.clientId = options.clientId ?? "";
     this.token = options.token ?? null;
     this.credentialStore = options.credentialStore ?? null;
-    this.httpClient = options.httpClient ?? new HttpClient();
+    this.httpClient = options.httpClient;
   }
 
   async authenticate(): Promise<string> {
@@ -294,7 +302,6 @@ export class AniListPlugin implements TrackerPlugin {
   async getUserList(): Promise<TrackerAnime[]> {
     await this.ensureAuthenticated();
 
-    // First get the authenticated user's ID
     const viewerData = await this.graphql<{ Viewer: { id: number } }>(VIEWER_QUERY);
     if (!viewerData?.Viewer?.id) {
       throw new TrackerError("auth_invalid", "Could not retrieve authenticated user ID", "anilist");

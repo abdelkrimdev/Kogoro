@@ -254,8 +254,8 @@ describe("AniListPlugin", () => {
       expect(results).toHaveLength(2);
 
       expect(results[0]?.trackerId).toBe("12345");
-      expect(results[0]?.title).toBe("Attack on Titan");
-      expect(results[0]?.alternativeTitles).toContain("Shingeki no Kyojin");
+      expect(results[0]?.title).toBe("Shingeki no Kyojin");
+      expect(results[0]?.alternativeTitles).toContain("Attack on Titan");
       expect(results[0]?.alternativeTitles).toContain("AoT");
       expect(results[0]?.image).toBe(
         "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx12345-abc.jpg",
@@ -482,14 +482,14 @@ describe("AniListPlugin", () => {
       const entry = await plugin.getEntry("999");
 
       expect(entry.trackerId).toBe("999");
-      expect(entry.title).toBe("Attack on Titan");
+      expect(entry.title).toBe("Shingeki no Kyojin");
       expect(entry.watchStatus).toBe("watching");
       expect(entry.episodesWatched).toBe(12);
       expect(entry.totalEpisodes).toBe(25);
       expect(entry.score).toBe(8);
     });
 
-    test("uses english title when available", async () => {
+    test("uses romaji title", async () => {
       const entryResponse = {
         MediaList: {
           id: 1,
@@ -512,10 +512,10 @@ describe("AniListPlugin", () => {
         "test-token",
       );
       const entry = await plugin.getEntry("1");
-      expect(entry.title).toBe("English Title");
+      expect(entry.title).toBe("日本語タイトル");
     });
 
-    test("falls back to romaji title when english is null", async () => {
+    test("falls back to empty string when romaji is null", async () => {
       const entryResponse = {
         MediaList: {
           id: 1,
@@ -525,8 +525,8 @@ describe("AniListPlugin", () => {
           progress: 5,
           media: {
             title: {
-              romaji: "Romaji Only",
-              english: null,
+              romaji: null,
+              english: "English Only",
             },
             episodes: 12,
           },
@@ -538,7 +538,7 @@ describe("AniListPlugin", () => {
         "test-token",
       );
       const entry = await plugin.getEntry("1");
-      expect(entry.title).toBe("Romaji Only");
+      expect(entry.title).toBe("");
     });
 
     test("maps privateNotes to notes field", async () => {
@@ -776,8 +776,8 @@ describe("AniListPlugin", () => {
       const details = await plugin.getAnimeDetails("12345");
 
       expect(details.trackerId).toBe("12345");
-      expect(details.title).toBe("Attack on Titan");
-      expect(details.alternativeTitles).toContain("Shingeki no Kyojin");
+      expect(details.title).toBe("Shingeki no Kyojin");
+      expect(details.alternativeTitles).toContain("Attack on Titan");
       expect(details.alternativeTitles).toContain("AoT");
       expect(details.image).toBe(
         "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx12345-abc.jpg",
@@ -797,6 +797,7 @@ describe("AniListPlugin", () => {
           id: 1,
           title: { romaji: "Test", english: null, native: null },
           synonyms: [],
+
           description: "Test description",
           averageScore: 70,
           genres: ["Action"],
@@ -825,6 +826,7 @@ describe("AniListPlugin", () => {
           id: 1,
           title: { romaji: "Minimal", english: null, native: null },
           synonyms: [],
+
           description: null,
           averageScore: null,
           genres: [],

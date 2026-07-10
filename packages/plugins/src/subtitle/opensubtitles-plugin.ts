@@ -29,10 +29,10 @@ export class OpenSubtitlesPlugin implements SubtitlePlugin {
     private options: {
       apiKey: string;
       baseUrl: string;
-      httpClient?: HttpClient;
+      httpClient: HttpClient;
     },
   ) {
-    this.httpClient = options.httpClient ?? new HttpClient();
+    this.httpClient = options.httpClient;
   }
 
   async search(

@@ -149,6 +149,17 @@ function findTitles(titles: Iterable<{ lang: string; value: string | undefined; 
   return { titleEn, titleJa };
 }
 
+function getAlternativeTitles(
+  titles: Iterable<{ lang: string; value: string | undefined; type?: string }>,
+  titleEn: string | undefined,
+  titleJa: string | undefined,
+): string[] | undefined {
+  const alts = [...titles]
+    .filter((t) => t.value && t.value !== titleEn && t.value !== titleJa)
+    .map((t) => t.value as string);
+  return alts.length > 0 ? alts : undefined;
+}
+
 export class AniDBPlugin implements DatabasePlugin {
   private httpClient: HttpClient;
   private client: string;
@@ -163,10 +174,10 @@ export class AniDBPlugin implements DatabasePlugin {
     client: string;
     clientver: string;
     baseUrl: string;
-    httpClient?: HttpClient;
+    httpClient: HttpClient;
     cacheDir?: string;
   }) {
-    this.httpClient = options.httpClient ?? new HttpClient();
+    this.httpClient = options.httpClient;
     this.client = options.client;
     this.clientver = options.clientver;
     this.baseUrl = options.baseUrl;
@@ -307,6 +318,7 @@ export class AniDBPlugin implements DatabasePlugin {
         id: aid,
         titleEn,
         titleJa,
+        alternativeTitles: getAlternativeTitles(titles, titleEn, titleJa),
         year: yearAttr ? Number.parseInt(yearAttr, 10) : undefined,
         entryType: "tv",
       });
@@ -364,6 +376,7 @@ export class AniDBPlugin implements DatabasePlugin {
       id: animeId,
       titleEn: rootTitles.titleEn,
       titleJa: rootTitles.titleJa,
+      alternativeTitles: getAlternativeTitles(doc.titles, rootTitles.titleEn, rootTitles.titleJa),
       overview: doc.description,
       year: doc.startdate ? Number.parseInt(doc.startdate.slice(0, 4), 10) : undefined,
       entryType: toEntryType(doc.animeType),

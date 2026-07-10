@@ -59,6 +59,7 @@ describe("TVDBPlugin", () => {
     const plugin: DatabasePlugin = new TVDBPlugin({
       apiKey: "test-key",
       baseUrl: BASE_URL,
+      httpClient: createMockHttpClient(),
     });
     expect(plugin.searchAnime).toBeInstanceOf(Function);
     expect(plugin.getAnime).toBeInstanceOf(Function);

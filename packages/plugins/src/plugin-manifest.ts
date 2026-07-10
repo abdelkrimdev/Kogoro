@@ -223,7 +223,7 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     type: "tracker",
     description: "Kitsu.io tracker plugin",
     baseUrl: "https://kitsu.io/api/edge",
-    rateLimit: 500,
+    rateLimit: 100,
     credentialKey: "kitsu",
     load: loadKitsu,
   },

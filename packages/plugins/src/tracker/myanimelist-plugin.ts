@@ -98,6 +98,13 @@ function mapToKogoroStatus(status: TrackerWatchStatus): string {
   }
 }
 
+function extractMALAltTitles(
+  altTitles: { en?: string; ja?: string } | undefined,
+): string[] | undefined {
+  const result = [altTitles?.en, altTitles?.ja].filter((t): t is string => !!t);
+  return result.length > 0 ? result : undefined;
+}
+
 function mapMediaType(mediaType: string | undefined): "tv" | "movie" | "ova" | "special" {
   switch (mediaType) {
     case "tv":
@@ -254,7 +261,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
 
     while (true) {
       const data = await this.fetchJson<MALAnimeListResponse>(
-        `${this.baseUrl}/users/@me/animelist?offset=${offset}&limit=${limit}&fields=list_status`,
+        `${this.baseUrl}/users/@me/animelist?offset=${offset}&limit=${limit}&fields=list_status,num_episodes,alternative_titles,media_type`,
       );
 
       for (const item of data.data) {
@@ -263,10 +270,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
         allAnime.push({
           trackerId: String(item.node.id),
           title: item.node.title,
-          alternativeTitles: [
-            item.node.alternative_titles?.en,
-            item.node.alternative_titles?.ja,
-          ].filter(Boolean) as string[],
+          alternativeTitles: extractMALAltTitles(item.node.alternative_titles),
           image: item.node.main_picture?.large || item.node.main_picture?.medium,
           year: item.node.start_date
             ? Number.parseInt(item.node.start_date.substring(0, 4), 10)
@@ -358,9 +362,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
     return {
       trackerId: String(data.id),
       title: data.title,
-      alternativeTitles: [data.alternative_titles?.en, data.alternative_titles?.ja].filter(
-        Boolean,
-      ) as string[],
+      alternativeTitles: extractMALAltTitles(data.alternative_titles),
       image: data.main_picture?.large || data.main_picture?.medium,
       year: data.start_date ? Number.parseInt(data.start_date.substring(0, 4), 10) : undefined,
       entryType: mapMediaType(data.media_type),

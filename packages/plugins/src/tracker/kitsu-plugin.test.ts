@@ -31,6 +31,7 @@ describe("KitsuPlugin", () => {
     const plugin: TrackerPlugin = new KitsuPlugin({
       baseUrl: BASE_URL,
       oauthUrl: OAUTH_URL,
+      httpClient: createMockHttpClient(async () => new Response("{}")),
     });
     expect(plugin.authenticate).toBeInstanceOf(Function);
     expect(plugin.getUserList).toBeInstanceOf(Function);
@@ -136,6 +137,8 @@ describe("KitsuPlugin", () => {
             type: "anime",
             attributes: {
               canonicalTitle: "Jujutsu Kaisen",
+              titles: { en: "Jujutsu Kaisen", en_jp: "Jujutsu Kaisen Season 2", ja_jp: "呪術廻戦" },
+              abbreviatedTitles: ["JJK"],
               episodeCount: 24,
               startDate: "2020-10-03",
               subtype: "tv",
@@ -147,6 +150,8 @@ describe("KitsuPlugin", () => {
             type: "anime",
             attributes: {
               canonicalTitle: "Attack on Titan",
+              titles: { en: "Attack on Titan", en_jp: "Shingeki no Kyojin", ja_jp: "進撃の巨人" },
+              abbreviatedTitles: ["AoT"],
               episodeCount: 87,
               startDate: "2013-04-07",
               subtype: "tv",
@@ -160,6 +165,7 @@ describe("KitsuPlugin", () => {
         "/oauth/token": { data: { access_token: "token-123" } },
         "filter[self]=true": { data: userResponse },
         "library-entries": { data: libraryResponse },
+        "anime?filter[id]": { data: { data: [], included: [] } },
       });
 
       const plugin = new KitsuPlugin({
@@ -175,19 +181,73 @@ describe("KitsuPlugin", () => {
 
       expect(list).toHaveLength(2);
       expect(list[0]?.trackerId).toBe("1001");
-      expect(list[0]?.title).toBe("Jujutsu Kaisen");
+      expect(list[0]?.title).toBe("Jujutsu Kaisen Season 2");
       expect(list[0]?.watchStatus).toBe("watching");
       expect(list[0]?.episodesWatched).toBe(12);
       expect(list[0]?.totalEpisodes).toBe(24);
       expect(list[0]?.score).toBe(4);
       expect(list[0]?.entryType).toBe("tv");
       expect(list[0]?.image).toBe("https://example.com/jjk.jpg");
+      expect(list[0]?.alternativeTitles).toEqual(["Jujutsu Kaisen", "呪術廻戦", "JJK"]);
 
       expect(list[1]?.trackerId).toBe("1002");
-      expect(list[1]?.title).toBe("Attack on Titan");
+      expect(list[1]?.title).toBe("Shingeki no Kyojin");
       expect(list[1]?.watchStatus).toBe("completed");
       expect(list[1]?.episodesWatched).toBe(24);
       expect(list[1]?.totalEpisodes).toBe(87);
+      expect(list[1]?.alternativeTitles).toEqual(["Attack on Titan", "進撃の巨人", "AoT"]);
+    });
+
+    test("uses titles.en_jp as main title instead of canonicalTitle", async () => {
+      const userResponse = {
+        data: [{ id: "1", type: "users", attributes: { name: "u" } }],
+      };
+
+      const libraryResponse = {
+        data: [
+          {
+            id: "e1",
+            type: "libraryEntries",
+            attributes: { status: "current", progress: 1, ratingTwenty: null },
+            relationships: { anime: { data: { type: "anime", id: "a1" } } },
+          },
+        ],
+        included: [
+          {
+            id: "a1",
+            type: "anime",
+            attributes: {
+              canonicalTitle: "English Title",
+              titles: { en: "English Title", en_jp: "Romaji Title", ja_jp: "日本語タイトル" },
+              abbreviatedTitles: ["RT"],
+              episodeCount: 12,
+              startDate: "2020-01-01",
+              subtype: "tv",
+            },
+          },
+        ],
+      };
+
+      const fetch = mockFetchWithRoutes({
+        "/oauth/token": { data: { access_token: "t" } },
+        "filter[self]=true": { data: userResponse },
+        "library-entries": { data: libraryResponse },
+        "anime?filter[id]": { data: { data: [], included: [] } },
+      });
+
+      const plugin = new KitsuPlugin({
+        baseUrl: BASE_URL,
+        oauthUrl: OAUTH_URL,
+        httpClient: createMockHttpClient(fetch),
+        username: "u",
+        password: "p",
+      });
+
+      await plugin.authenticate();
+      const list = await plugin.getUserList();
+
+      expect(list[0]?.title).toBe("Romaji Title");
+      expect(list[0]?.alternativeTitles).toEqual(["English Title", "日本語タイトル", "RT"]);
     });
 
     test("maps all Kitsu statuses to domain statuses", async () => {
@@ -230,6 +290,7 @@ describe("KitsuPlugin", () => {
           "/oauth/token": { data: { access_token: "t" } },
           "filter[self]=true": { data: userResponse },
           "library-entries": { data: libraryResponse },
+          "anime?filter[id]": { data: { data: [], included: [] } },
         });
 
         const plugin = new KitsuPlugin({
@@ -243,6 +304,70 @@ describe("KitsuPlugin", () => {
         await plugin.authenticate();
         const list = await plugin.getUserList();
         expect(list[0]?.watchStatus).toBe(domain);
+      }
+    });
+
+    test("maps Kitsu subtypes to entryType regardless of casing", async () => {
+      const subtypeCases = [
+        { subtype: "tv", expected: "tv" as const },
+        { subtype: "TV", expected: "tv" as const },
+        { subtype: "movie", expected: "movie" as const },
+        { subtype: "Movie", expected: "movie" as const },
+        { subtype: "ova", expected: "ova" as const },
+        { subtype: "OVA", expected: "ova" as const },
+        { subtype: "special", expected: "special" as const },
+        { subtype: "Special", expected: "special" as const },
+        { subtype: "ona", expected: "tv" as const },
+        { subtype: "ONA", expected: "tv" as const },
+        { subtype: "music", expected: "special" as const },
+        { subtype: "Music", expected: "special" as const },
+      ];
+
+      for (const { subtype, expected } of subtypeCases) {
+        const userResponse = {
+          data: [{ id: "1", type: "users", attributes: { name: "u" } }],
+        };
+
+        const libraryResponse = {
+          data: [
+            {
+              id: "e1",
+              type: "libraryEntries",
+              attributes: { status: "current", progress: 1, ratingTwenty: null },
+              relationships: { anime: { data: { type: "anime", id: "a1" } } },
+            },
+          ],
+          included: [
+            {
+              id: "a1",
+              type: "anime",
+              attributes: {
+                canonicalTitle: "Test",
+                subtype,
+                episodeCount: 12,
+              },
+            },
+          ],
+        };
+
+        const fetch = mockFetchWithRoutes({
+          "/oauth/token": { data: { access_token: "t" } },
+          "filter[self]=true": { data: userResponse },
+          "library-entries": { data: libraryResponse },
+          "anime?filter[id]": { data: { data: [], included: [] } },
+        });
+
+        const plugin = new KitsuPlugin({
+          baseUrl: BASE_URL,
+          oauthUrl: OAUTH_URL,
+          httpClient: createMockHttpClient(fetch),
+          username: "u",
+          password: "p",
+        });
+
+        await plugin.authenticate();
+        const list = await plugin.getUserList();
+        expect(list[0]?.entryType).toBe(expected);
       }
     });
 
@@ -273,6 +398,7 @@ describe("KitsuPlugin", () => {
         "/oauth/token": { data: { access_token: "t" } },
         "filter[self]=true": { data: userResponse },
         "library-entries": { data: libraryResponse },
+        "anime?filter[id]": { data: { data: [], included: [] } },
       });
 
       const plugin = new KitsuPlugin({
@@ -446,6 +572,90 @@ describe("KitsuPlugin", () => {
       expect(details.totalEpisodes).toBe(24);
       expect(details.image).toBe("https://example.com/jjk.jpg");
       expect(details.entryType).toBe("tv");
+    });
+
+    test("maps subtypes to entryType regardless of casing in getAnimeDetails", async () => {
+      const subtypeCases = [
+        { subtype: "ova", expected: "ova" as const },
+        { subtype: "OVA", expected: "ova" as const },
+        { subtype: "TV", expected: "tv" as const },
+        { subtype: "movie", expected: "movie" as const },
+      ];
+
+      for (const { subtype, expected } of subtypeCases) {
+        const animeResponse = {
+          data: {
+            id: "678",
+            type: "anime",
+            attributes: {
+              canonicalTitle: "Test Anime",
+              titles: { en_jp: "Test Anime" },
+              episodeCount: 12,
+              startDate: "2020-01-01",
+              subtype,
+              synopsis: "Synopsis.",
+              averageRating: "80",
+            },
+          },
+          included: [],
+        };
+
+        const fetch = mockFetchWithRoutes({
+          "/oauth/token": { data: { access_token: "t" } },
+          "anime/678": { data: animeResponse },
+        });
+
+        const plugin = new KitsuPlugin({
+          baseUrl: BASE_URL,
+          oauthUrl: OAUTH_URL,
+          httpClient: createMockHttpClient(fetch),
+          username: "u",
+          password: "p",
+        });
+
+        await plugin.authenticate();
+        const details = await plugin.getAnimeDetails("678");
+        expect(details.entryType).toBe(expected);
+      }
+    });
+
+    test("uses titles.en_jp as main title instead of canonicalTitle", async () => {
+      const animeResponse = {
+        data: {
+          id: "678",
+          type: "anime",
+          attributes: {
+            canonicalTitle: "English Title",
+            titles: { en: "English Title", en_jp: "Romaji Title", ja_jp: "日本語タイトル" },
+            abbreviatedTitles: ["RT"],
+            episodeCount: 24,
+            startDate: "2020-10-03",
+            subtype: "tv",
+            synopsis: "Synopsis here.",
+            averageRating: "85.2",
+          },
+        },
+        included: [],
+      };
+
+      const fetch = mockFetchWithRoutes({
+        "/oauth/token": { data: { access_token: "t" } },
+        "anime/678": { data: animeResponse },
+      });
+
+      const plugin = new KitsuPlugin({
+        baseUrl: BASE_URL,
+        oauthUrl: OAUTH_URL,
+        httpClient: createMockHttpClient(fetch),
+        username: "u",
+        password: "p",
+      });
+
+      await plugin.authenticate();
+      const details = await plugin.getAnimeDetails("678");
+
+      expect(details.title).toBe("Romaji Title");
+      expect(details.alternativeTitles).toEqual(["English Title", "日本語タイトル", "RT"]);
     });
   });
 });

@@ -90,6 +90,25 @@ function findAlias(aliases: TVDBAlias[] | undefined, lang: string): string | und
   return aliases?.find((a) => a.lang === lang)?.name;
 }
 
+function getAlternativeTitles(
+  titleEn: string,
+  titleJa: string | undefined,
+  aliases: TVDBAlias[] | undefined,
+): string[] | undefined {
+  const alts: string[] = [];
+  if (titleJa && titleJa !== titleEn) {
+    alts.push(titleJa);
+  }
+  if (aliases) {
+    for (const alias of aliases) {
+      if (alias.name !== titleEn && alias.name !== titleJa) {
+        alts.push(alias.name);
+      }
+    }
+  }
+  return alts.length > 0 ? alts : undefined;
+}
+
 export class TVDBPlugin implements DatabasePlugin {
   private token: string | null = null;
   private apiKey: string;
@@ -99,11 +118,11 @@ export class TVDBPlugin implements DatabasePlugin {
   constructor(options: {
     apiKey: string;
     baseUrl: string;
-    httpClient?: HttpClient;
+    httpClient: HttpClient;
   }) {
     this.apiKey = options.apiKey;
     this.baseUrl = options.baseUrl;
-    this.httpClient = options.httpClient ?? new HttpClient();
+    this.httpClient = options.httpClient;
   }
 
   private async ensureToken(): Promise<string | null> {
@@ -165,6 +184,7 @@ export class TVDBPlugin implements DatabasePlugin {
             slug: item.slug,
             titleEn: item.translations?.eng ?? item.name_translated ?? item.name,
             titleJa: item.aliases?.[0],
+            alternativeTitles: item.aliases?.filter((a) => a !== item.aliases?.[0]),
             overview: item.overview,
             year: item.year ? Number.parseInt(item.year, 10) : undefined,
             image: item.image,
@@ -188,11 +208,15 @@ export class TVDBPlugin implements DatabasePlugin {
       this.apiRequest<TVDBTranslation>(`/series/${animeId}/translations/jpn`),
     ]);
 
+    const titleEn = enTranslation?.name ?? findAlias(data.aliases, "eng") ?? data.name;
+    const titleJa = jaTranslation?.name ?? findAlias(data.aliases, "jpn");
+
     return {
       id: String(data.id),
       slug: data.slug,
-      titleEn: enTranslation?.name ?? findAlias(data.aliases, "eng") ?? data.name,
-      titleJa: jaTranslation?.name ?? findAlias(data.aliases, "jpn"),
+      titleEn,
+      titleJa,
+      alternativeTitles: getAlternativeTitles(titleEn, titleJa, data.aliases),
       overview: enTranslation?.overview ?? data.overview,
       year: data.year ? Number.parseInt(data.year, 10) : undefined,
       image: data.image,
