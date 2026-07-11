@@ -35,6 +35,20 @@ export function throwHttpError(
     throw new TrackerError("auth_expired", `${label}${trackerName} token expired`, trackerName);
   }
   if (effectiveStatus === 403) {
+    if (trackerName === "anilist") {
+      if (msg?.includes("temporarily disabled")) {
+        throw new TrackerError(
+          "unknown",
+          `${label}AniList API is temporarily unavailable`,
+          trackerName,
+        );
+      }
+      throw new TrackerError(
+        "auth_expired",
+        `${label}${trackerName} token expired or invalid`,
+        trackerName,
+      );
+    }
     throw new TrackerError(
       "auth_invalid",
       `${label}${trackerName} access denied (check token permissions)`,

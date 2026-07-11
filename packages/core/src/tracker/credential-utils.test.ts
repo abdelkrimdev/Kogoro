@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createMockKeytar, withTestConfig } from "@kogoro/core/testing";
-import { isAuthError, TrackerError } from "../types";
+import { createHttpResponse, createMockKeytar, withTestConfig } from "@kogoro/core/testing";
+import { isAuthError, TrackerError, type TrackerErrorType } from "../types";
 import {
   buildCredentialFromToken,
   loadOrRefreshCredential,
   type RefreshFn,
+  throwHttpError,
 } from "./credential-utils";
 
 describe("TrackerError", () => {
@@ -219,6 +220,71 @@ describe("loadOrRefreshCredential", () => {
         expect(result.access_token).toBe("test-token");
       },
       createMockKeytar(),
+    );
+  });
+});
+
+describe("throwHttpError", () => {
+  const expectTrackerError = (
+    fn: () => never,
+    expectedType: TrackerErrorType,
+    expectedMessage: string,
+  ) => {
+    try {
+      fn();
+      throw new Error("Expected throwHttpError to throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(TrackerError);
+      expect((e as TrackerError).type).toBe(expectedType);
+      expect((e as TrackerError).message).toBe(expectedMessage);
+    }
+  };
+
+  test("throws auth_expired for 401 status", () => {
+    expectTrackerError(
+      () => throwHttpError(createHttpResponse(401), "mal"),
+      "auth_expired",
+      "mal token expired",
+    );
+  });
+
+  test("throws auth_expired for AniList 403", () => {
+    expectTrackerError(
+      () => throwHttpError(createHttpResponse(403), "anilist"),
+      "auth_expired",
+      "anilist token expired or invalid",
+    );
+  });
+
+  test("throws unknown for AniList 403 when temporarily disabled", () => {
+    expectTrackerError(
+      () => throwHttpError(createHttpResponse(403, "API temporarily disabled"), "anilist"),
+      "unknown",
+      "AniList API is temporarily unavailable",
+    );
+  });
+
+  test("throws auth_invalid for non-AniList 403", () => {
+    expectTrackerError(
+      () => throwHttpError(createHttpResponse(403), "mal"),
+      "auth_invalid",
+      "mal access denied (check token permissions)",
+    );
+  });
+
+  test("throws rate_limited for 429 status", () => {
+    expectTrackerError(
+      () => throwHttpError(createHttpResponse(429), "kitsu"),
+      "rate_limited",
+      "kitsu rate limit exceeded",
+    );
+  });
+
+  test("includes context prefix in error message", () => {
+    expectTrackerError(
+      () => throwHttpError(createHttpResponse(401), "mal", "Fetch failed"),
+      "auth_expired",
+      "Fetch failed: mal token expired",
     );
   });
 });

@@ -107,6 +107,10 @@ export function createMockResponse(body: string, init?: ResponseInit): Response 
   return new Response(body, init);
 }
 
+export function createHttpResponse(status: number, statusText = ""): Response {
+  return new Response(null, { status, statusText });
+}
+
 export function createMockHttpClient(
   fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>,
   opts?: { minDelay?: number; maxRetries?: number },
