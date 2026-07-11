@@ -6,13 +6,17 @@ import { LibraryService } from "../library/library-service";
 import type { TrackerAnime, TrackerPlugin } from "../types";
 import { TrackerImportService } from "./tracker-import";
 
-function createMockTrackerPlugin(list: TrackerAnime[] = []): TrackerPlugin {
-  return {
+function createMockTrackerPlugin(
+  list: TrackerAnime[] = [],
+): TrackerPlugin & { getUserListCallCount: number } {
+  let getUserListCallCount = 0;
+  const plugin: TrackerPlugin & { getUserListCallCount: number } = {
     async authenticate() {
       return "mock-token";
     },
     async ensureAuthenticated() {},
     async getUserList() {
+      getUserListCallCount++;
       return list;
     },
     async getEntry(trackerId: string) {
@@ -32,7 +36,11 @@ function createMockTrackerPlugin(list: TrackerAnime[] = []): TrackerPlugin {
         entryType: "tv",
       };
     },
+    get getUserListCallCount() {
+      return getUserListCallCount;
+    },
   };
+  return plugin;
 }
 
 describe("TrackerImportService", () => {
@@ -693,6 +701,258 @@ describe("TrackerImportService", () => {
         const mappings = libraryService.getTrackerMappingsByGroupId(group.id);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.externalId).toBe("tl-1");
+      } finally {
+        close();
+        evtSqlite.close();
+      }
+    });
+
+    it("caches tracker list so preview and confirm share one getUserList call", async () => {
+      const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "watching",
+            episodesWatched: 12,
+            totalEpisodes: 25,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        await service.getImportPreview();
+        await service.confirmImport();
+
+        expect(tracker.getUserListCallCount).toBe(1);
+      } finally {
+        close();
+        evtSqlite.close();
+      }
+    });
+
+    it("batch imports multiple new anime in one transaction", async () => {
+      const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "watching",
+            episodesWatched: 12,
+            totalEpisodes: 25,
+          },
+          {
+            trackerId: "tl-2",
+            title: "Death Note",
+            entryType: "tv",
+            watchStatus: "completed",
+            episodesWatched: 37,
+            totalEpisodes: 37,
+          },
+          {
+            trackerId: "tl-3",
+            title: "One Piece",
+            entryType: "tv",
+            watchStatus: "plan-to-watch",
+            episodesWatched: 0,
+            totalEpisodes: 1100,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        const result = await service.confirmImport();
+
+        expect(result.imported).toBe(3);
+        expect(result.skipped).toBe(0);
+
+        const animeList = libraryService.listAnime();
+        expect(animeList).toHaveLength(3);
+
+        for (const anime of animeList) {
+          const groups = libraryService.getEpisodeGroupsByAnimeId(anime.id);
+          expect(groups).toHaveLength(1);
+          const mappings = libraryService.getTrackerMappingsByGroupId(groups[0]?.id ?? 0);
+          expect(mappings).toHaveLength(1);
+        }
+      } finally {
+        close();
+        evtSqlite.close();
+      }
+    });
+
+    it("reuses cached match results from preview in confirm", async () => {
+      const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
+
+        libraryService.upsertAnime({
+          externalId: "tvdb-123",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "watching",
+            episodesWatched: 12,
+            totalEpisodes: 25,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        const preview = await service.getImportPreview();
+        expect(preview.matched).toHaveLength(1);
+
+        const result = await service.confirmImport();
+        expect(result.imported).toBe(1);
+
+        const groups = libraryService.getEpisodeGroupsByAnimeId(
+          preview.matched[0]?.existingAnimeId ?? 0,
+        );
+        expect(groups).toHaveLength(1);
+        expect(groups[0]?.watchStatus).toBe("watching");
+      } finally {
+        close();
+        evtSqlite.close();
+      }
+    });
+
+    it("clearCache resets cached tracker list and match results", async () => {
+      const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "watching",
+            episodesWatched: 12,
+            totalEpisodes: 25,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        await service.getImportPreview();
+        expect(tracker.getUserListCallCount).toBe(1);
+
+        service.clearCache();
+
+        await service.confirmImport();
+        expect(tracker.getUserListCallCount).toBe(2);
+      } finally {
+        close();
+        evtSqlite.close();
+      }
+    });
+
+    it("confirmImport without prior preview calls getUserList", async () => {
+      const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "watching",
+            episodesWatched: 12,
+            totalEpisodes: 25,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        const result = await service.confirmImport();
+        expect(result.imported).toBe(1);
+        expect(tracker.getUserListCallCount).toBe(1);
+      } finally {
+        close();
+        evtSqlite.close();
+      }
+    });
+
+    it("batch updates watch status for multiple matched entries", async () => {
+      const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const libraryService = new LibraryService(repo, evtRepo);
+
+        const anime1 = libraryService.upsertAnime({
+          externalId: "tvdb-123",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group1 = libraryService.upsertEpisodeGroup({
+          animeId: anime1.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        const anime2 = libraryService.upsertAnime({
+          externalId: "tvdb-456",
+          sourceDb: "tvdb",
+          title: "Death Note",
+          episodeCount: 37,
+        });
+
+        const group2 = libraryService.upsertEpisodeGroup({
+          animeId: anime2.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "completed",
+            episodesWatched: 25,
+            totalEpisodes: 25,
+          },
+          {
+            trackerId: "tl-2",
+            title: "Death Note",
+            entryType: "tv",
+            watchStatus: "completed",
+            episodesWatched: 37,
+            totalEpisodes: 37,
+          },
+        ]);
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        const result = await service.confirmImport();
+        expect(result.imported).toBe(2);
+
+        const updatedGroup1 = libraryService.getEpisodeGroup(group1.id);
+        expect(updatedGroup1?.watchStatus).toBe("completed");
+
+        const updatedGroup2 = libraryService.getEpisodeGroup(group2.id);
+        expect(updatedGroup2?.watchStatus).toBe("completed");
       } finally {
         close();
         evtSqlite.close();

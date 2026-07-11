@@ -413,6 +413,129 @@ describe("KitsuPlugin", () => {
       const list = await plugin.getUserList();
       expect(list[0]?.trackerId).toBe("12345");
     });
+
+    test("parallelizes pagination when links.last is present", async () => {
+      const userResponse = {
+        data: [{ id: "1", type: "users", attributes: { name: "u" } }],
+      };
+
+      const page1Entries = Array.from({ length: 500 }, (_, i) => ({
+        id: `e${i + 1}`,
+        type: "libraryEntries" as const,
+        attributes: { status: "current", progress: i, ratingTwenty: null },
+        relationships: { anime: { data: { type: "anime" as const, id: `a${i + 1}` } } },
+      }));
+
+      const page1Included = Array.from({ length: 500 }, (_, i) => ({
+        id: `a${i + 1}`,
+        type: "anime" as const,
+        attributes: { canonicalTitle: `Anime ${i + 1}`, subtype: "tv", episodeCount: 12 },
+      }));
+
+      const page1Response = {
+        data: page1Entries,
+        included: page1Included,
+        links: {
+          next: "https://kitsu.io/api/edge/users/1/library-entries?include=anime&page[limit]=500&page[offset]=500",
+          last: "https://kitsu.io/api/edge/users/1/library-entries?include=anime&page[limit]=500&page[offset]=1000",
+        },
+      };
+
+      const page2Response = {
+        data: [
+          {
+            id: "e501",
+            type: "libraryEntries",
+            attributes: { status: "completed", progress: 12, ratingTwenty: null },
+            relationships: { anime: { data: { type: "anime", id: "a501" } } },
+          },
+        ],
+        included: [
+          {
+            id: "a501",
+            type: "anime",
+            attributes: { canonicalTitle: "Anime 501", subtype: "tv", episodeCount: 24 },
+          },
+        ],
+      };
+
+      const page3Response = {
+        data: [
+          {
+            id: "e502",
+            type: "libraryEntries",
+            attributes: { status: "plan-to-watch", progress: 0, ratingTwenty: null },
+            relationships: { anime: { data: { type: "anime", id: "a502" } } },
+          },
+        ],
+        included: [
+          {
+            id: "a502",
+            type: "anime",
+            attributes: { canonicalTitle: "Anime 502", subtype: "movie", episodeCount: 1 },
+          },
+        ],
+      };
+
+      let requestCount = 0;
+      const fetch = async (url: string | URL, _init?: RequestInit) => {
+        const urlStr = toUrlString(url);
+        if (urlStr.includes("/oauth/token")) {
+          return new Response(JSON.stringify({ access_token: "t" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (urlStr.includes("filter[self]=true")) {
+          return new Response(JSON.stringify(userResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/vnd.api+json" },
+          });
+        }
+        if (urlStr.includes("library-entries")) {
+          requestCount++;
+          if (urlStr.includes("page%5Boffset%5D=0") || urlStr.includes("page[offset]=0")) {
+            return new Response(JSON.stringify(page1Response), {
+              status: 200,
+              headers: { "Content-Type": "application/vnd.api+json" },
+            });
+          }
+          if (urlStr.includes("page%5Boffset%5D=500") || urlStr.includes("page[offset]=500")) {
+            return new Response(JSON.stringify(page2Response), {
+              status: 200,
+              headers: { "Content-Type": "application/vnd.api+json" },
+            });
+          }
+          if (urlStr.includes("page%5Boffset%5D=1000") || urlStr.includes("page[offset]=1000")) {
+            return new Response(JSON.stringify(page3Response), {
+              status: 200,
+              headers: { "Content-Type": "application/vnd.api+json" },
+            });
+          }
+        }
+        return new Response(JSON.stringify({ data: [], included: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/vnd.api+json" },
+        });
+      };
+
+      const plugin = new KitsuPlugin({
+        baseUrl: BASE_URL,
+        oauthUrl: OAUTH_URL,
+        httpClient: createMockHttpClient(fetch),
+        username: "u",
+        password: "p",
+      });
+
+      await plugin.authenticate();
+      const list = await plugin.getUserList();
+
+      expect(list).toHaveLength(502);
+      expect(list[0]?.title).toBe("Anime 1");
+      expect(list[500]?.title).toBe("Anime 501");
+      expect(list[501]?.title).toBe("Anime 502");
+      expect(requestCount).toBe(3);
+    });
   });
 
   describe("getEntry", () => {

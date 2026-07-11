@@ -1,6 +1,13 @@
+import type { GroupTrackerMapping } from "../library/library-repository";
 import type { LibraryService } from "../library/library-service";
-import type { TrackerAnime, TrackerPlugin, TrackerWatchStatus } from "../types";
-import { extractSeasonNumber, findMatchingAnime, mapTrackerStatus } from "./tracker-utils";
+import type { EntryType, TrackerAnime, TrackerPlugin, TrackerWatchStatus } from "../types";
+import {
+  extractSeasonNumber,
+  findMatchingAnime,
+  type LocalWatchStatus,
+  mapTrackerStatus,
+  stripSeasonFromTitle,
+} from "./tracker-utils";
 
 export type TrackerSource = "mal" | "anilist" | "kitsu";
 
@@ -38,21 +45,79 @@ export interface ImportSelection {
   resolution?: "keepLocal" | "acceptTracker";
 }
 
+type AnimeToCreate = {
+  trackerIds: string[];
+  title: string;
+  alternativeTitles?: string[];
+  totalEpisodes: number;
+};
+
+type GroupToCreate = {
+  trackerId: string;
+  animeId: number;
+  entryType: EntryType;
+  seasonNumber: number | undefined;
+  watchStatus: LocalWatchStatus;
+};
+
+type StatusToUpdate = {
+  groupId: number;
+  watchStatus: LocalWatchStatus;
+};
+
+type ImportAccumulator = {
+  animeToCreate: AnimeToCreate[];
+  groupsToCreate: GroupToCreate[];
+  mappingsToCreate: GroupTrackerMapping[];
+  statusesToUpdate: StatusToUpdate[];
+  titleToAnimeIndex: Map<string, number>;
+  skipped: number;
+};
+
 export class TrackerImportService {
+  private cachedTrackerList: TrackerAnime[] | null = null;
+  private cachedMatchResults: Map<string, { id: number; title: string } | null> | null = null;
+
   constructor(
     private library: LibraryService,
     private tracker: TrackerPlugin,
     private source: TrackerSource,
   ) {}
 
+  clearCache(): void {
+    this.cachedTrackerList = null;
+    this.cachedMatchResults = null;
+  }
+
+  private findExistingAnime(
+    entry: TrackerAnime,
+    selection: ImportSelection | undefined,
+    matchResults: Map<string, { id: number; title: string } | null> | null,
+    libraryAnime: Array<{ id: number; title: string }>,
+  ): { id: number; title: string } | null {
+    if (selection?.groupId) {
+      const group = this.library.getEpisodeGroup(selection.groupId);
+      const anime = group ? this.library.getAnime(group.animeId) : null;
+      if (anime) return anime;
+    }
+
+    if (matchResults?.has(entry.trackerId)) {
+      return matchResults.get(entry.trackerId) ?? null;
+    }
+
+    return findMatchingAnime(entry, libraryAnime);
+  }
+
   async getImportPreview(): Promise<ImportPreview> {
     const trackerList = await this.tracker.getUserList();
+    this.cachedTrackerList = trackerList;
     const libraryAnime = this.library.listAnime();
 
     const matched: ImportPreviewEntry[] = [];
     const unmatched: ImportPreviewEntry[] = [];
     const conflicts: ImportPreviewEntry[] = [];
     const seenTrackerIds = new Set<string>();
+    this.cachedMatchResults = new Map();
 
     for (const entry of trackerList) {
       if (seenTrackerIds.has(entry.trackerId)) continue;
@@ -67,6 +132,7 @@ export class TrackerImportService {
       }
 
       const existingAnime = findMatchingAnime(entry, libraryAnime);
+      this.cachedMatchResults.set(entry.trackerId, existingAnime);
 
       const previewEntry: ImportPreviewEntry = {
         trackerId: entry.trackerId,
@@ -128,16 +194,26 @@ export class TrackerImportService {
   }
 
   async confirmImport(selections?: ImportSelection[]): Promise<ImportResult> {
-    const trackerList = await this.tracker.getUserList();
+    const trackerList = this.cachedTrackerList ?? (await this.tracker.getUserList());
+    this.cachedTrackerList = null;
+    const matchResults = this.cachedMatchResults;
+    this.cachedMatchResults = null;
+
     const selectionMap = new Map<string, ImportSelection>();
-    if (selections) {
-      for (const selection of selections) {
-        selectionMap.set(selection.trackerId, selection);
-      }
+    for (const selection of selections ?? []) {
+      selectionMap.set(selection.trackerId, selection);
     }
 
-    let imported = 0;
-    let skipped = 0;
+    const acc: ImportAccumulator = {
+      animeToCreate: [],
+      groupsToCreate: [],
+      mappingsToCreate: [],
+      statusesToUpdate: [],
+      titleToAnimeIndex: new Map(),
+      skipped: 0,
+    };
+
+    const libraryAnime = this.library.listAnime();
 
     for (const entry of trackerList) {
       const existingMapping = this.library.findGroupByTrackerExternalId(
@@ -145,52 +221,36 @@ export class TrackerImportService {
         entry.trackerId,
       );
       if (existingMapping) {
-        skipped++;
+        acc.skipped++;
         continue;
       }
 
       const selection = selectionMap.get(entry.trackerId);
-
-      let existingAnime: { id: number; title: string } | null = null;
-
-      if (selection?.groupId) {
-        const group = this.library.getEpisodeGroup(selection.groupId);
-        if (group) {
-          const anime = this.library.getAnime(group.animeId);
-          if (anime) {
-            existingAnime = anime;
-          }
-        }
-      }
-
-      if (!existingAnime) {
-        const libraryAnime = this.library.listAnime();
-        existingAnime = findMatchingAnime(entry, libraryAnime);
-      }
+      const existingAnime = this.findExistingAnime(entry, selection, matchResults, libraryAnime);
 
       if (existingAnime) {
-        this.importToExistingAnime(existingAnime, entry, selection);
+        this.processEntryForExistingAnime(entry, selection, existingAnime, acc);
       } else {
-        this.importAsNewAnime(entry);
+        this.processEntryForNewAnime(entry, acc);
       }
-
-      imported++;
     }
 
-    return { imported, skipped };
+    this.executeImportTransaction(acc);
+
+    return { imported: trackerList.length - acc.skipped, skipped: acc.skipped };
   }
 
-  private importToExistingAnime(
-    anime: { id: number; title: string },
-    trackerEntry: TrackerAnime,
-    selection?: ImportSelection,
+  private processEntryForExistingAnime(
+    entry: TrackerAnime,
+    selection: ImportSelection | undefined,
+    existingAnime: { id: number; title: string },
+    acc: ImportAccumulator,
   ): void {
-    const groups = this.library.getEpisodeGroupsByAnimeId(anime.id);
-    const seasonNumber = extractSeasonNumber(trackerEntry);
+    const groups = this.library.getEpisodeGroupsByAnimeId(existingAnime.id);
+    const seasonNumber = extractSeasonNumber(entry);
 
     let targetGroup = groups.find(
-      (g) =>
-        g.entryType === trackerEntry.entryType && (g.seasonNumber ?? 1) === (seasonNumber ?? 1),
+      (g) => g.entryType === entry.entryType && (g.seasonNumber ?? 1) === (seasonNumber ?? 1),
     );
 
     if (selection?.groupId) {
@@ -201,51 +261,114 @@ export class TrackerImportService {
     }
 
     if (!targetGroup) {
-      targetGroup = this.library.upsertEpisodeGroup({
-        animeId: anime.id,
-        entryType: trackerEntry.entryType,
+      acc.groupsToCreate.push({
+        trackerId: entry.trackerId,
+        animeId: existingAnime.id,
+        entryType: entry.entryType,
         seasonNumber,
-        watchStatus: mapTrackerStatus(trackerEntry.watchStatus),
+        watchStatus: mapTrackerStatus(entry.watchStatus),
       });
     } else {
-      const resolution = selection?.resolution;
-      if (resolution !== "keepLocal") {
-        this.library.setGroupWatchStatus(
-          targetGroup.id,
-          mapTrackerStatus(trackerEntry.watchStatus),
-        );
+      if (selection?.resolution !== "keepLocal") {
+        acc.statusesToUpdate.push({
+          groupId: targetGroup.id,
+          watchStatus: mapTrackerStatus(entry.watchStatus),
+        });
       }
+      acc.mappingsToCreate.push({
+        groupId: targetGroup.id,
+        source: this.source,
+        externalId: entry.trackerId,
+      });
+    }
+  }
+
+  private processEntryForNewAnime(entry: TrackerAnime, acc: ImportAccumulator): void {
+    const baseTitle = stripSeasonFromTitle(entry.title.toLowerCase());
+
+    const existingIndex = acc.titleToAnimeIndex.get(baseTitle);
+    const newIndex = existingIndex ?? acc.animeToCreate.length;
+
+    if (existingIndex === undefined) {
+      acc.titleToAnimeIndex.set(baseTitle, newIndex);
+      acc.animeToCreate.push({
+        trackerIds: [entry.trackerId],
+        title: entry.title,
+        alternativeTitles: entry.alternativeTitles,
+        totalEpisodes: entry.totalEpisodes,
+      });
+    } else {
+      acc.animeToCreate[newIndex]?.trackerIds.push(entry.trackerId);
     }
 
-    this.library.upsertGroupTrackerMapping({
-      groupId: targetGroup.id,
-      source: this.source,
-      externalId: trackerEntry.trackerId,
+    acc.groupsToCreate.push({
+      trackerId: entry.trackerId,
+      animeId: -(newIndex + 1),
+      entryType: entry.entryType,
+      seasonNumber: extractSeasonNumber(entry),
+      watchStatus: mapTrackerStatus(entry.watchStatus),
     });
   }
 
-  private importAsNewAnime(trackerEntry: TrackerAnime): void {
-    const anime = this.library.upsertAnime({
-      externalId: `tracker-${trackerEntry.trackerId}`,
-      sourceDb: this.source,
-      title: trackerEntry.title,
-      alternativeTitles: trackerEntry.alternativeTitles,
-      episodeCount: trackerEntry.totalEpisodes,
-    });
+  private executeImportTransaction(acc: ImportAccumulator): void {
+    this.library.transaction((tx) => {
+      if (acc.animeToCreate.length > 0) {
+        const createdAnime = tx.upsertAnimeBatch(
+          acc.animeToCreate.map((item) => ({
+            externalId: `tracker-${item.trackerIds[0]}`,
+            sourceDb: this.source,
+            title: item.title,
+            alternativeTitles: item.alternativeTitles,
+            episodeCount: item.totalEpisodes,
+          })),
+        );
 
-    const seasonNumber = extractSeasonNumber(trackerEntry);
+        const animeIndexToId = new Map<number, number>();
+        for (let i = 0; i < createdAnime.length; i++) {
+          const anime = createdAnime[i];
+          if (anime) {
+            animeIndexToId.set(i, anime.id);
+          }
+        }
 
-    const group = this.library.upsertEpisodeGroup({
-      animeId: anime.id,
-      entryType: trackerEntry.entryType,
-      seasonNumber,
-      watchStatus: mapTrackerStatus(trackerEntry.watchStatus),
-    });
+        for (const group of acc.groupsToCreate) {
+          if (group.animeId < 0) {
+            const index = -(group.animeId + 1);
+            group.animeId = animeIndexToId.get(index) ?? group.animeId;
+          }
+        }
+      }
 
-    this.library.upsertGroupTrackerMapping({
-      groupId: group.id,
-      source: this.source,
-      externalId: trackerEntry.trackerId,
+      if (acc.groupsToCreate.length > 0) {
+        const createdGroups = tx.upsertEpisodeGroupBatch(
+          acc.groupsToCreate.map((item) => ({
+            animeId: item.animeId,
+            entryType: item.entryType,
+            seasonNumber: item.seasonNumber,
+            watchStatus: item.watchStatus,
+          })),
+        );
+
+        for (let i = 0; i < createdGroups.length; i++) {
+          const item = acc.groupsToCreate[i];
+          const group = createdGroups[i];
+          if (item && group) {
+            acc.mappingsToCreate.push({
+              groupId: group.id,
+              source: this.source,
+              externalId: item.trackerId,
+            });
+          }
+        }
+      }
+
+      if (acc.statusesToUpdate.length > 0) {
+        tx.updateEpisodeGroupStatusBatch(acc.statusesToUpdate);
+      }
+
+      if (acc.mappingsToCreate.length > 0) {
+        tx.upsertGroupTrackerMappingBatch(acc.mappingsToCreate);
+      }
     });
   }
 }

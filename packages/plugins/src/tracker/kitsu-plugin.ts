@@ -293,28 +293,69 @@ export class KitsuPlugin implements TrackerPlugin {
 
     const userId = String(userData.id);
     const limit = 500;
-    let offset = 0;
     const allEntries = new Map<string, KitsuJsonApiData>();
     const animeById = new Map<string, KitsuJsonApiData>();
 
-    while (true) {
-      const libraryResponse = await this.authenticatedGet(
-        `/users/${userId}/library-entries?include=anime&page[limit]=${limit}&page[offset]=${offset}`,
-      );
+    const firstPageResponse = await this.authenticatedGet(
+      `/users/${userId}/library-entries?include=anime&page[limit]=${limit}&page[offset]=0`,
+    );
 
-      const entries = Array.isArray(libraryResponse.data) ? libraryResponse.data : [];
+    function collectPageEntries(response: KitsuJsonApiResponse): void {
+      const entries = Array.isArray(response.data) ? response.data : [];
       for (const entry of entries) {
         allEntries.set(String(entry.id), entry);
       }
-
-      for (const item of libraryResponse.included ?? []) {
+      for (const item of response.included ?? []) {
         if (item.type === "anime") {
           animeById.set(String(item.id), item);
         }
       }
+    }
 
-      if (!libraryResponse.links?.next) break;
-      offset += limit;
+    collectPageEntries(firstPageResponse);
+    const firstPageCount = Array.isArray(firstPageResponse.data)
+      ? firstPageResponse.data.length
+      : 0;
+
+    const lastUrl = firstPageResponse.links?.last;
+    if (lastUrl && firstPageCount === limit) {
+      const lastUrlObj = new URL(lastUrl);
+      const lastOffset = Number.parseInt(lastUrlObj.searchParams.get("page[offset]") ?? "0", 10);
+      const totalPages = Math.ceil((lastOffset + limit) / limit);
+
+      const remainingPageRequests: Promise<KitsuJsonApiResponse>[] = [];
+      for (let i = 1; i < totalPages; i++) {
+        const pageOffset = i * limit;
+        remainingPageRequests.push(
+          this.authenticatedGet(
+            `/users/${userId}/library-entries?include=anime&page[limit]=${limit}&page[offset]=${pageOffset}`,
+          ),
+        );
+      }
+
+      const concurrencyLimit = 5;
+      const remainingPages: KitsuJsonApiResponse[] = [];
+      for (let i = 0; i < remainingPageRequests.length; i += concurrencyLimit) {
+        const batch = remainingPageRequests.slice(i, i + concurrencyLimit);
+        const batchResults = await Promise.all(batch);
+        remainingPages.push(...batchResults);
+      }
+
+      for (const pageResponse of remainingPages) {
+        collectPageEntries(pageResponse);
+      }
+    } else if (firstPageResponse.links?.next) {
+      let offset = limit;
+      while (true) {
+        const libraryResponse = await this.authenticatedGet(
+          `/users/${userId}/library-entries?include=anime&page[limit]=${limit}&page[offset]=${offset}`,
+        );
+
+        collectPageEntries(libraryResponse);
+
+        if (!libraryResponse.links?.next) break;
+        offset += limit;
+      }
     }
 
     return [...allEntries.values()].map((entry): TrackerAnime => {

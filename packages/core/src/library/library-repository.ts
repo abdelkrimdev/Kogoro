@@ -575,6 +575,20 @@ export class LibraryRepository {
     return this.getEpisodeGroup(groupId);
   }
 
+  updateEpisodeGroupStatusBatch(
+    updates: Array<{ groupId: number; watchStatus: EpisodeGroup["watchStatus"] }>,
+  ): void {
+    if (updates.length === 0) return;
+
+    for (const update of updates) {
+      this.db
+        .update(episodeGroups)
+        .set({ watchStatus: update.watchStatus })
+        .where(eq(episodeGroups.id, update.groupId))
+        .run();
+    }
+  }
+
   updateEpisodeGroupMetadata(
     groupId: number,
     metadata: { synopsis?: string; rating?: number; coverArtPath?: string },
@@ -667,6 +681,102 @@ export class LibraryRepository {
       .where(
         and(eq(groupTrackerMappings.groupId, groupId), eq(groupTrackerMappings.source, source)),
       )
+      .run();
+  }
+
+  upsertAnimeBatch(
+    items: Array<Omit<LibraryAnime, "id" | "lastSynced"> & { lastSynced?: string }>,
+  ): LibraryAnime[] {
+    if (items.length === 0) return [];
+    const now = new Date().toISOString();
+
+    const rows = this.db
+      .insert(anime)
+      .values(
+        items.map((item) => ({
+          externalId: item.externalId,
+          sourceDb: item.sourceDb,
+          title: item.title,
+          alternativeTitles: item.alternativeTitles ?? null,
+          episodeCount: item.episodeCount,
+          coverArtPath: item.coverArtPath ?? null,
+          genres: item.genres ?? null,
+          libraryState: item.libraryState ?? "not_on_disk",
+          lastSynced: item.lastSynced ?? now,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [anime.externalId, anime.sourceDb],
+        set: {
+          title: sql.raw("excluded.title"),
+          alternativeTitles: sql.raw("excluded.alternative_titles"),
+          episodeCount: sql.raw("excluded.episode_count"),
+          coverArtPath: sql.raw("excluded.cover_art_path"),
+          genres: sql.raw("excluded.genres"),
+          libraryState: sql.raw("excluded.library_state"),
+          lastSynced: sql.raw("excluded.last_synced"),
+        },
+      })
+      .returning()
+      .all();
+
+    return rows.map(this.rowToAnime);
+  }
+
+  upsertEpisodeGroupBatch(
+    items: Array<Omit<EpisodeGroup, "id" | "lastSynced"> & { lastSynced?: string }>,
+  ): EpisodeGroup[] {
+    if (items.length === 0) return [];
+    const now = new Date().toISOString();
+
+    const rows = this.db
+      .insert(episodeGroups)
+      .values(
+        items.map((item) => ({
+          animeId: item.animeId,
+          entryType: item.entryType,
+          seasonNumber: item.seasonNumber ?? null,
+          watchStatus: item.watchStatus,
+          synopsis: item.synopsis ?? null,
+          rating: item.rating ?? null,
+          coverArtPath: item.coverArtPath ?? null,
+          lastSynced: item.lastSynced ?? now,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [episodeGroups.animeId, episodeGroups.entryType, episodeGroups.seasonNumber],
+        set: {
+          watchStatus: sql.raw("excluded.watch_status"),
+          synopsis: sql.raw("excluded.synopsis"),
+          rating: sql.raw("excluded.rating"),
+          coverArtPath: sql.raw("excluded.cover_art_path"),
+          lastSynced: sql.raw("excluded.last_synced"),
+        },
+      })
+      .returning()
+      .all();
+
+    return rows.map(this.rowToEpisodeGroup);
+  }
+
+  upsertGroupTrackerMappingBatch(items: GroupTrackerMapping[]): void {
+    if (items.length === 0) return;
+
+    this.db
+      .insert(groupTrackerMappings)
+      .values(
+        items.map((item) => ({
+          groupId: item.groupId,
+          source: item.source,
+          externalId: item.externalId,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [groupTrackerMappings.source, groupTrackerMappings.externalId],
+        set: {
+          groupId: sql.raw("excluded.group_id"),
+        },
+      })
       .run();
   }
 

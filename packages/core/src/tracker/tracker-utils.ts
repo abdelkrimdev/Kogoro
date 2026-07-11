@@ -29,7 +29,7 @@ export function mapLocalStatusToTracker(status: string): TrackerWatchStatus {
   }
 }
 
-function stripSeasonFromTitle(title: string): string {
+export function stripSeasonFromTitle(title: string): string {
   return title.replace(/\s+season\s+\d+/i, "").trim();
 }
 

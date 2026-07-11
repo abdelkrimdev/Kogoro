@@ -733,6 +733,28 @@ export class LibraryService {
     this.library.upsertGroupTrackerMapping(mapping);
   }
 
+  upsertAnimeBatch(
+    items: Array<Omit<LibraryAnime, "id" | "lastSynced"> & { lastSynced?: string }>,
+  ): LibraryAnime[] {
+    return this.library.upsertAnimeBatch(items);
+  }
+
+  upsertEpisodeGroupBatch(
+    items: Array<Omit<EpisodeGroup, "id" | "lastSynced"> & { lastSynced?: string }>,
+  ): EpisodeGroup[] {
+    return this.library.upsertEpisodeGroupBatch(items);
+  }
+
+  upsertGroupTrackerMappingBatch(items: GroupTrackerMapping[]): void {
+    this.library.upsertGroupTrackerMappingBatch(items);
+  }
+
+  updateEpisodeGroupStatusBatch(
+    updates: Array<{ groupId: number; watchStatus: EpisodeGroup["watchStatus"] }>,
+  ): void {
+    this.library.updateEpisodeGroupStatusBatch(updates);
+  }
+
   findGroupByTrackerExternalId(source: string, externalId: string): { groupId: number } | null {
     return this.library.findGroupByTrackerExternalId(source, externalId);
   }
@@ -747,6 +769,10 @@ export class LibraryService {
 
   removeTrackerMapping(groupId: number, source: string): void {
     this.library.removeTrackerMapping(groupId, source);
+  }
+
+  transaction<T>(fn: (repo: LibraryRepository) => T): T {
+    return this.library.transaction(fn);
   }
 
   // Watched status

@@ -227,5 +227,66 @@ describe("TrackerImportHandlers", () => {
         close();
       }
     });
+
+    it("reuses cached tracker list from preview to confirm", async () => {
+      const factory = createTestFactory({
+        "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
+      });
+      const { repo, close } = createLibraryRepository();
+      const { repo: evtRepo, close: closeEvt } = createEventRepository();
+      try {
+        const libraryService = new LibraryService(repo, evtRepo);
+
+        const listData = {
+          data: {
+            MediaListCollection: {
+              lists: [
+                {
+                  entries: [
+                    {
+                      mediaId: 1001,
+                      status: "COMPLETED",
+                      score: 0,
+                      progress: 25,
+                      media: {
+                        title: { romaji: "Death Note", english: "Death Note", native: null },
+                        coverImage: { large: null },
+                        startDate: { year: 2006 },
+                        format: "TV",
+                        episodes: 37,
+                        synonyms: [],
+                        relations: { edges: [] },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        };
+
+        await withMockFetch(mockAnilistFetch(listData) as unknown as typeof fetch, async () => {
+          const handlers = createTrackerImportHandlers({
+            libraryService,
+            pluginFactory: factory,
+          });
+
+          const preview = await handlers.getImportPreview({ trackerName: "anilist" });
+          expect(preview.error).toBeUndefined();
+          expect(preview.preview?.totalEntries).toBe(1);
+
+          const result = await handlers.confirmImport({ trackerName: "anilist" });
+          expect(result.error).toBeUndefined();
+          expect(result.result?.imported).toBe(1);
+
+          const anime = libraryService.listAnime();
+          expect(anime).toHaveLength(1);
+          expect(anime[0]?.title).toBe("Death Note");
+        });
+      } finally {
+        closeEvt();
+        close();
+      }
+    });
   });
 });

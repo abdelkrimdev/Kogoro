@@ -1616,4 +1616,304 @@ describe("LibraryRepository", () => {
       }
     });
   });
+
+  describe("upsertAnimeBatch", () => {
+    test("creates multiple anime and returns them with generated ids", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const animeList = repo.upsertAnimeBatch([
+          {
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            alternativeTitles: ["呪術廻戦"],
+            episodeCount: 24,
+          },
+          {
+            externalId: "tvdb-67890",
+            sourceDb: "tvdb",
+            title: "Attack on Titan",
+            episodeCount: 87,
+          },
+        ]);
+
+        expect(animeList).toHaveLength(2);
+        expect(animeList[0]?.id).toBeGreaterThan(0);
+        expect(animeList[0]?.title).toBe("Jujutsu Kaisen");
+        expect(animeList[1]?.id).toBeGreaterThan(0);
+        expect(animeList[1]?.title).toBe("Attack on Titan");
+        expect(animeList[0]?.id).not.toBe(animeList[1]?.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("updates existing anime with same externalId and sourceDb", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const first = repo.upsertAnimeBatch([
+          {
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            episodeCount: 24,
+          },
+        ]);
+
+        const second = repo.upsertAnimeBatch([
+          {
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen Season 2",
+            episodeCount: 48,
+          },
+        ]);
+
+        expect(second[0]?.id).toBe(first[0]?.id);
+        expect(second[0]?.title).toBe("Jujutsu Kaisen Season 2");
+        expect(second[0]?.episodeCount).toBe(48);
+        expect(repo.listAnime()).toHaveLength(1);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("returns empty array for empty input", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const result = repo.upsertAnimeBatch([]);
+        expect(result).toEqual([]);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("preserves insertion order in returned array", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const result = repo.upsertAnimeBatch([
+          {
+            externalId: "tvdb-1",
+            sourceDb: "tvdb",
+            title: "First",
+            episodeCount: 1,
+          },
+          {
+            externalId: "tvdb-2",
+            sourceDb: "tvdb",
+            title: "Second",
+            episodeCount: 2,
+          },
+          {
+            externalId: "tvdb-3",
+            sourceDb: "tvdb",
+            title: "Third",
+            episodeCount: 3,
+          },
+        ]);
+
+        expect(result[0]?.title).toBe("First");
+        expect(result[1]?.title).toBe("Second");
+        expect(result[2]?.title).toBe("Third");
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("upsertEpisodeGroupBatch", () => {
+    test("creates multiple episode groups and returns them with generated ids", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const groups = repo.upsertEpisodeGroupBatch([
+          {
+            animeId: anime.id,
+            entryType: "tv",
+            seasonNumber: 1,
+            watchStatus: "watching",
+          },
+          {
+            animeId: anime.id,
+            entryType: "tv",
+            seasonNumber: 2,
+            watchStatus: "plan_to_watch",
+          },
+        ]);
+
+        expect(groups).toHaveLength(2);
+        expect(groups[0]?.id).toBeGreaterThan(0);
+        expect(groups[0]?.seasonNumber).toBe(1);
+        expect(groups[0]?.watchStatus).toBe("watching");
+        expect(groups[1]?.id).toBeGreaterThan(0);
+        expect(groups[1]?.seasonNumber).toBe(2);
+        expect(groups[1]?.watchStatus).toBe("plan_to_watch");
+        expect(groups[0]?.id).not.toBe(groups[1]?.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("updates existing group with same animeId, entryType, and seasonNumber", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const first = repo.upsertEpisodeGroupBatch([
+          {
+            animeId: anime.id,
+            entryType: "tv",
+            seasonNumber: 1,
+            watchStatus: "watching",
+          },
+        ]);
+
+        const second = repo.upsertEpisodeGroupBatch([
+          {
+            animeId: anime.id,
+            entryType: "tv",
+            seasonNumber: 1,
+            watchStatus: "completed",
+          },
+        ]);
+
+        expect(second[0]?.id).toBe(first[0]?.id);
+        expect(second[0]?.watchStatus).toBe("completed");
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("returns empty array for empty input", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const result = repo.upsertEpisodeGroupBatch([]);
+        expect(result).toEqual([]);
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("upsertGroupTrackerMappingBatch", () => {
+    test("creates multiple tracker mappings", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        repo.upsertGroupTrackerMappingBatch([
+          {
+            groupId: group.id,
+            source: "kitsu",
+            externalId: "kitsu-123",
+          },
+          {
+            groupId: group.id,
+            source: "mal",
+            externalId: "mal-456",
+          },
+        ]);
+
+        const mapping1 = repo.findGroupByTrackerExternalId("kitsu", "kitsu-123");
+        const mapping2 = repo.findGroupByTrackerExternalId("mal", "mal-456");
+        expect(mapping1).not.toBeNull();
+        expect(mapping1?.groupId).toBe(group.id);
+        expect(mapping2).not.toBeNull();
+        expect(mapping2?.groupId).toBe(group.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("updates existing mapping with same source and externalId", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const group1 = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        const group2 = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 2,
+          watchStatus: "plan_to_watch",
+        });
+
+        repo.upsertGroupTrackerMappingBatch([
+          {
+            groupId: group1.id,
+            source: "kitsu",
+            externalId: "kitsu-123",
+          },
+        ]);
+
+        repo.upsertGroupTrackerMappingBatch([
+          {
+            groupId: group2.id,
+            source: "kitsu",
+            externalId: "kitsu-123",
+          },
+        ]);
+
+        const mapping = repo.findGroupByTrackerExternalId("kitsu", "kitsu-123");
+        expect(mapping).not.toBeNull();
+        expect(mapping?.groupId).toBe(group2.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("does nothing for empty input", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        repo.upsertGroupTrackerMappingBatch([]);
+        expect(repo.findGroupByTrackerExternalId("kitsu", "nonexistent")).toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
 });
