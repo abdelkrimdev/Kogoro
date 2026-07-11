@@ -297,7 +297,7 @@ export class KitsuPlugin implements TrackerPlugin {
     const animeById = new Map<string, KitsuJsonApiData>();
 
     const firstPageResponse = await this.authenticatedGet(
-      `/users/${userId}/library-entries?include=anime&page[limit]=${limit}&page[offset]=0`,
+      `/users/${userId}/library-entries?filter[kind]=anime&include=anime&page[limit]=${limit}&page[offset]=0`,
     );
 
     function collectPageEntries(response: KitsuJsonApiResponse): void {
@@ -328,7 +328,7 @@ export class KitsuPlugin implements TrackerPlugin {
         const pageOffset = i * limit;
         remainingPageRequests.push(
           this.authenticatedGet(
-            `/users/${userId}/library-entries?include=anime&page[limit]=${limit}&page[offset]=${pageOffset}`,
+            `/users/${userId}/library-entries?filter[kind]=anime&include=anime&page[limit]=${limit}&page[offset]=${pageOffset}`,
           ),
         );
       }
@@ -348,7 +348,7 @@ export class KitsuPlugin implements TrackerPlugin {
       let offset = limit;
       while (true) {
         const libraryResponse = await this.authenticatedGet(
-          `/users/${userId}/library-entries?include=anime&page[limit]=${limit}&page[offset]=${offset}`,
+          `/users/${userId}/library-entries?filter[kind]=anime&include=anime&page[limit]=${limit}&page[offset]=${offset}`,
         );
 
         collectPageEntries(libraryResponse);
