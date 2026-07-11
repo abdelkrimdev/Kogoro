@@ -273,7 +273,7 @@ describe("createImportPreviewState", () => {
       expect(snap(state).conflictSelections.size).toBe(1);
     });
 
-    it("does not overwrite existing resolutions", async () => {
+    it("resolves all conflicts with the given resolution", async () => {
       const rpc = createMockRPC({
         getImportPreview: makePreviewResponse(),
       });
@@ -283,7 +283,78 @@ describe("createImportPreviewState", () => {
       state.resolveConflict("tl-3", "acceptTracker");
       state.bulkResolveConflicts("keepLocal");
 
+      expect(snap(state).conflictSelections.get("tl-3")).toBe("keepLocal");
+    });
+
+    it("sets bulkMode after bulk resolve", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
+      });
+      const state = createImportPreviewState(() => rpc);
+      await state.loadPreview("anilist");
+
+      state.bulkResolveConflicts("keepLocal");
+
+      expect(snap(state).bulkMode).toBe("keepLocal");
+    });
+
+    it("clears selections and bulkMode when toggling the same resolution", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
+      });
+      const state = createImportPreviewState(() => rpc);
+      await state.loadPreview("anilist");
+
+      state.bulkResolveConflicts("keepLocal");
+      expect(snap(state).conflictSelections.size).toBe(1);
+      expect(snap(state).bulkMode).toBe("keepLocal");
+
+      state.bulkResolveConflicts("keepLocal");
+      expect(snap(state).conflictSelections.size).toBe(0);
+      expect(snap(state).bulkMode).toBeNull();
+    });
+
+    it("switches bulkMode when toggling to a different resolution", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
+      });
+      const state = createImportPreviewState(() => rpc);
+      await state.loadPreview("anilist");
+
+      state.bulkResolveConflicts("keepLocal");
+      expect(snap(state).bulkMode).toBe("keepLocal");
+
+      state.bulkResolveConflicts("acceptTracker");
+      expect(snap(state).bulkMode).toBe("acceptTracker");
       expect(snap(state).conflictSelections.get("tl-3")).toBe("acceptTracker");
+    });
+
+    it("clears bulkMode on reset", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
+      });
+      const state = createImportPreviewState(() => rpc);
+      await state.loadPreview("anilist");
+
+      state.bulkResolveConflicts("keepLocal");
+      expect(snap(state).bulkMode).toBe("keepLocal");
+
+      state.reset();
+      expect(snap(state).bulkMode).toBeNull();
+    });
+
+    it("clears bulkMode on reload", async () => {
+      const rpc = createMockRPC({
+        getImportPreview: makePreviewResponse(),
+      });
+      const state = createImportPreviewState(() => rpc);
+      await state.loadPreview("anilist");
+
+      state.bulkResolveConflicts("keepLocal");
+      expect(snap(state).bulkMode).toBe("keepLocal");
+
+      await state.loadPreview("anilist");
+      expect(snap(state).bulkMode).toBeNull();
     });
   });
 

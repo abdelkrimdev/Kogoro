@@ -2,9 +2,9 @@
   import {
     LoaderCircle,
     Check,
-    AlertTriangle,
     CheckCircle2,
   } from "@lucide/svelte";
+  import { Tabs } from "@skeletonlabs/skeleton-svelte";
   import type { ImportPreviewEntry, ImportResult } from "@kogoro/core";
   import type { RPCClient } from "../shared";
   import { entryTypeLabel } from "../shared";
@@ -14,6 +14,7 @@
     type PreviewSummary,
     type TabId,
     type ImportPhase,
+    type BulkMode,
   } from "../state/import-preview-state";
 
   interface Props {
@@ -37,6 +38,7 @@
   let activeTab = $state<TabId>("matched");
   let importPhase = $state<ImportPhase>("preview");
   let conflictSelections = $state<Map<string, "keepLocal" | "acceptTracker">>(new Map());
+  let bulkMode = $state<BulkMode>(null);
   let result = $state<ImportResult | null>(null);
 
   const resolvedCount = $derived(
@@ -67,6 +69,7 @@
     activeTab = s.activeTab;
     importPhase = s.importPhase;
     conflictSelections = s.conflictSelections;
+    bulkMode = s.bulkMode;
     result = s.result;
   }
 
@@ -104,15 +107,38 @@
     }
   }
 
-  function tabClass(tab: TabId): string {
-    return `btn btn-sm rounded-lg font-medium ${activeTab === tab ? "preset-tonal-primary" : "preset-tonal-surface"}`;
-  }
+  const DONUT_CIRCUMFERENCE = 2 * Math.PI * 15;
+  const donutOffset = $derived(DONUT_CIRCUMFERENCE - (DONUT_CIRCUMFERENCE * resolvedCount / conflicts.length));
 
-  function conflictButtonClass(resolution: "keepLocal" | "acceptTracker", entryId: string): string {
-    const isSelected = conflictSelections.get(entryId) === resolution;
-    return `btn btn-sm rounded-lg text-xs ${isSelected ? "preset-filled-primary-500" : "preset-tonal-surface"}`;
+  function conflictOptionClass(
+    selection: "keepLocal" | "acceptTracker" | undefined,
+    activeResolution: "keepLocal" | "acceptTracker",
+  ): string {
+    if (selection === activeResolution) {
+      return activeResolution === "keepLocal"
+        ? "bg-surface-100-900"
+        : "bg-primary-500-400/10";
+    }
+    if (selection !== undefined) {
+      return "bg-surface-50-950 opacity-40 hover:opacity-60";
+    }
+    return "bg-surface-50-950 hover:bg-surface-100-900";
   }
 </script>
+
+{#snippet entryCard(entry: ImportPreviewEntry)}
+  <div class="card preset-outlined-surface-300-700 px-4 py-3">
+    <div class="flex items-center gap-2 mb-1.5">
+      <span class="font-medium text-sm text-surface-950-50 truncate">{entry.title}</span>
+      <div class="flex-1"></div>
+      <span class="text-xs text-surface-600-400 shrink-0">{entry.episodesWatched}/{entry.totalEpisodes} ep</span>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <span class="badge preset-tonal-{statusPreset(entry.watchStatus)} text-xs">{watchStatusLabel(entry.watchStatus)}</span>
+      <span class="badge preset-tonal-surface text-xs">{entryTypeLabel(entry.entryType)}</span>
+    </div>
+  </div>
+{/snippet}
 
 <div class="h-full flex flex-col">
   <div class="px-4 pt-4 pb-3 border-b border-surface-300-700 bg-surface-200-800/50">
@@ -179,48 +205,24 @@
     </div>
   {/if}
 
-  <div class="px-4 py-2 border-b border-surface-300-700">
-    <div class="flex gap-1">
-      <button
-        type="button"
-        class={tabClass("matched")}
-        onclick={() => importState.setActiveTab("matched")}
-      >
-        Matched
-      </button>
-      <button
-        type="button"
-        class={tabClass("new")}
-        onclick={() => importState.setActiveTab("new")}
-      >
-        New ({preview?.unmatchedCount ?? 0})
-      </button>
-      <button
-        type="button"
-        class={tabClass("conflicts")}
-        onclick={() => importState.setActiveTab("conflicts")}
-      >
-        Conflicts ({preview?.conflictCount ?? 0})
-      </button>
-    </div>
-  </div>
-
-  <div class="flex-1 overflow-auto p-4 space-y-4">
-    {#if loading}
-      <div class="flex items-center justify-center h-full">
-        <div class="text-center space-y-3">
-          <LoaderCircle class="size-8 animate-spin text-primary-500-400 mx-auto" />
-          <p class="text-surface-600-400 text-sm">Loading preview...</p>
-        </div>
+  {#if loading}
+    <div class="flex-1 flex items-center justify-center p-4">
+      <div class="text-center space-y-3">
+        <LoaderCircle class="size-8 animate-spin text-primary-500-400 mx-auto" />
+        <p class="text-surface-600-400 text-sm">Loading preview...</p>
       </div>
-    {:else if error}
+    </div>
+  {:else if error}
+    <div class="flex-1 flex items-center justify-center p-4">
       <div class="card preset-tonal-error p-4 text-center">
         <p class="text-sm text-error-500-400">{error}</p>
         <button type="button" class="btn preset-tonal-surface mt-3 rounded-lg text-sm" onclick={onCancel}>
           Go Back
         </button>
       </div>
-    {:else if importPhase === "success" && result}
+    </div>
+  {:else if importPhase === "success" && result}
+    <div class="flex-1 flex items-center justify-center p-4">
       <div class="card preset-outlined-surface-300-700 p-8 text-center">
         <CheckCircle2 class="size-12 text-success-500-400 mx-auto mb-4" />
         <h3 class="text-xl font-bold text-surface-950-50 mb-2">Import Complete</h3>
@@ -234,132 +236,134 @@
           Go to Library
         </button>
       </div>
-    {:else if preview}
-      {#if activeTab === "matched"}
+    </div>
+  {:else if preview}
+    <Tabs value={activeTab} onValueChange={(d) => importState.setActiveTab(d.value as TabId)} class="flex flex-col flex-1 min-h-0">
+      <Tabs.List class="px-4 pt-2 border-b border-surface-300-700">
+        <Tabs.Trigger value="matched">Matched</Tabs.Trigger>
+        <Tabs.Trigger value="new">New ({preview?.unmatchedCount ?? 0})</Tabs.Trigger>
+        <Tabs.Trigger value="conflicts">Conflicts ({preview?.conflictCount ?? 0})</Tabs.Trigger>
+        <Tabs.Indicator />
+      </Tabs.List>
+
+      <Tabs.Content value="matched" class="flex-1 overflow-auto p-4">
         {#if matched.length === 0}
           <div class="text-center text-surface-600-400 py-8">
             No matched entries
           </div>
         {:else}
-          <div class="divide-y divide-surface-300-700">
+          <div class="space-y-2">
             {#each matched as entry (entry.trackerId)}
-              <div class="flex items-center gap-3 px-3 py-2.5">
-                <div class="flex-1 min-w-0">
-                  <span class="font-medium text-sm text-surface-950-50 truncate block">{entry.title}</span>
-                  <p class="text-xs text-surface-600-400 mt-0.5">
-                    {entry.episodesWatched}/{entry.totalEpisodes} episodes · {watchStatusLabel(entry.watchStatus)}
-                  </p>
-                </div>
-                <span class="badge preset-tonal-surface text-xs">{entryTypeLabel(entry.entryType)}</span>
-                <Check class="size-4 text-success-500-400 shrink-0" />
-              </div>
+              {@render entryCard(entry)}
             {/each}
           </div>
         {/if}
+      </Tabs.Content>
 
-      {:else if activeTab === "new"}
+      <Tabs.Content value="new" class="flex-1 overflow-auto p-4">
         {#if unmatched.length === 0}
           <div class="text-center text-surface-600-400 py-8">
             No new entries to import
           </div>
         {:else}
-          <div class="divide-y divide-surface-300-700">
+          <div class="space-y-2">
             {#each unmatched as entry (entry.trackerId)}
-              <div class="flex items-center gap-3 px-3 py-2.5">
-                <div class="flex-1 min-w-0">
-                  <span class="text-sm text-surface-950-50 truncate block">{entry.title}</span>
-                  <p class="text-xs text-surface-600-400 mt-0.5">
-                    {entry.episodesWatched}/{entry.totalEpisodes} episodes · {watchStatusLabel(entry.watchStatus)}
-                  </p>
-                </div>
-                <span class="badge preset-tonal-surface text-xs">{entryTypeLabel(entry.entryType)}</span>
-              </div>
+              {@render entryCard(entry)}
             {/each}
           </div>
         {/if}
+      </Tabs.Content>
 
-      {:else if activeTab === "conflicts"}
+      <Tabs.Content value="conflicts" class="flex-1 overflow-auto p-4">
         {#if conflicts.length === 0}
           <div class="text-center text-surface-600-400 py-8">
             No conflicts
           </div>
         {:else}
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex gap-2">
-              <button
-                type="button"
-                class="btn btn-sm preset-tonal-surface rounded-lg font-medium"
-                onclick={() => importState.bulkResolveConflicts("acceptTracker")}
-              >
-                Accept All Tracker
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm preset-tonal-surface rounded-lg font-medium"
-                onclick={() => importState.bulkResolveConflicts("keepLocal")}
-              >
-                Keep All Local
-              </button>
-            </div>
-            <span class="text-sm text-surface-600-400">
-              {resolvedCount} of {conflicts.length} resolved
-            </span>
-          </div>
-
-          <div class="space-y-2">
-            {#each conflicts as entry (entry.trackerId)}
-              {@const isResolved = conflictSelections.has(entry.trackerId)}
-              <div class="card preset-outlined-surface-300-700 p-3 space-y-2 {isResolved ? 'opacity-50' : ''}">
-                <div class="flex items-center gap-3">
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                      <span class="font-medium text-sm text-surface-950-50 truncate">{entry.title}</span>
-                      {#if isResolved}
-                        <Check class="size-4 text-success-500-400 shrink-0" />
-                      {/if}
+          <div class="space-y-4">
+            <div class="card preset-outlined-surface-300-700 p-3">
+              <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2.5 shrink-0">
+                  <div class="relative w-8 h-8">
+                    <svg class="size-8 -rotate-90" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="15" fill="none" stroke-width="3" class="stroke-surface-300-700" />
+                      <circle cx="18" cy="18" r="15" fill="none" stroke-width="3" class="stroke-success-500-400" stroke-dasharray={DONUT_CIRCUMFERENCE} stroke-dashoffset={donutOffset} stroke-linecap="round" />
+                    </svg>
+                    <span class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-surface-950-50">{resolvedCount}</span>
+                  </div>
+                  <div class="text-xs text-surface-600-400 leading-tight">
+                    <span class="font-semibold text-surface-950-50">{resolvedCount}/{conflicts.length}</span><br />resolved
+                  </div>
+                </div>
+                <div class="flex-1 border-l border-surface-300-700 pl-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 text-[11px] text-surface-600-400">
+                      <span class="inline-block w-2 h-2 rounded-full bg-surface-400-600"></span>
+                      Local
                     </div>
-                    <p class="text-xs text-surface-600-400 mt-1">
-                      {entry.episodesWatched}/{entry.totalEpisodes} episodes
-                    </p>
+                    <div class="flex items-center gap-1.5 text-[11px] text-surface-600-400">
+                      Tracker
+                      <span class="inline-block w-2 h-2 rounded-full bg-primary-400-600"></span>
+                    </div>
                   </div>
-                  {#if !isResolved}
-                    <AlertTriangle class="size-4 text-error-500-400 shrink-0" />
-                  {/if}
-                </div>
-
-                <div class="flex items-center gap-4 text-xs">
-                  <div class="flex items-center gap-2">
-                    <span class="text-surface-600-400">Local:</span>
-                    <span class="badge preset-tonal-surface">{watchStatusLabel(entry.localWatchStatus ?? "")}</span>
+                  <div class="flex gap-2 mt-1.5">
+                    <button
+                      type="button"
+                      class="btn btn-sm rounded-lg font-medium flex-1 {bulkMode === 'keepLocal' ? 'preset-filled-surface-700-300' : 'preset-outlined-surface-300-700'}"
+                      onclick={() => importState.bulkResolveConflicts("keepLocal")}
+                    >
+                      Keep All Local
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm rounded-lg font-medium flex-1 {bulkMode === 'acceptTracker' ? 'preset-filled-primary-500' : 'preset-outlined-primary-300-700'}"
+                      onclick={() => importState.bulkResolveConflicts("acceptTracker")}
+                    >
+                      Accept All Tracker
+                    </button>
                   </div>
-                  <div class="text-surface-600-400">vs</div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-surface-600-400">Tracker:</span>
-                    <span class="badge preset-tonal-primary">{watchStatusLabel(entry.watchStatus)}</span>
-                  </div>
-                </div>
-
-                <div class="flex gap-2">
-                  <button
-                    type="button"
-                    class={conflictButtonClass("keepLocal", entry.trackerId)}
-                    onclick={() => importState.resolveConflict(entry.trackerId, "keepLocal")}
-                  >
-                    Keep Local
-                  </button>
-                  <button
-                    type="button"
-                    class={conflictButtonClass("acceptTracker", entry.trackerId)}
-                    onclick={() => importState.resolveConflict(entry.trackerId, "acceptTracker")}
-                  >
-                    Accept Tracker
-                  </button>
                 </div>
               </div>
-            {/each}
+            </div>
+            <div class="space-y-2">
+              {#each conflicts as entry (entry.trackerId)}
+                {@const selection = conflictSelections.get(entry.trackerId)}
+                {@const isResolved = selection !== undefined}
+                <div class="card preset-outlined-surface-300-700 overflow-hidden">
+                  <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="font-medium text-sm text-surface-950-50 truncate">{entry.title}</span>
+                    <div class="flex-1"></div>
+                    <span class="text-xs text-surface-600-400 shrink-0">{entry.episodesWatched}/{entry.totalEpisodes} ep</span>
+                    {#if isResolved}
+                      <Check class="size-4 text-success-500-400 shrink-0" />
+                    {/if}
+                  </div>
+                  <div class="grid grid-cols-2 border-t border-surface-300-700">
+                    <button
+                      type="button"
+                      class="flex items-center gap-2 px-4 py-3 transition-colors cursor-pointer {conflictOptionClass(selection, 'keepLocal')}"
+                      onclick={() => importState.resolveConflict(entry.trackerId, "keepLocal")}
+                    >
+                      <span class="inline-block w-1.5 h-1.5 rounded-full bg-surface-400-600 shrink-0"></span>
+                      <span class="text-xs text-surface-600-400 shrink-0">Local</span>
+                      <span class="badge preset-tonal-{statusPreset(entry.localWatchStatus ?? '')} text-xs ml-auto">{watchStatusLabel(entry.localWatchStatus ?? "")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="flex items-center gap-2 px-4 py-3 transition-colors cursor-pointer border-l border-surface-300-700 {conflictOptionClass(selection, 'acceptTracker')}"
+                      onclick={() => importState.resolveConflict(entry.trackerId, "acceptTracker")}
+                    >
+                      <span class="text-xs text-surface-600-400 shrink-0">Tracker</span>
+                      <span class="badge preset-tonal-{statusPreset(entry.watchStatus)} text-xs ml-auto">{watchStatusLabel(entry.watchStatus)}</span>
+                      <span class="inline-block w-1.5 h-1.5 rounded-full bg-primary-400-600 shrink-0"></span>
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
           </div>
         {/if}
-      {/if}
-    {/if}
-  </div>
+      </Tabs.Content>
+    </Tabs>
+  {/if}
 </div>

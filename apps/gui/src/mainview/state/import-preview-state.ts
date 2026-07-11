@@ -18,6 +18,8 @@ export interface PreviewSummary {
   conflictCount: number;
 }
 
+export type BulkMode = "keepLocal" | "acceptTracker" | null;
+
 export interface ImportSnapshot {
   loading: boolean;
   error: string | null;
@@ -28,6 +30,7 @@ export interface ImportSnapshot {
   activeTab: TabId;
   importPhase: ImportPhase;
   conflictSelections: Map<string, "keepLocal" | "acceptTracker">;
+  bulkMode: BulkMode;
   result: ImportResult | null;
 }
 
@@ -89,6 +92,7 @@ export function createImportPreviewState(getRpc: () => RPCClient): ImportPreview
   let _activeTab: TabId = "matched";
   let _importPhase: ImportPhase = "preview";
   let _conflictSelections = new Map<string, "keepLocal" | "acceptTracker">();
+  let _bulkMode: BulkMode = null;
   let _result: ImportResult | null = null;
 
   const listeners = new Set<(s: ImportSnapshot) => void>();
@@ -111,6 +115,7 @@ export function createImportPreviewState(getRpc: () => RPCClient): ImportPreview
       activeTab: _activeTab,
       importPhase: _importPhase,
       conflictSelections: new Map(_conflictSelections),
+      bulkMode: _bulkMode,
       result: _result,
     };
   }
@@ -151,6 +156,7 @@ export function createImportPreviewState(getRpc: () => RPCClient): ImportPreview
         _unmatched = response.preview.unmatched;
         _conflicts = response.preview.conflicts;
         _conflictSelections = new Map();
+        _bulkMode = null;
         _activeTab = getDefaultTab(_preview);
       } catch (err) {
         _error = err instanceof Error ? err.message : String(err);
@@ -173,13 +179,17 @@ export function createImportPreviewState(getRpc: () => RPCClient): ImportPreview
 
     bulkResolveConflicts(resolution: "keepLocal" | "acceptTracker") {
       if (_conflicts.length === 0) return;
-      const newSelections = new Map(_conflictSelections);
-      for (const entry of _conflicts) {
-        if (!newSelections.has(entry.trackerId)) {
+      if (_bulkMode === resolution) {
+        _conflictSelections = new Map();
+        _bulkMode = null;
+      } else {
+        const newSelections = new Map<string, "keepLocal" | "acceptTracker">();
+        for (const entry of _conflicts) {
           newSelections.set(entry.trackerId, resolution);
         }
+        _conflictSelections = newSelections;
+        _bulkMode = resolution;
       }
-      _conflictSelections = newSelections;
       notify();
     },
 
@@ -220,6 +230,7 @@ export function createImportPreviewState(getRpc: () => RPCClient): ImportPreview
       _activeTab = "matched";
       _importPhase = "preview";
       _conflictSelections = new Map();
+      _bulkMode = null;
       _result = null;
       notify();
     },
