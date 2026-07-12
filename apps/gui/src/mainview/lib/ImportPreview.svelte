@@ -145,7 +145,7 @@
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-bold text-surface-950-50">Import from {trackerDisplayName}</h2>
       <div class="flex gap-2">
-        {#if importPhase !== "success"}
+        {#if importPhase !== "success" && preview?.totalEntries !== 0}
           <button
             type="button"
             class="btn preset-filled-success-500 rounded-lg font-medium"
@@ -237,12 +237,25 @@
         </button>
       </div>
     </div>
+  {:else if preview?.totalEntries === 0}
+    <div class="flex-1 flex items-center justify-center p-4">
+      <div class="card preset-outlined-surface-300-700 p-8 text-center">
+        <CheckCircle2 class="size-12 text-success-500-400 mx-auto mb-4" />
+        <h3 class="text-xl font-bold text-surface-950-50 mb-2">Nothing to import</h3>
+        <p class="text-surface-600-400 mb-4">
+          Your tracker is already up to date
+        </p>
+        <button type="button" class="btn preset-filled-primary-500 rounded-lg font-medium" onclick={onComplete}>
+          Go to Library
+        </button>
+      </div>
+    </div>
   {:else if preview}
     <Tabs value={activeTab} onValueChange={(d) => importState.setActiveTab(d.value as TabId)} class="flex flex-col flex-1 min-h-0">
       <Tabs.List class="px-4 pt-2 border-b border-surface-300-700">
         <Tabs.Trigger value="matched">Matched</Tabs.Trigger>
-        <Tabs.Trigger value="new">New ({preview?.unmatchedCount ?? 0})</Tabs.Trigger>
-        <Tabs.Trigger value="conflicts">Conflicts ({preview?.conflictCount ?? 0})</Tabs.Trigger>
+        <Tabs.Trigger value="new">New</Tabs.Trigger>
+        <Tabs.Trigger value="conflicts">Conflicts</Tabs.Trigger>
         <Tabs.Indicator />
       </Tabs.List>
 
