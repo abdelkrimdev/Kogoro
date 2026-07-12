@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { LayoutDashboard, Folder, Search, Settings, LoaderCircle } from "@lucide/svelte";
+  import { LayoutDashboard, Folder, Search, Settings } from "@lucide/svelte";
   import { onMount } from "svelte";
   import type { DashboardData } from "../../shared/types";
   import type { RPCClient } from "../shared";
   import type { View } from "../state/nav";
+  import LoadingSpinner from "./LoadingSpinner.svelte";
 
   interface Props {
     rpc: RPCClient;
@@ -36,7 +37,7 @@
   {#if isLoading}
     <div class="flex items-center justify-center h-full">
       <div class="text-center space-y-3">
-        <LoaderCircle class="size-8 animate-spin text-primary-500-400 mx-auto" />
+        <LoadingSpinner size="lg" class="text-primary-500-400 mx-auto" />
         <p class="text-surface-600-400 text-sm">Loading dashboard...</p>
       </div>
     </div>
@@ -93,12 +94,11 @@
                   <h3 class="text-sm font-medium text-surface-950-50 truncate">{item.title}</h3>
                   <p class="text-xs text-surface-600-400">{item.groupName}</p>
                   <div class="space-y-1">
-                    <div class="w-full bg-surface-300-700 rounded-full h-1.5">
-                      <div
-                        class="bg-primary-500 h-1.5 rounded-full transition-all"
-                        style="width: {progressPercent(item.watchedEpisodes, item.totalEpisodes)}%"
-                      ></div>
-                    </div>
+                    <progress
+                      class="progress"
+                      value={progressPercent(item.watchedEpisodes, item.totalEpisodes)}
+                      max="100"
+                    ></progress>
                     <p class="text-xs text-surface-600-400 text-right">
                       {item.watchedEpisodes}/{item.totalEpisodes} watched
                     </p>

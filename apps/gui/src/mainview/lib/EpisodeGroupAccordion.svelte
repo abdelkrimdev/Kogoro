@@ -5,6 +5,7 @@
   import { groupLabel } from "../state/detail-state";
   import { computeWatchProgress } from "../state/watch-state";
   import { debouncePush } from "./debounce";
+  import { watchStatusColorClass, watchStatusBadgeClass, entryTypeBadgeClass } from "../shared";
 
   interface Props {
     group: EpisodeGroupRow;
@@ -41,40 +42,6 @@
     missing: false,
     watched: ep.watched,
   }))));
-
-  const STATUS_COLOR: Record<string, string> = {
-    watching: "text-primary-500-400",
-    completed: "text-success-500-400",
-    plan_to_watch: "text-surface-600-400",
-    on_hold: "text-warning-500-400",
-    dropped: "text-error-500-400",
-  };
-
-  const STATUS_BADGE: Record<string, string> = {
-    watching: "badge preset-tonal-primary",
-    completed: "badge preset-tonal-success",
-    plan_to_watch: "badge preset-tonal-surface",
-    on_hold: "badge preset-tonal-warning",
-    dropped: "badge preset-tonal-error",
-  };
-
-  const ENTRY_TYPE_BADGE: Record<string, string> = {
-    movie: "badge preset-tonal-secondary",
-    ova: "badge preset-tonal-warning",
-    special: "badge preset-tonal-error",
-  };
-
-  function statusColorClass(status: string): string {
-    return STATUS_COLOR[status] ?? "text-surface-600-400";
-  }
-
-  function statusBadgeClass(status: string): string {
-    return STATUS_BADGE[status] ?? "badge preset-tonal-surface";
-  }
-
-  function entryTypeBadgeClass(entryType: string): string {
-    return ENTRY_TYPE_BADGE[entryType] ?? "badge preset-tonal-primary";
-  }
 
   function schedulePush() {
     debouncePush(group.id, () =>
@@ -144,7 +111,7 @@
       {group.entryType.toUpperCase()}
     </span>
 
-    <span class={statusBadgeClass(watchStatus)}>
+    <span class={watchStatusBadgeClass(watchStatus)}>
       {watchStatus.replace(/_/g, ' ')}
     </span>
 
@@ -188,7 +155,7 @@
                   <option value={option.value}>{option.label}</option>
                 {/each}
               </select>
-              <span class={statusColorClass(watchStatus)}>
+              <span class={watchStatusColorClass(watchStatus)}>
                 {progress.percent}% watched
               </span>
             </div>

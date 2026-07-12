@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { X, LoaderCircle, SearchX } from '@lucide/svelte';
+  import { X, SearchX } from '@lucide/svelte';
   import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import type { ResolveCandidate } from "../../shared/types";
   import { entryTypeLabel } from "../shared";
+  import LoadingSpinner from "./LoadingSpinner.svelte";
 
   interface Props {
     open: boolean;
@@ -73,7 +74,7 @@
         <div class="flex-1 overflow-auto p-4 space-y-2">
           {#if loading}
             <div class="flex items-center justify-center gap-2 py-8 text-surface-700-300">
-              <LoaderCircle class="size-5 animate-spin" />
+              <LoadingSpinner size="md" />
               Loading candidates...
             </div>
           {:else if candidates.length === 0}

@@ -1,13 +1,13 @@
 <script lang="ts">
   import {
-    LoaderCircle,
     Check,
     CheckCircle2,
   } from "@lucide/svelte";
   import { Tabs } from "@skeletonlabs/skeleton-svelte";
   import type { ImportPreviewEntry, ImportResult } from "@kogoro/core";
   import type { RPCClient } from "../shared";
-  import { entryTypeLabel } from "../shared";
+  import { entryTypeLabel, watchStatusLabel, watchStatusPreset } from "../shared";
+  import LoadingSpinner from "./LoadingSpinner.svelte";
   import {
     createImportPreviewState,
     type ImportSnapshot,
@@ -81,32 +81,6 @@
     return unsub;
   });
 
-  function watchStatusLabel(status: string): string {
-    switch (status) {
-      case "watching": return "Watching";
-      case "completed": return "Completed";
-      case "plan-to-watch": return "Plan to Watch";
-      case "plan_to_watch": return "Plan to Watch";
-      case "on-hold": return "On Hold";
-      case "on_hold": return "On Hold";
-      case "dropped": return "Dropped";
-      default: return status;
-    }
-  }
-
-  function statusPreset(status: string): string {
-    switch (status) {
-      case "watching": return "primary";
-      case "completed": return "success";
-      case "plan-to-watch":
-      case "plan_to_watch": return "warning";
-      case "on-hold":
-      case "on_hold": return "tertiary";
-      case "dropped": return "error";
-      default: return "surface";
-    }
-  }
-
   const DONUT_CIRCUMFERENCE = 2 * Math.PI * 15;
   const donutOffset = $derived(DONUT_CIRCUMFERENCE - (DONUT_CIRCUMFERENCE * resolvedCount / conflicts.length));
 
@@ -134,7 +108,7 @@
       <span class="text-xs text-surface-600-400 shrink-0">{entry.episodesWatched}/{entry.totalEpisodes} ep</span>
     </div>
     <div class="flex items-center gap-1.5">
-      <span class="badge preset-tonal-{statusPreset(entry.watchStatus)} text-xs">{watchStatusLabel(entry.watchStatus)}</span>
+      <span class="badge preset-tonal-{watchStatusPreset(entry.watchStatus)} text-xs">{watchStatusLabel(entry.watchStatus)}</span>
       <span class="badge preset-tonal-surface text-xs">{entryTypeLabel(entry.entryType)}</span>
     </div>
   </div>
@@ -153,7 +127,7 @@
             disabled={!isImportEnabled || importPhase === "importing"}
           >
             {#if importPhase === "importing"}
-              <LoaderCircle class="size-4 animate-spin" />
+              <LoadingSpinner size="sm" />
             {/if}
             {importButtonText}
           </button>
@@ -195,7 +169,7 @@
         <div class="flex gap-2 mt-3 justify-center flex-wrap">
           {#each Object.entries(preview.statusCounts) as [status, count]}
             {#if count > 0}
-              <span class="badge preset-tonal-{statusPreset(status)} text-sm font-medium px-3 py-1">
+              <span class="badge preset-tonal-{watchStatusPreset(status)} text-sm font-medium px-3 py-1">
                 {watchStatusLabel(status)}: {count}
               </span>
             {/if}
@@ -208,7 +182,7 @@
   {#if loading}
     <div class="flex-1 flex items-center justify-center p-4">
       <div class="text-center space-y-3">
-        <LoaderCircle class="size-8 animate-spin text-primary-500-400 mx-auto" />
+        <LoadingSpinner size="lg" class="text-primary-500-400 mx-auto" />
         <p class="text-surface-600-400 text-sm">Loading preview...</p>
       </div>
     </div>
@@ -359,7 +333,7 @@
                     >
                       <span class="inline-block w-1.5 h-1.5 rounded-full bg-surface-400-600 shrink-0"></span>
                       <span class="text-xs text-surface-600-400 shrink-0">Local</span>
-                      <span class="badge preset-tonal-{statusPreset(entry.localWatchStatus ?? '')} text-xs ml-auto">{watchStatusLabel(entry.localWatchStatus ?? "")}</span>
+                      <span class="badge preset-tonal-{watchStatusPreset(entry.localWatchStatus ?? '')} text-xs ml-auto">{watchStatusLabel(entry.localWatchStatus ?? "")}</span>
                     </button>
                     <button
                       type="button"
@@ -367,7 +341,7 @@
                       onclick={() => importState.resolveConflict(entry.trackerId, "acceptTracker")}
                     >
                       <span class="text-xs text-surface-600-400 shrink-0">Tracker</span>
-                      <span class="badge preset-tonal-{statusPreset(entry.watchStatus)} text-xs ml-auto">{watchStatusLabel(entry.watchStatus)}</span>
+                      <span class="badge preset-tonal-{watchStatusPreset(entry.watchStatus)} text-xs ml-auto">{watchStatusLabel(entry.watchStatus)}</span>
                       <span class="inline-block w-1.5 h-1.5 rounded-full bg-primary-400-600 shrink-0"></span>
                     </button>
                   </div>

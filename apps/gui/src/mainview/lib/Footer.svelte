@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { CircleCheck, LoaderCircle } from "@lucide/svelte";
+  import { CircleCheck } from "@lucide/svelte";
   import { statusKindFor } from "../state/footer";
+  import LoadingSpinner from "./LoadingSpinner.svelte";
 
   type LibraryStats = { animeCount: number; episodeCount: number };
 
@@ -31,7 +32,7 @@
 >
   <span class="flex items-center gap-1.5 text-xs text-surface-600-400">
     {#if statusKind === "active"}
-      <LoaderCircle class="size-3 animate-spin" />
+      <LoadingSpinner size="xs" />
     {:else}
       <CircleCheck class="size-3" />
     {/if}

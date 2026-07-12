@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Switch, TagsInput, Toast, createToaster, Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
+  import { Switch, TagsInput, Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
   import type { KeyringCheckResult } from "@kogoro/core";
   import type { SyncConflictInfo, TrackerConnectionInfo } from "../../shared/types";
   import ConnectTrackerDialog from './ConnectTrackerDialog.svelte';
+  import ConfirmDialog from './ConfirmDialog.svelte';
   import SelectField from './SelectField.svelte';
   import KeyringNotice from './KeyringNotice.svelte';
   import { TEMPLATE_PRESETS } from "../shared";
@@ -565,34 +566,14 @@
     </div>
   </section>
 
-  <Dialog open={showRebuildConfirm} onOpenChange={(details) => { showRebuildConfirm = details.open; }}>
-    <Portal>
-      <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-950/60 backdrop-blur-sm" />
-      <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-sm p-0 shadow-xl">
-          <div class="p-4">
-            <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Rebuild Library</Dialog.Title>
-            <Dialog.Description class="text-sm text-surface-600-400">
-              This will delete and recreate the library database from existing data.
-              Your anime entries and episode files will be preserved.
-            </Dialog.Description>
-          </div>
-          <div class="p-4 border-t border-surface-300-700 flex justify-end gap-3">
-            <Dialog.CloseTrigger class="btn preset-tonal-surface rounded-lg font-medium">
-              Cancel
-            </Dialog.CloseTrigger>
-            <button
-              type="button"
-              class="btn preset-filled-primary-500 rounded-lg font-medium"
-              onclick={handleRebuildConfirm}
-            >
-              Rebuild
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Portal>
-  </Dialog>
+  <ConfirmDialog
+    open={showRebuildConfirm}
+    title="Rebuild Library"
+    description="This will delete and recreate the library database from existing data. Your anime entries and episode files will be preserved."
+    confirmLabel="Rebuild"
+    onConfirm={handleRebuildConfirm}
+    onOpenChange={(open) => { showRebuildConfirm = open; }}
+  />
 
   <ConnectTrackerDialog
     {rpc}
@@ -605,33 +586,15 @@
     onCancel={() => { connectDialogTracker = null; }}
   />
 
-  <Dialog open={!!disconnectDialogTracker} onOpenChange={(details) => { if (!details.open) disconnectDialogTracker = null; }}>
-    <Portal>
-      <Dialog.Backdrop class="fixed inset-0 z-50 bg-surface-950/60 backdrop-blur-sm" />
-      <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Dialog.Content class="card preset-outlined-surface-300-700 w-full max-w-sm p-0 shadow-xl">
-          <div class="p-4">
-            <Dialog.Title class="text-lg font-semibold text-surface-950-50 mb-2">Disconnect {disconnectTrackerDisplayName}?</Dialog.Title>
-            <Dialog.Description class="text-sm text-surface-600-400">
-              Your library data will be preserved. Tracker mappings will be removed and you will need to re-import if you reconnect later.
-            </Dialog.Description>
-          </div>
-          <div class="p-4 border-t border-surface-300-700 flex justify-end gap-3">
-            <Dialog.CloseTrigger class="btn preset-tonal-surface rounded-lg font-medium">
-              Cancel
-            </Dialog.CloseTrigger>
-            <button
-              type="button"
-              class="btn preset-filled-error-500 rounded-lg font-medium"
-              onclick={handleDisconnect}
-            >
-              Disconnect
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Portal>
-  </Dialog>
+  <ConfirmDialog
+    open={!!disconnectDialogTracker}
+    title="Disconnect {disconnectTrackerDisplayName}?"
+    description="Your library data will be preserved. Tracker mappings will be removed and you will need to re-import if you reconnect later."
+    confirmLabel="Disconnect"
+    confirmClass="preset-filled-error-500"
+    onConfirm={handleDisconnect}
+    onOpenChange={(open) => { if (!open) disconnectDialogTracker = null; }}
+  />
 
   <section class="space-y-4">
     <h3 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Plugins</h3>

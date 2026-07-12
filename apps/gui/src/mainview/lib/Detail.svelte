@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, LoaderCircle, ArrowUpFromLine } from '@lucide/svelte';
+  import { ChevronLeft, ImageDown, RefreshCw, FileText, TriangleAlert, Tv, ArrowUpFromLine } from '@lucide/svelte';
   import EpisodeGroupAccordion from "./EpisodeGroupAccordion.svelte";
   import type { AnimeDetail } from "../../shared/types";
   import { getAnimeDirectory } from "../state/detail-state";
+  import LoadingSpinner from "./LoadingSpinner.svelte";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -118,7 +119,7 @@
 {#if loading}
   <div class="flex items-center justify-center h-full">
     <div class="text-center space-y-3">
-      <LoaderCircle class="size-8 animate-spin text-primary-500-400 mx-auto" />
+      <LoadingSpinner size="lg" class="text-primary-500-400 mx-auto" />
       <p class="text-surface-600-400 text-sm">Loading anime details...</p>
     </div>
   </div>
@@ -154,7 +155,7 @@
             <div class="flex flex-col gap-2 mt-4">
               {#if artworkLoading}
                 <button type="button" disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
-                  <LoaderCircle class="size-4 animate-spin" /> Downloading...
+                  <LoadingSpinner size="sm" /> Downloading...
                 </button>
               {:else}
                 <button type="button" class="flex items-center gap-2 btn preset-filled-primary-500 rounded-lg font-medium" onclick={downloadArtwork}>
@@ -163,7 +164,7 @@
               {/if}
               {#if rescanLoading}
                 <button type="button" disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
-                  <LoaderCircle class="size-4 animate-spin" /> Scanning...
+                  <LoadingSpinner size="sm" /> Scanning...
                 </button>
               {:else}
                 <button type="button" class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium" onclick={rescan}>
@@ -172,7 +173,7 @@
               {/if}
               {#if metadataLoading}
                 <button type="button" disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
-                  <LoaderCircle class="size-4 animate-spin" /> Generating...
+                  <LoadingSpinner size="sm" /> Generating...
                 </button>
               {:else}
                 <button type="button" class="flex items-center gap-2 btn preset-filled-success-500 rounded-lg font-medium" onclick={generateMetadata}>
@@ -181,7 +182,7 @@
               {/if}
               {#if trackerLoading}
                 <button type="button" disabled class="flex items-center gap-2 btn preset-tonal-surface rounded-lg font-medium cursor-not-allowed">
-                  <LoaderCircle class="size-4 animate-spin" /> Syncing Trackers...
+                  <LoadingSpinner size="sm" /> Syncing Trackers...
                 </button>
               {:else}
                 <button type="button" class="flex items-center gap-2 btn preset-tonal-secondary rounded-lg font-medium" onclick={syncTrackerData}>

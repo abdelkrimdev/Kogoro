@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { ArrowLeft, LoaderCircle, Check, AlertTriangle } from "@lucide/svelte";
+  import { ArrowLeft, Check, AlertTriangle } from "@lucide/svelte";
   import type { SyncConflictInfo } from "../../shared/types";
+  import { watchStatusLabel } from "../shared";
+  import LoadingSpinner from "./LoadingSpinner.svelte";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -23,19 +25,6 @@
 
   const allResolved = $derived(remaining.length === 0);
   const resolvedCount = $derived(totalCount - remaining.length);
-
-  function watchStatusLabel(status: string): string {
-    switch (status) {
-      case "watching": return "Watching";
-      case "completed": return "Completed";
-      case "plan-to-watch": return "Plan to Watch";
-      case "plan_to_watch": return "Plan to Watch";
-      case "on-hold": return "On Hold";
-      case "on_hold": return "On Hold";
-      case "dropped": return "Dropped";
-      default: return status;
-    }
-  }
 
   function eventStatusLabel(eventType: string, newValue: string): string {
     if (eventType === "status_change") return watchStatusLabel(newValue);
@@ -143,7 +132,7 @@
                 disabled={resolving === conflictKey(conflict)}
               >
                 {#if resolving === conflictKey(conflict)}
-                  <LoaderCircle class="size-3 animate-spin" />
+                  <LoadingSpinner size="xs" />
                 {/if}
                 Keep Local
               </button>
@@ -154,7 +143,7 @@
                 disabled={resolving === conflictKey(conflict)}
               >
                 {#if resolving === conflictKey(conflict)}
-                  <LoaderCircle class="size-3 animate-spin" />
+                  <LoadingSpinner size="xs" />
                 {/if}
                 Accept Remote
               </button>

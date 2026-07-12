@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ReviewPlan, KeyringCheckResult } from "@kogoro/core";
-  import { Sun, Moon, PanelLeftClose, PanelLeftOpen, LoaderCircle, TriangleAlert } from '@lucide/svelte';
+  import { Sun, Moon, PanelLeftClose, PanelLeftOpen, TriangleAlert } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
   import { onMount } from 'svelte';
   import { createRPCThemeState, applyThemeToDocument } from "../state/theme-state";
@@ -23,11 +23,12 @@
   import Library from "./Library.svelte";
   import Review from "./Review.svelte";
   import Detail from "./Detail.svelte";
-  import Settings from "./Settings.svelte";
   import Scan from "./Scan.svelte";
+  import Settings from "./Settings.svelte";
+  import Footer from "./Footer.svelte";
   import ImportPreview from "./ImportPreview.svelte";
   import SyncConflictView from "./SyncConflictView.svelte";
-  import Footer from "./Footer.svelte";
+  import LoadingSpinner from "./LoadingSpinner.svelte";
 
   interface Props {
     rpc: { request: (method: string, params: unknown) => Promise<unknown> };
@@ -240,7 +241,7 @@
 {#if isLoading}
   <div class="flex items-center justify-center h-full">
     <div class="text-center space-y-3">
-      <LoaderCircle class="size-8 animate-spin text-primary-500-400 mx-auto" />
+      <LoadingSpinner size="lg" class="text-primary-500-400 mx-auto" />
       <p class="text-surface-600-400 text-sm">Loading...</p>
     </div>
   </div>
