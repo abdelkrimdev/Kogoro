@@ -191,10 +191,10 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       return { success: result !== null };
     },
 
-    rebuild(): LibraryRebuildResult {
+    async rebuild(): Promise<LibraryRebuildResult> {
       try {
         const sourceDb = options.getSourceDb?.();
-        svc.rebuild(sourceDb);
+        await svc.rebuild(sourceDb);
         return { success: true };
       } catch (err) {
         return {

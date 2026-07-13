@@ -34,7 +34,10 @@ export type { DebugEntry } from "./io/http-client";
 export { HttpClient } from "./io/http-client";
 export type { ProgressEvent, TaskContext } from "./io/progress";
 export type {
+  AnilistCacheEntry,
+  AnimeTrackerMapping,
   EpisodeGroup,
+  Franchise,
   GroupTrackerMapping,
   LibraryAnime,
   LibraryEpisode,
@@ -139,6 +142,10 @@ export type {
   ArtworkResult,
   ArtworkType,
   DatabasePlugin,
+  EnrichmentMediaResult,
+  EnrichmentProvider,
+  EnrichmentRelation,
+  EnrichmentSearchResult,
   EntryType,
   EpisodeResult,
   FileRow,

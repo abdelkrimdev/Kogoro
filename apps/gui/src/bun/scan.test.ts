@@ -456,7 +456,7 @@ describe("ScanOrchestrator", () => {
           cacheService,
           libraryService,
           scanStateService,
-          mergeMatches: () => {},
+          mergeMatches: async () => {},
           send: {
             scanProgress: () => {},
             scanPhaseComplete: () => {},
@@ -535,7 +535,7 @@ describe("ScanOrchestrator", () => {
           cacheService,
           libraryService,
           scanStateService,
-          mergeMatches: () => {},
+          mergeMatches: async () => {},
           send: {
             scanProgress: () => {},
             scanPhaseComplete: () => {},
@@ -606,7 +606,7 @@ describe("ScanOrchestrator", () => {
           cacheService: {} as unknown as CacheService,
           libraryService: {} as unknown as LibraryService,
           scanStateService: {} as unknown as ScanStateService,
-          mergeMatches: () => {},
+          mergeMatches: async () => {},
           send: {
             scanProgress: () => {},
             scanPhaseComplete: () => {},

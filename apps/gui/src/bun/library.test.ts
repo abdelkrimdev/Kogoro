@@ -196,7 +196,7 @@ describe("mergeMatches", () => {
       const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
 
-      libraryService.mergeFromMatches([
+      await libraryService.mergeFromMatches([
         {
           animeId: "tvdb-12345",
           animeTitle: "My Anime",
@@ -295,7 +295,7 @@ describe("rebuild", () => {
         const libraryService = new LibraryService(repo, evtRepo);
         const handlers = createLibraryHandlers({ libraryService });
 
-        const result = handlers.rebuild();
+        const result = await handlers.rebuild();
         expect(result.success).toBe(true);
 
         const library = await handlers.getLibrary();
@@ -314,7 +314,7 @@ describe("rebuild", () => {
       const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
       const libraryService = new LibraryService(repo, evtRepo);
       const handlers = createLibraryHandlers({ libraryService });
-      const result = handlers.rebuild();
+      const result = await handlers.rebuild();
       expect(result.success).toBe(true);
       closeEvt();
       close();

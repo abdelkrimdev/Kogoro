@@ -69,7 +69,9 @@ const libraryRepo = createLibraryConnection(libraryDbPath);
 const eventsRepo = createEventsConnection(eventsDbPath);
 const cacheService = new CacheService(matchRepo, scanStateRepo);
 const scanStateService = new ScanStateService(scanStateRepo);
-const libraryService = new LibraryService(libraryRepo, eventsRepo);
+const libraryService = new LibraryService(libraryRepo, eventsRepo, () =>
+  pluginFactory.enrichmentProvider(),
+);
 
 const syncHandlers = createSyncHandlers({
   libraryService,
@@ -108,7 +110,7 @@ const scanHandlers = createScanHandlers({
   cacheService,
   libraryService,
   scanStateService,
-  mergeMatches: (matches) => libraryService.mergeFromMatches(matches),
+  mergeMatches: async (matches) => libraryService.mergeFromMatches(matches),
   send: {
     scanProgress: (data) => rpc.send.scanProgress(data),
     scanPhaseComplete: (data) => rpc.send.scanPhaseComplete(data),

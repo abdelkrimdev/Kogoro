@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { EventRepository } from "../events/event-repository";
 import { createEventDb } from "../events/test-utils";
-import { createLibraryRepository } from "../fixtures";
+import { createLibraryRepository, createMockEnrichmentProvider } from "../fixtures";
 import { LibraryService } from "../library/library-service";
 import type { TrackerAnime, TrackerPlugin } from "../types";
 import { TrackerImportService } from "./tracker-import";
@@ -953,6 +953,139 @@ describe("TrackerImportService", () => {
 
         const updatedGroup2 = libraryService.getEpisodeGroup(group2.id);
         expect(updatedGroup2?.watchStatus).toBe("completed");
+      } finally {
+        close();
+        evtSqlite.close();
+      }
+    });
+  });
+
+  describe("confirmImport - enrichment", () => {
+    it("enriches newly imported anime with franchise", async () => {
+      const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+
+        const provider = createMockEnrichmentProvider({
+          searchByTitle: async (title) => ({
+            anilistId: "12345",
+            title,
+            format: "TV",
+            episodes: 24,
+          }),
+          getMediaDetailsBatch: async (ids) =>
+            ids.map((id) => ({
+              anilistId: id,
+              title: "Attack on Titan",
+              format: "TV",
+              episodes: 25,
+              relations: [],
+            })),
+        });
+
+        const libraryService = new LibraryService(repo, evtRepo, async () => provider);
+
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "tl-1",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "completed",
+            episodesWatched: 25,
+            totalEpisodes: 25,
+          },
+        ]);
+
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        await service.getImportPreview();
+        const result = await service.confirmImport();
+
+        expect(result.imported).toBe(1);
+
+        const anime = repo.listAnime();
+        expect(anime).toHaveLength(1);
+        expect(anime[0]?.franchiseId).not.toBeNull();
+
+        const franchises = repo.getFranchises();
+        expect(franchises).toHaveLength(1);
+        expect(franchises[0]?.title).toBe("Attack on Titan");
+
+        const mapping = repo.findAnimeByTrackerMapping("anilist", "12345");
+        expect(mapping).not.toBeNull();
+        expect(mapping?.animeId).toBe(anime[0]?.id);
+      } finally {
+        close();
+        evtSqlite.close();
+      }
+    });
+
+    it("does not enrich anime that already has a franchise", async () => {
+      const { repo, close } = createLibraryRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+
+        const franchise = repo.createFranchise({
+          title: "Existing Franchise",
+          anilistId: "99999",
+        });
+
+        const anime = repo.upsertAnime({
+          externalId: "anilist-12345",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+        repo.assignAnimeToFranchise(anime.id, franchise.id);
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "watching",
+        });
+
+        let searchCallCount = 0;
+        const provider = createMockEnrichmentProvider({
+          searchByTitle: async () => {
+            searchCallCount++;
+            return { anilistId: "12345", title: "Attack on Titan", format: "TV", episodes: 25 };
+          },
+        });
+
+        const libraryService = new LibraryService(repo, evtRepo, async () => provider);
+
+        const tracker = createMockTrackerPlugin([
+          {
+            trackerId: "12345",
+            title: "Attack on Titan",
+            entryType: "tv",
+            watchStatus: "completed",
+            episodesWatched: 25,
+            totalEpisodes: 25,
+          },
+        ]);
+
+        const service = new TrackerImportService(libraryService, tracker, "anilist");
+
+        await service.getImportPreview();
+        const result = await service.confirmImport();
+
+        expect(result.imported).toBe(1);
+
+        const franchises = repo.getFranchises();
+        expect(franchises).toHaveLength(1);
+        expect(franchises[0]?.id).toBe(franchise.id);
+
+        const updatedAnime = repo.getAnime(anime.id);
+        expect(updatedAnime?.franchiseId).toBe(franchise.id);
+
+        const updatedGroup = libraryService.getEpisodeGroup(group.id);
+        expect(updatedGroup?.watchStatus).toBe("completed");
+
+        expect(searchCallCount).toBe(0);
       } finally {
         close();
         evtSqlite.close();

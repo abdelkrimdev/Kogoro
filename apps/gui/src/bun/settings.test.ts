@@ -30,7 +30,7 @@ describe("buildSettingsFormData", () => {
       expect(formData.apiKeys["tvdb"]).toBe("****y123");
       expect(formData.apiKeys["anidb"]).toBe("Not set");
       expect(formData.apiKeys["opensubtitles"]).toBe("****y456");
-      expect(formData.plugins).toHaveLength(6);
+      expect(formData.plugins).toHaveLength(7);
       expect(formData.templatePreset).toBe("standard");
       expect(formData.scanConcurrency).toBe(4);
       expect(formData.fetchConcurrency).toBe(5);

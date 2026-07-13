@@ -2,6 +2,7 @@ import type {
   ConfigManager,
   CredentialStore,
   DatabasePlugin,
+  EnrichmentProvider,
   SubtitlePlugin,
   TrackerPlugin,
 } from "@kogoro/core";
@@ -36,6 +37,10 @@ export class PluginFactory {
 
   async tracker(name: string): Promise<TrackerPlugin | undefined> {
     return this.loader.loadTracker(name, this.config.plugins, this.credentialStore);
+  }
+
+  async enrichmentProvider(name = "anilist-enrichment"): Promise<EnrichmentProvider | undefined> {
+    return this.loader.loadEnrichmentProvider(name, this.config.plugins, this.credentialStore);
   }
 
   list(): PluginInfo[] {

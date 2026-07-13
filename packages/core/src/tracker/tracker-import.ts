@@ -235,7 +235,11 @@ export class TrackerImportService {
       }
     }
 
-    this.executeImportTransaction(acc);
+    const createdAnimeIds = this.executeImportTransaction(acc);
+
+    if (createdAnimeIds.length > 0) {
+      await this.library.enrichAnime(createdAnimeIds);
+    }
 
     return { imported: trackerList.length - acc.skipped, skipped: acc.skipped };
   }
@@ -310,7 +314,9 @@ export class TrackerImportService {
     });
   }
 
-  private executeImportTransaction(acc: ImportAccumulator): void {
+  private executeImportTransaction(acc: ImportAccumulator): number[] {
+    const createdAnimeIds: number[] = [];
+
     this.library.transaction((tx) => {
       if (acc.animeToCreate.length > 0) {
         const createdAnime = tx.upsertAnimeBatch(
@@ -328,6 +334,7 @@ export class TrackerImportService {
           const anime = createdAnime[i];
           if (anime) {
             animeIndexToId.set(i, anime.id);
+            createdAnimeIds.push(anime.id);
           }
         }
 
@@ -370,5 +377,7 @@ export class TrackerImportService {
         tx.upsertGroupTrackerMappingBatch(acc.mappingsToCreate);
       }
     });
+
+    return createdAnimeIds;
   }
 }

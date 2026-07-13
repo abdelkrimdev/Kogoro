@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventRepository } from "../events/event-repository";
 import { createEventDb } from "../events/test-utils";
-import { createMockTracker } from "../fixtures";
+import { createMockEnrichmentProvider, createMockTracker } from "../fixtures";
 import type { MatchEntry } from "../types";
 import { LibraryRepository } from "./library-repository";
 import { LibraryService } from "./library-service";
@@ -526,7 +526,7 @@ describe("LibraryService", () => {
   });
 
   describe("mergeFromMatches", () => {
-    test("merges without deleting existing data", () => {
+    test("merges without deleting existing data", async () => {
       const { db, sqlite } = createLibraryDb();
       const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
@@ -593,7 +593,7 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(matches);
+        await service.mergeFromMatches(matches);
 
         const animeList = repo.listAnime();
         expect(animeList).toHaveLength(2);
@@ -619,7 +619,7 @@ describe("LibraryService", () => {
       }
     });
 
-    test("adds new anime and episodes", () => {
+    test("adds new anime and episodes", async () => {
       const { db, sqlite } = createLibraryDb();
       const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
@@ -652,7 +652,7 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(matches);
+        await service.mergeFromMatches(matches);
 
         const jjk = repo.findAnime("tvdb-12345", "tvdb");
         expect(jjk).not.toBeNull();
@@ -664,7 +664,7 @@ describe("LibraryService", () => {
       }
     });
 
-    test("merges into existing anime", () => {
+    test("merges into existing anime", async () => {
       const { db, sqlite } = createLibraryDb();
       const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
@@ -697,7 +697,7 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(firstMatches);
+        await service.mergeFromMatches(firstMatches);
 
         const secondMatches: MatchEntry[] = [
           {
@@ -724,7 +724,7 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(secondMatches);
+        await service.mergeFromMatches(secondMatches);
 
         const jjk = repo.findAnime("tvdb-12345", "tvdb");
         expect(jjk?.episodeCount).toBe(4);
@@ -735,7 +735,7 @@ describe("LibraryService", () => {
       }
     });
 
-    test("does not inflate episodeCount on repeated merges", () => {
+    test("does not inflate episodeCount on repeated merges", async () => {
       const { db, sqlite } = createLibraryDb();
       const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
@@ -768,12 +768,12 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(matches);
+        await service.mergeFromMatches(matches);
 
         const jjk = repo.findAnime("tvdb-12345", "tvdb");
         expect(jjk?.episodeCount).toBe(2);
 
-        service.mergeFromMatches(matches);
+        await service.mergeFromMatches(matches);
 
         const updated = repo.findAnime("tvdb-12345", "tvdb");
         expect(updated?.episodeCount).toBe(2);
@@ -783,7 +783,7 @@ describe("LibraryService", () => {
       }
     });
 
-    test("groups by title instead of animeId for same-sourceDb matches", () => {
+    test("groups by title instead of animeId for same-sourceDb matches", async () => {
       const { db, sqlite } = createLibraryDb();
       const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
@@ -827,7 +827,7 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(matches);
+        await service.mergeFromMatches(matches);
 
         const all = repo.listAnime();
         expect(all).toHaveLength(1);
@@ -844,7 +844,7 @@ describe("LibraryService", () => {
       }
     });
 
-    test("merges into existing entry when title and sourceDb match", () => {
+    test("merges into existing entry when title and sourceDb match", async () => {
       const { db, sqlite } = createLibraryDb();
       const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
@@ -884,7 +884,7 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(matches);
+        await service.mergeFromMatches(matches);
 
         const all = repo.listAnime();
         expect(all).toHaveLength(1);
@@ -900,7 +900,7 @@ describe("LibraryService", () => {
       }
     });
 
-    test("removes anime from other sourceDbs when switching databases", () => {
+    test("removes anime from other sourceDbs when switching databases", async () => {
       const { db, sqlite } = createLibraryDb();
       const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
@@ -933,7 +933,7 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(anidbMatches);
+        await service.mergeFromMatches(anidbMatches);
 
         expect(repo.listAnime()).toHaveLength(1);
         expect(repo.findAnime("anidb-12345", "anidb")).not.toBeNull();
@@ -963,7 +963,7 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(tvdbMatches);
+        await service.mergeFromMatches(tvdbMatches);
 
         const all = repo.listAnime();
         expect(all).toHaveLength(1);
@@ -978,7 +978,7 @@ describe("LibraryService", () => {
       }
     });
 
-    test("computes library state after merge", () => {
+    test("computes library state after merge", async () => {
       const { db, sqlite } = createLibraryDb();
       const { db: evtDb, sqlite: evtSqlite } = createEventDb();
       try {
@@ -1011,7 +1011,7 @@ describe("LibraryService", () => {
           },
         ];
 
-        service.mergeFromMatches(matches);
+        await service.mergeFromMatches(matches);
 
         const merged = repo.findAnime("tvdb-12345", "tvdb");
         expect(merged?.libraryState).toBe("on_disk");
@@ -3156,6 +3156,317 @@ describe("LibraryService", () => {
       } finally {
         sqlite.close();
         evtSqlite.close();
+      }
+    });
+  });
+
+  describe("rebuild - enrichment", () => {
+    test("restores franchise assignments from tracker mappings after rebuild", () => {
+      const dir = mkdtempSync(join(tmpdir(), "library-rebuild-enrichment-"));
+      try {
+        const ep1Path = join(dir, "S01E01.mkv");
+        writeFileSync(ep1Path, "");
+
+        const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const evtRepo = new EventRepository(evtDb);
+          const service = new LibraryService(repo, evtRepo);
+
+          const franchise = repo.createFranchise({
+            title: "Jujutsu Kaisen",
+            anilistId: "12345",
+          });
+
+          const anime = repo.upsertAnime({
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            episodeCount: 1,
+          });
+          repo.assignAnimeToFranchise(anime.id, franchise.id);
+          repo.createAnimeTrackerMapping({
+            animeId: anime.id,
+            source: "anilist",
+            externalId: "12345",
+          });
+
+          const group = repo.upsertEpisodeGroup({
+            animeId: anime.id,
+            entryType: "tv",
+            seasonNumber: 1,
+            watchStatus: "plan_to_watch",
+          });
+          repo.addEpisode({
+            animeId: anime.id,
+            groupId: group.id,
+            episodeNumber: 1,
+            filePath: ep1Path,
+            title: "Ryomen Sukuna",
+            season: 1,
+            watched: false,
+          });
+
+          const matches: MatchEntry[] = [
+            {
+              animeId: "tvdb-12345",
+              animeTitle: "Jujutsu Kaisen",
+              entryType: "tv",
+              episodeId: "101",
+              episode: 1,
+              season: 1,
+              title: "Ryomen Sukuna",
+              filePath: ep1Path,
+              sourceDb: "tvdb",
+            },
+          ];
+
+          service.rebuildFromMatches(matches);
+
+          const rebuiltAnime = repo.findAnime("tvdb-12345", "tvdb");
+          expect(rebuiltAnime?.franchiseId).toBe(franchise.id);
+
+          const franchises = repo.getFranchises();
+          expect(franchises).toHaveLength(1);
+          expect(franchises[0]?.id).toBe(franchise.id);
+        } finally {
+          sqlite.close();
+          evtSqlite.close();
+        }
+      } finally {
+        rmSync(dir, { recursive: true });
+      }
+    });
+
+    test("preserves franchise and cache tables through rebuild", () => {
+      const dir = mkdtempSync(join(tmpdir(), "library-rebuild-preserve-"));
+      try {
+        const ep1Path = join(dir, "S01E01.mkv");
+        writeFileSync(ep1Path, "");
+
+        const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const evtRepo = new EventRepository(evtDb);
+          const service = new LibraryService(repo, evtRepo);
+
+          const franchise = repo.createFranchise({
+            title: "Test Franchise",
+            anilistId: "99999",
+          });
+
+          const anime = repo.upsertAnime({
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            episodeCount: 1,
+          });
+          repo.assignAnimeToFranchise(anime.id, franchise.id);
+          repo.createAnimeTrackerMapping({
+            animeId: anime.id,
+            source: "anilist",
+            externalId: "12345",
+          });
+          repo.setAnilistCacheEntry({
+            anilistId: "12345",
+            title: "Jujutsu Kaisen",
+            format: "TV",
+            episodes: 24,
+            relations: [],
+            externalLinks: null,
+            fetchedAt: new Date().toISOString(),
+          });
+
+          const group = repo.upsertEpisodeGroup({
+            animeId: anime.id,
+            entryType: "tv",
+            seasonNumber: 1,
+            watchStatus: "plan_to_watch",
+          });
+          repo.addEpisode({
+            animeId: anime.id,
+            groupId: group.id,
+            episodeNumber: 1,
+            filePath: ep1Path,
+            title: "Ryomen Sukuna",
+            season: 1,
+            watched: false,
+          });
+
+          const matches: MatchEntry[] = [
+            {
+              animeId: "tvdb-12345",
+              animeTitle: "Jujutsu Kaisen",
+              entryType: "tv",
+              episodeId: "101",
+              episode: 1,
+              season: 1,
+              title: "Ryomen Sukuna",
+              filePath: ep1Path,
+              sourceDb: "tvdb",
+            },
+          ];
+
+          service.rebuildFromMatches(matches);
+
+          const franchises = repo.getFranchises();
+          expect(franchises).toHaveLength(1);
+          expect(franchises[0]?.title).toBe("Test Franchise");
+
+          const cacheEntry = repo.getAnilistCacheEntry("12345");
+          expect(cacheEntry).not.toBeNull();
+          expect(cacheEntry?.title).toBe("Jujutsu Kaisen");
+
+          const rebuiltAnime = repo.findAnime("tvdb-12345", "tvdb");
+          expect(rebuiltAnime).not.toBeNull();
+          const mapping = repo.findAnimeByTrackerMapping("anilist", "12345");
+          expect(mapping).not.toBeNull();
+          expect(mapping?.animeId).toBe(rebuiltAnime?.id);
+        } finally {
+          sqlite.close();
+          evtSqlite.close();
+        }
+      } finally {
+        rmSync(dir, { recursive: true });
+      }
+    });
+  });
+
+  describe("mergeFromMatches - enrichment", () => {
+    test("enriches newly merged anime with franchise", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "library-merge-enrichment-"));
+      try {
+        const ep1Path = join(dir, "S01E01.mkv");
+        writeFileSync(ep1Path, "");
+
+        const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const evtRepo = new EventRepository(evtDb);
+
+          const provider = createMockEnrichmentProvider({
+            searchByTitle: async (title) => ({
+              anilistId: "12345",
+              title,
+              format: "TV",
+              episodes: 24,
+            }),
+            getMediaDetailsBatch: async (ids) =>
+              ids.map((id) => ({
+                anilistId: id,
+                title: "Jujutsu Kaisen",
+                format: "TV",
+                episodes: 24,
+                relations: [],
+              })),
+          });
+
+          const service = new LibraryService(repo, evtRepo, async () => provider);
+
+          const matches: MatchEntry[] = [
+            {
+              animeId: "tvdb-12345",
+              animeTitle: "Jujutsu Kaisen",
+              entryType: "tv",
+              episodeId: "101",
+              episode: 1,
+              season: 1,
+              title: "Ryomen Sukuna",
+              filePath: ep1Path,
+              sourceDb: "tvdb",
+            },
+          ];
+
+          await service.mergeFromMatches(matches);
+
+          const anime = repo.findAnime("tvdb-12345", "tvdb");
+          expect(anime).not.toBeNull();
+          expect(anime?.franchiseId).not.toBeNull();
+
+          const franchises = repo.getFranchises();
+          expect(franchises).toHaveLength(1);
+          expect(franchises[0]?.title).toBe("Jujutsu Kaisen");
+
+          const mapping = repo.findAnimeByTrackerMapping("anilist", "12345");
+          expect(mapping).not.toBeNull();
+          expect(mapping?.animeId).toBe(anime?.id);
+        } finally {
+          sqlite.close();
+          evtSqlite.close();
+        }
+      } finally {
+        rmSync(dir, { recursive: true });
+      }
+    });
+
+    test("does not re-enrich anime that already has a franchise", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "library-merge-enrichment-skip-"));
+      try {
+        const ep1Path = join(dir, "S01E01.mkv");
+        writeFileSync(ep1Path, "");
+
+        const { db, sqlite } = createLibraryDb();
+        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+        try {
+          const repo = new LibraryRepository(db);
+          const evtRepo = new EventRepository(evtDb);
+
+          const franchise = repo.createFranchise({
+            title: "Existing Franchise",
+            anilistId: "99999",
+          });
+
+          const anime = repo.upsertAnime({
+            externalId: "tvdb-12345",
+            sourceDb: "tvdb",
+            title: "Jujutsu Kaisen",
+            episodeCount: 0,
+          });
+          repo.assignAnimeToFranchise(anime.id, franchise.id);
+
+          let searchCallCount = 0;
+          const provider = createMockEnrichmentProvider({
+            searchByTitle: async () => {
+              searchCallCount++;
+              return { anilistId: "12345", title: "Jujutsu Kaisen", format: "TV", episodes: 24 };
+            },
+          });
+
+          const service = new LibraryService(repo, evtRepo, async () => provider);
+
+          const matches: MatchEntry[] = [
+            {
+              animeId: "tvdb-12345",
+              animeTitle: "Jujutsu Kaisen",
+              entryType: "tv",
+              episodeId: "101",
+              episode: 1,
+              season: 1,
+              title: "Ryomen Sukuna",
+              filePath: ep1Path,
+              sourceDb: "tvdb",
+            },
+          ];
+
+          await service.mergeFromMatches(matches);
+
+          const franchises = repo.getFranchises();
+          expect(franchises).toHaveLength(1);
+          expect(franchises[0]?.id).toBe(franchise.id);
+
+          const updatedAnime = repo.getAnime(anime.id);
+          expect(updatedAnime?.franchiseId).toBe(franchise.id);
+
+          expect(searchCallCount).toBe(0);
+        } finally {
+          sqlite.close();
+          evtSqlite.close();
+        }
+      } finally {
+        rmSync(dir, { recursive: true });
       }
     });
   });

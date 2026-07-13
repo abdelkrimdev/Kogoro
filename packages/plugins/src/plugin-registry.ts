@@ -2,7 +2,7 @@ import { BUILT_IN_MANIFEST } from "./plugin-manifest";
 
 export interface PluginInfo {
   name: string;
-  type: "database" | "subtitle" | "tracker";
+  type: "database" | "subtitle" | "tracker" | "enrichment";
   source: "built-in" | "external";
   description?: string;
   enabled: boolean;

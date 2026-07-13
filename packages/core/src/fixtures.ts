@@ -13,6 +13,11 @@ export { hashFile } from "./io/file-hash";
 import { EventRepository } from "./events/event-repository";
 import { createEventDb as createEventDbInstance } from "./events/test-utils";
 import { HttpClient } from "./io/http-client";
+import type {
+  AnilistCacheEntry,
+  AnimeTrackerMapping,
+  Franchise,
+} from "./library/library-repository";
 import { LibraryRepository } from "./library/library-repository";
 import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils";
 import { CacheService } from "./match/cache-service";
@@ -35,6 +40,9 @@ import type {
   AnimeResult,
   ArtworkResult,
   DatabasePlugin,
+  EnrichmentMediaResult,
+  EnrichmentProvider,
+  EnrichmentSearchResult,
   EpisodeResult,
   TrackerPlugin,
 } from "./types";
@@ -646,6 +654,70 @@ export function createMockTracker(overrides: Partial<TrackerPlugin> = {}): Track
         alternativeTitles: [],
       };
     },
+    ...overrides,
+  };
+}
+
+export function createMockEnrichmentProvider(
+  overrides: Partial<EnrichmentProvider> = {},
+): EnrichmentProvider {
+  return {
+    async searchByTitle(title: string): Promise<EnrichmentSearchResult | null> {
+      return {
+        anilistId: "1",
+        title,
+        format: "TV",
+        episodes: 12,
+      };
+    },
+    async getMediaDetailsBatch(anilistIds: string[]): Promise<EnrichmentMediaResult[]> {
+      return anilistIds.map((id) => ({
+        anilistId: id,
+        title: `Anime ${id}`,
+        format: "TV",
+        episodes: 12,
+        relations: [],
+      }));
+    },
+    ...overrides,
+  };
+}
+
+export function makeFranchise(overrides: Partial<Franchise> = {}): Franchise {
+  return {
+    id: 1,
+    title: "Test Franchise",
+    anilistId: null,
+    coverArtPath: null,
+    synopsis: null,
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+export function makeAnimeTrackerMapping(
+  overrides: Partial<AnimeTrackerMapping> = {},
+): AnimeTrackerMapping {
+  return {
+    id: 1,
+    animeId: 1,
+    source: "anilist",
+    externalId: "1",
+    ...overrides,
+  };
+}
+
+export function makeAnilistCacheEntry(
+  overrides: Partial<AnilistCacheEntry> = {},
+): AnilistCacheEntry {
+  return {
+    anilistId: "1",
+    title: "Test Anime",
+    format: "TV",
+    episodes: 12,
+    relations: [],
+    externalLinks: null,
+    fetchedAt: new Date().toISOString(),
     ...overrides,
   };
 }

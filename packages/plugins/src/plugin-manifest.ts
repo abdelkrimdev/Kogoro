@@ -3,6 +3,7 @@ import {
   type CredentialStore,
   type DatabasePlugin,
   type DebugEntry,
+  type EnrichmentProvider,
   HttpClient,
   MAL_CLIENT_ID,
   type SubtitlePlugin,
@@ -11,6 +12,7 @@ import {
 import { AniDBPlugin } from "./database/anidb-plugin";
 import { TVDBPlugin } from "./database/tvdb-plugin";
 import { OpenSubtitlesPlugin } from "./subtitle/opensubtitles-plugin";
+import { AniListEnrichmentProvider } from "./tracker/anilist-enrichment-provider";
 import { AniListPlugin } from "./tracker/anilist-plugin";
 import { KitsuPlugin } from "./tracker/kitsu-plugin";
 import { MyAnimeListPlugin } from "./tracker/myanimelist-plugin";
@@ -22,7 +24,7 @@ export interface PluginLoadContext {
 
 export interface PluginManifestEntry {
   name: string;
-  type: "database" | "subtitle" | "tracker";
+  type: "database" | "subtitle" | "tracker" | "enrichment";
   description: string;
   baseUrl: string;
   rateLimit?: number;
@@ -30,7 +32,7 @@ export interface PluginManifestEntry {
   load: (
     ctx: PluginLoadContext,
     entry: PluginManifestEntry,
-  ) => Promise<DatabasePlugin | SubtitlePlugin | TrackerPlugin | undefined>;
+  ) => Promise<DatabasePlugin | SubtitlePlugin | TrackerPlugin | EnrichmentProvider | undefined>;
 }
 
 function parseJsonCredential(credential: string): { access_token?: string } | undefined {
@@ -131,6 +133,19 @@ async function loadAnilist(
     clientId: process.env["ANILIST_CLIENT_ID"] || ANILIST_CLIENT_ID,
     httpClient,
   });
+}
+
+async function loadAnilistEnrichment(
+  ctx: PluginLoadContext,
+  entry: PluginManifestEntry,
+): Promise<EnrichmentProvider | undefined> {
+  const raw = await ctx.credentialStore.getCredential(entry.credentialKey);
+  const token = raw ? parseJsonCredential(raw)?.access_token : undefined;
+  const httpClient = new HttpClient({
+    minDelay: entry.rateLimit,
+    ...debugOptions(ctx.debug),
+  });
+  return new AniListEnrichmentProvider(entry.baseUrl, httpClient, token);
 }
 
 async function loadKitsu(
@@ -235,6 +250,15 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     rateLimit: 500,
     credentialKey: "mal",
     load: loadMyAnimeList,
+  },
+  {
+    name: "anilist-enrichment",
+    type: "enrichment",
+    description: "AniList enrichment provider for franchise grouping",
+    baseUrl: "https://graphql.anilist.co",
+    rateLimit: 667,
+    credentialKey: "anilist",
+    load: loadAnilistEnrichment,
   },
 ];
 

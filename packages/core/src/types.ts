@@ -220,6 +220,34 @@ export interface TrackerAnimeDetails {
   totalEpisodes?: number;
 }
 
+export interface EnrichmentSearchResult {
+  anilistId: string;
+  title: string;
+  format?: string;
+  episodes?: number;
+}
+
+export interface EnrichmentRelation {
+  anilistId: string;
+  title: string;
+  relationType: string;
+  format?: string;
+}
+
+export interface EnrichmentMediaResult {
+  anilistId: string;
+  title: string;
+  format?: string;
+  episodes?: number;
+  relations: EnrichmentRelation[];
+  externalLinks?: { site: string; id: string }[];
+}
+
+export interface EnrichmentProvider {
+  searchByTitle(title: string): Promise<EnrichmentSearchResult | null>;
+  getMediaDetailsBatch(anilistIds: string[]): Promise<EnrichmentMediaResult[]>;
+}
+
 export interface TrackerPlugin {
   authenticate(): Promise<string>;
   ensureAuthenticated(): Promise<void>;

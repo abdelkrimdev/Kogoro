@@ -120,7 +120,7 @@ export function createScanHandlers(dependencies: {
   cacheService: CacheService;
   libraryService: LibraryService;
   scanStateService: ScanStateService;
-  mergeMatches: (matches: MatchEntry[]) => void;
+  mergeMatches: (matches: MatchEntry[]) => Promise<void>;
   send: {
     scanProgress: (data: {
       sessionId: string;

@@ -22,6 +22,13 @@
       "when": 1783607384722,
       "tag": "0002_add_alternative_titles",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1752422400000,
+      "tag": "0003_add_franchise_tables",
+      "breakpoints": true
     }
   ]
 }

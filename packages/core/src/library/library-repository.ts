@@ -1,7 +1,15 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
-import type { EntryType } from "../types";
-import { anime, episodeGroups, episodes, groupTrackerMappings } from "./schema";
+import type { EnrichmentRelation, EntryType } from "../types";
+import {
+  anilistCache,
+  anime,
+  animeTrackerMappings,
+  episodeGroups,
+  episodes,
+  franchises,
+  groupTrackerMappings,
+} from "./schema";
 
 export interface LibraryAnime {
   id: number;
@@ -14,6 +22,7 @@ export interface LibraryAnime {
   coverArtPath?: string;
   genres?: string[];
   libraryState?: "on_disk" | "partially_on_disk" | "not_on_disk";
+  franchiseId?: number;
   lastSynced: string;
 }
 
@@ -47,11 +56,40 @@ export interface GroupTrackerMapping {
   externalId: string;
 }
 
+export interface Franchise {
+  id: number;
+  title: string;
+  anilistId: string | null;
+  coverArtPath: string | null;
+  synopsis: string | null;
+  createdAt: string;
+}
+
+export interface AnimeTrackerMapping {
+  id: number;
+  animeId: number;
+  source: string;
+  externalId: string;
+}
+
+export interface AnilistCacheEntry {
+  anilistId: string;
+  title: string;
+  format: string | null;
+  episodes: number | null;
+  relations: import("../types").EnrichmentRelation[];
+  externalLinks: { site: string; id: string }[] | null;
+  fetchedAt: string;
+}
+
 type LibrarySchema = {
   anime: typeof anime;
   episodeGroups: typeof episodeGroups;
   episodes: typeof episodes;
   groupTrackerMappings: typeof groupTrackerMappings;
+  franchises: typeof franchises;
+  animeTrackerMappings: typeof animeTrackerMappings;
+  anilistCache: typeof anilistCache;
 };
 type LibraryDb = BaseSQLiteDatabase<"sync", void, LibrarySchema>;
 
@@ -141,6 +179,7 @@ export class LibraryRepository {
         coverArtPath: anime.coverArtPath,
         genres: anime.genres,
         libraryState: anime.libraryState,
+        franchiseId: anime.franchiseId,
         lastSynced: anime.lastSynced,
         filesOnDisk: sql<number>`cast(count(${episodes.id}) as int)`,
       })
@@ -780,6 +819,180 @@ export class LibraryRepository {
       .run();
   }
 
+  // Franchise operations
+
+  createFranchise(data: {
+    title: string;
+    anilistId?: string;
+    coverArtPath?: string;
+    synopsis?: string;
+  }): Franchise {
+    const result = this.db
+      .insert(franchises)
+      .values({
+        title: data.title,
+        anilistId: data.anilistId ?? null,
+        coverArtPath: data.coverArtPath ?? null,
+        synopsis: data.synopsis ?? null,
+        createdAt: new Date().toISOString(),
+      })
+      .returning()
+      .get();
+    return this.rowToFranchise(result);
+  }
+
+  findFranchiseByAnilistId(anilistId: string): Franchise | null {
+    const row = this.db.select().from(franchises).where(eq(franchises.anilistId, anilistId)).get();
+    return row ? this.rowToFranchise(row) : null;
+  }
+
+  assignAnimeToFranchise(animeId: number, franchiseId: number): void {
+    this.db.update(anime).set({ franchiseId }).where(eq(anime.id, animeId)).run();
+  }
+
+  getFranchiseById(id: number): Franchise | null {
+    const row = this.db.select().from(franchises).where(eq(franchises.id, id)).get();
+    return row ? this.rowToFranchise(row) : null;
+  }
+
+  getFranchises(): Franchise[] {
+    const rows = this.db.select().from(franchises).orderBy(franchises.title).all();
+    return rows.map(this.rowToFranchise);
+  }
+
+  // Anime-tracker mapping operations
+
+  createAnimeTrackerMapping(data: {
+    animeId: number;
+    source: string;
+    externalId: string;
+  }): AnimeTrackerMapping {
+    const result = this.db
+      .insert(animeTrackerMappings)
+      .values({
+        animeId: data.animeId,
+        source: data.source,
+        externalId: data.externalId,
+      })
+      .returning()
+      .get();
+    return this.rowToAnimeTrackerMapping(result);
+  }
+
+  findAnimeByTrackerMapping(source: string, externalId: string): AnimeTrackerMapping | null {
+    const row = this.db
+      .select()
+      .from(animeTrackerMappings)
+      .where(
+        and(
+          eq(animeTrackerMappings.source, source),
+          eq(animeTrackerMappings.externalId, externalId),
+        ),
+      )
+      .get();
+    return row ? this.rowToAnimeTrackerMapping(row) : null;
+  }
+
+  // AniList cache operations
+
+  getAnilistCacheEntry(anilistId: string): AnilistCacheEntry | null {
+    const row = this.db
+      .select()
+      .from(anilistCache)
+      .where(eq(anilistCache.anilistId, anilistId))
+      .get();
+    return row ? this.rowToAnilistCacheEntry(row) : null;
+  }
+
+  setAnilistCacheEntry(entry: AnilistCacheEntry): void {
+    const serializedRelations = JSON.stringify(entry.relations);
+    const serializedExternalLinks = entry.externalLinks
+      ? JSON.stringify(entry.externalLinks)
+      : null;
+    this.db
+      .insert(anilistCache)
+      .values({
+        anilistId: entry.anilistId,
+        title: entry.title,
+        format: entry.format,
+        episodes: entry.episodes,
+        relations: serializedRelations,
+        externalLinks: serializedExternalLinks,
+        fetchedAt: entry.fetchedAt,
+      })
+      .onConflictDoUpdate({
+        target: [anilistCache.anilistId],
+        set: {
+          title: entry.title,
+          format: entry.format,
+          episodes: entry.episodes,
+          relations: serializedRelations,
+          externalLinks: serializedExternalLinks,
+          fetchedAt: entry.fetchedAt,
+        },
+      })
+      .run();
+  }
+
+  getUncachedAnilistIds(anilistIds: string[]): string[] {
+    if (anilistIds.length === 0) return [];
+    const cached = this.db
+      .select({ anilistId: anilistCache.anilistId })
+      .from(anilistCache)
+      .where(
+        sql`${anilistCache.anilistId} IN (${sql.join(
+          anilistIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+      )
+      .all();
+    const cachedSet = new Set(cached.map((row) => row.anilistId));
+    return anilistIds.filter((id) => !cachedSet.has(id));
+  }
+
+  // Anime enrichment status
+
+  getUnenrichedAnimeIds(): number[] {
+    const rows = this.db
+      .select({ id: anime.id })
+      .from(anime)
+      .where(
+        and(
+          isNull(anime.franchiseId),
+          sql`${anime.id} NOT IN (SELECT anime_id FROM anime_tracker_mappings)`,
+        ),
+      )
+      .all();
+    return rows.map((row) => row.id);
+  }
+
+  hasAnimeTrackerMapping(animeId: number, source: string): boolean {
+    const row = this.db
+      .select({ id: animeTrackerMappings.id })
+      .from(animeTrackerMappings)
+      .where(
+        and(eq(animeTrackerMappings.animeId, animeId), eq(animeTrackerMappings.source, source)),
+      )
+      .get();
+    return row !== undefined;
+  }
+
+  getAnimeTrackerMapping(animeId: number, source: string): AnimeTrackerMapping | null {
+    const row = this.db
+      .select()
+      .from(animeTrackerMappings)
+      .where(
+        and(eq(animeTrackerMappings.animeId, animeId), eq(animeTrackerMappings.source, source)),
+      )
+      .get();
+    return row ? this.rowToAnimeTrackerMapping(row) : null;
+  }
+
+  getAllAnimeTrackerMappings(): AnimeTrackerMapping[] {
+    const rows = this.db.select().from(animeTrackerMappings).all();
+    return rows.map((row) => this.rowToAnimeTrackerMapping(row));
+  }
+
   private rowToAnime(row: {
     id: number;
     externalId: string;
@@ -790,6 +1003,7 @@ export class LibraryRepository {
     coverArtPath: string | null;
     genres: string[] | null;
     libraryState: string;
+    franchiseId: number | null;
     lastSynced: string;
   }): LibraryAnime {
     return {
@@ -802,6 +1016,7 @@ export class LibraryRepository {
       coverArtPath: row.coverArtPath ?? undefined,
       genres: row.genres ?? undefined,
       libraryState: row.libraryState as LibraryAnime["libraryState"],
+      franchiseId: row.franchiseId ?? undefined,
       lastSynced: row.lastSynced,
     };
   }
@@ -863,6 +1078,60 @@ export class LibraryRepository {
       groupId: row.groupId,
       source: row.source as GroupTrackerMapping["source"],
       externalId: row.externalId,
+    };
+  }
+
+  private rowToFranchise(row: {
+    id: number;
+    title: string;
+    anilistId: string | null;
+    coverArtPath: string | null;
+    synopsis: string | null;
+    createdAt: string;
+  }): Franchise {
+    return {
+      id: row.id,
+      title: row.title,
+      anilistId: row.anilistId,
+      coverArtPath: row.coverArtPath,
+      synopsis: row.synopsis,
+      createdAt: row.createdAt,
+    };
+  }
+
+  private rowToAnimeTrackerMapping(row: {
+    id: number;
+    animeId: number;
+    source: string;
+    externalId: string;
+  }): AnimeTrackerMapping {
+    return {
+      id: row.id,
+      animeId: row.animeId,
+      source: row.source,
+      externalId: row.externalId,
+    };
+  }
+
+  private rowToAnilistCacheEntry(row: {
+    anilistId: string;
+    title: string;
+    format: string | null;
+    episodes: number | null;
+    relations: string;
+    externalLinks: string | null;
+    fetchedAt: string;
+  }): AnilistCacheEntry {
+    return {
+      anilistId: row.anilistId,
+      title: row.title,
+      format: row.format,
+      episodes: row.episodes,
+      relations: JSON.parse(row.relations) as EnrichmentRelation[],
+      externalLinks: row.externalLinks
+        ? (JSON.parse(row.externalLinks) as { site: string; id: string }[])
+        : null,
+      fetchedAt: row.fetchedAt,
     };
   }
 }

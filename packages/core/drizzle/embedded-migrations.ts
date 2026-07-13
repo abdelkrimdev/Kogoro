@@ -25,6 +25,13 @@ export const journal = {
       tag: "0002_add_alternative_titles",
       breakpoints: true,
     },
+    {
+      idx: 3,
+      version: "6",
+      when: 1752422400000,
+      tag: "0003_add_franchise_tables",
+      breakpoints: true,
+    },
   ],
 } as const;
 
@@ -34,4 +41,6 @@ export const migrations: Record<string, string> = {
   "0001_redundant_bill_hollister": "ALTER TABLE `episodes` ADD `notes` text;",
   "0002_add_alternative_titles":
     "-- Custom SQL migration file, put your code below! --\nALTER TABLE `anime` ADD `alternative_titles` text;\n--> statement-breakpoint\nUPDATE `anime` SET `alternative_titles` = CASE WHEN `title_japanese` IS NOT NULL THEN json_array(`title_japanese`) ELSE NULL END WHERE `title_japanese` IS NOT NULL;\n--> statement-breakpoint\nALTER TABLE `anime` DROP COLUMN `title_japanese`;",
+  "0003_add_franchise_tables":
+    "CREATE TABLE `franchises` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`title` text NOT NULL,\n\t`anilist_id` text,\n\t`cover_art_path` text,\n\t`synopsis` text,\n\t`created_at` text NOT NULL\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `franchises_anilist_id_unique` ON `franchises` (`anilist_id`);--> statement-breakpoint\nCREATE TABLE `anime_tracker_mappings` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`anime_id` integer NOT NULL,\n\t`source` text NOT NULL,\n\t`external_id` text NOT NULL,\n\tFOREIGN KEY (`anime_id`) REFERENCES `anime`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `anime_tracker_mappings_source_external_id` ON `anime_tracker_mappings` (`source`,`external_id`);--> statement-breakpoint\nCREATE TABLE `anilist_cache` (\n\t`anilist_id` text PRIMARY KEY NOT NULL,\n\t`title` text NOT NULL,\n\t`format` text,\n\t`episodes` integer,\n\t`relations` text NOT NULL,\n\t`external_links` text,\n\t`fetched_at` text NOT NULL\n);\n--> statement-breakpoint\nALTER TABLE `anime` ADD `franchise_id` integer REFERENCES `franchises`(`id`) ON UPDATE no action ON DELETE set null;",
 } as const;

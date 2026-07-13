@@ -4,7 +4,14 @@ import { stripTypeDir } from "../config/schema";
 import type { EventRepository } from "../events/event-repository";
 import type { TrackerSource } from "../tracker/tracker-import";
 import { extractSeasonNumber, findMatchingAnime, mapTrackerStatus } from "../tracker/tracker-utils";
-import type { EntryType, MatchEntry, TrackerAnime, TrackerPlugin } from "../types";
+import type {
+  EnrichmentProvider,
+  EntryType,
+  MatchEntry,
+  TrackerAnime,
+  TrackerPlugin,
+} from "../types";
+import { EnrichmentService } from "./enrichment-service";
 import type {
   EpisodeGroup,
   GroupTrackerMapping,
@@ -24,10 +31,32 @@ function groupCompositeKey(
 }
 
 export class LibraryService {
+  private enrichmentService: EnrichmentService | null = null;
+  private enrichmentProviderFactory: (() => Promise<EnrichmentProvider | undefined>) | null = null;
+
   constructor(
     private library: LibraryRepository,
     private events: EventRepository,
-  ) {}
+    enrichmentProviderFactory?: () => Promise<EnrichmentProvider | undefined>,
+  ) {
+    this.enrichmentProviderFactory = enrichmentProviderFactory ?? null;
+  }
+
+  private async ensureEnrichmentService(): Promise<EnrichmentService | null> {
+    if (this.enrichmentService) return this.enrichmentService;
+    if (!this.enrichmentProviderFactory) return null;
+    const provider = await this.enrichmentProviderFactory();
+    if (!provider) return null;
+    this.enrichmentService = new EnrichmentService(this.library, provider);
+    return this.enrichmentService;
+  }
+
+  async enrichAnime(animeIds: number[]): Promise<void> {
+    const enrichmentService = await this.ensureEnrichmentService();
+    if (enrichmentService) {
+      await enrichmentService.enrichAnime(animeIds);
+    }
+  }
 
   listAnime(): LibraryAnime[] {
     return this.library.listAnime();
@@ -111,7 +140,7 @@ export class LibraryService {
     }));
   }
 
-  rebuild(sourceDb?: string): void {
+  async rebuild(sourceDb?: string): Promise<void> {
     const matches = this.getFilteredMatches(sourceDb);
     let oldEntitySnapshot:
       | {
@@ -126,6 +155,11 @@ export class LibraryService {
 
     if (oldEntitySnapshot) {
       this.replayUnpushedEvents(oldEntitySnapshot);
+    }
+
+    const unenrichedIds = this.library.getUnenrichedAnimeIds();
+    if (unenrichedIds.length > 0) {
+      await this.enrichAnime(unenrichedIds);
     }
   }
 
@@ -255,10 +289,25 @@ export class LibraryService {
         onBeforeWipe({ groupByCompositeKey, episodeByCompositeKey: oldEpisodeKey });
       }
 
+      const oldAnimeTrackerMappings = tx.getAllAnimeTrackerMappings();
+      const mappingByCompositeKey = new Map<string, typeof oldAnimeTrackerMappings>();
+      for (const m of oldAnimeTrackerMappings) {
+        const anime = oldAnimeById.get(m.animeId);
+        if (!anime) continue;
+        const key = `${anime.externalId}:${anime.sourceDb}`;
+        const list = mappingByCompositeKey.get(key);
+        if (list) {
+          list.push(m);
+        } else {
+          mappingByCompositeKey.set(key, [m]);
+        }
+      }
+
       tx.deleteAll();
 
       const now = new Date().toISOString();
       const animeIds = new Set<number>();
+      const externalIdToAnimeId = new Map<string, number>();
 
       const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
 
@@ -271,6 +320,7 @@ export class LibraryService {
           lastSynced: now,
         });
         const animeId = libraryAnime.id;
+        externalIdToAnimeId.set(`${match.animeId}:${match.sourceDb}`, animeId);
 
         animeIds.add(animeId);
 
@@ -341,13 +391,38 @@ export class LibraryService {
         tx.updateEpisodeCount(id);
       }
 
+      for (const [compositeKey, mappings] of mappingByCompositeKey) {
+        const newAnimeId = externalIdToAnimeId.get(compositeKey);
+        if (newAnimeId === undefined) continue;
+        for (const mapping of mappings) {
+          tx.createAnimeTrackerMapping({
+            animeId: newAnimeId,
+            source: mapping.source,
+            externalId: mapping.externalId,
+          });
+        }
+      }
+
       for (const id of animeIds) {
         this.computeAndPersistLibraryState(id, tx);
+      }
+
+      for (const id of animeIds) {
+        const anime = tx.getAnime(id);
+        if (!anime || anime.franchiseId) continue;
+
+        const mapping = tx.getAnimeTrackerMapping(id, "anilist");
+        if (!mapping) continue;
+
+        const franchise = tx.findFranchiseByAnilistId(mapping.externalId);
+        if (franchise) {
+          tx.assignAnimeToFranchise(id, franchise.id);
+        }
       }
     });
   }
 
-  mergeFromMatches(matches: MatchEntry[]): void {
+  async mergeFromMatches(matches: MatchEntry[]): Promise<void> {
     const grouped = new Map<string, MatchEntry[]>();
     for (const match of matches) {
       const key = `${match.animeTitle}\0${match.sourceDb}`;
@@ -358,6 +433,8 @@ export class LibraryService {
         grouped.set(key, [match]);
       }
     }
+
+    const affectedAnimeIds = new Set<number>();
 
     this.library.transaction((tx) => {
       const newFilePaths = new Set<string>();
@@ -377,8 +454,6 @@ export class LibraryService {
       this.deleteAnimeFromOtherSourceDbs(tx, sourceDbs);
 
       const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
-
-      const affectedAnimeIds = new Set<number>();
 
       for (const [, group] of grouped) {
         const first = group[0];
@@ -460,6 +535,10 @@ export class LibraryService {
         this.computeAndPersistLibraryState(id, tx);
       }
     });
+
+    if (affectedAnimeIds.size > 0) {
+      await this.enrichAnime([...affectedAnimeIds]);
+    }
   }
 
   // Episode Groups
