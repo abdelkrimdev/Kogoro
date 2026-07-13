@@ -14,8 +14,12 @@ _Avoid_: EpisodeFile, AnimeFile, video file
 A numbered entry within an anime series, covering regular episodes, movies, OVAs, and specials.
 _Avoid_: chapter, entry, part
 
+**Franchise**:
+A group of related **Anime** connected by sequel, prequel, side story, summary, or parent relations (e.g. "One Piece" franchise contains seasons, movies, and OVAs). Top-level entry in the **Library**. Derived automatically from AniList relation data.
+_Avoid_: franchise group, anime franchise, series group
+
 **Anime**:
-The series or franchise that episodes belong to (e.g. "Jujutsu Kaisen").
+A single series or entry within a **Franchise** (e.g. "One Piece Season 1"). May be merged across **Databases** and **Trackers** into one record when they refer to the same show.
 _Avoid_: show, series, title, franchise
 
 **Episode Group**:
@@ -45,7 +49,7 @@ _Avoid_: fixup, correction, edit
 ### Library
 
 **Library**:
-The central hub for managing the user's organized collection of **Anime**, their **Episode Groups**, and watchlist — rebuilt from on-disk files, the match cache, and connected **Trackers**. Authoritative at runtime.
+The central hub for managing the user's organized collection of **Franchises**, **Anime**, **Episode Groups**, and watchlist — rebuilt from on-disk files, the match cache, and connected **Trackers**. Authoritative at runtime. **Franchise** is the top-level entry visible to the user.
 _Avoid_: collection, catalog, inventory
 
 **Library Database**:
@@ -125,11 +129,16 @@ _Avoid_: setup flow, first-run experience
 ### Plugin system
 
 **TrackerPlugin**:
-A plugin type for connecting Kogoro to a **Tracker** (MAL, AniList, Kitsu). Implements `authenticate()`, `getUserList()`, `getEntry()`, `updateEntry()`, and `getAnimeDetails()`. Distinct from **DatabasePlugin** and **SubtitlePlugin**.
+A plugin type for connecting Kogoro to a **Tracker** (MAL, AniList, Kitsu). Implements `authenticate()`, `getUserList()`, `getEntry()`, `updateEntry()`, and `getAnimeDetails()`. Distinct from **DatabasePlugin**, **SubtitlePlugin**, and **EnrichmentProvider**.
 _Avoid_: tracker integration, list plugin
+
+**EnrichmentProvider**:
+A plugin type for fetching anime metadata and relation data from external sources (e.g. AniList). Implements `searchByTitle()` and `getMediaDetailsBatch()`. Used during **Auto-Merge** to discover **Franchise** relationships and cross-reference **Anime** across **Databases** and **Trackers**. Distinct from **TrackerPlugin**.
+_Avoid_: enrichment plugin, metadata provider
 
 ## Relationships
 
+- A **Franchise** contains one or more **Anime**
 - A **MediaFile** matches exactly one **Episode**
 - An **Episode** belongs to exactly one **Episode Group**
 - An **Episode Group** belongs to exactly one **Anime**
@@ -137,6 +146,8 @@ _Avoid_: tracker integration, list plugin
 - An **Episode Group** has exactly one **Watch Status** (watching, completed, plan to watch, on hold, dropped)
 - An **Episode** has an independent `watched` boolean
 - An **Anime** has exactly one derived **Library State** (on disk, partially on disk, not on disk)
+- An **Anime** belongs to zero or one **Franchise**
+- An **Anime** may be mapped to zero or more **Tracker** entries for cross-source deduplication
 - A **Match** may have one or more **Overrides** (user corrections)
 - A **Match** is resolved against one primary **Database**
 - A **Library** entry is identified by (external ID, source **Database**)
@@ -144,6 +155,7 @@ _Avoid_: tracker integration, list plugin
 - An **Episode Group** may be mapped to zero or more **Tracker** entries via `group_tracker_mappings`
 - The **Scan Workflow** produces a **Rename Plan** that the user approves via the **Review Screen**
 - **Auto-Merge** links new **Episodes** to existing **Episode Groups** without duplicates
+- **Auto-Merge** enriches new **Anime** via an **EnrichmentProvider** to discover **Franchise** relationships
 - The **Sync Engine** reconciles local state with remote tracker data, using the **Event Log** for pending local changes
 - The **Library** is rebuildable from on-disk files, the match cache, and connected tracker data
 
@@ -175,6 +187,15 @@ _Avoid_: tracker integration, list plugin
 >
 > **Dev:** "What happens if I disconnect a tracker?"
 > **Domain expert:** "Kogoro owns all data once imported. The tracker mapping rows are cleaned up and pending events for that tracker are dropped, but everything else — anime, groups, episodes, watch statuses, enriched metadata — stays in your library."
+>
+> **Dev:** "I scan One Piece Season 1 with AniDB. How does Kogoro know it's part of the One Piece franchise?"
+> **Domain expert:** "After the scan, **Auto-Merge** calls the **EnrichmentProvider** to search AniList by title. AniList returns the One Piece media entry with its relations — sequels, movies, OVAs. Kogoro walks the relation graph and creates a **Franchise** containing all connected **Anime**. The scan result appears as 'One Piece' in the library, not as a separate entry."
+>
+> **Dev:** "I have One Piece from AniDB and also imported it from AniList. Are those two separate entries?"
+> **Domain expert:** "No — **Auto-Merge** detects they're the same show via the **EnrichmentProvider** and merges them into one **Anime** record. The AniDB external ID stays on the anime; the AniList ID is stored as a tracker mapping. One entry in the library, two source references."
+>
+> **Dev:** "What if AniList is down during a scan?"
+> **Domain expert:** "Enrichment fails silently. The anime is created without a **Franchise** assignment. On the next scan or rebuild, Kogoro retries enrichment for any anime not yet in a **Franchise**. Your files are still organized — the franchise grouping just comes later."
 
 ## Flagged ambiguities
 
