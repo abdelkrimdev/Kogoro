@@ -41,8 +41,16 @@ function resolveMigrationsFolder(): string {
 
 const MIGRATIONS_FOLDER = resolveMigrationsFolder();
 
-function computeMigrationHash(sql: string): string {
+function computeRawHash(sql: string): string {
   return createHash("sha256").update(sql).digest("hex");
+}
+
+function computeIdempotentHash(sql: string): string {
+  return createHash("sha256").update(makeIdempotent(sql)).digest("hex");
+}
+
+function isMigrationApplied(applied: Set<string>, sql: string): boolean {
+  return applied.has(computeRawHash(sql)) || applied.has(computeIdempotentHash(sql));
 }
 
 function getAppliedMigrationHashes(sqlite: Database): Set<string> {
@@ -55,15 +63,18 @@ function getAppliedMigrationHashes(sqlite: Database): Set<string> {
 function recordMigration(sqlite: Database, tag: string, when: number): void {
   const rawSql = migrations[tag];
   if (!rawSql) return;
-  const hash = computeMigrationHash(rawSql);
+  const hash = computeIdempotentHash(rawSql);
   sqlite.run("INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)", [hash, when]);
 }
 
-function isDuplicateColumnError(err: unknown): boolean {
+function isAlreadyAppliedMessage(msg: string): boolean {
+  return msg.includes("duplicate column name") || msg.includes("already exists");
+}
+
+function isAlreadyAppliedError(err: unknown): boolean {
   if (err instanceof Error) {
-    if (err.message.includes("duplicate column name")) return true;
-    if (err.cause instanceof Error && err.cause.message.includes("duplicate column name"))
-      return true;
+    if (isAlreadyAppliedMessage(err.message)) return true;
+    if (err.cause instanceof Error && isAlreadyAppliedMessage(err.cause.message)) return true;
   }
   return false;
 }
@@ -72,17 +83,21 @@ function safeMigrate(db: ReturnType<typeof drizzle>): void {
   try {
     migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   } catch (err) {
-    if (!isDuplicateColumnError(err)) throw err;
+    if (!isAlreadyAppliedError(err)) throw err;
 
     const sqlite = db.$client as Database;
     const applied = getAppliedMigrationHashes(sqlite);
     for (const entry of journal.entries) {
-      const sql = migrations[entry.tag];
-      if (!sql) continue;
-      const rawHash = computeMigrationHash(sql);
-      if (!applied.has(rawHash)) {
-        recordMigration(sqlite, entry.tag, entry.when);
+      const rawSql = migrations[entry.tag];
+      if (!rawSql) continue;
+      if (isMigrationApplied(applied, rawSql)) continue;
+
+      try {
+        sqlite.exec(makeIdempotent(rawSql));
+      } catch (innerErr) {
+        if (!isAlreadyAppliedError(innerErr)) throw innerErr;
       }
+      recordMigration(sqlite, entry.tag, entry.when);
     }
   }
 }
