@@ -1,9 +1,9 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { drizzle } from "drizzle-orm/bun-sqlite";
+import type { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { journal, migrations } from "../../drizzle/embedded-migrations";
 
@@ -83,6 +83,6 @@ export function safeMigrate(db: ReturnType<typeof drizzle>): void {
     migrate(db, { migrationsFolder });
   } catch (err) {
     if (!isAlreadyAppliedError(err)) throw err;
-    applyRemainingMigrations(db.$client as Database);
   }
+  applyRemainingMigrations(db.$client as Database);
 }

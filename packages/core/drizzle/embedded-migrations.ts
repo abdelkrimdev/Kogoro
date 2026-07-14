@@ -28,7 +28,7 @@ export const journal = {
     {
       idx: 3,
       version: "6",
-      when: 1752422400000,
+      when: 1783968719000,
       tag: "0003_add_franchise_tables",
       breakpoints: true,
     },
