@@ -976,6 +976,30 @@ export class LibraryRepository {
     return result;
   }
 
+  // Known AniList IDs from anime tracker mappings
+
+  getAnimeAnilistIds(): Map<string, number[]> {
+    const rows = this.db
+      .select({
+        anilistId: animeTrackerMappings.externalId,
+        animeId: animeTrackerMappings.animeId,
+      })
+      .from(animeTrackerMappings)
+      .where(eq(animeTrackerMappings.source, "anilist"))
+      .all();
+
+    const result = new Map<string, number[]>();
+    for (const row of rows) {
+      const existing = result.get(row.anilistId);
+      if (existing) {
+        existing.push(row.animeId);
+      } else {
+        result.set(row.anilistId, [row.animeId]);
+      }
+    }
+    return result;
+  }
+
   // Anime enrichment status
 
   getUnenrichedAnimeIds(): number[] {

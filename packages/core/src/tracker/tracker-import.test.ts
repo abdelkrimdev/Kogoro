@@ -1,12 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { EventRepository } from "../events/event-repository";
-import { createEventDb } from "../events/test-utils";
-import {
-  createLibraryRepository,
-  createMockEnrichmentProvider,
-  createTrackerImportTestContext,
-} from "../fixtures";
-import { LibraryService } from "../library/library-service";
+import { createMockEnrichmentProvider, createTrackerImportTestContext } from "../fixtures";
 import type { TrackerAnime, TrackerPlugin } from "../types";
 import { TrackerImportService } from "./tracker-import";
 
@@ -899,30 +892,25 @@ describe("TrackerImportService", () => {
 
   describe("confirmImport - enrichment", () => {
     it("enriches newly imported anime with franchise", async () => {
-      const { repo, close } = createLibraryRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-      try {
-        const evtRepo = new EventRepository(evtDb);
-
-        const provider = createMockEnrichmentProvider({
-          searchByTitle: async (title) => ({
-            anilistId: "12345",
-            title,
+      const provider = createMockEnrichmentProvider({
+        searchByTitle: async (title) => ({
+          anilistId: "12345",
+          title,
+          format: "TV",
+          episodes: 24,
+        }),
+        getMediaDetailsBatch: async (ids) =>
+          ids.map((id) => ({
+            anilistId: id,
+            title: "Attack on Titan",
             format: "TV",
-            episodes: 24,
-          }),
-          getMediaDetailsBatch: async (ids) =>
-            ids.map((id) => ({
-              anilistId: id,
-              title: "Attack on Titan",
-              format: "TV",
-              episodes: 25,
-              relations: [],
-            })),
-        });
+            episodes: 25,
+            relations: [],
+          })),
+      });
 
-        const libraryService = new LibraryService(repo, evtRepo, async () => provider);
-
+      const { repo, libraryService, close } = createTrackerImportTestContext(async () => provider);
+      try {
         const tracker = createMockTrackerPlugin([
           {
             source: "anilist",
@@ -955,16 +943,20 @@ describe("TrackerImportService", () => {
         expect(mapping?.animeId).toBe(anime[0]?.id);
       } finally {
         close();
-        evtSqlite.close();
       }
     });
 
     it("does not enrich anime that already has a franchise", async () => {
-      const { repo, close } = createLibraryRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-      try {
-        const evtRepo = new EventRepository(evtDb);
+      let searchCallCount = 0;
+      const provider = createMockEnrichmentProvider({
+        searchByTitle: async () => {
+          searchCallCount++;
+          return { anilistId: "12345", title: "Attack on Titan", format: "TV", episodes: 25 };
+        },
+      });
 
+      const { repo, libraryService, close } = createTrackerImportTestContext(async () => provider);
+      try {
         const franchise = repo.createFranchise({
           title: "Existing Franchise",
           anilistId: "99999",
@@ -984,16 +976,6 @@ describe("TrackerImportService", () => {
           seasonNumber: 1,
           watchStatus: "watching",
         });
-
-        let searchCallCount = 0;
-        const provider = createMockEnrichmentProvider({
-          searchByTitle: async () => {
-            searchCallCount++;
-            return { anilistId: "12345", title: "Attack on Titan", format: "TV", episodes: 25 };
-          },
-        });
-
-        const libraryService = new LibraryService(repo, evtRepo, async () => provider);
 
         const tracker = createMockTrackerPlugin([
           {
@@ -1027,74 +1009,68 @@ describe("TrackerImportService", () => {
         expect(searchCallCount).toBe(0);
       } finally {
         close();
-        evtSqlite.close();
       }
     });
   });
 
   describe("confirmImport - relation-based grouping", () => {
     it("merges entries with different titles connected by SEQUEL relation", async () => {
-      const { repo, close } = createLibraryRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-      try {
-        const evtRepo = new EventRepository(evtDb);
-
-        const provider = createMockEnrichmentProvider({
-          searchByTitle: async (title) => ({
-            anilistId: "1",
-            title,
-            format: "TV",
-            episodes: 24,
+      const provider = createMockEnrichmentProvider({
+        searchByTitle: async (title) => ({
+          anilistId: "1",
+          title,
+          format: "TV",
+          episodes: 24,
+        }),
+        getMediaDetailsBatch: async (ids) =>
+          ids.map((id) => {
+            const details: Record<
+              string,
+              {
+                anilistId: string;
+                title: string;
+                format: string;
+                episodes: number;
+                relations: Array<{ anilistId: string; title: string; relationType: string }>;
+              }
+            > = {
+              "100": {
+                anilistId: "100",
+                title: "Shingeki no Kyojin",
+                format: "TV",
+                episodes: 25,
+                relations: [
+                  {
+                    anilistId: "200",
+                    title: "Shingeki no Kyojin: The Final Season",
+                    relationType: "SEQUEL",
+                  },
+                ],
+              },
+              "200": {
+                anilistId: "200",
+                title: "Shingeki no Kyojin: The Final Season",
+                format: "TV",
+                episodes: 16,
+                relations: [
+                  { anilistId: "100", title: "Shingeki no Kyojin", relationType: "PREQUEL" },
+                ],
+              },
+            };
+            return (
+              details[id] ?? {
+                anilistId: id,
+                title: "Unknown",
+                format: "TV",
+                episodes: 0,
+                relations: [],
+              }
+            );
           }),
-          getMediaDetailsBatch: async (ids) =>
-            ids.map((id) => {
-              const details: Record<
-                string,
-                {
-                  anilistId: string;
-                  title: string;
-                  format: string;
-                  episodes: number;
-                  relations: Array<{ anilistId: string; title: string; relationType: string }>;
-                }
-              > = {
-                "100": {
-                  anilistId: "100",
-                  title: "Shingeki no Kyojin",
-                  format: "TV",
-                  episodes: 25,
-                  relations: [
-                    {
-                      anilistId: "200",
-                      title: "Shingeki no Kyojin: The Final Season",
-                      relationType: "SEQUEL",
-                    },
-                  ],
-                },
-                "200": {
-                  anilistId: "200",
-                  title: "Shingeki no Kyojin: The Final Season",
-                  format: "TV",
-                  episodes: 16,
-                  relations: [
-                    { anilistId: "100", title: "Shingeki no Kyojin", relationType: "PREQUEL" },
-                  ],
-                },
-              };
-              return (
-                details[id] ?? {
-                  anilistId: id,
-                  title: "Unknown",
-                  format: "TV",
-                  episodes: 0,
-                  relations: [],
-                }
-              );
-            }),
-        });
+      });
 
-        const libraryService = new LibraryService(repo, evtRepo, async () => provider);
-
+      const { libraryService, close } = createTrackerImportTestContext(async () => provider);
+      try {
         const tracker = createMockTrackerPlugin([
           {
             source: "anilist",
@@ -1131,7 +1107,6 @@ describe("TrackerImportService", () => {
         expect(statuses).toEqual(["completed", "watching"]);
       } finally {
         close();
-        evtSqlite.close();
       }
     });
 
@@ -1172,19 +1147,14 @@ describe("TrackerImportService", () => {
     });
 
     it("falls back to title-based grouping when enrichment provider returns null", async () => {
-      const { repo, close } = createLibraryRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const provider = createMockEnrichmentProvider({
+        getMediaDetailsBatch: async () => {
+          throw new Error("API error");
+        },
+      });
+
+      const { libraryService, close } = createTrackerImportTestContext(async () => provider);
       try {
-        const evtRepo = new EventRepository(evtDb);
-
-        const provider = createMockEnrichmentProvider({
-          getMediaDetailsBatch: async () => {
-            throw new Error("API error");
-          },
-        });
-
-        const libraryService = new LibraryService(repo, evtRepo, async () => provider);
-
         const tracker = createMockTrackerPlugin([
           {
             source: "anilist",
@@ -1220,35 +1190,29 @@ describe("TrackerImportService", () => {
         }
       } finally {
         close();
-        evtSqlite.close();
       }
     });
 
     it("uses title-based grouping for entries without relations", async () => {
-      const { repo, close } = createLibraryRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-      try {
-        const evtRepo = new EventRepository(evtDb);
-
-        const provider = createMockEnrichmentProvider({
-          searchByTitle: async (title) => ({
-            anilistId: "1",
-            title,
+      const provider = createMockEnrichmentProvider({
+        searchByTitle: async (title) => ({
+          anilistId: "1",
+          title,
+          format: "TV",
+          episodes: 12,
+        }),
+        getMediaDetailsBatch: async (ids) =>
+          ids.map((id) => ({
+            anilistId: id,
+            title: "Test",
             format: "TV",
             episodes: 12,
-          }),
-          getMediaDetailsBatch: async (ids) =>
-            ids.map((id) => ({
-              anilistId: id,
-              title: "Test",
-              format: "TV",
-              episodes: 12,
-              relations: [],
-            })),
-        });
+            relations: [],
+          })),
+      });
 
-        const libraryService = new LibraryService(repo, evtRepo, async () => provider);
-
+      const { libraryService, close } = createTrackerImportTestContext(async () => provider);
+      try {
         const tracker = createMockTrackerPlugin([
           {
             source: "anilist",
@@ -1284,64 +1248,58 @@ describe("TrackerImportService", () => {
         }
       } finally {
         close();
-        evtSqlite.close();
       }
     });
 
     it("does not group entries connected only by SPIN_OFF relation", async () => {
-      const { repo, close } = createLibraryRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const provider = createMockEnrichmentProvider({
+        searchByTitle: async (title) => {
+          if (title === "Naruto") return { anilistId: "100", title, format: "TV", episodes: 220 };
+          return { anilistId: "200", title, format: "TV", episodes: 50 };
+        },
+        getMediaDetailsBatch: async (ids) =>
+          ids.map((id) => {
+            const details: Record<
+              string,
+              {
+                anilistId: string;
+                title: string;
+                format: string;
+                episodes: number;
+                relations: Array<{ anilistId: string; title: string; relationType: string }>;
+              }
+            > = {
+              "100": {
+                anilistId: "100",
+                title: "Naruto",
+                format: "TV",
+                episodes: 220,
+                relations: [
+                  { anilistId: "200", title: "Naruto Spin-Off", relationType: "SPIN_OFF" },
+                ],
+              },
+              "200": {
+                anilistId: "200",
+                title: "Naruto Spin-Off",
+                format: "TV",
+                episodes: 50,
+                relations: [{ anilistId: "100", title: "Naruto", relationType: "ALTERNATIVE" }],
+              },
+            };
+            return (
+              details[id] ?? {
+                anilistId: id,
+                title: "Unknown",
+                format: "TV",
+                episodes: 0,
+                relations: [],
+              }
+            );
+          }),
+      });
+
+      const { libraryService, close } = createTrackerImportTestContext(async () => provider);
       try {
-        const evtRepo = new EventRepository(evtDb);
-
-        const provider = createMockEnrichmentProvider({
-          searchByTitle: async (title) => {
-            if (title === "Naruto") return { anilistId: "100", title, format: "TV", episodes: 220 };
-            return { anilistId: "200", title, format: "TV", episodes: 50 };
-          },
-          getMediaDetailsBatch: async (ids) =>
-            ids.map((id) => {
-              const details: Record<
-                string,
-                {
-                  anilistId: string;
-                  title: string;
-                  format: string;
-                  episodes: number;
-                  relations: Array<{ anilistId: string; title: string; relationType: string }>;
-                }
-              > = {
-                "100": {
-                  anilistId: "100",
-                  title: "Naruto",
-                  format: "TV",
-                  episodes: 220,
-                  relations: [
-                    { anilistId: "200", title: "Naruto Spin-Off", relationType: "SPIN_OFF" },
-                  ],
-                },
-                "200": {
-                  anilistId: "200",
-                  title: "Naruto Spin-Off",
-                  format: "TV",
-                  episodes: 50,
-                  relations: [{ anilistId: "100", title: "Naruto", relationType: "ALTERNATIVE" }],
-                },
-              };
-              return (
-                details[id] ?? {
-                  anilistId: id,
-                  title: "Unknown",
-                  format: "TV",
-                  episodes: 0,
-                  relations: [],
-                }
-              );
-            }),
-        });
-
-        const libraryService = new LibraryService(repo, evtRepo, async () => provider);
-
         const tracker = createMockTrackerPlugin([
           {
             source: "anilist",
@@ -1372,7 +1330,6 @@ describe("TrackerImportService", () => {
         expect(animeList).toHaveLength(2);
       } finally {
         close();
-        evtSqlite.close();
       }
     });
   });

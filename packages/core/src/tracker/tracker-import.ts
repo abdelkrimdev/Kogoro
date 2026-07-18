@@ -1,5 +1,4 @@
-import type { EnrichmentService } from "../library/enrichment-service";
-import { appendToList, RELATION_TYPES_TO_WALK } from "../library/enrichment-service";
+import { type EnrichmentService, RELATION_TYPES_TO_WALK } from "../library/enrichment-service";
 import type { GroupTrackerMapping } from "../library/library-repository";
 import type { LibraryService } from "../library/library-service";
 import type {
@@ -64,6 +63,36 @@ function buildClusters(
   }
 
   return clusters;
+}
+
+function buildRelationMap(
+  trackerIds: string[],
+  mediaDetails: EnrichmentMediaResult[],
+): Map<string, Set<string>> {
+  const entrySet = new Set(trackerIds);
+  const relationsByEntry = new Map<string, Set<string>>();
+
+  for (const detail of mediaDetails) {
+    const relatedIds = new Set<string>();
+    for (const relation of detail.relations) {
+      if (!RELATION_TYPES_TO_WALK.has(relation.relationType)) continue;
+      if (!entrySet.has(relation.anilistId)) continue;
+
+      relatedIds.add(relation.anilistId);
+
+      const existingRels = relationsByEntry.get(relation.anilistId);
+      if (existingRels) {
+        existingRels.add(detail.anilistId);
+      } else {
+        relationsByEntry.set(relation.anilistId, new Set([detail.anilistId]));
+      }
+    }
+    if (relatedIds.size > 0) {
+      relationsByEntry.set(detail.anilistId, relatedIds);
+    }
+  }
+
+  return relationsByEntry;
 }
 
 function titlesMatch(
@@ -176,7 +205,7 @@ export class TrackerImportService {
 
     if (matchResults?.has(entry.trackerId)) {
       const animeId = matchResults.get(entry.trackerId);
-      if (animeId !== null && animeId !== undefined) {
+      if (animeId != null) {
         return { id: animeId };
       }
     }
@@ -198,10 +227,19 @@ export class TrackerImportService {
     const franchiseSets = this.enrichmentService.buildFranchiseSets(uniqueTrackerIds);
 
     const knownAnilistIds = this.library.getKnownAnilistIds();
+    const animeAnilistIds = this.library.getAnimeAnilistIds();
     const libraryAnimeAnilistIds = new Map<number, string>();
+
     for (const [anilistId, animeIds] of knownAnilistIds) {
       const firstAnimeId = animeIds[0];
       if (firstAnimeId !== undefined) {
+        libraryAnimeAnilistIds.set(firstAnimeId, anilistId);
+      }
+    }
+
+    for (const [anilistId, animeIds] of animeAnilistIds) {
+      const firstAnimeId = animeIds[0];
+      if (firstAnimeId !== undefined && !libraryAnimeAnilistIds.has(firstAnimeId)) {
         libraryAnimeAnilistIds.set(firstAnimeId, anilistId);
       }
     }
@@ -433,25 +471,7 @@ export class TrackerImportService {
     }
     if (!mediaDetails) return null;
 
-    const entrySet = new Set(trackerIds);
-    const relationsByEntry = new Map<string, Set<string>>();
-    for (const detail of mediaDetails) {
-      const relatedIds = new Set<string>();
-      for (const relation of detail.relations) {
-        if (RELATION_TYPES_TO_WALK.has(relation.relationType) && entrySet.has(relation.anilistId)) {
-          relatedIds.add(relation.anilistId);
-          const existingRels = relationsByEntry.get(relation.anilistId);
-          if (existingRels) {
-            existingRels.add(detail.anilistId);
-          } else {
-            relationsByEntry.set(relation.anilistId, new Set([detail.anilistId]));
-          }
-        }
-      }
-      if (relatedIds.size > 0) {
-        relationsByEntry.set(detail.anilistId, relatedIds);
-      }
-    }
+    const relationsByEntry = buildRelationMap(trackerIds, mediaDetails);
 
     const clusters = buildClusters(entries, relationsByEntry);
     if (clusters.size === 0) return null;
@@ -460,7 +480,12 @@ export class TrackerImportService {
     if (this.enrichmentService) {
       const clusterGroups = new Map<string, string[]>();
       for (const [trackerId, clusterRoot] of clusters) {
-        appendToList(clusterGroups, clusterRoot, trackerId);
+        const existing = clusterGroups.get(clusterRoot);
+        if (existing) {
+          existing.push(trackerId);
+        } else {
+          clusterGroups.set(clusterRoot, [trackerId]);
+        }
       }
 
       for (const clusterIds of clusterGroups.values()) {

@@ -2054,4 +2054,121 @@ describe("LibraryRepository", () => {
       }
     });
   });
+
+  describe("getAnimeAnilistIds", () => {
+    test("returns empty map when no anime tracker mappings exist", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const result = repo.getAnimeAnilistIds();
+        expect(result.size).toBe(0);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("maps anilist IDs to anime IDs from anime tracker mappings", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        const anime1 = repo.upsertAnime({
+          externalId: "tvdb-100",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+        const anime2 = repo.upsertAnime({
+          externalId: "tvdb-101",
+          sourceDb: "tvdb",
+          title: "Attack on Titan Season 2",
+          episodeCount: 12,
+        });
+
+        repo.createAnimeTrackerMapping({
+          animeId: anime1.id,
+          source: "anilist",
+          externalId: "10871",
+        });
+        repo.createAnimeTrackerMapping({
+          animeId: anime2.id,
+          source: "anilist",
+          externalId: "10872",
+        });
+
+        const result = repo.getAnimeAnilistIds();
+
+        expect(result.size).toBe(2);
+        expect(result.get("10871")).toEqual([anime1.id]);
+        expect(result.get("10872")).toEqual([anime2.id]);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("maps each anilist ID to its corresponding anime ID", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        const anime1 = repo.upsertAnime({
+          externalId: "tvdb-100",
+          sourceDb: "tvdb",
+          title: "Evangelion",
+          episodeCount: 26,
+        });
+        const anime2 = repo.upsertAnime({
+          externalId: "tvdb-101",
+          sourceDb: "tvdb",
+          title: "Evangelion (Remake)",
+          episodeCount: 26,
+        });
+
+        repo.createAnimeTrackerMapping({
+          animeId: anime1.id,
+          source: "anilist",
+          externalId: "30",
+        });
+        repo.createAnimeTrackerMapping({
+          animeId: anime2.id,
+          source: "anilist",
+          externalId: "31",
+        });
+
+        const result = repo.getAnimeAnilistIds();
+
+        expect(result.size).toBe(2);
+        expect(result.get("30")).toEqual([anime1.id]);
+        expect(result.get("31")).toEqual([anime2.id]);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("ignores non-anilist tracker mappings", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-100",
+          sourceDb: "tvdb",
+          title: "Naruto",
+          episodeCount: 220,
+        });
+
+        repo.createAnimeTrackerMapping({
+          animeId: anime.id,
+          source: "mal",
+          externalId: "1735",
+        });
+
+        const result = repo.getAnimeAnilistIds();
+
+        expect(result.size).toBe(0);
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
 });

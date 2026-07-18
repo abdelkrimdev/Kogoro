@@ -9,15 +9,6 @@ export const RELATION_TYPES_TO_WALK = new Set([
   "PARENT",
 ]);
 
-export function appendToList<K, V>(map: Map<K, V[]>, key: K, value: V): void {
-  const list = map.get(key);
-  if (list) {
-    list.push(value);
-  } else {
-    map.set(key, [value]);
-  }
-}
-
 export class EnrichmentService {
   constructor(
     private repository: LibraryRepository,
@@ -34,7 +25,12 @@ export class EnrichmentService {
 
     for (const [anilistId, ids] of knownFromGroups) {
       for (const animeId of ids) {
-        appendToList(animeByAnilistId, anilistId, animeId);
+        const existing = animeByAnilistId.get(anilistId);
+        if (existing) {
+          existing.push(animeId);
+        } else {
+          animeByAnilistId.set(anilistId, [animeId]);
+        }
         animeIdToAnilistId.set(animeId, anilistId);
       }
     }
@@ -59,7 +55,12 @@ export class EnrichmentService {
       );
 
       if (matchedAnilistId) {
-        appendToList(animeByAnilistId, matchedAnilistId, animeId);
+        const existing = animeByAnilistId.get(matchedAnilistId);
+        if (existing) {
+          existing.push(animeId);
+        } else {
+          animeByAnilistId.set(matchedAnilistId, [animeId]);
+        }
       } else {
         needsSearch.push({ animeId: anime.id, title: anime.title });
       }
@@ -84,7 +85,12 @@ export class EnrichmentService {
       const searchResult = await this.provider.searchByTitle(title);
       if (!searchResult) continue;
 
-      appendToList(animeByAnilistId, searchResult.anilistId, animeId);
+      const existing = animeByAnilistId.get(searchResult.anilistId);
+      if (existing) {
+        existing.push(animeId);
+      } else {
+        animeByAnilistId.set(searchResult.anilistId, [animeId]);
+      }
 
       const mediaResults = await this.walkFranchiseGraph([searchResult.anilistId]);
       await this.resolveFranchises(mediaResults, animeByAnilistId, needsSearchByTitle);

@@ -98,6 +98,10 @@ export class LibraryService {
     return this.library.getKnownAnilistIds();
   }
 
+  getAnimeAnilistIds(): Map<string, number[]> {
+    return this.library.getAnimeAnilistIds();
+  }
+
   upsertAnime(data: Omit<LibraryAnime, "id" | "lastSynced">): LibraryAnime {
     return this.library.upsertAnime(data);
   }

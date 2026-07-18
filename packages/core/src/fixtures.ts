@@ -202,14 +202,18 @@ export function createEnrichmentTestContext(
   return { repo, service, close: () => sqlite.close() };
 }
 
-export function createTrackerImportTestContext(): {
+export function createTrackerImportTestContext(
+  enrichmentProviderFactory?: () => Promise<import("./types").EnrichmentProvider | undefined>,
+): {
+  repo: LibraryRepository;
   libraryService: LibraryService;
   close: () => void;
 } {
   const { repo, close: closeLib } = createLibraryRepository();
   const { repo: evtRepo, close: closeEvt } = createEventRepository();
-  const libraryService = new LibraryService(repo, evtRepo);
+  const libraryService = new LibraryService(repo, evtRepo, enrichmentProviderFactory);
   return {
+    repo,
     libraryService,
     close: () => {
       closeLib();
