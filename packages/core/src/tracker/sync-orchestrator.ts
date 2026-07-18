@@ -1,8 +1,7 @@
 import type { EventRepository } from "../events/event-repository";
 import type { LibraryService } from "../library/library-service";
-import type { TrackerPlugin, TrackerWatchStatus } from "../types";
+import type { TrackerPlugin, TrackerSource, TrackerWatchStatus } from "../types";
 import { type SyncConflict, SyncEngine } from "./sync-engine";
-import type { TrackerSource } from "./tracker-import";
 
 export interface CrossTrackerConflict {
   groupId: number;

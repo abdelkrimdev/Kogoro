@@ -120,6 +120,7 @@ describe("MyAnimeListPlugin", () => {
 
           expect(list).toHaveLength(1);
           expect(list[0]).toEqual({
+            source: "mal",
             trackerId: "1234",
             title: "Test Anime",
             alternativeTitles: ["Test Anime EN", "テストアニメ"],

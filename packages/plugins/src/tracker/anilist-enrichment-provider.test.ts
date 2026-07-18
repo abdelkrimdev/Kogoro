@@ -146,7 +146,7 @@ describe("AniListEnrichmentProvider", () => {
   });
 
   describe("error handling", () => {
-    test("throws on HTTP error response", async () => {
+    test("throws on non-JSON HTTP error response", async () => {
       const httpClient = createMockHttpClient(async () => {
         return new Response("Internal Server Error", {
           status: 500,
@@ -161,7 +161,22 @@ describe("AniListEnrichmentProvider", () => {
       );
     });
 
-    test("throws on GraphQL error response", async () => {
+    test("throws on non-JSON HTTP 404 response", async () => {
+      const httpClient = createMockHttpClient(async () => {
+        return new Response(null, {
+          status: 404,
+          statusText: "Not Found",
+        });
+      });
+
+      const provider = new AniListEnrichmentProvider("https://graphql.anilist.co", httpClient);
+
+      await expect(provider.searchByTitle("Test")).rejects.toThrow(
+        "AniList API error: 404 Not Found",
+      );
+    });
+
+    test("throws on GraphQL error response without data", async () => {
       const mockResponse = {
         data: null,
         errors: [{ message: "Rate limit exceeded" }],
@@ -179,6 +194,47 @@ describe("AniListEnrichmentProvider", () => {
       await expect(provider.searchByTitle("Test")).rejects.toThrow(
         "AniList GraphQL error: Rate limit exceeded",
       );
+    });
+
+    test("returns partial data when AniList returns 404 with errors and data", async () => {
+      const mockResponse = {
+        errors: [
+          { message: "Not Found.", status: 404, locations: [{ line: 43, column: 5 }] },
+          { message: "Not Found.", status: 404, locations: [{ line: 63, column: 5 }] },
+        ],
+        data: {
+          Media1: {
+            id: 12345,
+            title: { romaji: "Jujutsu Kaisen", english: null, native: null },
+            format: "TV",
+            episodes: 24,
+            relations: { edges: [] },
+            externalLinks: null,
+          },
+          Media2: null,
+          Media3: null,
+          Media4: null,
+        },
+      };
+
+      const httpClient = createMockHttpClient(async () => {
+        return new Response(JSON.stringify(mockResponse), {
+          status: 404,
+          statusText: "Not Found",
+          headers: { "Content-Type": "application/json" },
+        });
+      });
+
+      const provider = new AniListEnrichmentProvider("https://graphql.anilist.co", httpClient);
+
+      const results = await provider.getMediaDetailsBatch(["12345", "99998", "99999", "99997"]);
+
+      expect(results.length).toBe(4);
+      expect(results[0]?.anilistId).toBe("12345");
+      expect(results[0]?.title).toBe("Jujutsu Kaisen");
+      expect(results[1]?.title).toBe("Unknown 99998");
+      expect(results[2]?.title).toBe("Unknown 99999");
+      expect(results[3]?.title).toBe("Unknown 99997");
     });
 
     test("throws on network error", async () => {

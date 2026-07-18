@@ -1,8 +1,7 @@
 import type { Event, EventRepository } from "../events/event-repository";
 import type { LibraryService } from "../library/library-service";
-import type { TrackerPlugin, TrackerWatchStatus } from "../types";
-import type { TrackerSource } from "./tracker-import";
-import { mapLocalStatusToTracker, mapTrackerStatus } from "./tracker-utils";
+import type { TrackerPlugin, TrackerSource, TrackerWatchStatus } from "../types";
+import { mapLocalStatusToTracker, mapTrackerStatus } from "./credential-utils";
 
 export interface SyncConflict {
   groupId: number;

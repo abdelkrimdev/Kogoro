@@ -368,6 +368,7 @@ export class KitsuPlugin implements TrackerPlugin {
       const ratingTwenty = num(attrs["ratingTwenty"]);
 
       return {
+        source: "kitsu",
         trackerId: String(entry.id),
         title: pickTitle(animeAttrs),
         image: posterUrl(animeAttrs),

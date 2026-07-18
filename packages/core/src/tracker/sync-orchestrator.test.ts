@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createEventRepository, createLibraryRepository, createMockTracker } from "../fixtures";
 import { LibraryService } from "../library/library-service";
-import type { TrackerPlugin, TrackerWatchStatus } from "../types";
+import type { TrackerPlugin, TrackerSource, TrackerWatchStatus } from "../types";
 import { SyncOrchestrator } from "./sync-orchestrator";
-import type { TrackerSource } from "./tracker-import";
 
 function createTrackerPair(
   source: TrackerSource,
@@ -52,6 +51,7 @@ describe("SyncOrchestrator", () => {
             callOrder.push("pull-anilist");
             return [
               {
+                source: "anilist",
                 trackerId: "tl-anilist-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -71,6 +71,7 @@ describe("SyncOrchestrator", () => {
             callOrder.push("pull-mal");
             return [
               {
+                source: "anilist",
                 trackerId: "tl-mal-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -168,6 +169,7 @@ describe("SyncOrchestrator", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-mal-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -236,6 +238,7 @@ describe("SyncOrchestrator", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-anilist-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -251,6 +254,7 @@ describe("SyncOrchestrator", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-mal-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -316,6 +320,7 @@ describe("SyncOrchestrator", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-anilist-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -331,6 +336,7 @@ describe("SyncOrchestrator", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-mal-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,

@@ -268,6 +268,7 @@ export class MyAnimeListPlugin implements TrackerPlugin {
         if (!item.list_status) continue;
 
         allAnime.push({
+          source: "mal",
           trackerId: String(item.node.id),
           title: item.node.title,
           alternativeTitles: extractMALAltTitles(item.node.alternative_titles),

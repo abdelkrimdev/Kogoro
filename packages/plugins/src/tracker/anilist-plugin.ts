@@ -317,6 +317,7 @@ export class AniListPlugin implements TrackerPlugin {
     for (const list of data.MediaListCollection.lists) {
       for (const entry of list.entries) {
         results.push({
+          source: "anilist",
           trackerId: String(entry.mediaId),
           title: pickTitle(entry.media.title),
           alternativeTitles: pickAlternativeTitles(entry.media.title, entry.media.synonyms),

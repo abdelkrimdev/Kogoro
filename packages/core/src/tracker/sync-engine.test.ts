@@ -40,6 +40,7 @@ describe("SyncEngine", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-1",
                 title: "Attack on Titan",
                 entryType: "tv",
@@ -99,6 +100,7 @@ describe("SyncEngine", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-1",
                 title: "Attack on Titan",
                 alternativeTitles: ["Shingeki no Kyojin", "進撃の巨人"],
@@ -158,6 +160,7 @@ describe("SyncEngine", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-1",
                 title: "Attack on Titan",
                 alternativeTitles: ["Shingeki no Kyojin", "AOT"],
@@ -228,6 +231,7 @@ describe("SyncEngine", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-1",
                 title: "Attack on Titan",
                 entryType: "tv",
@@ -310,6 +314,7 @@ describe("SyncEngine", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-1",
                 title: "Attack on Titan",
                 entryType: "tv",
@@ -380,6 +385,7 @@ describe("SyncEngine", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-1",
                 title: "Attack on Titan",
                 entryType: "tv",
@@ -458,6 +464,7 @@ describe("SyncEngine", () => {
           async getUserList() {
             return [
               {
+                source: "anilist",
                 trackerId: "tl-1",
                 title: "Attack on Titan",
                 entryType: "tv",
@@ -466,6 +473,7 @@ describe("SyncEngine", () => {
                 totalEpisodes: 25,
               },
               {
+                source: "anilist",
                 trackerId: "tl-2",
                 title: "Death Note",
                 entryType: "tv",

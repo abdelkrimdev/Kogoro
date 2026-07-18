@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventRepository } from "../events/event-repository";
 import { createEventDb } from "../events/test-utils";
-import { createMockEnrichmentProvider, createMockTracker } from "../fixtures";
+import { createMockEnrichmentProvider } from "../fixtures";
 import type { MatchEntry } from "../types";
 import { LibraryRepository } from "./library-repository";
 import { LibraryService } from "./library-service";
@@ -1672,7 +1672,7 @@ describe("LibraryService", () => {
   });
 
   describe("rebuildWithTrackers", () => {
-    test("imports tracker entries as new anime when no local match exists", async () => {
+    test("does not import tracker entries during rebuild", async () => {
       const dir = mkdtempSync(join(tmpdir(), "library-rebuild-trackers-"));
       try {
         const ep1Path = join(dir, "S01E01.mkv");
@@ -1709,112 +1709,13 @@ describe("LibraryService", () => {
             watched: false,
           });
 
-          const trackerAnime = [
-            {
-              trackerId: "mal-99999",
-              title: "Tracker Only Anime",
-              entryType: "tv" as const,
-              watchStatus: "completed" as const,
-              episodesWatched: 12,
-              totalEpisodes: 12,
-            },
-          ];
-
-          const mockTracker = createMockTracker({
-            getUserList: () => Promise.resolve(trackerAnime),
-          });
-
-          await service.rebuildWithTrackers([{ plugin: mockTracker, source: "mal" }]);
+          await service.rebuildWithTrackers();
 
           const allAnime = repo.listAnime();
-          expect(allAnime).toHaveLength(2);
+          expect(allAnime).toHaveLength(1);
 
           const trackerAnimeEntry = repo.findAnime("tracker-mal-99999", "mal");
-          expect(trackerAnimeEntry).not.toBeNull();
-          expect(trackerAnimeEntry?.title).toBe("Tracker Only Anime");
-
-          const groups = repo.getEpisodeGroupsByAnimeId(trackerAnimeEntry?.id as number);
-          expect(groups).toHaveLength(1);
-          expect(groups[0]?.watchStatus).toBe("completed");
-
-          const mappings = repo.getTrackerMappingsByGroupId(groups[0]?.id as number);
-          expect(mappings).toHaveLength(1);
-          expect(mappings[0]?.source).toBe("mal");
-          expect(mappings[0]?.externalId).toBe("mal-99999");
-        } finally {
-          sqlite.close();
-          evtSqlite.close();
-        }
-      } finally {
-        rmSync(dir, { recursive: true });
-      }
-    });
-
-    test("updates existing group watch status from tracker data", async () => {
-      const dir = mkdtempSync(join(tmpdir(), "library-rebuild-trackers-update-"));
-      try {
-        const ep1Path = join(dir, "S01E01.mkv");
-        writeFileSync(ep1Path, "");
-
-        const { db, sqlite } = createLibraryDb();
-        const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-        try {
-          const repo = new LibraryRepository(db);
-          const evtRepo = new EventRepository(evtDb);
-          const service = new LibraryService(repo, evtRepo);
-
-          const anime = service.upsertAnime({
-            externalId: "tvdb-12345",
-            sourceDb: "tvdb",
-            title: "Jujutsu Kaisen",
-            episodeCount: 1,
-          });
-
-          const group = repo.upsertEpisodeGroup({
-            animeId: anime.id,
-            entryType: "tv",
-            seasonNumber: 1,
-            watchStatus: "plan_to_watch",
-          });
-
-          repo.addEpisode({
-            animeId: anime.id,
-            groupId: group.id,
-            episodeNumber: 1,
-            filePath: ep1Path,
-            title: "Episode 1",
-            season: 1,
-            watched: false,
-          });
-
-          const trackerAnime = [
-            {
-              trackerId: "mal-12345",
-              title: "Jujutsu Kaisen",
-              entryType: "tv" as const,
-              watchStatus: "watching" as const,
-              episodesWatched: 5,
-              totalEpisodes: 24,
-            },
-          ];
-
-          const mockTracker = createMockTracker({
-            getUserList: () => Promise.resolve(trackerAnime),
-          });
-
-          await service.rebuildWithTrackers([{ plugin: mockTracker, source: "mal" }]);
-
-          const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
-          expect(rebuilt).not.toBeNull();
-
-          const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
-          expect(groups).toHaveLength(1);
-          expect(groups[0]?.watchStatus).toBe("watching");
-
-          const mappings = repo.getTrackerMappingsByGroupId(groups[0]?.id as number);
-          expect(mappings).toHaveLength(1);
-          expect(mappings[0]?.source).toBe("mal");
-          expect(mappings[0]?.externalId).toBe("mal-12345");
+          expect(trackerAnimeEntry).toBeNull();
         } finally {
           sqlite.close();
           evtSqlite.close();
@@ -1877,11 +1778,7 @@ describe("LibraryService", () => {
             newValue: "true",
           });
 
-          const mockTracker = createMockTracker({
-            getUserList: () => Promise.resolve([]),
-          });
-
-          await service.rebuildWithTrackers([{ plugin: mockTracker, source: "mal" }]);
+          await service.rebuildWithTrackers();
 
           const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
           expect(rebuilt).not.toBeNull();
@@ -1945,22 +1842,7 @@ describe("LibraryService", () => {
             externalId: "mal-12345",
           });
 
-          const trackerAnime = [
-            {
-              trackerId: "mal-12345",
-              title: "Jujutsu Kaisen",
-              entryType: "tv" as const,
-              watchStatus: "completed" as const,
-              episodesWatched: 24,
-              totalEpisodes: 24,
-            },
-          ];
-
-          const mockTracker = createMockTracker({
-            getUserList: () => Promise.resolve(trackerAnime),
-          });
-
-          await service.rebuildWithTrackers([{ plugin: mockTracker, source: "mal" }]);
+          await service.rebuildWithTrackers();
 
           const allAnime = repo.listAnime();
           expect(allAnime).toHaveLength(1);
@@ -1980,7 +1862,7 @@ describe("LibraryService", () => {
       }
     });
 
-    test("stores alternativeTitles from tracker entry", async () => {
+    test("does not import tracker entries with alternativeTitles", async () => {
       const dir = mkdtempSync(join(tmpdir(), "library-rebuild-trackers-alt-"));
       try {
         const ep1Path = join(dir, "S01E01.mkv");
@@ -1993,27 +1875,10 @@ describe("LibraryService", () => {
           const evtRepo = new EventRepository(evtDb);
           const service = new LibraryService(repo, evtRepo);
 
-          const trackerAnime = [
-            {
-              trackerId: "mal-88888",
-              title: "進撃の巨人",
-              alternativeTitles: ["Attack on Titan", "Shingeki no Kyojin"],
-              entryType: "tv" as const,
-              watchStatus: "completed" as const,
-              episodesWatched: 25,
-              totalEpisodes: 25,
-            },
-          ];
-
-          const mockTracker = createMockTracker({
-            getUserList: () => Promise.resolve(trackerAnime),
-          });
-
-          await service.rebuildWithTrackers([{ plugin: mockTracker, source: "mal" }]);
+          await service.rebuildWithTrackers();
 
           const anime = repo.findAnime("tracker-mal-88888", "mal");
-          expect(anime).not.toBeNull();
-          expect(anime?.alternativeTitles).toEqual(["Attack on Titan", "Shingeki no Kyojin"]);
+          expect(anime).toBeNull();
         } finally {
           sqlite.close();
           evtSqlite.close();
@@ -3467,6 +3332,244 @@ describe("LibraryService", () => {
         }
       } finally {
         rmSync(dir, { recursive: true });
+      }
+    });
+  });
+
+  describe("enrichAnime", () => {
+    test("uses user AniList list to skip search calls", async () => {
+      const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const evtRepo = new EventRepository(evtDb);
+
+        let searchCalled = false;
+        const provider = createMockEnrichmentProvider({
+          searchByTitle: async () => {
+            searchCalled = true;
+            return null;
+          },
+          getMediaDetailsBatch: async (ids) =>
+            ids.map((id) => ({
+              anilistId: id,
+              title: "Attack on Titan",
+              format: "TV",
+              episodes: 25,
+              relations: [],
+            })),
+        });
+
+        const service = new LibraryService(repo, evtRepo, async () => provider);
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+        });
+
+        repo.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "16498",
+        });
+
+        await service.enrichAnime([anime.id]);
+
+        expect(searchCalled).toBe(false);
+
+        const franchise = repo.getFranchiseById(1);
+        expect(franchise).not.toBeNull();
+        expect(franchise?.title).toBe("Attack on Titan");
+
+        const mapping = repo.findAnimeByTrackerMapping("anilist", "16498");
+        expect(mapping).not.toBeNull();
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("falls back to search when no AniList plugin available", async () => {
+      const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const evtRepo = new EventRepository(evtDb);
+
+        let searchCalled = false;
+        const provider = createMockEnrichmentProvider({
+          searchByTitle: async (title) => {
+            searchCalled = true;
+            return { anilistId: "1", title, format: "TV", episodes: 12 };
+          },
+          getMediaDetailsBatch: async (ids) =>
+            ids.map((id) => ({
+              anilistId: id,
+              title: "Test Anime",
+              format: "TV",
+              episodes: 12,
+              relations: [],
+            })),
+        });
+
+        const service = new LibraryService(repo, evtRepo, async () => provider);
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Test Anime",
+          episodeCount: 12,
+        });
+
+        await service.enrichAnime([anime.id]);
+
+        expect(searchCalled).toBe(true);
+
+        const franchise = repo.getFranchiseById(1);
+        expect(franchise).not.toBeNull();
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("falls back to search when getUserList throws during enrichment", async () => {
+      const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const evtRepo = new EventRepository(evtDb);
+
+        let searchCalled = false;
+        const provider = createMockEnrichmentProvider({
+          searchByTitle: async (title) => {
+            searchCalled = true;
+            return { anilistId: "1", title, format: "TV", episodes: 12 };
+          },
+          getMediaDetailsBatch: async (ids) =>
+            ids.map((id) => ({
+              anilistId: id,
+              title: "Test Anime",
+              format: "TV",
+              episodes: 12,
+              relations: [],
+            })),
+        });
+
+        const service = new LibraryService(repo, evtRepo, async () => provider);
+
+        await service.rebuildWithTrackers();
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Test Anime",
+          episodeCount: 12,
+        });
+
+        await service.enrichAnime([anime.id]);
+
+        expect(searchCalled).toBe(true);
+
+        const franchise = repo.getFranchiseById(1);
+        expect(franchise).not.toBeNull();
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("gracefully handles empty user AniList list", async () => {
+      const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const evtRepo = new EventRepository(evtDb);
+
+        let searchCalled = false;
+        const provider = createMockEnrichmentProvider({
+          searchByTitle: async (title) => {
+            searchCalled = true;
+            return { anilistId: "1", title, format: "TV", episodes: 12 };
+          },
+          getMediaDetailsBatch: async (ids) =>
+            ids.map((id) => ({
+              anilistId: id,
+              title: "Test Anime",
+              format: "TV",
+              episodes: 12,
+              relations: [],
+            })),
+        });
+
+        const service = new LibraryService(repo, evtRepo, async () => provider);
+
+        await service.rebuildWithTrackers();
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Test Anime",
+          episodeCount: 12,
+        });
+
+        await service.enrichAnime([anime.id]);
+
+        expect(searchCalled).toBe(true);
+
+        const franchise = repo.getFranchiseById(1);
+        expect(franchise).not.toBeNull();
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("enriches anime without requiring tracker data", async () => {
+      const { db, sqlite } = createLibraryDb();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const evtRepo = new EventRepository(evtDb);
+
+        const provider = createMockEnrichmentProvider({
+          searchByTitle: async (title) => ({ anilistId: "1", title, format: "TV", episodes: 12 }),
+          getMediaDetailsBatch: async (ids) =>
+            ids.map((id) => ({
+              anilistId: id,
+              title: "Test Anime",
+              format: "TV",
+              episodes: 12,
+              relations: [],
+            })),
+        });
+
+        const service = new LibraryService(repo, evtRepo, async () => provider);
+        await service.rebuildWithTrackers();
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Test Anime",
+          episodeCount: 12,
+        });
+
+        await service.enrichAnime([anime.id]);
+
+        const franchise = repo.getFranchiseById(1);
+        expect(franchise).not.toBeNull();
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
       }
     });
   });

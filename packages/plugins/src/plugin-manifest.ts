@@ -256,7 +256,7 @@ export const BUILT_IN_MANIFEST: PluginManifestEntry[] = [
     type: "enrichment",
     description: "AniList enrichment provider for franchise grouping",
     baseUrl: "https://graphql.anilist.co",
-    rateLimit: 667,
+    rateLimit: 1000,
     credentialKey: "anilist",
     load: loadAnilistEnrichment,
   },

@@ -1916,4 +1916,142 @@ describe("LibraryRepository", () => {
       }
     });
   });
+
+  describe("getKnownAnilistIds", () => {
+    test("returns empty map when no anilist mappings exist", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const result = repo.getKnownAnilistIds();
+        expect(result.size).toBe(0);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("maps anilist IDs to anime IDs from group tracker mappings", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        const anime1 = repo.upsertAnime({
+          externalId: "tvdb-100",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+        const anime2 = repo.upsertAnime({
+          externalId: "tvdb-101",
+          sourceDb: "tvdb",
+          title: "Attack on Titan Season 2",
+          episodeCount: 12,
+        });
+
+        const group1 = repo.upsertEpisodeGroup({
+          animeId: anime1.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+        });
+        const group2 = repo.upsertEpisodeGroup({
+          animeId: anime2.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+        });
+
+        repo.upsertGroupTrackerMapping({
+          groupId: group1.id,
+          source: "anilist",
+          externalId: "10871",
+        });
+        repo.upsertGroupTrackerMapping({
+          groupId: group2.id,
+          source: "anilist",
+          externalId: "10872",
+        });
+
+        const result = repo.getKnownAnilistIds();
+
+        expect(result.size).toBe(2);
+        expect(result.get("10871")).toEqual([anime1.id]);
+        expect(result.get("10872")).toEqual([anime2.id]);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("maps each anilist ID to its corresponding anime ID", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        const anime1 = repo.upsertAnime({
+          externalId: "tvdb-100",
+          sourceDb: "tvdb",
+          title: "Evangelion",
+          episodeCount: 26,
+        });
+        const anime2 = repo.upsertAnime({
+          externalId: "tvdb-101",
+          sourceDb: "tvdb",
+          title: "Evangelion (Remake)",
+          episodeCount: 26,
+        });
+
+        const group1 = repo.upsertEpisodeGroup({
+          animeId: anime1.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+        });
+        const group2 = repo.upsertEpisodeGroup({
+          animeId: anime2.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+        });
+
+        repo.upsertGroupTrackerMapping({ groupId: group1.id, source: "anilist", externalId: "30" });
+        repo.upsertGroupTrackerMapping({ groupId: group2.id, source: "anilist", externalId: "31" });
+
+        const result = repo.getKnownAnilistIds();
+
+        expect(result.size).toBe(2);
+        expect(result.get("30")).toEqual([anime1.id]);
+        expect(result.get("31")).toEqual([anime2.id]);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("ignores non-anilist tracker mappings", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-100",
+          sourceDb: "tvdb",
+          title: "Naruto",
+          episodeCount: 220,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+        });
+
+        repo.upsertGroupTrackerMapping({ groupId: group.id, source: "mal", externalId: "1735" });
+
+        const result = repo.getKnownAnilistIds();
+
+        expect(result.size).toBe(0);
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
 });

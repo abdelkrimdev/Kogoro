@@ -368,6 +368,7 @@ describe("SyncHandlers", () => {
         async getUserList() {
           return [
             {
+              source: "anilist",
               trackerId: "tl-1",
               title: "Attack on Titan",
               entryType: "tv",

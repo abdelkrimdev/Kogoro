@@ -2,14 +2,12 @@ import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { stripTypeDir } from "../config/schema";
 import type { EventRepository } from "../events/event-repository";
-import type { TrackerSource } from "../tracker/tracker-import";
-import { extractSeasonNumber, findMatchingAnime, mapTrackerStatus } from "../tracker/tracker-utils";
 import type {
+  EnrichmentMediaResult,
   EnrichmentProvider,
   EntryType,
+  KnownEntry,
   MatchEntry,
-  TrackerAnime,
-  TrackerPlugin,
 } from "../types";
 import { EnrichmentService } from "./enrichment-service";
 import type {
@@ -51,11 +49,25 @@ export class LibraryService {
     return this.enrichmentService;
   }
 
-  async enrichAnime(animeIds: number[]): Promise<void> {
+  async enrichAnime(animeIds: number[], knownEntries?: KnownEntry[]): Promise<void> {
     const enrichmentService = await this.ensureEnrichmentService();
-    if (enrichmentService) {
-      await enrichmentService.enrichAnime(animeIds);
+    if (!enrichmentService) return;
+    await enrichmentService.enrichAnime(animeIds, knownEntries);
+  }
+
+  async getMediaDetails(anilistIds: string[]): Promise<EnrichmentMediaResult[] | null> {
+    const provider = await this.ensureEnrichmentProvider();
+    if (!provider) return null;
+    try {
+      return await provider.getMediaDetailsBatch(anilistIds);
+    } catch {
+      return null;
     }
+  }
+
+  private async ensureEnrichmentProvider(): Promise<EnrichmentProvider | null> {
+    if (!this.enrichmentProviderFactory) return null;
+    return (await this.enrichmentProviderFactory()) ?? null;
   }
 
   listAnime(): LibraryAnime[] {
@@ -80,6 +92,10 @@ export class LibraryService {
 
   getStats(): { animeCount: number; episodeCount: number } {
     return this.library.getStats();
+  }
+
+  getKnownAnilistIds(): Map<string, number[]> {
+    return this.library.getKnownAnilistIds();
   }
 
   upsertAnime(data: Omit<LibraryAnime, "id" | "lastSynced">): LibraryAnime {
@@ -163,10 +179,7 @@ export class LibraryService {
     }
   }
 
-  async rebuildWithTrackers(
-    trackers: Array<{ plugin: TrackerPlugin; source: TrackerSource }>,
-    sourceDb?: string,
-  ): Promise<void> {
+  async rebuildWithTrackers(sourceDb?: string): Promise<void> {
     const matches = this.getFilteredMatches(sourceDb);
 
     let oldEntitySnapshot:
@@ -179,10 +192,6 @@ export class LibraryService {
     this.rebuildFromMatches(matches, (snapshot) => {
       oldEntitySnapshot = snapshot;
     });
-
-    for (const { plugin, source } of trackers) {
-      await this.importFromTracker(plugin, source);
-    }
 
     if (oldEntitySnapshot) {
       this.replayUnpushedEvents(oldEntitySnapshot);
@@ -644,93 +653,6 @@ export class LibraryService {
     }));
     const state = computeLibraryState(groupFiles);
     r.updateLibraryState(animeId, state);
-  }
-
-  private async importFromTracker(tracker: TrackerPlugin, source: TrackerSource): Promise<void> {
-    const trackerList = await tracker.getUserList();
-    const libraryAnime = this.library.listAnime();
-
-    for (const entry of trackerList) {
-      const existingMapping = this.library.findGroupByTrackerExternalId(source, entry.trackerId);
-      if (existingMapping) continue;
-
-      const existingAnime = findMatchingAnime(entry, libraryAnime);
-      if (existingAnime) {
-        this.importToExistingAnimeFromTracker(existingAnime, entry, source);
-      } else {
-        this.importAsNewAnimeFromTracker(entry, source);
-      }
-    }
-  }
-
-  private importToExistingAnimeFromTracker(
-    anime: { id: number; title: string },
-    trackerEntry: TrackerAnime,
-    source: TrackerSource,
-  ): void {
-    const groups = this.library.getEpisodeGroupsByAnimeId(anime.id);
-    const seasonNumber = extractSeasonNumber(trackerEntry);
-
-    const existingGroup = groups.find(
-      (g) =>
-        g.entryType === trackerEntry.entryType && (g.seasonNumber ?? 1) === (seasonNumber ?? 1),
-    );
-
-    if (existingGroup) {
-      this.library.updateEpisodeGroupStatus(
-        existingGroup.id,
-        mapTrackerStatus(trackerEntry.watchStatus),
-      );
-    } else {
-      this.library.upsertEpisodeGroup({
-        animeId: anime.id,
-        entryType: trackerEntry.entryType,
-        seasonNumber,
-        watchStatus: mapTrackerStatus(trackerEntry.watchStatus),
-      });
-    }
-
-    const group =
-      existingGroup ??
-      this.library
-        .getEpisodeGroupsByAnimeId(anime.id)
-        .find(
-          (g) =>
-            g.entryType === trackerEntry.entryType && (g.seasonNumber ?? 1) === (seasonNumber ?? 1),
-        );
-
-    if (group) {
-      this.library.upsertGroupTrackerMapping({
-        groupId: group.id,
-        source,
-        externalId: trackerEntry.trackerId,
-      });
-    }
-  }
-
-  private importAsNewAnimeFromTracker(trackerEntry: TrackerAnime, source: TrackerSource): void {
-    const anime = this.library.upsertAnime({
-      externalId: `tracker-${trackerEntry.trackerId}`,
-      sourceDb: source,
-      title: trackerEntry.title,
-      alternativeTitles: trackerEntry.alternativeTitles,
-      episodeCount: trackerEntry.totalEpisodes,
-    });
-
-    const seasonNumber = extractSeasonNumber(trackerEntry);
-
-    const group = this.library.upsertEpisodeGroup({
-      animeId: anime.id,
-      entryType: trackerEntry.entryType,
-      seasonNumber,
-      watchStatus: mapTrackerStatus(trackerEntry.watchStatus),
-    });
-
-    this.library.upsertGroupTrackerMapping({
-      groupId: group.id,
-      source,
-      externalId: trackerEntry.trackerId,
-    });
   }
 
   private replayUnpushedEvents(oldSnapshot: {

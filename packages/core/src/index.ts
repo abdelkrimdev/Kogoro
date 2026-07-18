@@ -109,12 +109,18 @@ export type {
 export { ScanOrchestrator } from "./scan/scan-orchestrator";
 export type { ScanResult } from "./scan/scanner";
 export { Scanner } from "./scan/scanner";
-export type { OAuthTokenResponse, RefreshFn } from "./tracker/credential-utils";
+export type { LocalWatchStatus, OAuthTokenResponse, RefreshFn } from "./tracker/credential-utils";
 export {
+  ANILIST_CLIENT_ID,
+  ANILIST_REDIRECT_URI,
   buildCredentialFromToken,
   generateCodeVerifier,
   loadOrRefreshCredential,
   loadStoredCredential,
+  MAL_CLIENT_ID,
+  MAL_REDIRECT_URI,
+  mapLocalStatusToTracker,
+  mapTrackerStatus,
   parseOAuthTokenResponse,
   throwHttpError,
 } from "./tracker/credential-utils";
@@ -128,15 +134,8 @@ export type {
   ImportResult,
   ImportSelection,
   MatchStatus,
-  TrackerSource,
 } from "./tracker/tracker-import";
 export { TrackerImportService } from "./tracker/tracker-import";
-export {
-  ANILIST_CLIENT_ID,
-  ANILIST_REDIRECT_URI,
-  MAL_CLIENT_ID,
-  MAL_REDIRECT_URI,
-} from "./tracker/tracker-utils";
 export type {
   AnimeResult,
   ArtworkResult,
@@ -149,6 +148,7 @@ export type {
   EntryType,
   EpisodeResult,
   FileRow,
+  KnownEntry,
   MatchEntry,
   ReviewGroup,
   ReviewPlan,
@@ -164,6 +164,7 @@ export type {
   TrackerEntryChanges,
   TrackerErrorType,
   TrackerPlugin,
+  TrackerSource,
   TrackerWatchStatus,
 } from "./types";
 export { isAuthError, TrackerError } from "./types";

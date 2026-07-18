@@ -13,12 +13,14 @@ export { hashFile } from "./io/file-hash";
 import { EventRepository } from "./events/event-repository";
 import { createEventDb as createEventDbInstance } from "./events/test-utils";
 import { HttpClient } from "./io/http-client";
+import { EnrichmentService } from "./library/enrichment-service";
 import type {
   AnilistCacheEntry,
   AnimeTrackerMapping,
   Franchise,
 } from "./library/library-repository";
 import { LibraryRepository } from "./library/library-repository";
+import { LibraryService } from "./library/library-service";
 import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils";
 import { CacheService } from "./match/cache-service";
 import type { CachedMatch } from "./match/match-repository";
@@ -184,6 +186,36 @@ export function createEventRepository(dir?: string): {
   const { db, sqlite } = createEventDbInstance(dir);
   const repo = new EventRepository(db);
   return { repo, close: () => sqlite.close() };
+}
+
+export function createEnrichmentTestContext(
+  providerOverrides: Partial<import("./types").EnrichmentProvider> = {},
+): {
+  repo: LibraryRepository;
+  service: EnrichmentService;
+  close: () => void;
+} {
+  const { db, sqlite } = createLibraryDbInstance();
+  const repo = new LibraryRepository(db);
+  const provider = createMockEnrichmentProvider(providerOverrides);
+  const service = new EnrichmentService(repo, provider);
+  return { repo, service, close: () => sqlite.close() };
+}
+
+export function createTrackerImportTestContext(): {
+  libraryService: LibraryService;
+  close: () => void;
+} {
+  const { repo, close: closeLib } = createLibraryRepository();
+  const { repo: evtRepo, close: closeEvt } = createEventRepository();
+  const libraryService = new LibraryService(repo, evtRepo);
+  return {
+    libraryService,
+    close: () => {
+      closeLib();
+      closeEvt();
+    },
+  };
 }
 
 export function createMatchCacheService(dir?: string): {
@@ -720,6 +752,18 @@ export function makeAnilistCacheEntry(
     fetchedAt: new Date().toISOString(),
     ...overrides,
   };
+}
+
+export function createAnilistEntry(anilistId: string, title: string): import("./types").KnownEntry {
+  return { anilistId, title };
+}
+
+export function createGroupTrackerMapping(
+  groupId: number,
+  source: "mal" | "anilist" | "kitsu",
+  externalId: string,
+): import("./library/library-repository").GroupTrackerMapping {
+  return { groupId, source, externalId };
 }
 
 export const noopEnrichmentSend: EnrichmentSend = {};

@@ -176,7 +176,10 @@ export interface TrackerCredential {
   expires_at?: number;
 }
 
+export type TrackerSource = "mal" | "anilist" | "kitsu";
+
 export interface TrackerAnime {
+  source: TrackerSource;
   trackerId: string;
   title: string;
   alternativeTitles?: string[];
@@ -247,6 +250,8 @@ export interface EnrichmentProvider {
   searchByTitle(title: string): Promise<EnrichmentSearchResult | null>;
   getMediaDetailsBatch(anilistIds: string[]): Promise<EnrichmentMediaResult[]>;
 }
+
+export type KnownEntry = { anilistId: string; title: string };
 
 export interface TrackerPlugin {
   authenticate(): Promise<string>;
