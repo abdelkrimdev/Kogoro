@@ -1,4 +1,4 @@
-import type { LibraryService } from "@kogoro/core";
+import type { AnimeAggregate } from "@kogoro/core";
 import { toDataUrl } from "./image-utils";
 
 export interface DashboardCurrentlyWatching {
@@ -54,19 +54,19 @@ function entryTypeLabel(entryType: string, seasonNumber?: number): string {
 
 export type DashboardHandlers = ReturnType<typeof createDashboardHandlers>;
 
-export function createDashboardHandlers(options: { libraryService: LibraryService }) {
-  const svc = options.libraryService;
+export function createDashboardHandlers(options: { animeAggregate: AnimeAggregate }) {
+  const svc = options.animeAggregate;
 
   return {
     async getDashboardData(): Promise<DashboardData> {
-      const animeList = svc.listAnime();
-      const stats = svc.getStats();
+      const displayData = svc.getAnimeForDisplay();
+      const stats = svc.library.getStats();
 
       let onDisk = 0;
       let partiallyOnDisk = 0;
       let notOnDisk = 0;
 
-      for (const anime of animeList) {
+      for (const { anime } of displayData) {
         switch (anime.libraryState) {
           case "on_disk":
             onDisk++;
@@ -83,13 +83,11 @@ export function createDashboardHandlers(options: { libraryService: LibraryServic
       const currentlyWatching: DashboardCurrentlyWatching[] = [];
       const continueWatching: DashboardContinueWatching[] = [];
 
-      for (const anime of animeList) {
-        const groups = svc.getEpisodeGroupsByAnimeId(anime.id);
+      for (const { anime, groups } of displayData) {
         const coverArt = anime.coverArtPath ? await toDataUrl(anime.coverArtPath) : undefined;
 
         for (const group of groups) {
-          const episodes = svc.getEpisodesByGroupId(group.id);
-          const watchedCount = episodes.filter((ep) => ep.watched).length;
+          const watchedCount = group.episodes.filter((ep) => ep.watched).length;
           const groupName = entryTypeLabel(group.entryType, group.seasonNumber);
 
           if (group.watchStatus === "watching") {
@@ -99,12 +97,12 @@ export function createDashboardHandlers(options: { libraryService: LibraryServic
               groupName,
               coverArt,
               watchedEpisodes: watchedCount,
-              totalEpisodes: episodes.length,
+              totalEpisodes: group.episodes.length,
             });
           }
 
-          const nextUnwatched = episodes.find((ep) => !ep.watched);
-          const hasFilesOnDisk = episodes.some((ep) => ep.filePath.length > 0);
+          const nextUnwatched = group.episodes.find((ep) => !ep.watched);
+          const hasFilesOnDisk = group.episodes.some((ep) => ep.filePath.length > 0);
 
           if (nextUnwatched && hasFilesOnDisk && watchedCount > 0) {
             continueWatching.push({
@@ -114,7 +112,7 @@ export function createDashboardHandlers(options: { libraryService: LibraryServic
               coverArt,
               nextEpisode: nextUnwatched.title ?? `Episode ${nextUnwatched.episodeNumber}`,
               watchedEpisodes: watchedCount,
-              totalEpisodes: episodes.length,
+              totalEpisodes: group.episodes.length,
               animeId: String(anime.id),
             });
             break;
@@ -136,7 +134,7 @@ export function createDashboardHandlers(options: { libraryService: LibraryServic
     },
 
     getLibraryStats(): LibraryStats {
-      return svc.getStats();
+      return svc.library.getStats();
     },
   };
 }

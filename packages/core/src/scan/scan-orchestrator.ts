@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { lstatSync } from "node:fs";
 import { dirname, extname, join, relative } from "node:path";
 import type { TaskContext } from "../io/progress";
-import type { LibraryService } from "../library/library-service";
+import type { AnimeAggregate } from "../library/anime-aggregate";
 import type { CacheService } from "../match/cache-service";
 import type { MatcherLike, MatchResult } from "../match/matcher";
 import type { ScanStateService } from "../match/scan-state-service";
@@ -103,7 +103,7 @@ export interface ScanOrchestratorOptions {
   pipeline: OrchestratorPipeline;
   matcher?: MatcherLike;
   renamer?: Renamer;
-  libraryService?: LibraryService;
+  animeAggregate?: AnimeAggregate;
   sourceDb?: string;
   cacheService?: CacheService;
   scanStateService?: ScanStateService;
@@ -208,7 +208,7 @@ export class ScanOrchestrator {
     this.plan = await aggregateReviewPlan(
       unorganizedResults,
       this.sessionId,
-      this.options.libraryService,
+      this.options.animeAggregate,
       this.options.sourceDb,
       this.topCandidates.bind(this),
     );
@@ -470,8 +470,8 @@ export class ScanOrchestrator {
       if (this.pipeline.rename) {
         renameResult = await this.pipeline.rename(plan, this.baseDir);
       } else if (this.options.renamer) {
-        const result = this.options.renamer.execute(plan, this.baseDir);
-        renameResult = { success: result.success, error: result.error };
+        const renamerResult = this.options.renamer.execute(plan, this.baseDir);
+        renameResult = { success: renamerResult.success, error: renamerResult.error };
       } else {
         renameResult = { success: true };
       }

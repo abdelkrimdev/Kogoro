@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { LibraryRepository } from "@kogoro/core";
-import { LibraryService } from "@kogoro/core";
+import { AnimeAggregate } from "@kogoro/core";
 import { createEventRepository, createLibraryRepository, withTempDir } from "@kogoro/core/testing";
 import { createDashboardHandlers } from "./dashboard";
 
@@ -98,10 +98,14 @@ describe("getDashboardData handler", () => {
   test("returns currently watching anime with progress", async () => {
     await withTempDir("dashboard-watching", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const { close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(repo);
       const handlers = createDashboardHandlers({
-        libraryService: new LibraryService(repo, evtRepo),
+        animeAggregate: new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        }),
       });
       const data = await handlers.getDashboardData();
 
@@ -118,10 +122,14 @@ describe("getDashboardData handler", () => {
   test("returns empty currently watching when none have watching status", async () => {
     await withTempDir("dashboard-no-watching", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const { close: closeEvt } = createEventRepository(dir);
       seedCompletedAnime(repo);
       const handlers = createDashboardHandlers({
-        libraryService: new LibraryService(repo, evtRepo),
+        animeAggregate: new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        }),
       });
       const data = await handlers.getDashboardData();
 
@@ -134,12 +142,16 @@ describe("getDashboardData handler", () => {
   test("returns library stats with correct counts", async () => {
     await withTempDir("dashboard-stats", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const { close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(repo);
       seedCompletedAnime(repo);
       seedPlanToWatchAnime(repo);
       const handlers = createDashboardHandlers({
-        libraryService: new LibraryService(repo, evtRepo),
+        animeAggregate: new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        }),
       });
       const data = await handlers.getDashboardData();
 
@@ -156,11 +168,15 @@ describe("getDashboardData handler", () => {
   test("returns continue watching for anime with watched episodes and unwatched files", async () => {
     await withTempDir("dashboard-continue", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const { close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(repo);
       seedCompletedAnime(repo);
       const handlers = createDashboardHandlers({
-        libraryService: new LibraryService(repo, evtRepo),
+        animeAggregate: new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        }),
       });
       const data = await handlers.getDashboardData();
 
@@ -176,10 +192,14 @@ describe("getDashboardData handler", () => {
   test("returns empty continue watching when no partially watched anime", async () => {
     await withTempDir("dashboard-no-continue", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const { close: closeEvt } = createEventRepository(dir);
       seedCompletedAnime(repo);
       const handlers = createDashboardHandlers({
-        libraryService: new LibraryService(repo, evtRepo),
+        animeAggregate: new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        }),
       });
       const data = await handlers.getDashboardData();
 
@@ -192,9 +212,13 @@ describe("getDashboardData handler", () => {
   test("returns empty dashboard when library is empty", async () => {
     await withTempDir("dashboard-empty", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const { close: closeEvt } = createEventRepository(dir);
       const handlers = createDashboardHandlers({
-        libraryService: new LibraryService(repo, evtRepo),
+        animeAggregate: new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        }),
       });
       const data = await handlers.getDashboardData();
 
@@ -210,10 +234,14 @@ describe("getDashboardData handler", () => {
   test("getLibraryStats returns correct counts", async () => {
     await withTempDir("dashboard-stats-direct", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+      const { close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(repo);
       const handlers = createDashboardHandlers({
-        libraryService: new LibraryService(repo, evtRepo),
+        animeAggregate: new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        }),
       });
       const stats = handlers.getLibraryStats();
 

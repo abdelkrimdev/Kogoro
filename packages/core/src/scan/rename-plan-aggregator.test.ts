@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { EventRepository } from "../events/event-repository";
 import { createEventDb } from "../events/test-utils";
 import {
   createLibraryRepository,
@@ -7,7 +6,7 @@ import {
   makeParsedResult,
   withTempDir,
 } from "../fixtures";
-import { LibraryService } from "../library/library-service";
+import { AnimeAggregate } from "../library/anime-aggregate";
 import type { RenamePlan } from "../rename/renamer";
 import type { AnimeResult, EpisodeResult, ReviewPlan } from "../types";
 import {
@@ -312,9 +311,12 @@ describe("buildReviewPlan", () => {
   test("marks mergeMode when anime exists in library", async () => {
     await withTempDir("merge", async (_dir) => {
       const { repo: libraryRepo, close } = createLibraryRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-      const evtRepo = new EventRepository(evtDb);
-      const libraryService = new LibraryService(libraryRepo, evtRepo);
+      const { sqlite: evtSqlite } = createEventDb();
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
       libraryRepo.upsertAnime({
         externalId: "1",
         sourceDb: "tvdb",
@@ -329,7 +331,7 @@ describe("buildReviewPlan", () => {
         }),
       ];
 
-      const plan = buildReviewPlan(results, libraryService);
+      const plan = buildReviewPlan(results, aggregate);
 
       expect(plan.groups).toHaveLength(1);
       expect(plan.groups[0]?.mergeMode).toBe(true);
@@ -341,9 +343,12 @@ describe("buildReviewPlan", () => {
   test("sets mergeMode to false when anime not in library", async () => {
     await withTempDir("no-merge", async (dir) => {
       const { repo: libraryRepo, close } = createLibraryRepository(dir);
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-      const evtRepo = new EventRepository(evtDb);
-      const libraryService = new LibraryService(libraryRepo, evtRepo);
+      const { sqlite: evtSqlite } = createEventDb();
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
 
       const results = [
         makeScanResult("/a/ep1.mkv", {
@@ -352,7 +357,7 @@ describe("buildReviewPlan", () => {
         }),
       ];
 
-      const plan = buildReviewPlan(results, libraryService);
+      const plan = buildReviewPlan(results, aggregate);
 
       expect(plan.groups[0]?.mergeMode).toBe(false);
       close();
@@ -680,9 +685,12 @@ describe("aggregateReviewPlan", () => {
   test("sets mergeMode to true when library has matching anime", async () => {
     await withTempDir("merge", async (dir) => {
       const { repo: libraryRepo, close } = createLibraryRepository(dir);
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-      const evtRepo = new EventRepository(evtDb);
-      const libraryService = new LibraryService(libraryRepo, evtRepo);
+      const { sqlite: evtSqlite } = createEventDb();
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
       libraryRepo.upsertAnime({
         externalId: "100",
         sourceDb: "tvdb",
@@ -708,7 +716,7 @@ describe("aggregateReviewPlan", () => {
         }),
       ];
 
-      const plan = await aggregateReviewPlan(results, "session-1", libraryService, "tvdb");
+      const plan = await aggregateReviewPlan(results, "session-1", aggregate, "tvdb");
 
       expect(plan.groups).toHaveLength(1);
       expect(plan.groups[0]?.mergeMode).toBe(true);
@@ -720,9 +728,12 @@ describe("aggregateReviewPlan", () => {
   test("sets mergeMode to false when anime not in library", async () => {
     await withTempDir("no-merge", async (dir) => {
       const { repo: libraryRepo, close } = createLibraryRepository(dir);
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
-      const evtRepo = new EventRepository(evtDb);
-      const libraryService = new LibraryService(libraryRepo, evtRepo);
+      const { sqlite: evtSqlite } = createEventDb();
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
 
       const results = [
         makeAggScanResult("/a/ep1.mkv", {
@@ -742,7 +753,7 @@ describe("aggregateReviewPlan", () => {
         }),
       ];
 
-      const plan = await aggregateReviewPlan(results, "session-1", libraryService, "tvdb");
+      const plan = await aggregateReviewPlan(results, "session-1", aggregate, "tvdb");
 
       expect(plan.groups[0]?.mergeMode).toBe(false);
       close();

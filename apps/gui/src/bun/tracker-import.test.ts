@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { ConfigManager, CredentialStore, LibraryService } from "@kogoro/core";
+import { AnimeAggregate, ConfigManager, CredentialStore } from "@kogoro/core";
 import {
   createEventRepository,
   createLibraryRepository,
@@ -42,13 +42,17 @@ describe("TrackerImportHandlers", () => {
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
       const { repo, close } = createLibraryRepository();
-      const { repo: evtRepo, close: closeEvt } = createEventRepository();
+      const { close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo, evtRepo);
+        const aggregate = new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
           const handlers = createTrackerImportHandlers({
-            libraryService,
+            animeAggregate: aggregate,
             pluginFactory: factory,
           });
           const result = await handlers.getImportPreview({ trackerName: "anilist" });
@@ -66,10 +70,17 @@ describe("TrackerImportHandlers", () => {
     it("returns error for unknown tracker", async () => {
       const factory = createTestFactory();
       const { repo, close } = createLibraryRepository();
-      const { repo: evtRepo, close: closeEvt } = createEventRepository();
+      const { close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo, evtRepo);
-        const handlers = createTrackerImportHandlers({ libraryService, pluginFactory: factory });
+        const aggregate = new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        const handlers = createTrackerImportHandlers({
+          animeAggregate: aggregate,
+          pluginFactory: factory,
+        });
 
         const result = await handlers.getImportPreview({ trackerName: "nonexistent" });
 
@@ -86,9 +97,13 @@ describe("TrackerImportHandlers", () => {
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
       const { repo, close } = createLibraryRepository();
-      const { repo: evtRepo, close: closeEvt } = createEventRepository();
+      const { close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo, evtRepo);
+        const aggregate = new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
 
         const listData = {
           data: {
@@ -162,7 +177,7 @@ describe("TrackerImportHandlers", () => {
 
         await withMockFetch(mockAnilistFetch(listData) as unknown as typeof fetch, async () => {
           const handlers = createTrackerImportHandlers({
-            libraryService,
+            animeAggregate: aggregate,
             pluginFactory: factory,
           });
           const result = await handlers.getImportPreview({ trackerName: "anilist" });
@@ -189,13 +204,17 @@ describe("TrackerImportHandlers", () => {
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
       const { repo, close } = createLibraryRepository();
-      const { repo: evtRepo, close: closeEvt } = createEventRepository();
+      const { close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo, evtRepo);
+        const aggregate = new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
           const handlers = createTrackerImportHandlers({
-            libraryService,
+            animeAggregate: aggregate,
             pluginFactory: factory,
           });
           const result = await handlers.confirmImport({ trackerName: "anilist" });
@@ -213,10 +232,17 @@ describe("TrackerImportHandlers", () => {
     it("returns error for unknown tracker", async () => {
       const factory = createTestFactory();
       const { repo, close } = createLibraryRepository();
-      const { repo: evtRepo, close: closeEvt } = createEventRepository();
+      const { close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo, evtRepo);
-        const handlers = createTrackerImportHandlers({ libraryService, pluginFactory: factory });
+        const aggregate = new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        const handlers = createTrackerImportHandlers({
+          animeAggregate: aggregate,
+          pluginFactory: factory,
+        });
 
         const result = await handlers.confirmImport({ trackerName: "nonexistent" });
 
@@ -233,9 +259,13 @@ describe("TrackerImportHandlers", () => {
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
       const { repo, close } = createLibraryRepository();
-      const { repo: evtRepo, close: closeEvt } = createEventRepository();
+      const { close: closeEvt } = createEventRepository();
       try {
-        const libraryService = new LibraryService(repo, evtRepo);
+        const aggregate = new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
 
         const listData = {
           data: {
@@ -267,7 +297,7 @@ describe("TrackerImportHandlers", () => {
 
         await withMockFetch(mockAnilistFetch(listData) as unknown as typeof fetch, async () => {
           const handlers = createTrackerImportHandlers({
-            libraryService,
+            animeAggregate: aggregate,
             pluginFactory: factory,
           });
 
@@ -279,7 +309,7 @@ describe("TrackerImportHandlers", () => {
           expect(result.error).toBeUndefined();
           expect(result.result?.imported).toBe(1);
 
-          const anime = libraryService.listAnime();
+          const anime = aggregate.library.listAnime();
           expect(anime).toHaveLength(1);
           expect(anime[0]?.title).toBe("Death Note");
         });

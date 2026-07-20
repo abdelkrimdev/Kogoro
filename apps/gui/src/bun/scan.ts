@@ -7,10 +7,10 @@ import type {
   ScanSummary,
 } from "@kogoro/core";
 import {
+  type AnimeAggregate,
   type CacheService,
   type ConfigManager,
   createScanComponents,
-  type LibraryService,
   type Matcher,
   probeMatches,
   ScanOrchestrator,
@@ -69,7 +69,7 @@ async function createScanOrchestrator(
   sessionId: string,
   pluginFactory: PluginFactory,
   configManager: ConfigManager,
-  libraryService: LibraryService,
+  animeAggregate: AnimeAggregate,
   cacheService: CacheService,
   scanStateService: ScanStateService,
   store: ScanSessionStore,
@@ -101,7 +101,7 @@ async function createScanOrchestrator(
       },
       matcher: matcher ?? undefined,
       renamer,
-      libraryService,
+      animeAggregate,
       sourceDb: configManager.primaryDb,
       cacheService,
       scanStateService,
@@ -118,7 +118,7 @@ export function createScanHandlers(dependencies: {
   pluginFactory: PluginFactory;
   configManager: ConfigManager;
   cacheService: CacheService;
-  libraryService: LibraryService;
+  animeAggregate: AnimeAggregate;
   scanStateService: ScanStateService;
   mergeMatches: (matches: MatchEntry[]) => Promise<void>;
   send: {
@@ -152,7 +152,7 @@ export function createScanHandlers(dependencies: {
     pluginFactory,
     configManager,
     cacheService,
-    libraryService,
+    animeAggregate,
     scanStateService,
     mergeMatches,
     send,
@@ -185,7 +185,7 @@ export function createScanHandlers(dependencies: {
             sessionId,
             pluginFactory,
             configManager,
-            libraryService,
+            animeAggregate,
             cacheService,
             scanStateService,
             store,
@@ -247,26 +247,22 @@ export function createScanHandlers(dependencies: {
           await session.orchestrator.approvePlan();
         }
       }
-      return undefined;
     },
 
     async approveGroup(params: { sessionId: string; animeId: string }) {
       const { orchestrator } = requireSession(params.sessionId);
       orchestrator.approveGroup(params.animeId);
-      return undefined;
     },
 
     async rejectGroup(params: { sessionId: string; animeId: string }) {
       const { orchestrator } = requireSession(params.sessionId);
       orchestrator.rejectGroup(params.animeId);
-      return undefined;
     },
 
     async cancelScan(params: { sessionId: string }) {
       const session = store.get(params.sessionId);
       store.delete(params.sessionId);
       session?.orchestrator.cancel();
-      return undefined;
     },
 
     async swapFiles(params: {
@@ -290,17 +286,9 @@ export function createScanHandlers(dependencies: {
       const plan = orchestrator.getPlan();
       if (!plan) return { candidates: [] };
 
-      let sourcePath: string | null = null;
-      for (const group of plan.groups) {
-        for (const file of group.files) {
-          if (file.fileId === fileId) {
-            sourcePath = file.sourcePath;
-            break;
-          }
-        }
-        if (sourcePath) break;
-      }
-      if (!sourcePath) return { candidates: [] };
+      const file = plan.groups.flatMap((g) => g.files).find((f) => f.fileId === fileId);
+      if (!file) return { candidates: [] };
+      const sourcePath = file.sourcePath;
 
       if (!matcher) return { candidates: [] };
 
@@ -344,7 +332,6 @@ export function createScanHandlers(dependencies: {
     }) {
       const { orchestrator } = requireSession(params.sessionId);
       await orchestrator.resolveMatch(params.fileId, params.animeId, params.episodeId);
-      return undefined;
     },
   };
 }

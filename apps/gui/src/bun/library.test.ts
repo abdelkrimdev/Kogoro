@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { LibraryRepository } from "@kogoro/core";
-import { LibraryService } from "@kogoro/core";
+import type { LibraryRepository, WatchTracker } from "@kogoro/core";
+import { AnimeAggregate } from "@kogoro/core";
 import { createEventRepository, createLibraryRepository, withTempDir } from "@kogoro/core/testing";
 import { createLibraryHandlers } from "./library";
 
@@ -78,9 +78,16 @@ describe("getLibrary handler", () => {
       writeFileSync(join(coverDir, "jjk.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
       const { repo, close } = createLibraryRepository(dir);
       seedLibrary(repo, coverDir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
-      const libraryService = new LibraryService(repo, evtRepo);
-      const handlers = createLibraryHandlers({ libraryService });
+      const { close: closeEvt } = createEventRepository(dir);
+      const aggregate = new AnimeAggregate({
+        library: repo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const handlers = createLibraryHandlers({
+        animeAggregate: aggregate,
+        watchTracker: {} as WatchTracker,
+      });
       const result = await handlers.getLibrary();
 
       expect(result).toHaveLength(2);
@@ -97,9 +104,16 @@ describe("getLibrary handler", () => {
   test("returns empty array when library is empty", async () => {
     await withTempDir("library-handler-empty", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
-      const libraryService = new LibraryService(repo, evtRepo);
-      const handlers = createLibraryHandlers({ libraryService });
+      const { close: closeEvt } = createEventRepository(dir);
+      const aggregate = new AnimeAggregate({
+        library: repo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const handlers = createLibraryHandlers({
+        animeAggregate: aggregate,
+        watchTracker: {} as WatchTracker,
+      });
       const result = await handlers.getLibrary();
       expect(result).toHaveLength(0);
       closeEvt();
@@ -116,9 +130,16 @@ describe("getAnimeDetail handler", () => {
       writeFileSync(join(coverDir, "jjk.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
       const { repo, close } = createLibraryRepository(dir);
       seedLibrary(repo, coverDir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
-      const libraryService = new LibraryService(repo, evtRepo);
-      const handlers = createLibraryHandlers({ libraryService });
+      const { close: closeEvt } = createEventRepository(dir);
+      const aggregate = new AnimeAggregate({
+        library: repo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const handlers = createLibraryHandlers({
+        animeAggregate: aggregate,
+        watchTracker: {} as WatchTracker,
+      });
       const library = await handlers.getLibrary();
       const jjk = library.find((a) => a.titleEn === "Jujutsu Kaisen");
 
@@ -144,9 +165,16 @@ describe("getAnimeDetail handler", () => {
     await withTempDir("library-handler-detail-miss", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
       seedLibrary(repo);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
-      const libraryService = new LibraryService(repo, evtRepo);
-      const handlers = createLibraryHandlers({ libraryService });
+      const { close: closeEvt } = createEventRepository(dir);
+      const aggregate = new AnimeAggregate({
+        library: repo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const handlers = createLibraryHandlers({
+        animeAggregate: aggregate,
+        watchTracker: {} as WatchTracker,
+      });
       const result = await handlers.getAnimeDetail({ id: "99999" });
       expect(result).toBeNull();
       closeEvt();
@@ -160,9 +188,16 @@ describe("getLibraryStats handler", () => {
     await withTempDir("library-handler-stats", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
       seedLibrary(repo);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
-      const libraryService = new LibraryService(repo, evtRepo);
-      const handlers = createLibraryHandlers({ libraryService });
+      const { close: closeEvt } = createEventRepository(dir);
+      const aggregate = new AnimeAggregate({
+        library: repo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const handlers = createLibraryHandlers({
+        animeAggregate: aggregate,
+        watchTracker: {} as WatchTracker,
+      });
       const result = await handlers.getLibraryStats();
 
       expect(result.animeCount).toBe(2);
@@ -175,9 +210,16 @@ describe("getLibraryStats handler", () => {
   test("returns zero counts when library is empty", async () => {
     await withTempDir("library-handler-stats-empty", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
-      const libraryService = new LibraryService(repo, evtRepo);
-      const handlers = createLibraryHandlers({ libraryService });
+      const { close: closeEvt } = createEventRepository(dir);
+      const aggregate = new AnimeAggregate({
+        library: repo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const handlers = createLibraryHandlers({
+        animeAggregate: aggregate,
+        watchTracker: {} as WatchTracker,
+      });
       const result = await handlers.getLibraryStats();
 
       expect(result.animeCount).toBe(0);
@@ -192,11 +234,18 @@ describe("mergeMatches", () => {
   test("merges match entries into library", async () => {
     await withTempDir("library-merge", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
-      const libraryService = new LibraryService(repo, evtRepo);
-      const handlers = createLibraryHandlers({ libraryService });
+      const { close: closeEvt } = createEventRepository(dir);
+      const aggregate = new AnimeAggregate({
+        library: repo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const handlers = createLibraryHandlers({
+        animeAggregate: aggregate,
+        watchTracker: {} as WatchTracker,
+      });
 
-      await libraryService.mergeFromMatches([
+      await aggregate.mergeFromMatches([
         {
           animeId: "tvdb-12345",
           animeTitle: "My Anime",
@@ -234,7 +283,7 @@ describe("rebuild", () => {
 
       await withTempDir("library-rebuild", async (dir) => {
         const { repo, close } = createLibraryRepository(dir);
-        const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
+        const { close: closeEvt } = createEventRepository(dir);
         const jjk = repo.upsertAnime({
           externalId: "tvdb-12345",
           sourceDb: "tvdb",
@@ -292,8 +341,15 @@ describe("rebuild", () => {
           watched: false,
         });
 
-        const libraryService = new LibraryService(repo, evtRepo);
-        const handlers = createLibraryHandlers({ libraryService });
+        const aggregate = new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        const handlers = createLibraryHandlers({
+          animeAggregate: aggregate,
+          watchTracker: {} as WatchTracker,
+        });
 
         const result = await handlers.rebuild();
         expect(result.success).toBe(true);
@@ -311,9 +367,16 @@ describe("rebuild", () => {
   test("returns success when library is empty", async () => {
     await withTempDir("library-rebuild-empty", async (dir) => {
       const { repo, close } = createLibraryRepository(dir);
-      const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
-      const libraryService = new LibraryService(repo, evtRepo);
-      const handlers = createLibraryHandlers({ libraryService });
+      const { close: closeEvt } = createEventRepository(dir);
+      const aggregate = new AnimeAggregate({
+        library: repo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const handlers = createLibraryHandlers({
+        animeAggregate: aggregate,
+        watchTracker: {} as WatchTracker,
+      });
       const result = await handlers.rebuild();
       expect(result.success).toBe(true);
       closeEvt();

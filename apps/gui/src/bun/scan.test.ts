@@ -9,7 +9,7 @@ import type {
   ScanReviewReadyEvent,
 } from "@kogoro/core";
 import {
-  LibraryService,
+  AnimeAggregate,
   SCHEMA_DEFAULTS,
   ScanOrchestrator,
   ScanStateService,
@@ -253,9 +253,13 @@ describe("ScanOrchestrator", () => {
         expect(matches.length).toBeGreaterThan(0);
 
         const { repo: libraryRepo, close } = createLibraryRepository(dir);
-        const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
-        const libraryService = new LibraryService(libraryRepo, evtRepo);
-        libraryService.rebuildFromMatches(matches);
+        const { close: closeEvt } = createEventRepository(dir);
+        const aggregate = new AnimeAggregate({
+          library: libraryRepo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        aggregate.rebuildFromMatches(matches);
 
         const animeList = libraryRepo.listAnime();
         expect(animeList).toHaveLength(1);
@@ -438,8 +442,11 @@ describe("ScanOrchestrator", () => {
         writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
 
         const { repo: libraryRepo } = createLibraryRepository(dir);
-        const { repo: evtRepo } = createEventRepository(dir);
-        const libraryService = new LibraryService(libraryRepo, evtRepo);
+        const aggregate = new AnimeAggregate({
+          library: libraryRepo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
 
         const handlers = createScanHandlers({
           pluginFactory: {
@@ -454,7 +461,7 @@ describe("ScanOrchestrator", () => {
             resolveMediaExtensions: () => SCHEMA_DEFAULTS["media-extensions"],
           } as unknown as ConfigManager,
           cacheService,
-          libraryService,
+          animeAggregate: aggregate,
           scanStateService,
           mergeMatches: async () => {},
           send: {
@@ -515,8 +522,11 @@ describe("ScanOrchestrator", () => {
         writeTempFile(dir, "[Group] My Anim - 01.mkv", "fake video content");
 
         const { repo: libraryRepo } = createLibraryRepository(dir);
-        const { repo: evtRepo } = createEventRepository(dir);
-        const libraryService = new LibraryService(libraryRepo, evtRepo);
+        const aggregate = new AnimeAggregate({
+          library: libraryRepo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
 
         const captured: { plan?: ReviewPlan } = {};
 
@@ -533,7 +543,7 @@ describe("ScanOrchestrator", () => {
             resolveMediaExtensions: () => SCHEMA_DEFAULTS["media-extensions"],
           } as unknown as ConfigManager,
           cacheService,
-          libraryService,
+          animeAggregate: aggregate,
           scanStateService,
           mergeMatches: async () => {},
           send: {
@@ -604,7 +614,7 @@ describe("ScanOrchestrator", () => {
             resolveMediaExtensions: () => SCHEMA_DEFAULTS["media-extensions"],
           } as unknown as ConfigManager,
           cacheService: {} as unknown as CacheService,
-          libraryService: {} as unknown as LibraryService,
+          animeAggregate: {} as unknown as AnimeAggregate,
           scanStateService: {} as unknown as ScanStateService,
           mergeMatches: async () => {},
           send: {

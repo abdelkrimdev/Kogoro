@@ -1,4 +1,4 @@
-import type { LibraryService } from "@kogoro/core";
+import type { AnimeAggregate, WatchTracker } from "@kogoro/core";
 import { toDataUrl } from "./image-utils";
 
 interface LibraryAnimeItem {
@@ -56,7 +56,8 @@ type WatchStatusSetResult = { success: boolean };
 type LibraryRebuildResult = { success: boolean; error?: string };
 
 interface LibraryHandlerOptions {
-  libraryService: LibraryService;
+  animeAggregate: AnimeAggregate;
+  watchTracker: WatchTracker;
   getSourceDb?: () => string;
 }
 
@@ -67,14 +68,14 @@ function totalEpisodeCount(groups: LibraryAnimeDetail["groups"]): number {
 }
 
 export function createLibraryHandlers(options: LibraryHandlerOptions) {
-  const svc = options.libraryService;
+  const svc = options.animeAggregate;
+  const tracker = options.watchTracker;
 
   return {
     async getLibrary(): Promise<LibraryAnimeItem[]> {
-      const animeList = svc.listAnime();
+      const displayData = svc.getAnimeForDisplay();
       return Promise.all(
-        animeList.map(async (a) => {
-          const groups = svc.getEpisodeGroupsByAnimeId(a.id);
+        displayData.map(async ({ anime: a, groups }) => {
           return {
             id: String(a.id),
             titleEn: a.title,
@@ -96,13 +97,13 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
     },
 
     async getAnimeDetail(params: { id: string }): Promise<LibraryAnimeDetail | null> {
-      const anime = svc.getAnime(Number(params.id));
+      const anime = svc.library.getAnime(Number(params.id));
       if (!anime) return null;
 
-      const dbGroups = svc.getEpisodeGroupsByAnimeId(anime.id);
+      const dbGroups = svc.library.getEpisodeGroupsByAnimeId(anime.id);
       const groups: LibraryAnimeDetail["groups"] = await Promise.all(
         dbGroups.map(async (group) => {
-          const dbEpisodes = svc.getEpisodesByGroupId(group.id);
+          const dbEpisodes = svc.library.getEpisodesByGroupId(group.id);
           const episodes = dbEpisodes.map((ep) => ({
             id: String(ep.id),
             episodeNumber: ep.episodeNumber,
@@ -145,7 +146,7 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
     },
 
     async getWatchStatusByAnime(params: { animeId: string }): Promise<WatchStatusEntry[]> {
-      const statuses = svc.getEpisodeWatchStatusByAnimeId(Number(params.animeId));
+      const statuses = tracker.getEpisodeWatchStatusByAnimeId(Number(params.animeId));
       return statuses.map((s) => ({
         episodeId: String(s.episodeId),
         watched: s.watched,
@@ -156,19 +157,19 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       episodeId: string;
       watched: boolean;
     }): Promise<WatchStatusSetResult> {
-      svc.setEpisodeWatched(Number(params.episodeId), params.watched);
+      tracker.setEpisodeWatched(Number(params.episodeId), params.watched);
       return { success: true };
     },
 
     async getLibraryStats(): Promise<LibraryStats> {
-      return svc.getStats();
+      return svc.library.getStats();
     },
 
     async updateGroupStatus(params: {
       groupId: string;
       status: string;
     }): Promise<{ success: boolean }> {
-      const result = svc.setGroupWatchStatus(
+      const result = tracker.setGroupWatchStatus(
         Number(params.groupId),
         params.status as "watching" | "completed" | "plan_to_watch" | "on_hold" | "dropped",
       );
@@ -179,7 +180,7 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       episodeId: string;
       watched: boolean;
     }): Promise<{ success: boolean }> {
-      const result = svc.setEpisodeWatched(Number(params.episodeId), params.watched);
+      const result = tracker.setEpisodeWatched(Number(params.episodeId), params.watched);
       return { success: result !== null };
     },
 
@@ -187,7 +188,7 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       episodeId: string;
       notes: string;
     }): Promise<{ success: boolean }> {
-      const result = svc.updateEpisodeNotes(Number(params.episodeId), params.notes);
+      const result = tracker.updateEpisodeNotes(Number(params.episodeId), params.notes);
       return { success: result !== null };
     },
 

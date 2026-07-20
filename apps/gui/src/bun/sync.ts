@@ -1,16 +1,18 @@
 import type {
+  AnimeAggregate,
   CredentialStore,
   EventRepository,
-  LibraryService,
   TrackerPlugin,
   TrackerSource,
   TrackerWatchStatus,
+  WatchTracker,
 } from "@kogoro/core";
 import { type SyncConflict, SyncEngine, SyncOrchestrator } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
 interface SyncHandlerOptions {
-  libraryService: LibraryService;
+  animeAggregate: AnimeAggregate;
+  watchTracker: WatchTracker;
   eventsRepo: EventRepository;
   pluginFactory: PluginFactory;
   credentialStore: CredentialStore;
@@ -44,7 +46,7 @@ async function runPushForGroup(
 ): Promise<{ pushed: number; errors: Array<{ tracker: string; error: string }> }> {
   const errors: Array<{ tracker: string; error: string }> = [];
   const pairs = await buildTrackerPairs(options, errors);
-  const allMappings = options.libraryService.getAllTrackerMappings();
+  const allMappings = options.animeAggregate.library.getAllTrackerMappings();
 
   let pushed = 0;
   for (const { source, tracker } of pairs) {
@@ -52,7 +54,13 @@ async function runPushForGroup(
     if (!hasMapping) continue;
 
     try {
-      const engine = new SyncEngine(options.libraryService, options.eventsRepo, tracker, source);
+      const engine = new SyncEngine(
+        options.animeAggregate,
+        options.watchTracker,
+        options.eventsRepo,
+        tracker,
+        source,
+      );
       const result = await engine.push(groupId);
       pushed += result.pushed;
     } catch (err) {
@@ -100,10 +108,13 @@ async function buildTrackerPairs(
   return pairs;
 }
 
-function enrichConflicts(conflicts: SyncConflict[], library: LibraryService): SyncConflictInfo[] {
+function enrichConflicts(
+  conflicts: SyncConflict[],
+  animeAggregate: AnimeAggregate,
+): SyncConflictInfo[] {
   return conflicts.map((c) => {
-    const group = library.getEpisodeGroup(c.groupId);
-    const anime = group ? library.getAnime(group.animeId) : null;
+    const group = animeAggregate.library.getEpisodeGroup(c.groupId);
+    const anime = group ? animeAggregate.library.getAnime(group.animeId) : null;
     return {
       ...c,
       animeTitle: anime?.title ?? `Group #${c.groupId}`,
@@ -118,7 +129,12 @@ async function runSync(
   const errors: Array<{ tracker: string; error: string }> = [];
   const pairs = await buildTrackerPairs(options, errors);
 
-  const orchestrator = new SyncOrchestrator(options.libraryService, options.eventsRepo, pairs);
+  const orchestrator = new SyncOrchestrator(
+    options.animeAggregate,
+    options.watchTracker,
+    options.eventsRepo,
+    pairs,
+  );
 
   const result = await orchestrator.syncAll();
 
@@ -129,7 +145,7 @@ async function runSync(
 
   return {
     applied: result.applied + result.pushed,
-    conflicts: enrichConflicts(conflicts, options.libraryService),
+    conflicts: enrichConflicts(conflicts, options.animeAggregate),
     syncedTrackers: result.syncedTrackers,
     errors: [...errors, ...result.errors],
   };
@@ -143,7 +159,7 @@ export function createSyncHandlers(options: SyncHandlerOptions) {
 
     async syncAnime(params: { animeId: string }): Promise<SyncAllResult> {
       const animeId = Number(params.animeId);
-      const groups = options.libraryService.getEpisodeGroupsByAnimeId(animeId);
+      const groups = options.animeAggregate.library.getEpisodeGroupsByAnimeId(animeId);
       const groupIds = new Set(groups.map((g) => g.id));
       return runSync(options, (groupId) => groupIds.has(groupId));
     },
@@ -172,7 +188,8 @@ export function createSyncHandlers(options: SyncHandlerOptions) {
       if (!plugin) return { success: false };
 
       const engine = new SyncEngine(
-        options.libraryService,
+        options.animeAggregate,
+        options.watchTracker,
         options.eventsRepo,
         plugin,
         trackerDef.source,

@@ -1,4 +1,4 @@
-import type { CredentialStore, EventRepository, LibraryService } from "@kogoro/core";
+import type { AnimeAggregate, CredentialStore, EventRepository } from "@kogoro/core";
 import {
   ANILIST_CLIENT_ID,
   ANILIST_REDIRECT_URI,
@@ -135,9 +135,9 @@ export async function connectTracker(
   const def = findTrackerDef(params.name);
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
-  const credential =
-    (params.onBeforeStore ? await params.onBeforeStore(def.name, params.values) : null) ??
-    def.buildCredential(params.values);
+  const credential = params.onBeforeStore
+    ? ((await params.onBeforeStore(def.name, params.values)) ?? def.buildCredential(params.values))
+    : def.buildCredential(params.values);
   if (!credential) {
     const requiredFields = def.fields.map((f) => f.label).join(" and ");
     return {
@@ -152,14 +152,14 @@ export async function connectTracker(
 
 export async function disconnectTracker(
   credentialStore: CredentialStore,
-  libraryService: LibraryService,
+  animeAggregate: AnimeAggregate,
   eventRepo: EventRepository,
   params: { name: string },
 ): Promise<{ success: boolean; error?: string }> {
   const def = findTrackerDef(params.name);
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
-  libraryService.removeTrackerMappingsBySource(def.name);
+  animeAggregate.library.removeTrackerMappingsBySource(def.name);
   eventRepo.dropForSource(def.name);
   await credentialStore.deleteCredential(def.credentialKey);
   return { success: true };

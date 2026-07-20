@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { CacheService, DatabasePlugin } from "@kogoro/core";
-import { ConfigManager, CredentialStore, LibraryService } from "@kogoro/core";
+import { AnimeAggregate, ConfigManager, CredentialStore, WatchTracker } from "@kogoro/core";
 import {
   createArtworkDb,
   createEventRepository,
@@ -32,14 +32,20 @@ afterEach(() => {
   cleanupKogoroEnv();
 });
 
-function createLibraryService(dir: string): {
-  svc: LibraryService;
+function createAggregate(dir: string): {
+  svc: AnimeAggregate;
+  watchTracker: WatchTracker;
   close: () => void;
 } {
   const { repo, close } = createLibraryRepository(dir);
   const { repo: evtRepo, close: closeEvt } = createEventRepository(dir);
   return {
-    svc: new LibraryService(repo, evtRepo),
+    svc: new AnimeAggregate({
+      library: repo,
+      replayUnpushedEvents: () => {},
+      computeAndPersistLibraryState: () => {},
+    }),
+    watchTracker: new WatchTracker({ library: repo, events: evtRepo }),
     close: () => {
       closeEvt();
       close();
@@ -103,13 +109,14 @@ async function seedLibraryAndCache(
 describe("enrichArtwork", () => {
   test("fails when anime is not found in library", async () => {
     await withTempDir("enrich-artwork-unknown", async (dir) => {
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const configManager = new ConfigManager({ configDir: dir });
       const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         database: createArtworkDb([]),
       });
@@ -132,13 +139,14 @@ describe("enrichArtwork", () => {
         episodeCount: 0,
       });
 
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const configManager = new ConfigManager({ configDir: dir });
       const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         database: createArtworkDb([]),
       });
@@ -157,12 +165,13 @@ describe("enrichArtwork", () => {
       const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const configManager = new ConfigManager({ configDir: dir });
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
       });
 
@@ -197,11 +206,12 @@ describe("enrichArtwork", () => {
       await withMockFetch(
         mockFetch(testImageBytes, 200, "image/jpeg") as typeof globalThis.fetch,
         async () => {
-          const { svc, close } = createLibraryService(dir);
+          const { svc, watchTracker, close } = createAggregate(dir);
           const handlers = createEnrichmentHandlers({
             configManager,
             send: noopEnrichmentSend,
-            libraryService: svc,
+            animeAggregate: svc,
+            watchTracker,
             cacheService,
             database: artworkDb,
           });
@@ -246,11 +256,12 @@ describe("enrichArtwork", () => {
       await withMockFetch(
         mockFetch(testImageBytes, 200, "image/jpeg") as typeof globalThis.fetch,
         async () => {
-          const { svc, close } = createLibraryService(dir);
+          const { svc, watchTracker, close } = createAggregate(dir);
           const handlers = createEnrichmentHandlers({
             configManager,
             send: createTrackingEnrichmentSend(progressEvents),
-            libraryService: svc,
+            animeAggregate: svc,
+            watchTracker,
             cacheService,
             database: artworkDb,
           });
@@ -278,11 +289,12 @@ describe("enrichArtwork", () => {
       };
 
       const configManager = new ConfigManager({ configDir: dir });
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         database: artworkDb,
       });
@@ -300,13 +312,14 @@ describe("enrichArtwork", () => {
 describe("enrichMetadata", () => {
   test("fails when anime is not found in library", async () => {
     await withTempDir("enrich-metadata-unknown", async (dir) => {
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const configManager = new ConfigManager({ configDir: dir });
       const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         database: createArtworkDb([]),
       });
@@ -326,11 +339,12 @@ describe("enrichMetadata", () => {
       const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const configManager = new ConfigManager({ configDir: dir });
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         database: createArtworkDb([]),
       });
@@ -360,11 +374,12 @@ describe("enrichMetadata", () => {
       const configManager = new ConfigManager({ configDir: dir });
       const progressEvents: Array<{ completed: number; total: number; status: string }> = [];
 
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
         send: createTrackingEnrichmentSend(progressEvents),
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         database: createArtworkDb([]),
       });
@@ -386,11 +401,12 @@ describe("enrichMetadata", () => {
       const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const configManager = new ConfigManager({ configDir: dir });
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
       });
 
@@ -406,13 +422,14 @@ describe("enrichMetadata", () => {
 describe("enrichTracker", () => {
   test("fails when anime is not found in library", async () => {
     await withTempDir("enrich-tracker-unknown", async (dir) => {
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const configManager = new ConfigManager({ configDir: dir });
       const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
       });
 
@@ -431,11 +448,12 @@ describe("enrichTracker", () => {
       const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const configManager = new ConfigManager({ configDir: dir });
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
       });
 
@@ -454,7 +472,7 @@ describe("enrichTracker", () => {
       const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
       const configManager = new ConfigManager({ configDir: dir });
-      const { svc, close } = createLibraryService(dir);
+      const { svc, watchTracker, close } = createAggregate(dir);
       const credentialStore = new CredentialStore();
       const mockTracker = createMockTracker();
       const mockPluginFactory = {
@@ -464,7 +482,8 @@ describe("enrichTracker", () => {
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         pluginFactory: mockPluginFactory,
         credentialStore,
@@ -485,18 +504,17 @@ describe("enrichTracker", () => {
       const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
-      const { repo: libraryRepo } = createLibraryRepository(dir);
-      const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      const configManager = new ConfigManager({ configDir: dir });
+      const { svc, watchTracker, close } = createAggregate(dir);
+
+      const groups = svc.library.getEpisodeGroupsByAnimeId(animeId);
       const [group] = groups;
       expect(group).toBeDefined();
-      libraryRepo.upsertGroupTrackerMapping({
+      svc.library.upsertGroupTrackerMapping({
         groupId: group?.id as number,
         source: "anilist",
         externalId: "anilist-123",
       });
-
-      const configManager = new ConfigManager({ configDir: dir });
-      const { svc, close } = createLibraryService(dir);
 
       const credentialStore = new CredentialStore();
       await credentialStore.setCredential("anilist", "test-token");
@@ -517,7 +535,8 @@ describe("enrichTracker", () => {
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         pluginFactory: mockPluginFactory,
         credentialStore,
@@ -527,7 +546,7 @@ describe("enrichTracker", () => {
       expect(result.success).toBe(true);
       expect(result.summary?.enriched).toBe(1);
 
-      const updatedGroup = libraryRepo.getEpisodeGroup(group?.id as number);
+      const updatedGroup = svc.library.getEpisodeGroup(group?.id as number);
       expect(updatedGroup?.synopsis).toBe("A great anime about testing");
       expect(updatedGroup?.rating).toBe(8.5);
       closeCache();
@@ -541,18 +560,17 @@ describe("enrichTracker", () => {
       const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
-      const { repo: libraryRepo } = createLibraryRepository(dir);
-      const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      const configManager = new ConfigManager({ configDir: dir });
+      const { svc, watchTracker, close } = createAggregate(dir);
+
+      const groups = svc.library.getEpisodeGroupsByAnimeId(animeId);
       const [group] = groups;
       expect(group).toBeDefined();
-      libraryRepo.upsertGroupTrackerMapping({
+      svc.library.upsertGroupTrackerMapping({
         groupId: group?.id as number,
         source: "anilist",
         externalId: "anilist-123",
       });
-
-      const configManager = new ConfigManager({ configDir: dir });
-      const { svc, close } = createLibraryService(dir);
 
       const credentialStore = new CredentialStore();
       const mockTracker = createMockTracker();
@@ -563,7 +581,8 @@ describe("enrichTracker", () => {
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         pluginFactory: mockPluginFactory,
         credentialStore,
@@ -585,21 +604,22 @@ describe("enrichTracker", () => {
       const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
-      const { repo: libraryRepo } = createLibraryRepository(dir);
-      const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      const configManager = new ConfigManager({ configDir: dir });
+      const { svc, watchTracker, close } = createAggregate(dir);
+
+      const groups = svc.library.getEpisodeGroupsByAnimeId(animeId);
       const [group] = groups;
       expect(group).toBeDefined();
-      libraryRepo.upsertGroupTrackerMapping({
+      svc.library.upsertGroupTrackerMapping({
         groupId: group?.id as number,
         source: "anilist",
         externalId: "anilist-123",
       });
+
+      const { repo: libraryRepo } = createLibraryRepository(dir);
       libraryRepo.updateEpisodeGroupMetadata(group?.id as number, {
         synopsis: "Existing synopsis",
       });
-
-      const configManager = new ConfigManager({ configDir: dir });
-      const { svc, close } = createLibraryService(dir);
 
       const credentialStore = new CredentialStore();
       await credentialStore.setCredential("anilist", "test-token");
@@ -618,7 +638,8 @@ describe("enrichTracker", () => {
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         pluginFactory: mockPluginFactory,
         credentialStore,
@@ -627,7 +648,7 @@ describe("enrichTracker", () => {
       const result = await handlers.enrichTracker({ id: String(animeId) });
       expect(result.success).toBe(true);
 
-      const updatedGroup = libraryRepo.getEpisodeGroup(group?.id as number);
+      const updatedGroup = svc.library.getEpisodeGroup(group?.id as number);
       expect(updatedGroup?.synopsis).toBe("Existing synopsis");
       closeCache();
       close();
@@ -640,18 +661,17 @@ describe("enrichTracker", () => {
       const { cacheService, close: closeCache } = createMatchCacheService(dir);
       const { animeId } = await seedLibraryAndCache(dir, mediaDir, cacheService);
 
-      const { repo: libraryRepo } = createLibraryRepository(dir);
-      const groups = libraryRepo.getEpisodeGroupsByAnimeId(animeId);
+      const configManager = new ConfigManager({ configDir: dir });
+      const { svc, watchTracker, close } = createAggregate(dir);
+
+      const groups = svc.library.getEpisodeGroupsByAnimeId(animeId);
       const [group] = groups;
       expect(group).toBeDefined();
-      libraryRepo.upsertGroupTrackerMapping({
+      svc.library.upsertGroupTrackerMapping({
         groupId: group?.id as number,
         source: "anilist",
         externalId: "anilist-123",
       });
-
-      const configManager = new ConfigManager({ configDir: dir });
-      const { svc, close } = createLibraryService(dir);
 
       const credentialStore = new CredentialStore();
       await credentialStore.setCredential("anilist", "test-token");
@@ -668,7 +688,8 @@ describe("enrichTracker", () => {
       const handlers = createEnrichmentHandlers({
         configManager,
         send: noopEnrichmentSend,
-        libraryService: svc,
+        animeAggregate: svc,
+        watchTracker,
         cacheService,
         pluginFactory: mockPluginFactory,
         credentialStore,

@@ -13,6 +13,7 @@ export { hashFile } from "./io/file-hash";
 import { EventRepository } from "./events/event-repository";
 import { createEventDb as createEventDbInstance } from "./events/test-utils";
 import { HttpClient } from "./io/http-client";
+import { AnimeAggregate } from "./library/anime-aggregate";
 import { EnrichmentService } from "./library/enrichment-service";
 import type {
   AnilistCacheEntry,
@@ -20,7 +21,7 @@ import type {
   Franchise,
 } from "./library/library-repository";
 import { LibraryRepository } from "./library/library-repository";
-import { LibraryService } from "./library/library-service";
+import { computeLibraryState, type GroupFilesOnDisk } from "./library/library-state";
 import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils";
 import { CacheService } from "./match/cache-service";
 import type { CachedMatch } from "./match/match-repository";
@@ -206,15 +207,29 @@ export function createTrackerImportTestContext(
   enrichmentProviderFactory?: () => Promise<import("./types").EnrichmentProvider | undefined>,
 ): {
   repo: LibraryRepository;
-  libraryService: LibraryService;
+  aggregate: AnimeAggregate;
   close: () => void;
 } {
   const { repo, close: closeLib } = createLibraryRepository();
-  const { repo: evtRepo, close: closeEvt } = createEventRepository();
-  const libraryService = new LibraryService(repo, evtRepo, enrichmentProviderFactory);
+  const { close: closeEvt } = createEventRepository();
+  const aggregate = new AnimeAggregate({
+    library: repo,
+    replayUnpushedEvents: () => {},
+    computeAndPersistLibraryState: (animeId, repoOverride) => {
+      const r = repoOverride ?? repo;
+      const groups = r.getEpisodeGroupsByAnimeId(animeId);
+      const groupFiles: GroupFilesOnDisk[] = groups.map((g) => ({
+        groupId: g.id,
+        filesOnDisk: r.getFilesOnDiskByGroupId(g.id),
+      }));
+      const state = computeLibraryState(groupFiles);
+      r.updateLibraryState(animeId, state);
+    },
+    enrichmentProviderFactory,
+  });
   return {
     repo,
-    libraryService,
+    aggregate,
     close: () => {
       closeLib();
       closeEvt();
@@ -394,9 +409,8 @@ export function createSequenceFetch(...responses: Response[]) {
         return Promise.resolve(createMockResponse("ok", { status: 200 }));
       }
       const r = responses[callCount];
-      if (r === undefined) return Promise.resolve(createMockResponse("ok", { status: 200 }));
       callCount++;
-      return Promise.resolve(r);
+      return Promise.resolve(r ?? createMockResponse("ok", { status: 200 }));
     },
   };
 }

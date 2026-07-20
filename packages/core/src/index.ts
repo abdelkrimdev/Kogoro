@@ -34,6 +34,16 @@ export type { DebugEntry } from "./io/http-client";
 export { HttpClient } from "./io/http-client";
 export type { ProgressEvent, TaskContext } from "./io/progress";
 export type {
+  ImportPreview,
+  ImportPreviewEntry,
+  ImportResult,
+  ImportSelection,
+  MatchStatus,
+} from "./library/anime-aggregate";
+export { AnimeAggregate } from "./library/anime-aggregate";
+export { EnrichmentService } from "./library/enrichment-service";
+export { FranchiseAggregate } from "./library/franchise-aggregate";
+export type {
   AnilistCacheEntry,
   AnimeTrackerMapping,
   EpisodeGroup,
@@ -43,9 +53,9 @@ export type {
   LibraryEpisode,
 } from "./library/library-repository";
 export { LibraryRepository } from "./library/library-repository";
-export { LibraryService } from "./library/library-service";
 export type { GroupFilesOnDisk, LibraryState } from "./library/library-state";
 export { computeLibraryState } from "./library/library-state";
+export { WatchTracker } from "./library/watch-tracker";
 export { CacheService } from "./match/cache-service";
 export type { CachedMatch } from "./match/match-repository";
 export { MatchRepository } from "./match/match-repository";
@@ -128,14 +138,6 @@ export type { PullResult, PushResult, SyncConflict } from "./tracker/sync-engine
 export { SyncEngine } from "./tracker/sync-engine";
 export type { CrossTrackerConflict, OrchestratorResult } from "./tracker/sync-orchestrator";
 export { SyncOrchestrator } from "./tracker/sync-orchestrator";
-export type {
-  ImportPreview,
-  ImportPreviewEntry,
-  ImportResult,
-  ImportSelection,
-  MatchStatus,
-} from "./tracker/tracker-import";
-export { TrackerImportService } from "./tracker/tracker-import";
 export type {
   AnimeResult,
   ArtworkResult,

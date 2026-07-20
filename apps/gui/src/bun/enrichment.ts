@@ -1,20 +1,22 @@
 import { join } from "node:path";
 import {
+  type AnimeAggregate,
   ArtworkFetcher,
   type CacheService,
   type ConfigManager,
   type CredentialStore,
   type DatabasePlugin,
   type EnrichmentSend,
-  type LibraryService,
   MetadataWriter,
+  type WatchTracker,
 } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
 interface EnrichmentOptions {
   configManager: ConfigManager;
   send: EnrichmentSend;
-  libraryService: LibraryService;
+  animeAggregate: AnimeAggregate;
+  watchTracker: WatchTracker;
   cacheService: CacheService;
   pluginFactory?: PluginFactory;
   database?: DatabasePlugin;
@@ -33,6 +35,12 @@ type EnrichMetadataResult = {
   error?: string;
 };
 
+type EnrichTrackerResult = {
+  success: boolean;
+  summary?: { total: number; enriched: number; skipped: number; errors: number };
+  error?: string;
+};
+
 export type EnrichmentHandlers = ReturnType<typeof createEnrichmentHandlers>;
 
 export function createEnrichmentHandlers(options: EnrichmentOptions) {
@@ -41,7 +49,8 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     configManager,
     send,
     database: overrideDb,
-    libraryService: svc,
+    animeAggregate: svc,
+    watchTracker,
     cacheService,
     credentialStore,
   } = options;
@@ -53,17 +62,14 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     return factory.primaryDatabase();
   }
 
-  function resolveAnimeAndDir(
-    svc: LibraryService,
-    id: string,
-  ):
+  function resolveAnimeAndDir(id: string):
     | {
         animeId: number;
         animeDir: string;
-        anime: NonNullable<ReturnType<LibraryService["getAnime"]>>;
+        anime: NonNullable<ReturnType<AnimeAggregate["library"]["getAnime"]>>;
       }
     | { error: string } {
-    const anime = svc.getAnime(Number(id));
+    const anime = svc.library.getAnime(Number(id));
     if (!anime) return { error: "Anime not found in library" };
     const animeDir = svc.getAnimeDir(anime.id);
     if (!animeDir) return { error: "No episode files found for this anime" };
@@ -71,7 +77,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
   }
 
   async function enrichArtwork(params: { id: string }): Promise<EnrichArtworkResult> {
-    const resolved = resolveAnimeAndDir(svc, params.id);
+    const resolved = resolveAnimeAndDir(params.id);
     if ("error" in resolved) {
       send.enrichmentComplete?.({
         animeId: params.id,
@@ -125,7 +131,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
   }
 
   async function enrichMetadata(params: { id: string }): Promise<EnrichMetadataResult> {
-    const resolved = resolveAnimeAndDir(svc, params.id);
+    const resolved = resolveAnimeAndDir(params.id);
     if ("error" in resolved) {
       send.enrichmentComplete?.({
         animeId: params.id,
@@ -163,14 +169,8 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     return { success: true, summary };
   }
 
-  type EnrichTrackerResult = {
-    success: boolean;
-    summary?: { total: number; enriched: number; skipped: number; errors: number };
-    error?: string;
-  };
-
   async function enrichTracker(params: { id: string }): Promise<EnrichTrackerResult> {
-    const resolved = resolveAnimeAndDir(svc, params.id);
+    const resolved = resolveAnimeAndDir(params.id);
     if ("error" in resolved) {
       send.enrichmentComplete?.({
         animeId: params.id,
@@ -190,14 +190,14 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
       return { success: true, summary: { total: 0, enriched: 0, skipped: 0, errors: 0 } };
     }
 
-    const groups = svc.getEpisodeGroupsByAnimeId(resolved.animeId);
+    const groups = svc.library.getEpisodeGroupsByAnimeId(resolved.animeId);
     let total = 0;
     let enriched = 0;
     let skipped = 0;
     let errors = 0;
 
     for (const group of groups) {
-      const mappings = svc.getTrackerMappingsByGroupId(group.id);
+      const mappings = svc.library.getTrackerMappingsByGroupId(group.id);
       if (mappings.length === 0) {
         skipped++;
         continue;
@@ -229,7 +229,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
           }
 
           if (Object.keys(metadata).length > 0) {
-            svc.updateEpisodeGroupMetadata(group.id, metadata);
+            watchTracker.updateEpisodeGroupMetadata(group.id, metadata);
           }
 
           enriched++;

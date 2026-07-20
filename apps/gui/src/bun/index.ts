@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  AnimeAggregate,
   buildCredentialFromToken,
   CacheService,
   ConfigManager,
@@ -10,11 +11,11 @@ import {
   createLibraryConnection,
   createMatchCacheConnection,
   HttpClient,
-  LibraryService,
   MAL_CLIENT_ID,
   MAL_REDIRECT_URI,
   resolveDbPaths,
   ScanStateService,
+  WatchTracker,
 } from "@kogoro/core";
 import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow, PATHS, Utils } from "electrobun/bun";
@@ -69,33 +70,40 @@ const libraryRepo = createLibraryConnection(libraryDbPath);
 const eventsRepo = createEventsConnection(eventsDbPath);
 const cacheService = new CacheService(matchRepo, scanStateRepo);
 const scanStateService = new ScanStateService(scanStateRepo);
-const libraryService = new LibraryService(libraryRepo, eventsRepo, () =>
-  pluginFactory.enrichmentProvider(),
-);
+const animeAggregate = new AnimeAggregate({
+  library: libraryRepo,
+  replayUnpushedEvents: () => {},
+  computeAndPersistLibraryState: () => {},
+  enrichmentProviderFactory: () => pluginFactory.enrichmentProvider(),
+});
+const watchTracker = new WatchTracker({ library: libraryRepo, events: eventsRepo });
 
 const syncHandlers = createSyncHandlers({
-  libraryService,
+  animeAggregate,
+  watchTracker,
   eventsRepo,
   pluginFactory,
   credentialStore,
 });
 
 const libraryHandlers = createLibraryHandlers({
-  libraryService,
+  animeAggregate,
+  watchTracker,
   getSourceDb: () => configManager.primaryDb,
 });
 
-const dashboardHandlers = createDashboardHandlers({ libraryService });
+const dashboardHandlers = createDashboardHandlers({ animeAggregate });
 
 const trackerImportHandlers = createTrackerImportHandlers({
-  libraryService,
+  animeAggregate,
   pluginFactory,
 });
 
 const enrichmentHandlers = createEnrichmentHandlers({
   pluginFactory,
   configManager,
-  libraryService,
+  animeAggregate,
+  watchTracker,
   cacheService,
   credentialStore,
   send: {
@@ -108,9 +116,9 @@ const scanHandlers = createScanHandlers({
   pluginFactory,
   configManager,
   cacheService,
-  libraryService,
+  animeAggregate,
   scanStateService,
-  mergeMatches: async (matches) => libraryService.mergeFromMatches(matches),
+  mergeMatches: async (matches) => animeAggregate.mergeFromMatches(matches),
   send: {
     scanProgress: (data) => rpc.send.scanProgress(data),
     scanPhaseComplete: (data) => rpc.send.scanPhaseComplete(data),
@@ -255,7 +263,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       waitForTrackerCallback: async (params) => waitForTrackerCallback(params.state),
       cancelTrackerAuth: async () => cancelTrackerAuth(),
       disconnectTracker: async (params) =>
-        disconnectTracker(credentialStore, libraryService, eventsRepo, params),
+        disconnectTracker(credentialStore, animeAggregate, eventsRepo, params),
       getImportPreview: async (params) => trackerImportHandlers.getImportPreview(params),
       confirmImport: async (params) => trackerImportHandlers.confirmImport(params),
       syncAll: async () => syncHandlers.syncAll(),

@@ -1,5 +1,6 @@
 import type { EventRepository } from "../events/event-repository";
-import type { LibraryService } from "../library/library-service";
+import type { AnimeAggregate } from "../library/anime-aggregate";
+import type { WatchTracker } from "../library/watch-tracker";
 import type { TrackerPlugin, TrackerSource, TrackerWatchStatus } from "../types";
 import { type SyncConflict, SyncEngine } from "./sync-engine";
 
@@ -22,7 +23,8 @@ export interface OrchestratorResult {
 
 export class SyncOrchestrator {
   constructor(
-    private library: LibraryService,
+    private aggregate: AnimeAggregate,
+    private watchTracker: WatchTracker,
     private eventRepo: EventRepository,
     private trackerPairs: Array<{ source: TrackerSource; tracker: TrackerPlugin }>,
   ) {}
@@ -39,12 +41,12 @@ export class SyncOrchestrator {
 
     const engines = this.trackerPairs.map(({ source, tracker }) => ({
       source,
-      engine: new SyncEngine(this.library, this.eventRepo, tracker, source),
+      engine: new SyncEngine(this.aggregate, this.watchTracker, this.eventRepo, tracker, source),
     }));
 
     const remoteStatusByTrackerAndGroup = new Map<string, Map<number, TrackerWatchStatus>>();
 
-    const allMappings = this.library.getAllTrackerMappings();
+    const allMappings = this.aggregate.library.getAllTrackerMappings();
     const mappingsBySource = new Map<string, typeof allMappings>();
     for (const mapping of allMappings) {
       const existing = mappingsBySource.get(mapping.source) ?? [];

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { LibraryService } from "../library/library-service";
+import type { AnimeAggregate } from "../library/anime-aggregate";
 import type {
   AnimeResult,
   FileRow,
@@ -79,11 +79,14 @@ export function groupByAnime(results: ScanResult[]): Map<string, ScanResult[]> {
 }
 
 function lowestNumericId(ids: string[]): string {
-  return ids.sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))[0] ?? "";
+  return [...ids].sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))[0] ?? "";
 }
 
-export function detectSwaps(results: ScanResult[]): ScanSwapPair[] {
-  const byAnime = groupByAnime(results);
+export function detectSwaps(
+  results: ScanResult[],
+  preGrouped?: Map<string, ScanResult[]>,
+): ScanSwapPair[] {
+  const byAnime = preGrouped ?? groupByAnime(results);
   const swaps: ScanSwapPair[] = [];
 
   for (const [, group] of byAnime) {
@@ -127,11 +130,11 @@ export function detectSwaps(results: ScanResult[]): ScanSwapPair[] {
 
 export function buildReviewPlan(
   results: ScanResult[],
-  libraryService?: LibraryService,
+  animeAggregate?: AnimeAggregate,
   sourceDb?: string,
 ): ScanReviewPlan {
   const byTitle = groupByAnime(results);
-  const allSwaps = detectSwaps(results);
+  const allSwaps = detectSwaps(results, byTitle);
 
   const titleToCanonicalId = new Map<string, string>();
   for (const [title, scanResults] of byTitle) {
@@ -191,9 +194,9 @@ export function buildReviewPlan(
       });
 
     const mergeMode =
-      libraryService != null &&
-      (libraryService.findAnimeByTitle(title, sourceDb ?? "tvdb") !== null ||
-        libraryService.isAnimeInLibrary(cid, sourceDb));
+      animeAggregate != null &&
+      (animeAggregate.animeExistsByTitle(title, sourceDb ?? "tvdb") ||
+        animeAggregate.animeExists(cid, sourceDb));
 
     groups.push({
       animeId: cid,
@@ -276,7 +279,7 @@ function toFileRow(result: ScanResult, fileId: string): FileRow {
 export async function aggregateReviewPlan(
   results: ScanResult[],
   sessionId: string,
-  libraryService?: LibraryService,
+  animeAggregate?: AnimeAggregate,
   sourceDb?: string,
   computeTopCandidates?: (sourcePath: string) => Promise<TopCandidate[]>,
 ): Promise<ReviewPlan> {
@@ -320,10 +323,10 @@ export async function aggregateReviewPlan(
   for (const [, { group, animeIds }] of groupsByTitle) {
     group.animeId = lowestNumericId(animeIds);
 
-    if (libraryService && group.animeId) {
+    if (animeAggregate && group.animeId) {
       group.mergeMode =
-        libraryService.findAnimeByTitle(group.animeTitle, sourceDb ?? "tvdb") !== null ||
-        libraryService.isAnimeInLibrary(group.animeId, sourceDb);
+        animeAggregate.animeExistsByTitle(group.animeTitle, sourceDb ?? "tvdb") ||
+        animeAggregate.animeExists(group.animeId, sourceDb);
     }
 
     group.files.sort((a, b) => {

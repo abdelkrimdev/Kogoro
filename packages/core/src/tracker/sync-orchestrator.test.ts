@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEventRepository, createLibraryRepository, createMockTracker } from "../fixtures";
-import { LibraryService } from "../library/library-service";
+import { AnimeAggregate } from "../library/anime-aggregate";
+import { WatchTracker } from "../library/watch-tracker";
 import type { TrackerPlugin, TrackerSource, TrackerWatchStatus } from "../types";
 import { SyncOrchestrator } from "./sync-orchestrator";
 
@@ -16,29 +17,34 @@ describe("SyncOrchestrator", () => {
     test("pulls from all trackers before pushing to any", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const libraryService = new LibraryService(libraryRepo, eventRepo);
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const watchTracker = new WatchTracker({ library: libraryRepo, events: eventRepo });
       try {
-        const anime = libraryService.upsertAnime({
+        const anime = aggregate.library.upsertAnime({
           externalId: "anime-1",
           sourceDb: "anilist",
           title: "Attack on Titan",
           episodeCount: 25,
         });
 
-        const group = libraryService.upsertEpisodeGroup({
+        const group = aggregate.library.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-anilist-1",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "tl-mal-1",
@@ -71,7 +77,7 @@ describe("SyncOrchestrator", () => {
             callOrder.push("pull-mal");
             return [
               {
-                source: "anilist",
+                source: "mal",
                 trackerId: "tl-mal-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -86,7 +92,7 @@ describe("SyncOrchestrator", () => {
           },
         });
 
-        const orchestrator = new SyncOrchestrator(libraryService, eventRepo, [
+        const orchestrator = new SyncOrchestrator(aggregate, watchTracker, eventRepo, [
           createTrackerPair("anilist", anilistTracker),
           createTrackerPair("mal", malTracker),
         ]);
@@ -112,9 +118,14 @@ describe("SyncOrchestrator", () => {
     test("returns empty result when no trackers provided", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const libraryService = new LibraryService(libraryRepo, eventRepo);
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const watchTracker = new WatchTracker({ library: libraryRepo, events: eventRepo });
       try {
-        const orchestrator = new SyncOrchestrator(libraryService, eventRepo, []);
+        const orchestrator = new SyncOrchestrator(aggregate, watchTracker, eventRepo, []);
 
         const result = await orchestrator.syncAll();
 
@@ -131,29 +142,34 @@ describe("SyncOrchestrator", () => {
     test("isolates tracker errors without blocking others", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const libraryService = new LibraryService(libraryRepo, eventRepo);
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const watchTracker = new WatchTracker({ library: libraryRepo, events: eventRepo });
       try {
-        const anime = libraryService.upsertAnime({
+        const anime = aggregate.library.upsertAnime({
           externalId: "anime-1",
           sourceDb: "anilist",
           title: "Attack on Titan",
           episodeCount: 25,
         });
 
-        const group = libraryService.upsertEpisodeGroup({
+        const group = aggregate.library.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-anilist-1",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "tl-mal-1",
@@ -169,7 +185,7 @@ describe("SyncOrchestrator", () => {
           async getUserList() {
             return [
               {
-                source: "anilist",
+                source: "mal",
                 trackerId: "tl-mal-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -181,7 +197,7 @@ describe("SyncOrchestrator", () => {
           },
         });
 
-        const orchestrator = new SyncOrchestrator(libraryService, eventRepo, [
+        const orchestrator = new SyncOrchestrator(aggregate, watchTracker, eventRepo, [
           createTrackerPair("anilist", failingTracker),
           createTrackerPair("mal", successTracker),
         ]);
@@ -195,7 +211,7 @@ describe("SyncOrchestrator", () => {
         expect(result.syncedTrackers).toContain("mal");
         expect(result.syncedTrackers).not.toContain("anilist");
 
-        const updatedGroup = libraryService.getEpisodeGroup(group.id);
+        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("completed");
       } finally {
         closeLibrary();
@@ -206,29 +222,34 @@ describe("SyncOrchestrator", () => {
     test("detects cross-tracker conflict when trackers disagree", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const libraryService = new LibraryService(libraryRepo, eventRepo);
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const watchTracker = new WatchTracker({ library: libraryRepo, events: eventRepo });
       try {
-        const anime = libraryService.upsertAnime({
+        const anime = aggregate.library.upsertAnime({
           externalId: "anime-1",
           sourceDb: "anilist",
           title: "Attack on Titan",
           episodeCount: 25,
         });
 
-        const group = libraryService.upsertEpisodeGroup({
+        const group = aggregate.library.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-anilist-1",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "tl-mal-1",
@@ -254,7 +275,7 @@ describe("SyncOrchestrator", () => {
           async getUserList() {
             return [
               {
-                source: "anilist",
+                source: "mal",
                 trackerId: "tl-mal-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -266,7 +287,7 @@ describe("SyncOrchestrator", () => {
           },
         });
 
-        const orchestrator = new SyncOrchestrator(libraryService, eventRepo, [
+        const orchestrator = new SyncOrchestrator(aggregate, watchTracker, eventRepo, [
           createTrackerPair("anilist", anilistTracker),
           createTrackerPair("mal", malTracker),
         ]);
@@ -288,29 +309,34 @@ describe("SyncOrchestrator", () => {
     test("does not report cross-tracker conflict when trackers agree", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const libraryService = new LibraryService(libraryRepo, eventRepo);
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const watchTracker = new WatchTracker({ library: libraryRepo, events: eventRepo });
       try {
-        const anime = libraryService.upsertAnime({
+        const anime = aggregate.library.upsertAnime({
           externalId: "anime-1",
           sourceDb: "anilist",
           title: "Attack on Titan",
           episodeCount: 25,
         });
 
-        const group = libraryService.upsertEpisodeGroup({
+        const group = aggregate.library.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-anilist-1",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "tl-mal-1",
@@ -336,7 +362,7 @@ describe("SyncOrchestrator", () => {
           async getUserList() {
             return [
               {
-                source: "anilist",
+                source: "mal",
                 trackerId: "tl-mal-1",
                 title: "Attack on Titan",
                 entryType: "tv" as const,
@@ -348,7 +374,7 @@ describe("SyncOrchestrator", () => {
           },
         });
 
-        const orchestrator = new SyncOrchestrator(libraryService, eventRepo, [
+        const orchestrator = new SyncOrchestrator(aggregate, watchTracker, eventRepo, [
           createTrackerPair("anilist", anilistTracker),
           createTrackerPair("mal", malTracker),
         ]);
@@ -365,29 +391,34 @@ describe("SyncOrchestrator", () => {
     test("pushes local changes to trackers", async () => {
       const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const libraryService = new LibraryService(libraryRepo, eventRepo);
+      const aggregate = new AnimeAggregate({
+        library: libraryRepo,
+        replayUnpushedEvents: () => {},
+        computeAndPersistLibraryState: () => {},
+      });
+      const watchTracker = new WatchTracker({ library: libraryRepo, events: eventRepo });
       try {
-        const anime = libraryService.upsertAnime({
+        const anime = aggregate.library.upsertAnime({
           externalId: "anime-1",
           sourceDb: "anilist",
           title: "Attack on Titan",
           episodeCount: 25,
         });
 
-        const group = libraryService.upsertEpisodeGroup({
+        const group = aggregate.library.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-anilist-1",
         });
 
-        libraryService.upsertGroupTrackerMapping({
+        aggregate.library.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "tl-mal-1",
@@ -421,7 +452,7 @@ describe("SyncOrchestrator", () => {
           },
         });
 
-        const orchestrator = new SyncOrchestrator(libraryService, eventRepo, [
+        const orchestrator = new SyncOrchestrator(aggregate, watchTracker, eventRepo, [
           createTrackerPair("anilist", anilistTracker),
           createTrackerPair("mal", malTracker),
         ]);
