@@ -234,18 +234,15 @@ export class AnimeAggregate {
     }
 
     if (newEntries.length > 0) {
-      const mergeEntries: ImportMergeEntry[] = [];
-      for (const entry of newEntries) {
-        mergeEntries.push({
-          kind: "import",
-          title: entry.title,
-          entryType: entry.entryType,
-          anilistId: source === "anilist" ? entry.trackerId : "",
-          trackerSource: source,
-          trackerId: entry.trackerId,
-          watchStatus: entry.watchStatus,
-        });
-      }
+      const mergeEntries: ImportMergeEntry[] = newEntries.map((entry) => ({
+        kind: "import",
+        title: entry.title,
+        entryType: entry.entryType,
+        anilistId: source === "anilist" ? entry.trackerId : "",
+        trackerSource: source,
+        trackerId: entry.trackerId,
+        watchStatus: entry.watchStatus,
+      }));
 
       await this.resolveAndMerge({ entries: mergeEntries, source });
     }
@@ -490,24 +487,18 @@ export class AnimeAggregate {
     }
 
     if (!targetGroup) {
-      this.deps.library.upsertEpisodeGroup({
+      const createdGroup = this.deps.library.upsertEpisodeGroup({
         animeId: existingAnime.id,
         entryType: entry.entryType,
         seasonNumber: 1,
         watchStatus: mapTrackerStatus(entry.watchStatus),
       });
 
-      const newGroups = this.deps.library.getEpisodeGroupsByAnimeId(existingAnime.id);
-      const createdGroup = newGroups.find(
-        (g) => g.entryType === entry.entryType && (g.seasonNumber ?? 1) === 1,
-      );
-      if (createdGroup) {
-        this.deps.library.upsertGroupTrackerMapping({
-          groupId: createdGroup.id,
-          source,
-          externalId: entry.trackerId,
-        });
-      }
+      this.deps.library.upsertGroupTrackerMapping({
+        groupId: createdGroup.id,
+        source,
+        externalId: entry.trackerId,
+      });
     } else {
       if (selection?.resolution !== "keepLocal") {
         this.deps.library.updateEpisodeGroupStatus(
