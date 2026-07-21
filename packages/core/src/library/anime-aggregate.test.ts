@@ -2200,7 +2200,7 @@ describe("AnimeAggregate", () => {
   });
 
   describe("resolveAndMerge", () => {
-    test("resolves AniList ID from anime_source_mappings cache", async () => {
+    test("finds existing anime by anilistId from entry", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -2216,11 +2216,6 @@ describe("AnimeAggregate", () => {
           sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 0,
-        });
-        repo.createAnimeSourceMapping({
-          animeId: existingAnime.id,
-          source: "tvdb",
-          externalId: "tvdb-123",
         });
         repo.updateAnimeAnilistId(existingAnime.id, "al-456");
 
@@ -2267,7 +2262,7 @@ describe("AnimeAggregate", () => {
           computeAndPersistLibraryState: () => {},
         });
 
-        repo.upsertAnilistCacheEntry({
+        repo.setAnilistCacheEntry({
           anilistId: "al-cached",
           title: "Jujutsu Kaisen",
           format: "TV",

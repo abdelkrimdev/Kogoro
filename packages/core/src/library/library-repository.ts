@@ -174,23 +174,6 @@ export class LibraryRepository {
     return row ? this.rowToAnime(row) : null;
   }
 
-  findSourceMapping(source: string, externalId: string): { anilistId: string | null } | null {
-    const sourceMappingRow = this.db
-      .select({ animeId: animeSourceMappings.animeId })
-      .from(animeSourceMappings)
-      .where(
-        and(eq(animeSourceMappings.source, source), eq(animeSourceMappings.externalId, externalId)),
-      )
-      .get();
-    if (!sourceMappingRow) return null;
-    const animeRow = this.db
-      .select({ anilistId: anime.anilistId })
-      .from(anime)
-      .where(eq(anime.id, sourceMappingRow.animeId))
-      .get();
-    return animeRow ? { anilistId: animeRow.anilistId } : null;
-  }
-
   createAnimeSourceMapping(data: { animeId: number; source: string; externalId: string }): void {
     this.db
       .insert(animeSourceMappings)
@@ -205,10 +188,6 @@ export class LibraryRepository {
 
   updateAnimeAnilistId(animeId: number, anilistId: string): void {
     this.db.update(anime).set({ anilistId }).where(eq(anime.id, animeId)).run();
-  }
-
-  upsertAnilistCacheEntry(entry: AnilistCacheEntry): void {
-    this.setAnilistCacheEntry(entry);
   }
 
   findAnilistCacheByTitle(title: string): AnilistCacheEntry | null {

@@ -1168,28 +1168,15 @@ export class AnimeAggregate {
 
       for (const entry of entries) {
         if (entry.kind === "scan") {
+          const groupEntry = this.getOrCreateGroup(
+            animeId,
+            entry.entryType,
+            entry.season ?? 1,
+            "plan_to_watch",
+            groupKeyToGroup,
+          );
+
           for (const ep of entry.episodes) {
-            const seasonNum = entry.season ?? 1;
-            const groupKey = `${animeId}:${entry.entryType}:${seasonNum}`;
-
-            let groupEntry = groupKeyToGroup.get(groupKey);
-            if (!groupEntry) {
-              const existingGroup = this.deps.library.findEpisodeGroup(
-                animeId,
-                entry.entryType,
-                seasonNum,
-              );
-              const group = this.deps.library.upsertEpisodeGroup({
-                animeId,
-                entryType: entry.entryType,
-                seasonNumber: seasonNum,
-                watchStatus: existingGroup?.watchStatus ?? "plan_to_watch",
-                lastSynced: existingGroup ? new Date().toISOString() : undefined,
-              });
-              groupEntry = { animeId, groupId: group.id };
-              groupKeyToGroup.set(groupKey, groupEntry);
-            }
-
             this.deps.library.upsertEpisodeFromMatch({
               animeId,
               groupId: groupEntry.groupId,
@@ -1200,43 +1187,19 @@ export class AnimeAggregate {
             });
           }
         } else {
-          const seasonNum = entry.season ?? 1;
-          const groupKey = `${animeId}:${entry.entryType}:${seasonNum}`;
+          const groupEntry = this.getOrCreateGroup(
+            animeId,
+            entry.entryType,
+            entry.season ?? 1,
+            mapTrackerStatus(entry.watchStatus),
+            groupKeyToGroup,
+          );
 
-          let groupEntry = groupKeyToGroup.get(groupKey);
-          if (!groupEntry) {
-            const existingGroup = this.deps.library.findEpisodeGroup(
-              animeId,
-              entry.entryType,
-              seasonNum,
-            );
-            const group = this.deps.library.upsertEpisodeGroup({
-              animeId,
-              entryType: entry.entryType,
-              seasonNumber: seasonNum,
-              watchStatus: existingGroup?.watchStatus ?? mapTrackerStatus(entry.watchStatus),
-              lastSynced: existingGroup ? new Date().toISOString() : undefined,
-            });
-            groupEntry = { animeId, groupId: group.id };
-            groupKeyToGroup.set(groupKey, groupEntry);
-
-            if (!existingGroup) {
-              this.deps.library.upsertGroupTrackerMapping({
-                groupId: group.id,
-                source: entry.trackerSource,
-                externalId: entry.trackerId,
-              });
-            }
-          } else {
-            const existingGroup = this.deps.library.getEpisodeGroup(groupEntry.groupId);
-            if (existingGroup) {
-              this.deps.library.upsertGroupTrackerMapping({
-                groupId: groupEntry.groupId,
-                source: entry.trackerSource,
-                externalId: entry.trackerId,
-              });
-            }
-          }
+          this.deps.library.upsertGroupTrackerMapping({
+            groupId: groupEntry.groupId,
+            source: entry.trackerSource,
+            externalId: entry.trackerId,
+          });
         }
       }
 
@@ -1334,6 +1297,31 @@ export class AnimeAggregate {
     this.deps.library.updateAnimeAnilistId(anime.id, anilistId);
 
     return { animeId: anime.id, isNew: true };
+  }
+
+  private getOrCreateGroup(
+    animeId: number,
+    entryType: EntryType,
+    seasonNumber: number,
+    defaultWatchStatus: LocalWatchStatus,
+    groupKeyToGroup: Map<string, { animeId: number; groupId: number }>,
+  ): { animeId: number; groupId: number } {
+    const groupKey = `${animeId}:${entryType}:${seasonNumber}`;
+    const cached = groupKeyToGroup.get(groupKey);
+    if (cached) return cached;
+
+    const existingGroup = this.deps.library.findEpisodeGroup(animeId, entryType, seasonNumber);
+    const group = this.deps.library.upsertEpisodeGroup({
+      animeId,
+      entryType,
+      seasonNumber,
+      watchStatus: existingGroup?.watchStatus ?? defaultWatchStatus,
+      lastSynced: existingGroup ? new Date().toISOString() : undefined,
+    });
+
+    const entry = { animeId, groupId: group.id };
+    groupKeyToGroup.set(groupKey, entry);
+    return entry;
   }
 
   private cleanupEmptyGroups(animeId: number): void {
