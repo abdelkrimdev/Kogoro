@@ -42,3 +42,17 @@ All `describe` and `test` names must be descriptive, clear, and consistent. Foll
 ## Bumpy bump files
 
 Every commit that introduces a user-facing change (feature, bug fix, improvement) must include a corresponding bump file in `.bumpy/`. Use the `bumpy` skill for details on creating bump files and the release workflow.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues for the `abdelkrimdev/Kogoro` repo. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses the five canonical triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
