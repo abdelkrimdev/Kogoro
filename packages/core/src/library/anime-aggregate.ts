@@ -188,6 +188,45 @@ export class AnimeAggregate {
     await franchiseAggregate.enrichAnime(animeIds, knownEntries);
   }
 
+  async retryPendingIdentification(): Promise<{
+    resolved: Array<{ id: number; mergedInto?: number }>;
+    stillPending: LibraryAnime[];
+  }> {
+    const provider = await this.ensureEnrichmentProvider();
+    const pendingAnime = this.deps.library.findPendingAnime();
+    const resolved: Array<{ id: number; mergedInto?: number }> = [];
+    const enrichedIds: number[] = [];
+
+    for (const entry of pendingAnime) {
+      const resolvedAnilistId = await this.resolveAnilistId(entry.title, provider);
+      if (!resolvedAnilistId) continue;
+
+      const existingAnime = this.deps.library.findAnimeByAnilistId(resolvedAnilistId);
+      if (existingAnime) {
+        this.deps.library.mergeAnimeInto(entry.id, existingAnime.id);
+        resolved.push({ id: entry.id, mergedInto: existingAnime.id });
+        enrichedIds.push(existingAnime.id);
+      } else {
+        this.deps.library.updateAnimeAnilistId(entry.id, resolvedAnilistId);
+        resolved.push({ id: entry.id });
+        enrichedIds.push(entry.id);
+      }
+    }
+
+    if (enrichedIds.length > 0) {
+      try {
+        await this.enrichAnime(enrichedIds);
+      } catch {
+        // Enrichment failure should not prevent retry from completing
+      }
+    }
+
+    return {
+      resolved,
+      stillPending: this.deps.library.findPendingAnime(),
+    };
+  }
+
   async importFromTracker(
     tracker: TrackerPlugin,
     source: TrackerSource,
@@ -834,6 +873,7 @@ export class AnimeAggregate {
     const newAnimeIds: number[] = [];
 
     const entriesByAnilistId = new Map<string, MergeEntry[]>();
+    const pendingEntriesByTitle = new Map<string, MergeEntry[]>();
     for (const entry of input.entries) {
       let anilistId: string | null = entry.anilistId ?? null;
 
@@ -842,7 +882,13 @@ export class AnimeAggregate {
       }
 
       if (!anilistId) {
-        anilistId = crypto.randomUUID();
+        const existing = pendingEntriesByTitle.get(entry.title);
+        if (existing) {
+          existing.push(entry);
+        } else {
+          pendingEntriesByTitle.set(entry.title, [entry]);
+        }
+        continue;
       }
 
       const existing = entriesByAnilistId.get(anilistId);
@@ -860,44 +906,26 @@ export class AnimeAggregate {
 
       const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
 
-      for (const entry of entries) {
-        if (entry.kind === "scan") {
-          const groupEntry = this.getOrCreateGroup(
-            animeId,
-            entry.entryType,
-            entry.season ?? 1,
-            "plan_to_watch",
-            groupKeyToGroup,
-          );
-
-          for (const ep of entry.episodes) {
-            this.deps.library.upsertEpisodeFromMatch({
-              animeId,
-              groupId: groupEntry.groupId,
-              episode: ep.episode,
-              filePath: ep.filePath,
-              title: ep.title,
-              season: entry.season,
-            });
-          }
-        } else {
-          const groupEntry = this.getOrCreateGroup(
-            animeId,
-            entry.entryType,
-            entry.season ?? 1,
-            mapTrackerStatus(entry.watchStatus),
-            groupKeyToGroup,
-          );
-
-          this.deps.library.upsertGroupTrackerMapping({
-            groupId: groupEntry.groupId,
-            source: entry.trackerSource,
-            externalId: entry.trackerId,
-          });
-        }
-      }
-
+      this.processMergeEntries(animeId, entries, groupKeyToGroup);
       this.deps.library.updateEpisodeCount(animeId);
+    }
+
+    for (const [title, entries] of pendingEntriesByTitle) {
+      const anime = this.deps.library.upsertAnime({
+        externalId: `merge-${title}`,
+        sourceDb: input.source,
+        title,
+        episodeCount: entries.reduce((sum, e) => {
+          if (e.kind === "scan") return sum + e.episodes.length;
+          return sum;
+        }, 0),
+      });
+      allAnimeIds.push(anime.id);
+      newAnimeIds.push(anime.id);
+
+      const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
+      this.processMergeEntries(anime.id, entries, groupKeyToGroup);
+      this.deps.library.updateEpisodeCount(anime.id);
     }
 
     for (const animeId of allAnimeIds) {
@@ -1016,6 +1044,49 @@ export class AnimeAggregate {
     const entry = { animeId, groupId: group.id };
     groupKeyToGroup.set(groupKey, entry);
     return entry;
+  }
+
+  private processMergeEntries(
+    animeId: number,
+    entries: MergeEntry[],
+    groupKeyToGroup: Map<string, { animeId: number; groupId: number }>,
+  ): void {
+    for (const entry of entries) {
+      if (entry.kind === "scan") {
+        const groupEntry = this.getOrCreateGroup(
+          animeId,
+          entry.entryType,
+          entry.season ?? 1,
+          "plan_to_watch",
+          groupKeyToGroup,
+        );
+
+        for (const ep of entry.episodes) {
+          this.deps.library.upsertEpisodeFromMatch({
+            animeId,
+            groupId: groupEntry.groupId,
+            episode: ep.episode,
+            filePath: ep.filePath,
+            title: ep.title,
+            season: entry.season,
+          });
+        }
+      } else {
+        const groupEntry = this.getOrCreateGroup(
+          animeId,
+          entry.entryType,
+          entry.season ?? 1,
+          mapTrackerStatus(entry.watchStatus),
+          groupKeyToGroup,
+        );
+
+        this.deps.library.upsertGroupTrackerMapping({
+          groupId: groupEntry.groupId,
+          source: entry.trackerSource,
+          externalId: entry.trackerId,
+        });
+      }
+    }
   }
 
   private cleanupEmptyGroups(animeId: number): void {
