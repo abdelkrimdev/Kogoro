@@ -2171,4 +2171,267 @@ describe("LibraryRepository", () => {
       }
     });
   });
+
+  describe("findAnimeByAnilistId", () => {
+    test("returns null when no anime has the given anilist ID", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        expect(repo.findAnimeByAnilistId("al-999")).toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("returns anime when anilist ID matches", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "One Piece",
+          episodeCount: 1100,
+        });
+        repo.updateAnimeAnilistId(anime.id, "al-21");
+
+        const found = repo.findAnimeByAnilistId("al-21");
+
+        expect(found).not.toBeNull();
+        expect(found?.id).toBe(anime.id);
+        expect(found?.title).toBe("One Piece");
+        expect(found?.anilistId).toBe("al-21");
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("does not return a different anime with no anilist ID", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "One Piece",
+          episodeCount: 1100,
+        });
+
+        expect(repo.findAnimeByAnilistId("al-21")).toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("createAnimeSourceMapping", () => {
+    test("creates a source mapping and retrieves it", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "One Piece",
+          episodeCount: 1100,
+        });
+
+        repo.createAnimeSourceMapping({
+          animeId: anime.id,
+          source: "anilist",
+          externalId: "21",
+        });
+
+        const found = repo.findAnimeByAnilistId("al-21");
+        expect(found).toBeNull();
+
+        const mapping = repo.findGroupByTrackerExternalId("anilist", "21");
+        expect(mapping).toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("does not throw on duplicate source mapping", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "One Piece",
+          episodeCount: 1100,
+        });
+
+        repo.createAnimeSourceMapping({
+          animeId: anime.id,
+          source: "anilist",
+          externalId: "21",
+        });
+        repo.createAnimeSourceMapping({
+          animeId: anime.id,
+          source: "anilist",
+          externalId: "21",
+        });
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("allows different sources for the same anime", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "One Piece",
+          episodeCount: 1100,
+        });
+
+        repo.createAnimeSourceMapping({
+          animeId: anime.id,
+          source: "anilist",
+          externalId: "21",
+        });
+        repo.createAnimeSourceMapping({
+          animeId: anime.id,
+          source: "mal",
+          externalId: "21",
+        });
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("updateAnimeAnilistId", () => {
+    test("sets anilist ID on an anime", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "One Piece",
+          episodeCount: 1100,
+        });
+
+        repo.updateAnimeAnilistId(anime.id, "al-21");
+
+        const found = repo.findAnimeByAnilistId("al-21");
+        expect(found).not.toBeNull();
+        expect(found?.id).toBe(anime.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("overwrites previous anilist ID", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "One Piece",
+          episodeCount: 1100,
+        });
+
+        repo.updateAnimeAnilistId(anime.id, "al-21");
+        repo.updateAnimeAnilistId(anime.id, "al-99");
+
+        expect(repo.findAnimeByAnilistId("al-21")).toBeNull();
+        const found = repo.findAnimeByAnilistId("al-99");
+        expect(found).not.toBeNull();
+        expect(found?.id).toBe(anime.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("does not affect other anime", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const anime1 = repo.upsertAnime({
+          externalId: "tvdb-100",
+          sourceDb: "tvdb",
+          title: "One Piece",
+          episodeCount: 1100,
+        });
+        repo.upsertAnime({
+          externalId: "tvdb-200",
+          sourceDb: "tvdb",
+          title: "Naruto",
+          episodeCount: 220,
+        });
+
+        repo.updateAnimeAnilistId(anime1.id, "al-21");
+
+        expect(repo.findAnimeByAnilistId("al-21")).not.toBeNull();
+        expect(repo.findAnimeByAnilistId("al-99")).toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
+
+  describe("findAnilistCacheByTitle", () => {
+    test("returns null when no cache entry exists", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        expect(repo.findAnilistCacheByTitle("One Piece")).toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("returns cache entry when title matches", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        repo.setAnilistCacheEntry({
+          anilistId: "21",
+          title: "One Piece",
+          format: "TV",
+          episodes: 1100,
+          relations: [],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
+        });
+
+        const found = repo.findAnilistCacheByTitle("One Piece");
+
+        expect(found).not.toBeNull();
+        expect(found?.anilistId).toBe("21");
+        expect(found?.title).toBe("One Piece");
+        expect(found?.format).toBe("TV");
+        expect(found?.episodes).toBe(1100);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("returns null for non-matching title", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        repo.setAnilistCacheEntry({
+          anilistId: "21",
+          title: "One Piece",
+          format: "TV",
+          episodes: 1100,
+          relations: [],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
+        });
+
+        expect(repo.findAnilistCacheByTitle("Naruto")).toBeNull();
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
 });

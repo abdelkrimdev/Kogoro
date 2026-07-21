@@ -2903,5 +2903,123 @@ describe("AnimeAggregate", () => {
         evtSqlite.close();
       }
     });
+
+    test("handles import entries and upserts tracker mappings", async () => {
+      const { db, sqlite } = createLibraryDb();
+      const { sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const aggregate = new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+          enrichmentProviderFactory: async () =>
+            createMockEnrichmentProvider({
+              searchByTitle: async (title) => ({
+                anilistId: "al-import",
+                title,
+                format: "TV",
+                episodes: 24,
+              }),
+            }),
+        });
+
+        const result = await aggregate.resolveAndMerge({
+          entries: [
+            {
+              kind: "import",
+              title: "Jujutsu Kaisen",
+              entryType: "tv",
+              anilistId: "al-import",
+              season: 1,
+              trackerSource: "anilist",
+              trackerId: "tracker-123",
+              watchStatus: "completed",
+            },
+          ],
+          source: "anilist",
+        });
+
+        expect(result.animeIds).toHaveLength(1);
+        const anime = repo.getAnime(result.animeIds[0]!);
+        expect(anime?.anilistId).toBe("al-import");
+
+        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0]!);
+        expect(groups).toHaveLength(1);
+        expect(groups[0]?.watchStatus).toBe("completed");
+
+        const mappings = repo.getTrackerMappingsByGroupId(groups[0]!.id);
+        expect(mappings).toHaveLength(1);
+        expect(mappings[0]?.source).toBe("anilist");
+        expect(mappings[0]?.externalId).toBe("tracker-123");
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
+      }
+    });
+
+    test("merges scan and import entries for the same anime", async () => {
+      const { db, sqlite } = createLibraryDb();
+      const { sqlite: evtSqlite } = createEventDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const aggregate = new AnimeAggregate({
+          library: repo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+          enrichmentProviderFactory: async () =>
+            createMockEnrichmentProvider({
+              searchByTitle: async (title) => ({
+                anilistId: "al-shared-entry",
+                title,
+                format: "TV",
+                episodes: 24,
+              }),
+            }),
+        });
+
+        const result = await aggregate.resolveAndMerge({
+          entries: [
+            {
+              kind: "scan",
+              title: "Jujutsu Kaisen",
+              entryType: "tv",
+              anilistId: "al-shared-entry",
+              season: 1,
+              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+            },
+            {
+              kind: "import",
+              title: "Jujutsu Kaisen",
+              entryType: "tv",
+              anilistId: "al-shared-entry",
+              season: 1,
+              trackerSource: "anilist",
+              trackerId: "tracker-456",
+              watchStatus: "watching",
+            },
+          ],
+          source: "tvdb",
+        });
+
+        expect(result.animeIds).toHaveLength(1);
+        const anime = repo.getAnime(result.animeIds[0]!);
+        expect(anime?.anilistId).toBe("al-shared-entry");
+
+        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0]!);
+        expect(groups).toHaveLength(1);
+
+        const episodes = repo.getEpisodesByGroupId(groups[0]!.id);
+        expect(episodes).toHaveLength(1);
+        expect(episodes[0]?.filePath).toBe("/media/S01E01.mkv");
+
+        const mappings = repo.getTrackerMappingsByGroupId(groups[0]!.id);
+        expect(mappings).toHaveLength(1);
+        expect(mappings[0]?.externalId).toBe("tracker-456");
+      } finally {
+        sqlite.close();
+        evtSqlite.close();
+      }
+    });
   });
 });
