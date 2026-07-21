@@ -575,6 +575,7 @@ describe("AnimeAggregate", () => {
           title: "Jujutsu Kaisen",
           episodeCount: 12,
         });
+        repo.updateAnimeAnilistId(anime.id, "al-jjk");
 
         const group = repo.upsertEpisodeGroup({
           animeId: anime.id,
@@ -693,17 +694,18 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(matches);
 
-        const jjk = repo.findAnime("tvdb-12345", "tvdb");
-        expect(jjk).not.toBeNull();
-        expect(jjk?.episodeCount).toBe(2);
-        expect(repo.getEpisodesByAnimeId(jjk?.id as number)).toHaveLength(2);
+        const all = repo.listAnime();
+        expect(all).toHaveLength(1);
+        expect(all[0]?.title).toBe("Jujutsu Kaisen");
+        expect(all[0]?.episodeCount).toBe(2);
+        expect(repo.getEpisodesByAnimeId(all[0]?.id as number)).toHaveLength(2);
       } finally {
         sqlite.close();
         evtSqlite.close();
       }
     });
 
-    test("merges into existing anime", async () => {
+    test("merges into existing anime via anilistId", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -714,6 +716,14 @@ describe("AnimeAggregate", () => {
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
         });
+
+        const existingAnime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 0,
+        });
+        repo.updateAnimeAnilistId(existingAnime.id, "al-jjk");
 
         const firstMatches: MatchEntry[] = [
           {
@@ -769,6 +779,7 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(secondMatches);
 
+        expect(repo.listAnime()).toHaveLength(1);
         const jjk = repo.findAnime("tvdb-12345", "tvdb");
         expect(jjk?.episodeCount).toBe(4);
         expect(repo.getEpisodesByAnimeId(jjk?.id as number)).toHaveLength(4);
@@ -789,6 +800,14 @@ describe("AnimeAggregate", () => {
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
         });
+
+        const existingAnime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 0,
+        });
+        repo.updateAnimeAnilistId(existingAnime.id, "al-jjk");
 
         const matches: MatchEntry[] = [
           {
@@ -830,7 +849,7 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("groups by title instead of animeId for same-sourceDb matches", async () => {
+    test("groups by title and entryType for same-sourceDb matches", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -841,6 +860,14 @@ describe("AnimeAggregate", () => {
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
         });
+
+        const existing = repo.upsertAnime({
+          externalId: "111",
+          sourceDb: "anidb",
+          title: "Oshi no Ko",
+          episodeCount: 0,
+        });
+        repo.updateAnimeAnilistId(existing.id, "al-oshi");
 
         const matches: MatchEntry[] = [
           {
@@ -883,8 +910,6 @@ describe("AnimeAggregate", () => {
         const all = repo.listAnime();
         expect(all).toHaveLength(1);
         expect(all[0]?.title).toBe("Oshi no Ko");
-        expect(all[0]?.externalId).toBe("111");
-        expect(all[0]?.sourceDb).toBe("anidb");
         expect(all[0]?.episodeCount).toBe(3);
 
         const episodes = repo.getEpisodesByAnimeId(all[0]?.id as number);
@@ -895,7 +920,7 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("merges into existing entry when title and sourceDb match", async () => {
+    test("merges into existing entry when anilistId matches", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -907,12 +932,13 @@ describe("AnimeAggregate", () => {
           computeAndPersistLibraryState: () => {},
         });
 
-        repo.upsertAnime({
+        const existing = repo.upsertAnime({
           externalId: "111",
           sourceDb: "anidb",
           title: "Oshi no Ko",
           episodeCount: 12,
         });
+        repo.updateAnimeAnilistId(existing.id, "al-oshi");
 
         const matches: MatchEntry[] = [
           {
@@ -944,7 +970,6 @@ describe("AnimeAggregate", () => {
         const all = repo.listAnime();
         expect(all).toHaveLength(1);
         expect(all[0]?.title).toBe("Oshi no Ko");
-        expect(all[0]?.externalId).toBe("111");
         expect(all[0]?.episodeCount).toBe(2);
 
         const episodes = repo.getEpisodesByAnimeId(all[0]?.id as number);
@@ -955,7 +980,7 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("removes anime from other sourceDbs when switching databases", async () => {
+    test("merges episodes from different sourceDbs into same anime by anilistId", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -966,6 +991,14 @@ describe("AnimeAggregate", () => {
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
         });
+
+        const existingAnime = repo.upsertAnime({
+          externalId: "anidb-12345",
+          sourceDb: "anidb",
+          title: "Oshi no Ko",
+          episodeCount: 0,
+        });
+        repo.updateAnimeAnilistId(existingAnime.id, "al-oshi");
 
         const anidbMatches: MatchEntry[] = [
           {
@@ -995,29 +1028,28 @@ describe("AnimeAggregate", () => {
         await aggregate.mergeFromMatches(anidbMatches);
 
         expect(repo.listAnime()).toHaveLength(1);
-        expect(repo.findAnime("anidb-12345", "anidb")).not.toBeNull();
 
         const tvdbMatches: MatchEntry[] = [
           {
             animeId: "tvdb-67890",
-            animeTitle: "Oshi no Ko (TV)",
+            animeTitle: "Oshi no Ko",
             entryType: "tv",
             episodeId: "201",
             episode: 1,
-            season: 1,
+            season: 2,
             title: "Mother and Children",
-            filePath: "/media/Oshi no Ko/S01E01.mkv",
+            filePath: "/media/Oshi no Ko/S02E01.mkv",
             sourceDb: "tvdb",
           },
           {
             animeId: "tvdb-67890",
-            animeTitle: "Oshi no Ko (TV)",
+            animeTitle: "Oshi no Ko",
             entryType: "tv",
             episodeId: "202",
             episode: 2,
-            season: 1,
+            season: 2,
             title: "Third Option",
-            filePath: "/media/Oshi no Ko/S01E02.mkv",
+            filePath: "/media/Oshi no Ko/S02E02.mkv",
             sourceDb: "tvdb",
           },
         ];
@@ -1026,11 +1058,9 @@ describe("AnimeAggregate", () => {
 
         const all = repo.listAnime();
         expect(all).toHaveLength(1);
-        expect(repo.findAnime("anidb-12345", "anidb")).toBeNull();
-        const tvdb = repo.findAnime("tvdb-67890", "tvdb");
-        expect(tvdb).not.toBeNull();
-        expect(tvdb?.title).toBe("Oshi no Ko (TV)");
-        expect(repo.getEpisodesByAnimeId(tvdb?.id as number)).toHaveLength(2);
+        expect(all[0]?.title).toBe("Oshi no Ko");
+        expect(all[0]?.anilistId).toBe("al-oshi");
+        expect(repo.getEpisodesByAnimeId(all[0]?.id as number)).toHaveLength(4);
       } finally {
         sqlite.close();
         evtSqlite.close();

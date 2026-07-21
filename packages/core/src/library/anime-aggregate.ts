@@ -1025,7 +1025,7 @@ export class AnimeAggregate {
   async mergeFromMatches(matches: MatchEntry[]): Promise<void> {
     const grouped = new Map<string, MatchEntry[]>();
     for (const match of matches) {
-      const key = `${match.animeTitle}\0${match.sourceDb}`;
+      const key = `${match.animeTitle}\0${match.entryType}\0${match.season ?? 1}`;
       const existing = grouped.get(key);
       if (existing) {
         existing.push(match);
@@ -1034,104 +1034,27 @@ export class AnimeAggregate {
       }
     }
 
-    const affectedAnimeIds = new Set<number>();
-
-    this.deps.library.transaction((tx) => {
-      const newFilePaths = new Set<string>();
-      const sourceDbs = new Set<string>();
-      for (const match of matches) {
-        if (match.filePath) {
-          newFilePaths.add(match.filePath);
-        }
-        sourceDbs.add(match.sourceDb);
-      }
-
-      if (newFilePaths.size > 0) {
-        const excludeSourceDb = sourceDbs.size === 1 ? sourceDbs.values().next().value : undefined;
-        this.deleteStaleEpisodes(tx, newFilePaths, excludeSourceDb);
-      }
-
-      this.deleteAnimeFromOtherSourceDbs(tx, sourceDbs);
-
-      const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
-
-      for (const [, group] of grouped) {
-        const first = group[0];
-        if (!first) continue;
-
-        const canonicalId =
-          group
-            .map((m) => m.animeId)
-            .sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))[0] ?? first.animeId;
-
-        let libraryAnime =
-          tx.findAnimeByTitle(first.animeTitle, first.sourceDb) ??
-          tx.findAnime(canonicalId, first.sourceDb);
-        if (libraryAnime) {
-          if (Number.parseInt(canonicalId, 10) < Number.parseInt(libraryAnime.externalId, 10)) {
-            libraryAnime = tx.upsertAnime({
-              externalId: canonicalId,
-              sourceDb: first.sourceDb,
-              title: first.animeTitle,
-              episodeCount: 0,
-            });
-          }
-        } else {
-          libraryAnime = tx.upsertAnime({
-            externalId: canonicalId,
-            sourceDb: first.sourceDb,
-            title: first.animeTitle,
-            episodeCount: 0,
-          });
-        }
-
-        affectedAnimeIds.add(libraryAnime.id);
-
-        for (const match of group) {
-          if (match.episode !== null && match.filePath) {
-            const seasonNum = match.season ?? 1;
-            const groupKey = `${libraryAnime.id}:${match.entryType}:${seasonNum}`;
-
-            let groupEntry = groupKeyToGroup.get(groupKey);
-            if (!groupEntry) {
-              const existingGroup = tx.findEpisodeGroup(
-                libraryAnime.id,
-                match.entryType,
-                seasonNum,
-              );
-              const group = tx.upsertEpisodeGroup({
-                animeId: libraryAnime.id,
-                entryType: match.entryType as EntryType,
-                seasonNumber: seasonNum,
-                watchStatus: existingGroup?.watchStatus ?? "plan_to_watch",
-                lastSynced: existingGroup ? new Date().toISOString() : undefined,
-              });
-              groupEntry = { animeId: libraryAnime.id, groupId: group.id };
-              groupKeyToGroup.set(groupKey, groupEntry);
-            }
-
-            tx.upsertEpisodeFromMatch({
-              animeId: libraryAnime.id,
-              groupId: groupEntry.groupId,
-              episode: match.episode,
-              filePath: match.filePath,
-              title: match.title,
-              season: match.season,
-            });
-          }
-        }
-
-        tx.updateEpisodeCount(libraryAnime.id);
-      }
-
-      for (const id of affectedAnimeIds) {
-        this.deps.computeAndPersistLibraryState(id, tx);
-      }
-    });
-
-    if (affectedAnimeIds.size > 0) {
-      await this.enrichAnime([...affectedAnimeIds]);
+    const entries: ScanMergeEntry[] = [];
+    for (const group of grouped.values()) {
+      const first = group[0];
+      if (!first) continue;
+      entries.push({
+        kind: "scan",
+        title: first.animeTitle,
+        entryType: first.entryType,
+        season: first.season ?? 1,
+        episodes: group
+          .filter((m): m is MatchEntry & { episode: number } => m.episode !== null)
+          .map((m) => ({
+            episode: m.episode,
+            filePath: m.filePath,
+            title: m.title ?? undefined,
+          })),
+      });
     }
+
+    const source = matches[0]?.sourceDb ?? "tvdb";
+    await this.resolveAndMerge({ entries, source });
   }
 
   async resolveAndMerge(input: ResolveAndMergeInput): Promise<ResolveAndMergeResult> {
@@ -1338,48 +1261,6 @@ export class AnimeAggregate {
         }
       }
     }
-  }
-
-  private deleteAnimeFromOtherSourceDbs(tx: LibraryRepository, newSourceDbs: Set<string>): void {
-    const allAnime = tx.listAnime();
-    const animeToDelete: number[] = [];
-    for (const entry of allAnime) {
-      if (!newSourceDbs.has(entry.sourceDb)) {
-        animeToDelete.push(entry.id);
-      }
-    }
-    if (animeToDelete.length > 0) {
-      tx.deleteAnimeByIds(animeToDelete);
-    }
-  }
-
-  private deleteStaleEpisodes(
-    tx: LibraryRepository,
-    filePaths: Set<string>,
-    excludeSourceDb?: string,
-  ): void {
-    const allEpisodes = tx.getEpisodesWithSourceDb();
-
-    const episodeIdsToDelete: number[] = [];
-    const affectedAnimeIds = new Set<number>();
-
-    for (const ep of allEpisodes) {
-      if (filePaths.has(ep.filePath) && ep.sourceDb !== excludeSourceDb) {
-        episodeIdsToDelete.push(ep.id);
-        affectedAnimeIds.add(ep.animeId);
-      }
-    }
-
-    tx.deleteEpisodesByIds(episodeIdsToDelete);
-
-    const orphanedAnimeIds: number[] = [];
-    for (const animeId of affectedAnimeIds) {
-      if (tx.getEpisodeCountByAnimeId(animeId) === 0) {
-        orphanedAnimeIds.push(animeId);
-      }
-    }
-
-    tx.deleteAnimeByIds(orphanedAnimeIds);
   }
 
   getAnimeDir(animeId: number): string | null {
