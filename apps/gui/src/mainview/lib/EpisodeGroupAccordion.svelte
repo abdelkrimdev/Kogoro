@@ -4,7 +4,6 @@
   import type { EpisodeGroupRow } from "../state/detail-state";
   import { groupLabel } from "../state/detail-state";
   import { computeWatchProgress } from "../state/watch-state";
-  import { debouncePush } from "./debounce";
   import { watchStatusColorClass, watchStatusBadgeClass, entryTypeBadgeClass } from "../shared";
 
   interface Props {
@@ -18,11 +17,16 @@
   let expanded = $state(false);
   let watchStatus = $state("");
   let localEpisodes = $state<typeof group.episodes>([]);
+  let pushTimer: ReturnType<typeof setTimeout> | undefined;
 
   $effect(() => {
     expanded = defaultOpen;
     watchStatus = group.watchStatus;
     localEpisodes = group.episodes;
+
+    return () => {
+      if (pushTimer) clearTimeout(pushTimer);
+    };
   });
 
   const WATCH_STATUS_OPTIONS = [
@@ -44,9 +48,11 @@
   }))));
 
   function schedulePush() {
-    debouncePush(group.id, () =>
-      rpc.request("pushAnime", { groupId: group.id }).catch(() => {}),
-    );
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => {
+      pushTimer = undefined;
+      rpc.request("pushAnime", { groupId: group.id }).catch(() => {});
+    }, 500);
   }
 
   async function handleStatusChange(newStatus: string) {

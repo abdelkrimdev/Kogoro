@@ -244,7 +244,7 @@
 
         <Steps.Content index={3}>
           {#if importPreviewTracker}
-            <div class="h-[500px]">
+            <div class="h-125">
               <ImportPreview
                 {rpc}
                 trackerName={importPreviewTracker}

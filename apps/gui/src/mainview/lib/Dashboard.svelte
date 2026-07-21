@@ -157,10 +157,10 @@
         {:else}
           <div class="relative">
             {#if showLeftFade}
-              <div class="absolute left-0 top-0 bottom-2 w-12 bg-gradient-to-r from-surface-50-950 to-transparent z-10 pointer-events-none"></div>
+              <div class="absolute left-0 top-0 bottom-2 w-12 bg-linear-to-r from-surface-50-950 to-transparent z-10 pointer-events-none"></div>
             {/if}
             {#if showRightFade}
-              <div class="absolute right-0 top-0 bottom-2 w-12 bg-gradient-to-l from-surface-50-950 to-transparent z-10 pointer-events-none"></div>
+              <div class="absolute right-0 top-0 bottom-2 w-12 bg-linear-to-l from-surface-50-950 to-transparent z-10 pointer-events-none"></div>
             {/if}
             <div
               bind:this={scrollContainer}
@@ -172,7 +172,7 @@
                   class="group card card-hover cursor-pointer transition-all duration-200 text-left overflow-hidden shrink-0 w-56 hover:scale-[1.02] hover:shadow-lg"
                   onclick={() => onOpenAnime?.(item.id)}
                 >
-                  <div class="aspect-[2/3] bg-surface-300-700 relative overflow-hidden">
+                  <div class="aspect-2/3 bg-surface-300-700 relative overflow-hidden">
                     {#if item.coverArt}
                       <img src={item.coverArt} alt={item.title} class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                     {:else}
@@ -180,14 +180,14 @@
                         <Folder class="size-14 text-surface-600-400" />
                       </div>
                     {/if}
-                    <div class="absolute inset-0 bg-gradient-to-t from-surface-950/80 via-surface-950/20 to-transparent"></div>
+                    <div class="absolute inset-0 bg-linear-to-t from-surface-950/80 via-surface-950/20 to-transparent"></div>
                     <div class="absolute bottom-0 left-0 right-0 p-4 space-y-2">
                       <h3 class="text-sm font-semibold text-surface-50 truncate drop-shadow-sm">{item.title}</h3>
                       <p class="text-xs text-surface-50/70">{item.groupName}</p>
                       <div class="space-y-1.5">
                         <div class="h-1.5 bg-surface-50/20 rounded-full overflow-hidden">
                           <div
-                            class="h-full bg-gradient-to-r from-primary-400 to-primary-500 rounded-full transition-all duration-500"
+                            class="h-full bg-linear-to-r from-primary-400 to-primary-500 rounded-full transition-all duration-500"
                             style="width: {progressPercent(item.watchedEpisodes, item.totalEpisodes)}%"
                           ></div>
                         </div>
@@ -260,7 +260,7 @@
                 class="group card card-hover cursor-pointer transition-all duration-200 text-left w-full flex items-center gap-4 p-3 hover:bg-surface-200-800"
                 onclick={() => onOpenAnime?.(item.animeId)}
               >
-                <div class="w-14 h-[72px] bg-surface-300-700 rounded-lg overflow-hidden shrink-0 relative">
+                <div class="w-14 h-18 bg-surface-300-700 rounded-lg overflow-hidden shrink-0 relative">
                   {#if item.coverArt}
                     <img src={item.coverArt} alt={item.title} class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   {:else}
