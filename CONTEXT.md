@@ -19,7 +19,7 @@ A group of related **Anime** connected by sequel, prequel, side story, summary, 
 _Avoid_: franchise group, anime franchise, series group
 
 **Anime**:
-A single series or entry within a **Franchise** (e.g. "One Piece Season 1"). May be merged across **Databases** and **Trackers** into one record when they refer to the same show.
+A single series or entry within a **Franchise** (e.g. "One Piece Season 1"). Canonically identified by its **AniList ID**. Multiple **Source References** (from **Databases** and **Trackers**) are stored as mappings on the same record, eliminating duplicates by construction — scan and import converge on the same **Anime** when they refer to the same show.
 _Avoid_: show, series, title, franchise
 
 **Episode Group**:
@@ -69,8 +69,16 @@ A collection of title variants for an **Anime** (e.g. English, Japanese, synonym
 _Avoid_: alt titles, alternative names, synonyms
 
 **Auto-Merge**:
-The process of matching new scan results to existing **Library** entries by **Database** external ID, appending new **Episodes** to existing **Episode Groups** without creating duplicates.
+The process of resolving scan or import results to an **AniList ID**, then finding or creating the canonical **Anime** record and appending new **Episode Groups** and **Episodes** without creating duplicates. Used identically by both the scan and import pipelines.
 _Avoid_: dedup, merge, reconciliation
+
+**Source Reference**:
+A mapping from an **Anime** to an external identifier from a **Database** or **Tracker** (e.g. TVDB ID 12345, MAL ID 67890). Stored in the `anime_source_mappings` table. An **Anime** may have multiple **Source References** — one per source.
+_Avoid_: external ID mapping, source link, cross-reference
+
+**Pending Identification**:
+A temporary state for an **Anime** whose **AniList ID** could not be resolved (e.g. AniList API unavailable). The **Anime** is created with a synthetic UUID and shown with a "pending identification" badge. A background process retries **Enrichment** periodically until resolved.
+_Avoid_: unidentified anime, temp ID, unresolved
 
 ### Sync
 
@@ -147,14 +155,15 @@ _Avoid_: enrichment plugin, metadata provider
 - An **Episode** has an independent `watched` boolean
 - An **Anime** has exactly one derived **Library State** (on disk, partially on disk, not on disk)
 - An **Anime** belongs to zero or one **Franchise**
-- An **Anime** may be mapped to zero or more **Tracker** entries for cross-source deduplication
+- An **Anime** may be mapped to zero or more **Source References** — one per **Database** or **Tracker** — for cross-source deduplication
 - A **Match** may have one or more **Overrides** (user corrections)
-- A **Match** is resolved against one primary **Database**
-- A **Library** entry is identified by (external ID, source **Database**)
+- A **Match** is resolved against one primary **Database**, then cross-referenced to an **AniList ID** via the **EnrichmentProvider** before being merged into the **Library**
+- A **Library** entry is identified by its **AniList ID** (canonical), with zero or more **Source References** to **Databases** and **Trackers**
 - An **Anime** has exactly one canonical **romaji** title and zero or more **Alternative Titles**
 - An **Episode Group** may be mapped to zero or more **Tracker** entries via `group_tracker_mappings`
 - The **Scan Workflow** produces a **Rename Plan** that the user approves via the **Review Screen**
-- **Auto-Merge** links new **Episodes** to existing **Episode Groups** without duplicates
+- **Auto-Merge** links new scan or import results to existing **Library** entries by **AniList ID**, creating new **Episode Groups** and **Episodes** under the canonical **Anime** without duplicates
+- **Auto-Merge** resolves structural conflicts by letting the **Database** win on **EntryType** and season numbers, while preserving **Tracker** metadata (watch status, mappings) from import
 - **Auto-Merge** enriches new **Anime** via an **EnrichmentProvider** to discover **Franchise** relationships
 - The **Sync Engine** reconciles local state with remote tracker data, using the **Event Log** for pending local changes
 - The **Library** is rebuildable from on-disk files, the match cache, and connected tracker data
@@ -171,10 +180,10 @@ _Avoid_: enrichment plugin, metadata provider
 > **Domain expert:** "Kogoro appends a disambiguator to the filename — extracted metadata tags from the original filename — so both files coexist."
 >
 > **Dev:** "I scan with TVDB, then switch to AniDB. What happens to my existing library?"
-> **Domain expert:** "**Auto-Merge** matches by (external ID, source **Database**). TVDB and AniDB entries coexist. New files scanned with AniDB get their own **Library** entry. Existing TVDB entries stay untouched."
+> **Domain expert:** "Both scans resolve to the same **AniList ID**. The **Anime** record already exists, so the AniDB scan adds a second **Source Reference** and upserts **Episodes**. If TVDB and AniDB disagree on season numbers, the new scan's structure wins — episodes shift to the correct **Episode Group**. Empty groups without tracker data are cleaned up automatically."
 >
 > **Dev:** "I organize Season 1 and 2, then download Season 3. Does the scan create a duplicate?"
-> **Domain expert:** "No — **Auto-Merge** detects the same **Database** external ID and appends the new **Episodes** to the existing **Episode Group**. The **Review Screen** shows 'Adding 12 episodes to existing: Oshi no Ko Season 3'."
+> **Domain expert:** "No — **Auto-Merge** detects the same **AniList ID** and appends the new **Episodes** to the existing **Episode Group**. The **Review Screen** shows 'Adding 12 episodes to existing: Oshi no Ko Season 3'."
 >
 > **Dev:** "I imported One Piece from MAL as plan to watch with no files. Then I download and scan Season 1. What happens?"
 > **Domain expert:** "The **Library State** transitions from not on disk to partially on disk. The Season 1 **Episode Group** keeps its MAL tracker mapping and imported metadata. The watch status stays as plan to watch — having files doesn't change it. The detail page shows '24 episodes, 24 on disk, 0 watched'."
@@ -189,13 +198,16 @@ _Avoid_: enrichment plugin, metadata provider
 > **Domain expert:** "Kogoro owns all data once imported. The tracker mapping rows are cleaned up and pending events for that tracker are dropped, but everything else — anime, groups, episodes, watch statuses, enriched metadata — stays in your library."
 >
 > **Dev:** "I scan One Piece Season 1 with AniDB. How does Kogoro know it's part of the One Piece franchise?"
-> **Domain expert:** "After the scan, **Auto-Merge** calls the **EnrichmentProvider** to search AniList by title. AniList returns the One Piece media entry with its relations — sequels, movies, OVAs. Kogoro walks the relation graph and creates a **Franchise** containing all connected **Anime**. The scan result appears as 'One Piece' in the library, not as a separate entry."
+> **Domain expert:** "The scan resolves the match to **AniList ID** 21 via title search, creating the canonical **Anime** record. Then **Auto-Merge** calls the **EnrichmentProvider** to walk the AniList relation graph — sequels, movies, OVAs. It finds the connected component and creates a **Franchise** containing all related **Anime**. The scan result appears as 'One Piece' in the library, not as a separate entry."
 >
-> **Dev:** "I have One Piece from AniDB and also imported it from AniList. Are those two separate entries?"
-> **Domain expert:** "No — **Auto-Merge** detects they're the same show via the **EnrichmentProvider** and merges them into one **Anime** record. The AniDB external ID stays on the anime; the AniList ID is stored as a tracker mapping. One entry in the library, two source references."
+> **Dev:** "I scan One Piece with AniDB, then later import it from AniList. Are those two separate entries?"
+> **Domain expert:** "No. Both resolve to AniList ID 21. The **Anime** record was created by the scan with a **Source Reference** to AniDB. When the AniList import runs, it finds the same AniList ID and merges into the existing record — adding the AniList tracker mapping. One entry in the library, two source references, no merge operation needed."
 >
 > **Dev:** "What if AniList is down during a scan?"
-> **Domain expert:** "Enrichment fails silently. The anime is created without a **Franchise** assignment. On the next scan or rebuild, Kogoro retries enrichment for any anime not yet in a **Franchise**. Your files are still organized — the franchise grouping just comes later."
+> **Domain expert:** "Enrichment fails silently. The anime is created with a **Pending Identification** badge — a synthetic UUID stands in for the AniList ID. A background process retries enrichment periodically. When AniList comes back, the UUID is replaced with the real AniList ID and the anime merges into any existing canon."
+>
+> **Dev:** "I import One Piece from MAL (plan to watch, no files). Then I scan my One Piece Season 1 files with TVDB. Do I get two One Piece entries?"
+> **Domain expert:** "No. The TVDB scan cross-references to AniList ID 21 via title search. The existing MAL import resolved to the same AniList ID. The scan merges into the existing **Anime** record — adding the TVDB **Source Reference** and creating file-backed **Episodes** under the Season 1 **Episode Group**. The group keeps its MAL tracker mapping and plan-to-watch status from the import. One entry in the library, two source references."
 
 ## Flagged ambiguities
 
