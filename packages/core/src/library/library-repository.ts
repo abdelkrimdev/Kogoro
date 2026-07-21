@@ -482,7 +482,7 @@ export class LibraryRepository {
       if (targetGroup) {
         const pendingEpisodes = this.getEpisodesByGroupId(pendingGroup.id);
         for (const ep of pendingEpisodes) {
-          this.upsertEpisodeFromMatch({
+          const upsertedEpisode = this.upsertEpisodeFromMatch({
             animeId: canonicalAnimeId,
             groupId: targetGroup.id,
             episode: ep.episodeNumber,
@@ -491,20 +491,7 @@ export class LibraryRepository {
             season: ep.season,
           });
           if (ep.watched) {
-            this.setEpisodeWatched(
-              this.db
-                .select({ id: episodes.id })
-                .from(episodes)
-                .where(
-                  and(
-                    eq(episodes.animeId, canonicalAnimeId),
-                    eq(episodes.episodeNumber, ep.episodeNumber),
-                    eq(episodes.season, ep.season ?? 1),
-                  ),
-                )
-                .get()?.id ?? 0,
-              true,
-            );
+            this.setEpisodeWatched(upsertedEpisode.id, true);
           }
         }
 
