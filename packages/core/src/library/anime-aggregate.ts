@@ -13,8 +13,7 @@ import type {
   TrackerSource,
   TrackerWatchStatus,
 } from "../types";
-import { EnrichmentService } from "./enrichment-service";
-import { RELATION_TYPES_TO_WALK } from "./franchise-aggregate";
+import { FranchiseAggregate, RELATION_TYPES_TO_WALK } from "./franchise-aggregate";
 import type {
   EpisodeGroup,
   GroupTrackerMapping,
@@ -182,7 +181,7 @@ export interface AnimeAggregateDeps {
 }
 
 export class AnimeAggregate {
-  private enrichmentService: EnrichmentService | null = null;
+  private franchiseAggregate: FranchiseAggregate | null = null;
 
   constructor(private deps: AnimeAggregateDeps) {}
 
@@ -190,13 +189,13 @@ export class AnimeAggregate {
     return this.deps.library;
   }
 
-  private async ensureEnrichmentService(): Promise<EnrichmentService | null> {
-    if (this.enrichmentService) return this.enrichmentService;
+  private async ensureFranchiseAggregate(): Promise<FranchiseAggregate | null> {
+    if (this.franchiseAggregate) return this.franchiseAggregate;
     if (!this.deps.enrichmentProviderFactory) return null;
     const provider = await this.deps.enrichmentProviderFactory();
     if (!provider) return null;
-    this.enrichmentService = new EnrichmentService(this.deps.library, provider);
-    return this.enrichmentService;
+    this.franchiseAggregate = new FranchiseAggregate({ library: this.deps.library, provider });
+    return this.franchiseAggregate;
   }
 
   private async ensureEnrichmentProvider(): Promise<EnrichmentProvider | null> {
@@ -205,9 +204,9 @@ export class AnimeAggregate {
   }
 
   async enrichAnime(animeIds: number[], knownEntries?: KnownEntry[]): Promise<void> {
-    const enrichmentService = await this.ensureEnrichmentService();
-    if (!enrichmentService) return;
-    await enrichmentService.enrichAnime(animeIds, knownEntries);
+    const franchiseAggregate = await this.ensureFranchiseAggregate();
+    if (!franchiseAggregate) return;
+    await franchiseAggregate.enrichAnime(animeIds, knownEntries);
   }
 
   async importFromTracker(
@@ -465,13 +464,13 @@ export class AnimeAggregate {
     franchiseSets: Map<string, Set<string>> | null;
     libraryAnimeAnilistIds: Map<number, string> | null;
   }> {
-    const enrichmentService = await this.ensureEnrichmentService();
-    if (!enrichmentService) return { franchiseSets: null, libraryAnimeAnilistIds: null };
+    const franchiseAggregate = await this.ensureFranchiseAggregate();
+    if (!franchiseAggregate) return { franchiseSets: null, libraryAnimeAnilistIds: null };
 
     const uniqueTrackerIds = [...new Set(trackerList.map((e) => e.trackerId))];
     await this.getMediaDetails(uniqueTrackerIds);
 
-    const franchiseSets = enrichmentService.buildFranchiseSets(uniqueTrackerIds);
+    const franchiseSets = franchiseAggregate.buildFranchiseSets(uniqueTrackerIds);
 
     const knownAnilistIds = this.deps.library.getKnownAnilistIds();
     const animeAnilistIds = this.deps.library.getAnimeAnilistIds();
@@ -623,8 +622,8 @@ export class AnimeAggregate {
     if (clusters.size === 0) return null;
 
     const seasonNumbers = new Map<string, number | undefined>();
-    const enrichmentService = await this.ensureEnrichmentService();
-    if (enrichmentService) {
+    const franchiseAggregate = await this.ensureFranchiseAggregate();
+    if (franchiseAggregate) {
       const clusterGroups = new Map<string, string[]>();
       for (const [trackerId, clusterRoot] of clusters) {
         const existing = clusterGroups.get(clusterRoot);
@@ -632,7 +631,7 @@ export class AnimeAggregate {
         else clusterGroups.set(clusterRoot, [trackerId]);
       }
       for (const clusterIds of clusterGroups.values()) {
-        const clusterSeasonNumbers = enrichmentService.assignSeasonNumbers(clusterIds);
+        const clusterSeasonNumbers = franchiseAggregate.assignSeasonNumbers(clusterIds);
         for (const [id, num] of clusterSeasonNumbers) {
           seasonNumbers.set(id, num);
         }

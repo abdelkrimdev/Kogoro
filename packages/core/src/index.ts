@@ -41,7 +41,6 @@ export type {
   MatchStatus,
 } from "./library/anime-aggregate";
 export { AnimeAggregate } from "./library/anime-aggregate";
-export { EnrichmentService } from "./library/enrichment-service";
 export { FranchiseAggregate } from "./library/franchise-aggregate";
 export type {
   AnilistCacheEntry,

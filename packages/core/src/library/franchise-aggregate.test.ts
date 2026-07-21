@@ -1013,4 +1013,463 @@ describe("FranchiseAggregate", () => {
       expect(RELATION_TYPES_TO_WALK.has("CHARACTER")).toBe(false);
     });
   });
+
+  describe("enrichAnime", () => {
+    test("creates franchise from AniList search result", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const mediaResults = new Map<string, EnrichmentMediaResult>();
+        mediaResults.set("1", {
+          anilistId: "1",
+          title: "Jujutsu Kaisen",
+          format: "TV",
+          episodes: 24,
+          relations: [],
+        });
+
+        const aggregate = new FranchiseAggregate({
+          library: repo,
+          provider: createMockProvider(mediaResults),
+        });
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        await aggregate.enrichAnime([anime.id]);
+
+        const franchise = repo.getFranchiseById(1);
+        expect(franchise).not.toBeNull();
+        expect(franchise?.title).toBe("Jujutsu Kaisen");
+
+        const updatedAnime = repo.getAnime(anime.id);
+        expect(updatedAnime?.franchiseId).toBe(franchise?.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("skips anime that already has a franchise", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const aggregate = new FranchiseAggregate({
+          library: repo,
+          provider: createMockProvider(new Map()),
+        });
+
+        const franchise = repo.createFranchise({ title: "Existing Franchise" });
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+        repo.assignAnimeToFranchise(anime.id, franchise.id);
+
+        await aggregate.enrichAnime([anime.id]);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(1);
+        expect(franchises[0]?.title).toBe("Existing Franchise");
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("skips anime that already has an AniList mapping", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const aggregate = new FranchiseAggregate({
+          library: repo,
+          provider: createMockProvider(new Map()),
+        });
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+        repo.createAnimeTrackerMapping({
+          animeId: anime.id,
+          source: "anilist",
+          externalId: "12345",
+        });
+
+        await aggregate.enrichAnime([anime.id]);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(0);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("walks relation graph and assigns related anime to same franchise", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        const mediaResults = new Map<string, EnrichmentMediaResult>();
+        mediaResults.set("1", {
+          anilistId: "1",
+          title: "Jujutsu Kaisen",
+          format: "TV",
+          episodes: 24,
+          relations: [{ anilistId: "2", title: "Jujutsu Kaisen Season 2", relationType: "SEQUEL" }],
+        });
+        mediaResults.set("2", {
+          anilistId: "2",
+          title: "Jujutsu Kaisen Season 2",
+          format: "TV",
+          episodes: 23,
+          relations: [{ anilistId: "1", title: "Jujutsu Kaisen", relationType: "PREQUEL" }],
+        });
+
+        let searchCount = 0;
+        const provider = {
+          async searchByTitle(title: string) {
+            searchCount++;
+            if (searchCount === 1) {
+              return { anilistId: "1", title, format: "TV" as const, episodes: 24 };
+            }
+            return { anilistId: "2", title, format: "TV" as const, episodes: 23 };
+          },
+          async getMediaDetailsBatch(ids: string[]) {
+            return ids.map(
+              (id) =>
+                mediaResults.get(id) ?? {
+                  anilistId: id,
+                  title: "Unknown",
+                  format: "TV" as const,
+                  episodes: 0,
+                  relations: [],
+                },
+            );
+          },
+        };
+
+        const aggregate = new FranchiseAggregate({ library: repo, provider });
+
+        const anime1 = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const anime2 = repo.upsertAnime({
+          externalId: "tvdb-12346",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen Season 2",
+          episodeCount: 23,
+        });
+
+        await aggregate.enrichAnime([anime1.id, anime2.id]);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(1);
+
+        const updatedAnime1 = repo.getAnime(anime1.id);
+        const updatedAnime2 = repo.getAnime(anime2.id);
+        expect(updatedAnime1?.franchiseId).toBe(franchises[0]?.id);
+        expect(updatedAnime2?.franchiseId).toBe(franchises[0]?.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("uses known AniList entries instead of searching by title", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        let searchCalled = false;
+        const provider = {
+          async searchByTitle() {
+            searchCalled = true;
+            return null;
+          },
+          async getMediaDetailsBatch(ids: string[]) {
+            return ids.map((id) => ({
+              anilistId: id,
+              title: "Attack on Titan",
+              format: "TV" as const,
+              episodes: 25,
+              relations: [],
+            }));
+          },
+        };
+        const aggregate = new FranchiseAggregate({ library: repo, provider });
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const knownEntries = [{ anilistId: "16498", title: "Attack on Titan" }];
+        await aggregate.enrichAnime([anime.id], knownEntries);
+
+        expect(searchCalled).toBe(false);
+
+        const franchise = repo.getFranchiseById(1);
+        expect(franchise).not.toBeNull();
+        expect(franchise?.title).toBe("Attack on Titan");
+
+        const mapping = repo.findAnimeByTrackerMapping("anilist", "16498");
+        expect(mapping).not.toBeNull();
+        expect(mapping?.animeId).toBe(anime.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("uses known AniList ID from group tracker mappings", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        let searchCalled = false;
+        const provider = {
+          async searchByTitle() {
+            searchCalled = true;
+            return null;
+          },
+          async getMediaDetailsBatch(ids: string[]) {
+            return ids.map((id) => ({
+              anilistId: id,
+              title: "One Piece",
+              format: "TV" as const,
+              episodes: 1100,
+              relations: [],
+            }));
+          },
+        };
+        const aggregate = new FranchiseAggregate({ library: repo, provider });
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "One Piece",
+          episodeCount: 1100,
+        });
+
+        const group = repo.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+        });
+
+        repo.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "21",
+        });
+
+        await aggregate.enrichAnime([anime.id]);
+
+        expect(searchCalled).toBe(false);
+
+        const franchise = repo.getFranchiseById(1);
+        expect(franchise).not.toBeNull();
+
+        const mapping = repo.findAnimeByTrackerMapping("anilist", "21");
+        expect(mapping).not.toBeNull();
+        expect(mapping?.animeId).toBe(anime.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("skips search for anime already franchised by sibling graph walk", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        const mediaResults = new Map<string, EnrichmentMediaResult>();
+        mediaResults.set("1", {
+          anilistId: "1",
+          title: "Jujutsu Kaisen",
+          format: "TV",
+          episodes: 24,
+          relations: [{ anilistId: "2", title: "Jujutsu Kaisen Season 2", relationType: "SEQUEL" }],
+        });
+        mediaResults.set("2", {
+          anilistId: "2",
+          title: "Jujutsu Kaisen Season 2",
+          format: "TV",
+          episodes: 23,
+          relations: [{ anilistId: "1", title: "Jujutsu Kaisen", relationType: "PREQUEL" }],
+        });
+
+        let searchCount = 0;
+        const provider = {
+          async searchByTitle(title: string) {
+            searchCount++;
+            if (searchCount === 1) {
+              return { anilistId: "1", title, format: "TV" as const, episodes: 24 };
+            }
+            return { anilistId: "2", title, format: "TV" as const, episodes: 23 };
+          },
+          async getMediaDetailsBatch(ids: string[]) {
+            return ids.map(
+              (id) =>
+                mediaResults.get(id) ?? {
+                  anilistId: id,
+                  title: "Unknown",
+                  format: "TV" as const,
+                  episodes: 0,
+                  relations: [],
+                },
+            );
+          },
+        };
+
+        const aggregate = new FranchiseAggregate({ library: repo, provider });
+
+        const anime1 = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const anime2 = repo.upsertAnime({
+          externalId: "tvdb-12346",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen Season 2",
+          episodeCount: 23,
+        });
+
+        await aggregate.enrichAnime([anime1.id, anime2.id]);
+
+        expect(searchCount).toBe(1);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(1);
+
+        const updatedAnime1 = repo.getAnime(anime1.id);
+        const updatedAnime2 = repo.getAnime(anime2.id);
+        expect(updatedAnime1?.franchiseId).toBe(franchises[0]?.id);
+        expect(updatedAnime2?.franchiseId).toBe(franchises[0]?.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("creates franchise for single anime with no relations", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const provider = {
+          async searchByTitle(title: string) {
+            return { anilistId: "1", title, format: "TV" as const, episodes: 24 };
+          },
+          async getMediaDetailsBatch(ids: string[]) {
+            return ids.map((id) => ({
+              anilistId: id,
+              title: "Jujutsu Kaisen",
+              format: "TV" as const,
+              episodes: 24,
+              relations: [],
+            }));
+          },
+        };
+        const aggregate = new FranchiseAggregate({ library: repo, provider });
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        await aggregate.enrichAnime([anime.id]);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(1);
+        expect(franchises[0]?.title).toBe("Jujutsu Kaisen");
+
+        const updatedAnime = repo.getAnime(anime.id);
+        expect(updatedAnime?.franchiseId).toBe(franchises[0]?.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("skips anime when AniList search returns null", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const provider = {
+          async searchByTitle() {
+            return null;
+          },
+          async getMediaDetailsBatch(ids: string[]) {
+            return ids.map((id) => ({
+              anilistId: id,
+              title: "Unknown Anime",
+              format: "TV" as const,
+              episodes: 12,
+              relations: [],
+            }));
+          },
+        };
+        const aggregate = new FranchiseAggregate({ library: repo, provider });
+
+        const anime = repo.upsertAnime({
+          externalId: "tvdb-12345",
+          sourceDb: "tvdb",
+          title: "Unknown Anime",
+          episodeCount: 24,
+        });
+
+        await aggregate.enrichAnime([anime.id]);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(0);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("skips anime that does not exist", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        let searchCalled = false;
+        const provider = {
+          async searchByTitle() {
+            searchCalled = true;
+            return null;
+          },
+          async getMediaDetailsBatch(ids: string[]) {
+            return ids.map((id) => ({
+              anilistId: id,
+              title: "Unknown",
+              format: "TV" as const,
+              episodes: 0,
+              relations: [],
+            }));
+          },
+        };
+        const aggregate = new FranchiseAggregate({ library: repo, provider });
+
+        await aggregate.enrichAnime([999]);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(0);
+        expect(searchCalled).toBe(false);
+      } finally {
+        sqlite.close();
+      }
+    });
+  });
 });

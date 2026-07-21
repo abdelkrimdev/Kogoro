@@ -14,7 +14,6 @@ import { EventRepository } from "./events/event-repository";
 import { createEventDb as createEventDbInstance } from "./events/test-utils";
 import { HttpClient } from "./io/http-client";
 import { AnimeAggregate } from "./library/anime-aggregate";
-import { EnrichmentService } from "./library/enrichment-service";
 import type {
   AnilistCacheEntry,
   AnimeTrackerMapping,
@@ -187,20 +186,6 @@ export function createEventRepository(dir?: string): {
   const { db, sqlite } = createEventDbInstance(dir);
   const repo = new EventRepository(db);
   return { repo, close: () => sqlite.close() };
-}
-
-export function createEnrichmentTestContext(
-  providerOverrides: Partial<import("./types").EnrichmentProvider> = {},
-): {
-  repo: LibraryRepository;
-  service: EnrichmentService;
-  close: () => void;
-} {
-  const { db, sqlite } = createLibraryDbInstance();
-  const repo = new LibraryRepository(db);
-  const provider = createMockEnrichmentProvider(providerOverrides);
-  const service = new EnrichmentService(repo, provider);
-  return { repo, service, close: () => sqlite.close() };
 }
 
 export function createTrackerImportTestContext(

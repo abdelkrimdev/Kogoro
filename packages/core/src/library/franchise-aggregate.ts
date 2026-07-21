@@ -1,4 +1,4 @@
-import type { EnrichmentMediaResult, EnrichmentProvider } from "../types";
+import type { EnrichmentMediaResult, EnrichmentProvider, KnownEntry } from "../types";
 import type { LibraryAnime, LibraryRepository } from "./library-repository";
 
 export const RELATION_TYPES_TO_WALK = new Set([
@@ -225,6 +225,75 @@ export class FranchiseAggregate {
     }
 
     return seasonMap;
+  }
+
+  async enrichAnime(animeIds: number[], knownAnilistEntries?: KnownEntry[]): Promise<void> {
+    const needsSearch: Array<{ animeId: number; title: string }> = [];
+    const animeByAnilistId = new Map<string, number[]>();
+
+    const pushToMap = (key: string, value: number): void => {
+      const existing = animeByAnilistId.get(key);
+      if (existing) existing.push(value);
+      else animeByAnilistId.set(key, [value]);
+    };
+
+    const knownFromGroups = this.deps.library.getKnownAnilistIds();
+    const titleToAnilistId = new Map<string, string>();
+    const animeIdToAnilistId = new Map<number, string>();
+
+    for (const [anilistId, ids] of knownFromGroups) {
+      for (const animeId of ids) {
+        pushToMap(anilistId, animeId);
+        animeIdToAnilistId.set(animeId, anilistId);
+      }
+    }
+
+    if (knownAnilistEntries) {
+      for (const entry of knownAnilistEntries) {
+        titleToAnilistId.set(entry.title.toLowerCase(), entry.anilistId);
+      }
+    }
+
+    for (const animeId of animeIds) {
+      const anime = this.deps.library.getAnime(animeId);
+      if (!anime) continue;
+      if (anime.franchiseId) continue;
+      if (this.deps.library.hasAnimeTrackerMapping(animeId, "anilist")) continue;
+
+      const matchedAnilistId =
+        animeIdToAnilistId.get(animeId) ?? titleToAnilistId.get(anime.title.toLowerCase()) ?? null;
+
+      if (matchedAnilistId) {
+        pushToMap(matchedAnilistId, animeId);
+      } else {
+        needsSearch.push({ animeId: anime.id, title: anime.title });
+      }
+    }
+
+    if (animeByAnilistId.size > 0) {
+      const allAnilistIds = [...animeByAnilistId.keys()];
+      const mediaResults = await this.walkFranchiseGraph(allAnilistIds);
+      await this.resolveFranchises(mediaResults, animeByAnilistId);
+    }
+
+    const needsSearchByTitle = new Map<string, number>();
+    for (const { animeId, title } of needsSearch) {
+      needsSearchByTitle.set(title.toLowerCase(), animeId);
+    }
+
+    for (const { animeId, title } of needsSearch) {
+      const anime = this.deps.library.getAnime(animeId);
+      if (!anime || anime.franchiseId) continue;
+      if (this.deps.library.hasAnimeTrackerMapping(animeId, "anilist")) continue;
+
+      const searchResult = await this.deps.provider.searchByTitle(title);
+      if (!searchResult) continue;
+
+      pushToMap(searchResult.anilistId, animeId);
+
+      const mediaResults = await this.walkFranchiseGraph([searchResult.anilistId]);
+      await this.resolveFranchises(mediaResults, animeByAnilistId, needsSearchByTitle);
+    }
   }
 
   private findPrequelChainRoot(startId: string, idSet: Set<string>): string {
