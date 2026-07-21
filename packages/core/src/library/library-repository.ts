@@ -4,6 +4,7 @@ import type { EnrichmentRelation, EntryType } from "../types";
 import {
   anilistCache,
   anime,
+  animeSourceMappings,
   animeTrackerMappings,
   episodeGroups,
   episodes,
@@ -24,6 +25,7 @@ export interface LibraryAnime {
   libraryState?: "on_disk" | "partially_on_disk" | "not_on_disk";
   franchiseId?: number;
   lastSynced: string;
+  anilistId?: string;
 }
 
 export interface LibraryEpisode {
@@ -167,6 +169,53 @@ export class LibraryRepository {
     return row ? this.rowToAnime(row) : null;
   }
 
+  findAnimeByAnilistId(anilistId: string): LibraryAnime | null {
+    const row = this.db.select().from(anime).where(eq(anime.anilistId, anilistId)).get();
+    return row ? this.rowToAnime(row) : null;
+  }
+
+  findSourceMapping(source: string, externalId: string): { anilistId: string | null } | null {
+    const sourceMappingRow = this.db
+      .select({ animeId: animeSourceMappings.animeId })
+      .from(animeSourceMappings)
+      .where(
+        and(eq(animeSourceMappings.source, source), eq(animeSourceMappings.externalId, externalId)),
+      )
+      .get();
+    if (!sourceMappingRow) return null;
+    const animeRow = this.db
+      .select({ anilistId: anime.anilistId })
+      .from(anime)
+      .where(eq(anime.id, sourceMappingRow.animeId))
+      .get();
+    return animeRow ? { anilistId: animeRow.anilistId } : null;
+  }
+
+  createAnimeSourceMapping(data: { animeId: number; source: string; externalId: string }): void {
+    this.db
+      .insert(animeSourceMappings)
+      .values({
+        animeId: data.animeId,
+        source: data.source,
+        externalId: data.externalId,
+      })
+      .onConflictDoNothing()
+      .run();
+  }
+
+  updateAnimeAnilistId(animeId: number, anilistId: string): void {
+    this.db.update(anime).set({ anilistId }).where(eq(anime.id, animeId)).run();
+  }
+
+  upsertAnilistCacheEntry(entry: AnilistCacheEntry): void {
+    this.setAnilistCacheEntry(entry);
+  }
+
+  findAnilistCacheByTitle(title: string): AnilistCacheEntry | null {
+    const row = this.db.select().from(anilistCache).where(eq(anilistCache.title, title)).get();
+    return row ? this.rowToAnilistCacheEntry(row) : null;
+  }
+
   listAnime(): LibraryAnime[] {
     const rows = this.db
       .select({
@@ -181,6 +230,7 @@ export class LibraryRepository {
         libraryState: anime.libraryState,
         franchiseId: anime.franchiseId,
         lastSynced: anime.lastSynced,
+        anilistId: anime.anilistId,
         filesOnDisk: sql<number>`cast(count(${episodes.id}) as int)`,
       })
       .from(anime)
@@ -1055,6 +1105,7 @@ export class LibraryRepository {
     libraryState: string;
     franchiseId: number | null;
     lastSynced: string;
+    anilistId: string | null;
   }): LibraryAnime {
     return {
       id: row.id,
@@ -1068,6 +1119,7 @@ export class LibraryRepository {
       libraryState: row.libraryState as LibraryAnime["libraryState"],
       franchiseId: row.franchiseId ?? undefined,
       lastSynced: row.lastSynced,
+      anilistId: row.anilistId ?? undefined,
     };
   }
 

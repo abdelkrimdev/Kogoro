@@ -81,6 +81,41 @@ type ImportAccumulator = {
   skipped: number;
 };
 
+export interface ScanMergeEntry {
+  kind: "scan";
+  title: string;
+  entryType: EntryType;
+  anilistId?: string;
+  season?: number;
+  episodes: Array<{
+    episode: number;
+    filePath: string;
+    title?: string;
+  }>;
+}
+
+export interface ImportMergeEntry {
+  kind: "import";
+  title: string;
+  entryType: EntryType;
+  anilistId: string;
+  season?: number;
+  trackerSource: TrackerSource;
+  trackerId: string;
+  watchStatus: TrackerWatchStatus;
+}
+
+export type MergeEntry = ScanMergeEntry | ImportMergeEntry;
+
+export interface ResolveAndMergeInput {
+  entries: MergeEntry[];
+  source: string;
+}
+
+export interface ResolveAndMergeResult {
+  animeIds: number[];
+}
+
 function titlesMatch(
   animeTitle: string,
   alternativeTitles: string[] | undefined,
@@ -1096,6 +1131,224 @@ export class AnimeAggregate {
 
     if (affectedAnimeIds.size > 0) {
       await this.enrichAnime([...affectedAnimeIds]);
+    }
+  }
+
+  async resolveAndMerge(input: ResolveAndMergeInput): Promise<ResolveAndMergeResult> {
+    const provider = await this.ensureEnrichmentProvider();
+    const allAnimeIds: number[] = [];
+    const newAnimeIds: number[] = [];
+
+    const entriesByAnilistId = new Map<string, MergeEntry[]>();
+    for (const entry of input.entries) {
+      let anilistId: string | null = entry.anilistId ?? null;
+
+      if (!anilistId) {
+        anilistId = await this.resolveAnilistId(entry.title, provider);
+      }
+
+      if (!anilistId) {
+        anilistId = crypto.randomUUID();
+      }
+
+      const existing = entriesByAnilistId.get(anilistId);
+      if (existing) {
+        existing.push(entry);
+      } else {
+        entriesByAnilistId.set(anilistId, [entry]);
+      }
+    }
+
+    for (const [anilistId, entries] of entriesByAnilistId) {
+      const { animeId, isNew } = this.findOrCreateAnimeForMerge(anilistId, entries, input.source);
+      allAnimeIds.push(animeId);
+      if (isNew) newAnimeIds.push(animeId);
+
+      const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
+
+      for (const entry of entries) {
+        if (entry.kind === "scan") {
+          for (const ep of entry.episodes) {
+            const seasonNum = entry.season ?? 1;
+            const groupKey = `${animeId}:${entry.entryType}:${seasonNum}`;
+
+            let groupEntry = groupKeyToGroup.get(groupKey);
+            if (!groupEntry) {
+              const existingGroup = this.deps.library.findEpisodeGroup(
+                animeId,
+                entry.entryType,
+                seasonNum,
+              );
+              const group = this.deps.library.upsertEpisodeGroup({
+                animeId,
+                entryType: entry.entryType,
+                seasonNumber: seasonNum,
+                watchStatus: existingGroup?.watchStatus ?? "plan_to_watch",
+                lastSynced: existingGroup ? new Date().toISOString() : undefined,
+              });
+              groupEntry = { animeId, groupId: group.id };
+              groupKeyToGroup.set(groupKey, groupEntry);
+            }
+
+            this.deps.library.upsertEpisodeFromMatch({
+              animeId,
+              groupId: groupEntry.groupId,
+              episode: ep.episode,
+              filePath: ep.filePath,
+              title: ep.title,
+              season: entry.season,
+            });
+          }
+        } else {
+          const seasonNum = entry.season ?? 1;
+          const groupKey = `${animeId}:${entry.entryType}:${seasonNum}`;
+
+          let groupEntry = groupKeyToGroup.get(groupKey);
+          if (!groupEntry) {
+            const existingGroup = this.deps.library.findEpisodeGroup(
+              animeId,
+              entry.entryType,
+              seasonNum,
+            );
+            const group = this.deps.library.upsertEpisodeGroup({
+              animeId,
+              entryType: entry.entryType,
+              seasonNumber: seasonNum,
+              watchStatus: existingGroup?.watchStatus ?? mapTrackerStatus(entry.watchStatus),
+              lastSynced: existingGroup ? new Date().toISOString() : undefined,
+            });
+            groupEntry = { animeId, groupId: group.id };
+            groupKeyToGroup.set(groupKey, groupEntry);
+
+            if (!existingGroup) {
+              this.deps.library.upsertGroupTrackerMapping({
+                groupId: group.id,
+                source: entry.trackerSource,
+                externalId: entry.trackerId,
+              });
+            }
+          } else {
+            const existingGroup = this.deps.library.getEpisodeGroup(groupEntry.groupId);
+            if (existingGroup) {
+              this.deps.library.upsertGroupTrackerMapping({
+                groupId: groupEntry.groupId,
+                source: entry.trackerSource,
+                externalId: entry.trackerId,
+              });
+            }
+          }
+        }
+      }
+
+      this.deps.library.updateEpisodeCount(animeId);
+    }
+
+    for (const animeId of allAnimeIds) {
+      this.cleanupEmptyGroups(animeId);
+      this.deps.computeAndPersistLibraryState(animeId);
+    }
+
+    if (newAnimeIds.length > 0) {
+      try {
+        await this.enrichAnime(newAnimeIds);
+      } catch {
+        // Enrichment failure should not prevent merge from completing
+      }
+    }
+
+    return { animeIds: allAnimeIds };
+  }
+
+  private async resolveAnilistId(
+    title: string,
+    provider: EnrichmentProvider | null,
+  ): Promise<string | null> {
+    const titleLower = title.toLowerCase();
+    const allAnime = this.deps.library.listAnime();
+    for (const a of allAnime) {
+      if (a.title.toLowerCase() === titleLower && a.anilistId) {
+        return a.anilistId;
+      }
+      if (a.alternativeTitles) {
+        for (const alt of a.alternativeTitles) {
+          if (alt.toLowerCase() === titleLower && a.anilistId) {
+            return a.anilistId;
+          }
+        }
+      }
+    }
+
+    const cacheEntry = this.deps.library.findAnilistCacheByTitle(title);
+    if (cacheEntry) {
+      return cacheEntry.anilistId;
+    }
+
+    if (provider) {
+      try {
+        const result = await provider.searchByTitle(title);
+        if (result) {
+          this.deps.library.setAnilistCacheEntry({
+            anilistId: result.anilistId,
+            title: result.title,
+            format: result.format ?? null,
+            episodes: result.episodes ?? null,
+            relations: [],
+            externalLinks: null,
+            fetchedAt: new Date().toISOString(),
+          });
+          return result.anilistId;
+        }
+      } catch {
+        // AniList unavailable
+      }
+    }
+
+    return null;
+  }
+
+  private findOrCreateAnimeForMerge(
+    anilistId: string,
+    entries: MergeEntry[],
+    source: string,
+  ): { animeId: number; isNew: boolean } {
+    const existingAnime = this.deps.library.findAnimeByAnilistId(anilistId);
+    if (existingAnime) {
+      return { animeId: existingAnime.id, isNew: false };
+    }
+
+    const firstEntry = entries[0];
+    if (!firstEntry) return { animeId: 0, isNew: false };
+
+    const totalEpisodes = entries.reduce((sum, e) => {
+      if (e.kind === "scan") return sum + e.episodes.length;
+      return sum;
+    }, 0);
+
+    const anime = this.deps.library.upsertAnime({
+      externalId: `merge-${anilistId}`,
+      sourceDb: source,
+      title: firstEntry.title,
+      episodeCount: totalEpisodes,
+    });
+
+    this.deps.library.updateAnimeAnilistId(anime.id, anilistId);
+
+    return { animeId: anime.id, isNew: true };
+  }
+
+  private cleanupEmptyGroups(animeId: number): void {
+    const groups = this.deps.library.getEpisodeGroupsByAnimeId(animeId);
+    for (const group of groups) {
+      const episodes = this.deps.library.getEpisodesByGroupId(group.id);
+      if (episodes.length === 0) {
+        const mappings = this.deps.library.getTrackerMappingsByGroupId(group.id);
+        const hasTrackerData = mappings.length > 0;
+        const hasNonDefaultStatus = group.watchStatus !== "plan_to_watch";
+
+        if (!hasTrackerData && !hasNonDefaultStatus) {
+          this.deps.library.deleteEpisodeGroup(group.id);
+        }
+      }
     }
   }
 

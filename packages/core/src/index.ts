@@ -34,11 +34,16 @@ export type { DebugEntry } from "./io/http-client";
 export { HttpClient } from "./io/http-client";
 export type { ProgressEvent, TaskContext } from "./io/progress";
 export type {
+  ImportMergeEntry,
   ImportPreview,
   ImportPreviewEntry,
   ImportResult,
   ImportSelection,
   MatchStatus,
+  MergeEntry,
+  ResolveAndMergeInput,
+  ResolveAndMergeResult,
+  ScanMergeEntry,
 } from "./library/anime-aggregate";
 export { AnimeAggregate } from "./library/anime-aggregate";
 export { FranchiseAggregate } from "./library/franchise-aggregate";
