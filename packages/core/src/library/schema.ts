@@ -14,6 +14,7 @@ export const anime = sqliteTable(
     libraryState: text("library_state").notNull().default("not_on_disk"),
     franchiseId: integer("franchise_id").references(() => franchises.id, { onDelete: "set null" }),
     lastSynced: text("last_synced").notNull(),
+    anilistId: text("anilist_id").unique(),
   },
   (t) => [unique("anime_external_id_source_db_unique").on(t.externalId, t.sourceDb)],
 );
@@ -100,6 +101,19 @@ export const animeTrackerMappings = sqliteTable(
     externalId: text("external_id").notNull(),
   },
   (t) => [unique("anime_tracker_mappings_source_external_id").on(t.source, t.externalId)],
+);
+
+export const animeSourceMappings = sqliteTable(
+  "anime_source_mappings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    animeId: integer("anime_id")
+      .notNull()
+      .references(() => anime.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    externalId: text("external_id").notNull(),
+  },
+  (t) => [unique("anime_source_mappings_source_external_id").on(t.source, t.externalId)],
 );
 
 export const anilistCache = sqliteTable("anilist_cache", {

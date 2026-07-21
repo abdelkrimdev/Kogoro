@@ -32,6 +32,13 @@ export const journal = {
       tag: "0003_add_franchise_tables",
       breakpoints: true,
     },
+    {
+      idx: 4,
+      version: "6",
+      when: 1784681940000,
+      tag: "0004_add_anilist_id_and_source_mappings",
+      breakpoints: true,
+    },
   ],
 } as const;
 
@@ -43,4 +50,6 @@ export const migrations: Record<string, string> = {
     "-- Custom SQL migration file, put your code below! --\nALTER TABLE `anime` ADD `alternative_titles` text;\n--> statement-breakpoint\nUPDATE `anime` SET `alternative_titles` = CASE WHEN `title_japanese` IS NOT NULL THEN json_array(`title_japanese`) ELSE NULL END WHERE `title_japanese` IS NOT NULL;\n--> statement-breakpoint\nALTER TABLE `anime` DROP COLUMN `title_japanese`;",
   "0003_add_franchise_tables":
     "CREATE TABLE `franchises` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`title` text NOT NULL,\n\t`anilist_id` text,\n\t`cover_art_path` text,\n\t`synopsis` text,\n\t`created_at` text NOT NULL\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `franchises_anilist_id_unique` ON `franchises` (`anilist_id`);--> statement-breakpoint\nCREATE TABLE `anime_tracker_mappings` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`anime_id` integer NOT NULL,\n\t`source` text NOT NULL,\n\t`external_id` text NOT NULL,\n\tFOREIGN KEY (`anime_id`) REFERENCES `anime`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `anime_tracker_mappings_source_external_id` ON `anime_tracker_mappings` (`source`,`external_id`);--> statement-breakpoint\nCREATE TABLE `anilist_cache` (\n\t`anilist_id` text PRIMARY KEY NOT NULL,\n\t`title` text NOT NULL,\n\t`format` text,\n\t`episodes` integer,\n\t`relations` text NOT NULL,\n\t`external_links` text,\n\t`fetched_at` text NOT NULL\n);\n--> statement-breakpoint\nALTER TABLE `anime` ADD `franchise_id` integer REFERENCES `franchises`(`id`) ON UPDATE no action ON DELETE set null;",
+  "0004_add_anilist_id_and_source_mappings":
+    "-- Add anilist_id column to anime table (nullable, unique)\nALTER TABLE `anime` ADD `anilist_id` text;\n--> statement-breakpoint\nCREATE UNIQUE INDEX `anime_anilist_id_unique` ON `anime` (`anilist_id`);\n--> statement-breakpoint\n\n-- Create anime_source_mappings table\nCREATE TABLE `anime_source_mappings` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`anime_id` integer NOT NULL,\n\t`source` text NOT NULL,\n\t`external_id` text NOT NULL,\n\tFOREIGN KEY (`anime_id`) REFERENCES `anime`(`id`) ON UPDATE no action ON DELETE cascade\n);\n--> statement-breakpoint\nCREATE UNIQUE INDEX `anime_source_mappings_source_external_id` ON `anime_source_mappings` (`source`,`external_id`);\n--> statement-breakpoint\n\n-- Migrate existing (external_id, source_db) from anime into anime_source_mappings\nINSERT OR IGNORE INTO `anime_source_mappings` (`anime_id`, `source`, `external_id`)\nSELECT `id`, `source_db`, `external_id` FROM `anime` WHERE `external_id` IS NOT NULL AND `source_db` IS NOT NULL;\n--> statement-breakpoint\n\n-- Migrate existing anime_tracker_mappings rows into anime_source_mappings\nINSERT OR IGNORE INTO `anime_source_mappings` (`anime_id`, `source`, `external_id`)\nSELECT `anime_id`, `source`, `external_id` FROM `anime_tracker_mappings`;\n",
 } as const;
