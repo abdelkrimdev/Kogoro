@@ -13,7 +13,7 @@ import type {
   TrackerSource,
   TrackerWatchStatus,
 } from "../types";
-import { FranchiseAggregate, RELATION_TYPES_TO_WALK } from "./franchise-aggregate";
+import { FranchiseAggregate } from "./franchise-aggregate";
 import type {
   EpisodeGroup,
   GroupTrackerMapping,
@@ -56,30 +56,6 @@ export interface ImportPreview {
   conflicts: ImportPreviewEntry[];
   statusCounts: Record<TrackerWatchStatus, number>;
 }
-
-type ImportAccumulator = {
-  animeToCreate: Array<{
-    trackerIds: string[];
-    title: string;
-    alternativeTitles?: string[];
-    totalEpisodes: number;
-  }>;
-  groupsToCreate: Array<{
-    trackerId: string;
-    animeId: number;
-    entryType: EntryType;
-    seasonNumber: number | undefined;
-    watchStatus: LocalWatchStatus;
-  }>;
-  mappingsToCreate: GroupTrackerMapping[];
-  statusesToUpdate: Array<{
-    groupId: number;
-    watchStatus: LocalWatchStatus;
-  }>;
-  titleToAnimeIndex: Map<string, number>;
-  seasonNumbers: Map<string, number | undefined>;
-  skipped: number;
-};
 
 export interface ScanMergeEntry {
   kind: "scan";
@@ -164,38 +140,6 @@ function findAnimeByTitleMatch(
   return null;
 }
 
-function buildClusters(
-  entries: Array<{ trackerId: string }>,
-  relationsByEntry: Map<string, Set<string>>,
-): Map<string, string> {
-  const parent = new Map<string, string>();
-  function unionFind(x: string): string {
-    if (!parent.has(x)) parent.set(x, x);
-    const p = parent.get(x);
-    if (p !== undefined && p !== x) parent.set(x, unionFind(p));
-    return parent.get(x) ?? x;
-  }
-  function unionMerge(a: string, b: string): void {
-    const ra = unionFind(a);
-    const rb = unionFind(b);
-    if (ra !== rb) parent.set(ra, rb);
-  }
-
-  for (const [id, relatedIds] of relationsByEntry) {
-    for (const relatedId of relatedIds) {
-      unionMerge(id, relatedId);
-    }
-  }
-
-  const clusters = new Map<string, string>();
-  for (const entry of entries) {
-    if (relationsByEntry.has(entry.trackerId)) {
-      clusters.set(entry.trackerId, unionFind(entry.trackerId));
-    }
-  }
-  return clusters;
-}
-
 function groupCompositeKey(
   animeExternalId: string,
   sourceDb: string,
@@ -257,24 +201,21 @@ export class AnimeAggregate {
 
     const matchResults = await this.resolveTrackerMatchResults(trackerList, source);
 
-    const acc: ImportAccumulator = {
-      animeToCreate: [],
-      groupsToCreate: [],
-      mappingsToCreate: [],
-      statusesToUpdate: [],
-      titleToAnimeIndex: new Map(),
-      seasonNumbers: new Map(),
-      skipped: 0,
-    };
-
+    let skipped = 0;
     const newEntries: typeof trackerList = [];
+    const existingAnimeEntries: Array<{
+      entry: (typeof trackerList)[number];
+      selection: ImportSelection | undefined;
+      existingAnime: { id: number };
+    }> = [];
+
     for (const entry of trackerList) {
       const existingMapping = this.deps.library.findGroupByTrackerExternalId(
         source,
         entry.trackerId,
       );
       if (existingMapping) {
-        acc.skipped++;
+        skipped++;
         continue;
       }
 
@@ -282,35 +223,31 @@ export class AnimeAggregate {
       const existingAnime = this.findExistingAnimeForImport(entry, selection, matchResults);
 
       if (existingAnime) {
-        this.processEntryForExistingAnime(entry, selection, existingAnime, source, acc);
+        existingAnimeEntries.push({ entry, selection, existingAnime });
       } else {
         newEntries.push(entry);
       }
     }
 
-    const relationClusters = await this.groupNewEntriesByRelations(newEntries);
-
-    if (relationClusters) {
-      for (const [id, num] of relationClusters.seasonNumbers) {
-        acc.seasonNumbers.set(id, num);
-      }
+    for (const { entry, selection, existingAnime } of existingAnimeEntries) {
+      this.processEntryForExistingAnime(entry, selection, existingAnime, source);
     }
 
-    for (const entry of newEntries) {
-      this.processEntryForNewAnime(entry, acc, relationClusters);
+    if (newEntries.length > 0) {
+      const mergeEntries: ImportMergeEntry[] = newEntries.map((entry) => ({
+        kind: "import",
+        title: entry.title,
+        entryType: entry.entryType,
+        anilistId: source === "anilist" ? entry.trackerId : "",
+        trackerSource: source,
+        trackerId: entry.trackerId,
+        watchStatus: entry.watchStatus,
+      }));
+
+      await this.resolveAndMerge({ entries: mergeEntries, source });
     }
 
-    const createdAnimeIds = this.executeImportTransaction(acc, source);
-
-    if (createdAnimeIds.length > 0) {
-      const knownEntries =
-        source === "anilist"
-          ? trackerList.map((e) => ({ anilistId: e.trackerId, title: e.title }))
-          : undefined;
-      await this.enrichAnime(createdAnimeIds, knownEntries);
-    }
-
-    return { imported: trackerList.length - acc.skipped, skipped: acc.skipped };
+    return { imported: trackerList.length - skipped, skipped };
   }
 
   async getImportPreview(tracker: TrackerPlugin, source: TrackerSource): Promise<ImportPreview> {
@@ -537,13 +474,11 @@ export class AnimeAggregate {
     selection: ImportSelection | undefined,
     existingAnime: { id: number },
     source: TrackerSource,
-    acc: ImportAccumulator,
   ): void {
     const groups = this.deps.library.getEpisodeGroupsByAnimeId(existingAnime.id);
-    const seasonNumber = acc.seasonNumbers.get(entry.trackerId);
 
     let targetGroup = groups.find(
-      (g) => g.entryType === entry.entryType && (g.seasonNumber ?? 1) === (seasonNumber ?? 1),
+      (g) => g.entryType === entry.entryType && (g.seasonNumber ?? 1) === 1,
     );
 
     if (selection?.groupId) {
@@ -552,195 +487,31 @@ export class AnimeAggregate {
     }
 
     if (!targetGroup) {
-      acc.groupsToCreate.push({
-        trackerId: entry.trackerId,
+      const createdGroup = this.deps.library.upsertEpisodeGroup({
         animeId: existingAnime.id,
         entryType: entry.entryType,
-        seasonNumber,
+        seasonNumber: 1,
         watchStatus: mapTrackerStatus(entry.watchStatus),
+      });
+
+      this.deps.library.upsertGroupTrackerMapping({
+        groupId: createdGroup.id,
+        source,
+        externalId: entry.trackerId,
       });
     } else {
       if (selection?.resolution !== "keepLocal") {
-        acc.statusesToUpdate.push({
-          groupId: targetGroup.id,
-          watchStatus: mapTrackerStatus(entry.watchStatus),
-        });
+        this.deps.library.updateEpisodeGroupStatus(
+          targetGroup.id,
+          mapTrackerStatus(entry.watchStatus),
+        );
       }
-      acc.mappingsToCreate.push({
+      this.deps.library.upsertGroupTrackerMapping({
         groupId: targetGroup.id,
         source,
         externalId: entry.trackerId,
       });
     }
-  }
-
-  private processEntryForNewAnime(
-    entry: {
-      trackerId: string;
-      title: string;
-      alternativeTitles?: string[];
-      entryType: EntryType;
-      watchStatus: TrackerWatchStatus;
-      totalEpisodes: number;
-    },
-    acc: ImportAccumulator,
-    relationClusters: { clusters: Map<string, string> } | null = null,
-  ): void {
-    const clusterKey = relationClusters?.clusters.get(entry.trackerId);
-    const groupingKey = clusterKey ? `cluster:${clusterKey}` : entry.title.toLowerCase();
-
-    const existingIndex = acc.titleToAnimeIndex.get(groupingKey);
-    const newIndex = existingIndex ?? acc.animeToCreate.length;
-
-    if (existingIndex === undefined) {
-      acc.titleToAnimeIndex.set(groupingKey, newIndex);
-      acc.animeToCreate.push({
-        trackerIds: [entry.trackerId],
-        title: entry.title,
-        alternativeTitles: entry.alternativeTitles,
-        totalEpisodes: entry.totalEpisodes,
-      });
-    } else {
-      acc.animeToCreate[newIndex]?.trackerIds.push(entry.trackerId);
-    }
-
-    const seasonNumber = acc.seasonNumbers.get(entry.trackerId);
-
-    acc.groupsToCreate.push({
-      trackerId: entry.trackerId,
-      animeId: -(newIndex + 1),
-      entryType: entry.entryType,
-      seasonNumber,
-      watchStatus: mapTrackerStatus(entry.watchStatus),
-    });
-  }
-
-  private async groupNewEntriesByRelations(
-    entries: Array<{ trackerId: string; title: string }>,
-  ): Promise<{
-    clusters: Map<string, string>;
-    seasonNumbers: Map<string, number | undefined>;
-  } | null> {
-    if (entries.length === 0) return null;
-
-    const trackerIds = entries.map((e) => e.trackerId);
-    let mediaDetails: EnrichmentMediaResult[] | null;
-    try {
-      mediaDetails = await this.getMediaDetails(trackerIds);
-    } catch {
-      return null;
-    }
-    if (!mediaDetails) return null;
-
-    const entrySet = new Set(trackerIds);
-    const relationsByEntry = new Map<string, Set<string>>();
-
-    for (const detail of mediaDetails) {
-      const relatedIds = new Set<string>();
-      for (const relation of detail.relations) {
-        if (!RELATION_TYPES_TO_WALK.has(relation.relationType)) continue;
-        if (!entrySet.has(relation.anilistId)) continue;
-        relatedIds.add(relation.anilistId);
-        const existingRels = relationsByEntry.get(relation.anilistId);
-        if (existingRels) {
-          existingRels.add(detail.anilistId);
-        } else {
-          relationsByEntry.set(relation.anilistId, new Set([detail.anilistId]));
-        }
-      }
-      if (relatedIds.size > 0) {
-        relationsByEntry.set(detail.anilistId, relatedIds);
-      }
-    }
-
-    const clusters = buildClusters(entries, relationsByEntry);
-    if (clusters.size === 0) return null;
-
-    const seasonNumbers = new Map<string, number | undefined>();
-    const franchiseAggregate = await this.ensureFranchiseAggregate();
-    if (franchiseAggregate) {
-      const clusterGroups = new Map<string, string[]>();
-      for (const [trackerId, clusterRoot] of clusters) {
-        const existing = clusterGroups.get(clusterRoot);
-        if (existing) existing.push(trackerId);
-        else clusterGroups.set(clusterRoot, [trackerId]);
-      }
-      for (const clusterIds of clusterGroups.values()) {
-        const clusterSeasonNumbers = franchiseAggregate.assignSeasonNumbers(clusterIds);
-        for (const [id, num] of clusterSeasonNumbers) {
-          seasonNumbers.set(id, num);
-        }
-      }
-    }
-
-    return { clusters, seasonNumbers };
-  }
-
-  private executeImportTransaction(acc: ImportAccumulator, source: TrackerSource): number[] {
-    const createdAnimeIds: number[] = [];
-
-    this.deps.library.transaction((tx) => {
-      if (acc.animeToCreate.length > 0) {
-        const createdAnime = tx.upsertAnimeBatch(
-          acc.animeToCreate.map((item) => ({
-            externalId: `tracker-${item.trackerIds[0]}`,
-            sourceDb: source,
-            title: item.title,
-            alternativeTitles: item.alternativeTitles,
-            episodeCount: item.totalEpisodes,
-          })),
-        );
-
-        const animeIndexToId = new Map<number, number>();
-        for (let i = 0; i < createdAnime.length; i++) {
-          const anime = createdAnime[i];
-          if (anime) {
-            animeIndexToId.set(i, anime.id);
-            createdAnimeIds.push(anime.id);
-          }
-        }
-
-        for (const group of acc.groupsToCreate) {
-          if (group.animeId < 0) {
-            const index = -(group.animeId + 1);
-            group.animeId = animeIndexToId.get(index) ?? group.animeId;
-          }
-        }
-      }
-
-      if (acc.groupsToCreate.length > 0) {
-        const createdGroups = tx.upsertEpisodeGroupBatch(
-          acc.groupsToCreate.map((item) => ({
-            animeId: item.animeId,
-            entryType: item.entryType,
-            seasonNumber: item.seasonNumber,
-            watchStatus: item.watchStatus,
-          })),
-        );
-
-        for (let i = 0; i < createdGroups.length; i++) {
-          const item = acc.groupsToCreate[i];
-          const group = createdGroups[i];
-          if (item && group) {
-            acc.mappingsToCreate.push({
-              groupId: group.id,
-              source,
-              externalId: item.trackerId,
-            });
-          }
-        }
-      }
-
-      if (acc.statusesToUpdate.length > 0) {
-        tx.updateEpisodeGroupStatusBatch(acc.statusesToUpdate);
-      }
-
-      if (acc.mappingsToCreate.length > 0) {
-        tx.upsertGroupTrackerMappingBatch(acc.mappingsToCreate);
-      }
-    });
-
-    return createdAnimeIds;
   }
 
   async getMediaDetails(anilistIds: string[]): Promise<EnrichmentMediaResult[] | null> {
