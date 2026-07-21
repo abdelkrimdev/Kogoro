@@ -467,6 +467,103 @@ export class LibraryRepository {
     this.db.delete(anime).where(eq(anime.id, id)).run();
   }
 
+  mergeAnimeInto(pendingAnimeId: number, canonicalAnimeId: number): void {
+    const pendingGroups = this.getEpisodeGroupsByAnimeId(pendingAnimeId);
+    const canonicalGroups = this.getEpisodeGroupsByAnimeId(canonicalAnimeId);
+    const canonicalGroupKeys = new Map<string, EpisodeGroup>();
+    for (const g of canonicalGroups) {
+      canonicalGroupKeys.set(`${g.entryType}:${g.seasonNumber ?? "null"}`, g);
+    }
+
+    for (const pendingGroup of pendingGroups) {
+      const key = `${pendingGroup.entryType}:${pendingGroup.seasonNumber ?? "null"}`;
+      const targetGroup = canonicalGroupKeys.get(key);
+
+      if (targetGroup) {
+        const pendingEpisodes = this.getEpisodesByGroupId(pendingGroup.id);
+        for (const ep of pendingEpisodes) {
+          this.upsertEpisodeFromMatch({
+            animeId: canonicalAnimeId,
+            groupId: targetGroup.id,
+            episode: ep.episodeNumber,
+            filePath: ep.filePath,
+            title: ep.title,
+            season: ep.season,
+          });
+          if (ep.watched) {
+            this.setEpisodeWatched(
+              this.db
+                .select({ id: episodes.id })
+                .from(episodes)
+                .where(
+                  and(
+                    eq(episodes.animeId, canonicalAnimeId),
+                    eq(episodes.episodeNumber, ep.episodeNumber),
+                    eq(episodes.season, ep.season ?? 1),
+                  ),
+                )
+                .get()?.id ?? 0,
+              true,
+            );
+          }
+        }
+
+        const pendingMappings = this.getTrackerMappingsByGroupId(pendingGroup.id);
+        for (const mapping of pendingMappings) {
+          this.upsertGroupTrackerMapping({
+            groupId: targetGroup.id,
+            source: mapping.source,
+            externalId: mapping.externalId,
+          });
+        }
+      } else {
+        this.db
+          .update(episodeGroups)
+          .set({ animeId: canonicalAnimeId })
+          .where(eq(episodeGroups.id, pendingGroup.id))
+          .run();
+
+        this.db
+          .update(episodes)
+          .set({ animeId: canonicalAnimeId })
+          .where(eq(episodes.groupId, pendingGroup.id))
+          .run();
+      }
+    }
+
+    const pendingSourceMappings = this.db
+      .select()
+      .from(animeSourceMappings)
+      .where(eq(animeSourceMappings.animeId, pendingAnimeId))
+      .all();
+    for (const mapping of pendingSourceMappings) {
+      this.createAnimeSourceMapping({
+        animeId: canonicalAnimeId,
+        source: mapping.source,
+        externalId: mapping.externalId,
+      });
+    }
+
+    const pendingTrackerMappings = this.db
+      .select()
+      .from(animeTrackerMappings)
+      .where(eq(animeTrackerMappings.animeId, pendingAnimeId))
+      .all();
+    for (const mapping of pendingTrackerMappings) {
+      this.db
+        .insert(animeTrackerMappings)
+        .values({
+          animeId: canonicalAnimeId,
+          source: mapping.source,
+          externalId: mapping.externalId,
+        })
+        .onConflictDoNothing()
+        .run();
+    }
+
+    this.deleteAnime(pendingAnimeId);
+  }
+
   getEpisodesWithSourceDb(): Array<{
     id: number;
     animeId: number;
@@ -1027,6 +1124,13 @@ export class LibraryRepository {
       }
     }
     return result;
+  }
+
+  // Pending identification
+
+  findPendingAnime(): LibraryAnime[] {
+    const rows = this.db.select().from(anime).where(isNull(anime.anilistId)).all();
+    return rows.map(this.rowToAnime);
   }
 
   // Anime enrichment status
