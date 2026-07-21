@@ -2913,15 +2913,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-import",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2967,15 +2958,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-shared-entry",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const result = await aggregate.resolveAndMerge({

@@ -2225,7 +2225,7 @@ describe("LibraryRepository", () => {
   });
 
   describe("createAnimeSourceMapping", () => {
-    test("creates a source mapping and retrieves it", () => {
+    test("does not affect anilistId or group tracker mappings", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
@@ -2278,7 +2278,7 @@ describe("LibraryRepository", () => {
       }
     });
 
-    test("allows different sources for the same anime", () => {
+    test("does not throw when adding multiple sources for the same anime", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
