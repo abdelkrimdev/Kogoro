@@ -1,4 +1,4 @@
-# ADR 0009: Authoritative Library
+# ADR 0005: Authoritative Library
 
 ## Status
 
@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-ADR 0005 established the Library Database as **derived, not authoritative** — truth comes from the filesystem and match cache, and the database can be deleted and rebuilt without data loss. This was correct for a file-organizer tool where every library entry originated from an on-disk file.
+A prior decision treated the Library Database as **derived, not authoritative** — truth comes from the filesystem and match cache, and the database can be deleted and rebuilt without data loss. This was correct for a file-organizer tool where every library entry originated from an on-disk file.
 
 The product is being re-imagined as an anime library and watchlist manager. Users now import anime from online trackers (MAL, AniList, Kitsu) that may have no corresponding files on disk, set watch statuses (watching, completed, plan to watch, on hold, dropped), and sync bidirectionally with those trackers. The derived model cannot support this:
 
@@ -30,6 +30,6 @@ The key shift: the Library is no longer a disposable cache. It is the primary da
 ## Trade-offs
 
 - **Complexity increase** — rebuild requires tracker connectivity and event log replay, not just a filesystem walk. A rebuild with no network access will produce degraded data (missing tracker metadata) rather than a complete library.
-- **Schema migration burden** — since the database is no longer disposable, schema changes must be proper migrations (already established in ADR 0008 with Drizzle).
+- **Schema migration burden** — since the database is no longer disposable, schema changes must be proper migrations (already established in ADR 0004 with Drizzle).
 - **UX cost at scale** — a full rebuild with hundreds of tracker entries requires multiple API calls and is no longer instant. The "rebuild library" button must communicate this to the user.
-- **Reverses ADR 0005** — the derived model was simpler and appropriate for the file-organizer phase. The authoritative model is required for the library-manager phase. The old ADR's concerns about "sync drift" are now handled by the Sync Engine and bidirectional tracker reconciliation rather than by database disposability.
+- **Reverses a prior decision** — the derived model (library as disposable cache, filesystem as truth) was simpler and appropriate for the file-organizer phase. The authoritative model is required for the library-manager phase. Concerns about "sync drift" are now handled by the Sync Engine and bidirectional tracker reconciliation rather than by database disposability.

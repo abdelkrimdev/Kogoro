@@ -1,4 +1,4 @@
-# ADR 0011: Romaji as Canonical Tracker Title
+# ADR 0007: Romaji as Canonical Tracker Title
 
 ## Status
 

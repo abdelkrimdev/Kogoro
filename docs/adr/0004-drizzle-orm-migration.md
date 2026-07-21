@@ -1,4 +1,4 @@
-# ADR 0008: Drizzle ORM Migration and Storage/Domain Separation
+# ADR 0004: Drizzle ORM Migration and Storage/Domain Separation
 
 ## Status
 
@@ -8,7 +8,7 @@ Accepted
 
 `LibraryDb` and `MatchCache` mix business logic (merge, rebuild, export) with raw SQL queries, manual row mapping, and schema management. This makes the code hard to test, maintain, and reason about. Every query is a raw string passed to `bun:sqlite` with manual `$param` binding and hand-written `rowTo*` mappers.
 
-Additionally, `MatchCache` conflates two unrelated concerns: match caching (hash → anime/episode data) and scan state tracking (path → size/mtime/hash). The CLI and GUI also use different default filenames for the same cache database (`cache.db` vs `match-cache.db`), breaking the shared state assumption from ADR 0007.
+Additionally, `MatchCache` conflates two unrelated concerns: match caching (hash → anime/episode data) and scan state tracking (path → size/mtime/hash). The CLI and GUI also use different default filenames for the same cache database (`cache.db` vs `match-cache.db`), breaking the shared state assumption.
 
 ## Decision
 

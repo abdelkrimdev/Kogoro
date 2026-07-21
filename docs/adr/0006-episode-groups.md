@@ -1,4 +1,4 @@
-# ADR 0010: Episode Groups as Explicit Domain Concept
+# ADR 0006: Episode Groups as Explicit Domain Concept
 
 ## Status
 

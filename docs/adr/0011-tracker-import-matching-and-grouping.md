@@ -11,7 +11,7 @@ Each `TrackerAnime` entry includes a `source` field indicating which tracker it 
 
 ## Import-time relation grouping
 
-During `confirmImport`, newly imported entries are grouped into clusters using a union-find algorithm over AniList relations (SEQUEL, PREQUEL, SIDE_STORY, SUMMARY, PARENT). This is distinct from the enrichment-time BFS walk (ADR 0015): import-time grouping operates on the batch being imported, while enrichment-time grouping walks the full library.
+During `confirmImport`, newly imported entries are grouped into clusters using a union-find algorithm over AniList relations (SEQUEL, PREQUEL, SIDE_STORY, SUMMARY, PARENT). This is distinct from the enrichment-time BFS walk (ADR 0010): import-time grouping operates on the batch being imported, while enrichment-time grouping walks the full library.
 
 ## Relation-graph matching
 
