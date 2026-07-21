@@ -1077,4 +1077,371 @@ describe("SyncEngine", () => {
       }
     });
   });
+
+  describe("syncAll", () => {
+    test("pulls from multiple trackers and pushes pending events", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const aggregate = new AnimeAggregate({
+          library: libraryRepo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
+
+        const anime = aggregate.library.upsertAnime({
+          externalId: "tracker-1",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = aggregate.library.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        aggregate.library.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "tl-anilist-1",
+        });
+
+        aggregate.library.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "mal",
+          externalId: "tl-mal-1",
+        });
+
+        const anilistTracker = createMockTracker({
+          async getUserList() {
+            return [
+              {
+                source: "anilist",
+                trackerId: "tl-anilist-1",
+                title: "Attack on Titan",
+                entryType: "tv",
+                watchStatus: "completed",
+                episodesWatched: 25,
+                totalEpisodes: 25,
+              },
+            ];
+          },
+        });
+
+        const malTracker = createMockTracker({
+          async getUserList() {
+            return [
+              {
+                source: "mal",
+                trackerId: "tl-mal-1",
+                title: "Attack on Titan",
+                entryType: "tv",
+                watchStatus: "watching",
+                episodesWatched: 10,
+                totalEpisodes: 25,
+              },
+            ];
+          },
+        });
+
+        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, [
+          { source: "anilist", tracker: anilistTracker },
+          { source: "mal", tracker: malTracker },
+        ]);
+
+        const result = await syncEngine.syncAll();
+
+        expect(result.applied).toBeGreaterThanOrEqual(1);
+        expect(result.syncedTrackers).toContain("anilist");
+        expect(result.syncedTrackers).toContain("mal");
+        expect(result.errors).toHaveLength(0);
+
+        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        expect(updatedGroup?.watchStatus).toBe("watching");
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
+
+    test("detects cross-tracker conflicts when watch statuses differ", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const aggregate = new AnimeAggregate({
+          library: libraryRepo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
+
+        const anime = aggregate.library.upsertAnime({
+          externalId: "tracker-1",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = aggregate.library.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        aggregate.library.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "anilist",
+          externalId: "tl-anilist-1",
+        });
+
+        aggregate.library.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source: "mal",
+          externalId: "tl-mal-1",
+        });
+
+        const anilistTracker = createMockTracker({
+          async getUserList() {
+            return [
+              {
+                source: "anilist",
+                trackerId: "tl-anilist-1",
+                title: "Attack on Titan",
+                entryType: "tv",
+                watchStatus: "completed",
+                episodesWatched: 25,
+                totalEpisodes: 25,
+              },
+            ];
+          },
+        });
+
+        const malTracker = createMockTracker({
+          async getUserList() {
+            return [
+              {
+                source: "mal",
+                trackerId: "tl-mal-1",
+                title: "Attack on Titan",
+                entryType: "tv",
+                watchStatus: "watching",
+                episodesWatched: 10,
+                totalEpisodes: 25,
+              },
+            ];
+          },
+        });
+
+        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, [
+          { source: "anilist", tracker: anilistTracker },
+          { source: "mal", tracker: malTracker },
+        ]);
+
+        const result = await syncEngine.syncAll();
+
+        expect(result.crossTrackerConflicts).toHaveLength(1);
+        expect(result.crossTrackerConflicts[0]?.groupId).toBe(group.id);
+        expect(result.crossTrackerConflicts[0]?.trackerA).toBe("anilist");
+        expect(result.crossTrackerConflicts[0]?.trackerB).toBe("mal");
+        expect(result.crossTrackerConflicts[0]?.statusA).toBe("completed");
+        expect(result.crossTrackerConflicts[0]?.statusB).toBe("watching");
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
+
+    test("reports errors when tracker getUserList fails", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const aggregate = new AnimeAggregate({
+          library: libraryRepo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
+
+        const workingTracker = createMockTracker({
+          async getUserList() {
+            return [];
+          },
+        });
+
+        const failingTracker = createMockTracker({
+          async getUserList() {
+            throw new Error("Network error");
+          },
+        });
+
+        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, [
+          { source: "anilist", tracker: workingTracker },
+          { source: "mal", tracker: failingTracker },
+        ]);
+
+        const result = await syncEngine.syncAll();
+
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]?.tracker).toBe("mal");
+        expect(result.errors[0]?.error).toContain("Network error");
+        expect(result.syncedTrackers).toContain("anilist");
+        expect(result.syncedTrackers).not.toContain("mal");
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
+  });
+
+  describe("resolveCrossTrackerConflict", () => {
+    test("applies status from tracker A when resolving with keepTrackerA", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const aggregate = new AnimeAggregate({
+          library: libraryRepo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
+
+        const anime = aggregate.library.upsertAnime({
+          externalId: "tracker-1",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = aggregate.library.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        const tracker = createMockTracker();
+        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+
+        const conflict = {
+          groupId: group.id,
+          trackerA: "anilist",
+          trackerB: "mal",
+          statusA: "completed" as const,
+          statusB: "watching" as const,
+        };
+
+        const result = await syncEngine.resolveCrossTrackerConflict(conflict, "keepTrackerA");
+
+        expect(result.success).toBe(true);
+
+        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        expect(updatedGroup?.watchStatus).toBe("completed");
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
+
+    test("applies status from tracker B when resolving with keepTrackerB", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const aggregate = new AnimeAggregate({
+          library: libraryRepo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
+
+        const anime = aggregate.library.upsertAnime({
+          externalId: "tracker-1",
+          sourceDb: "anilist",
+          title: "Attack on Titan",
+          episodeCount: 25,
+        });
+
+        const group = aggregate.library.upsertEpisodeGroup({
+          animeId: anime.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "plan_to_watch",
+        });
+
+        const tracker = createMockTracker();
+        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+
+        const conflict = {
+          groupId: group.id,
+          trackerA: "anilist",
+          trackerB: "mal",
+          statusA: "completed" as const,
+          statusB: "watching" as const,
+        };
+
+        const result = await syncEngine.resolveCrossTrackerConflict(conflict, "keepTrackerB");
+
+        expect(result.success).toBe(true);
+
+        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        expect(updatedGroup?.watchStatus).toBe("watching");
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
+
+    test("returns false when group does not exist", async () => {
+      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+      const { repo: eventRepo, close: closeEvent } = createEventRepository();
+      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      try {
+        const evtRepo = new EventRepository(evtDb);
+        const aggregate = new AnimeAggregate({
+          library: libraryRepo,
+          replayUnpushedEvents: () => {},
+          computeAndPersistLibraryState: () => {},
+        });
+        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
+
+        const tracker = createMockTracker();
+        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+
+        const conflict = {
+          groupId: 99999,
+          trackerA: "anilist",
+          trackerB: "mal",
+          statusA: "completed" as const,
+          statusB: "watching" as const,
+        };
+
+        const result = await syncEngine.resolveCrossTrackerConflict(conflict, "keepTrackerA");
+
+        expect(result.success).toBe(false);
+      } finally {
+        closeLibrary();
+        closeEvent();
+        evtSqlite.close();
+      }
+    });
+  });
 });

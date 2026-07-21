@@ -2,4 +2,4 @@
 core: minor
 ---
 
-SyncOrchestrator coordinates multi-tracker sync with cross-tracker conflict detection
+SyncEngine now handles multi-tracker orchestration with cross-tracker conflict detection

@@ -7,7 +7,7 @@ import type {
   TrackerWatchStatus,
   WatchTracker,
 } from "@kogoro/core";
-import { type SyncConflict, SyncEngine, SyncOrchestrator } from "@kogoro/core";
+import { type SyncConflict, SyncEngine } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
 interface SyncHandlerOptions {
@@ -58,8 +58,7 @@ async function runPushForGroup(
         options.animeAggregate,
         options.watchTracker,
         options.eventsRepo,
-        tracker,
-        source,
+        [{ source, tracker }],
       );
       const result = await engine.push(groupId);
       pushed += result.pushed;
@@ -129,14 +128,14 @@ async function runSync(
   const errors: Array<{ tracker: string; error: string }> = [];
   const pairs = await buildTrackerPairs(options, errors);
 
-  const orchestrator = new SyncOrchestrator(
+  const engine = new SyncEngine(
     options.animeAggregate,
     options.watchTracker,
     options.eventsRepo,
     pairs,
   );
 
-  const result = await orchestrator.syncAll();
+  const result = await engine.syncAll();
 
   let conflicts = result.conflicts;
   if (conflictFilter) {
@@ -191,8 +190,7 @@ export function createSyncHandlers(options: SyncHandlerOptions) {
         options.animeAggregate,
         options.watchTracker,
         options.eventsRepo,
-        plugin,
-        trackerDef.source,
+        [{ source: trackerDef.source, tracker: plugin }],
       );
 
       return engine.resolveConflict(params.conflict, params.resolution);
