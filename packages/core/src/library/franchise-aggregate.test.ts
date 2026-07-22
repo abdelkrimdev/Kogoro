@@ -662,6 +662,127 @@ describe("FranchiseAggregate", () => {
         sqlite.close();
       }
     });
+
+    test("assigns season numbers to episode groups from SEQUEL chain", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        repo.setAnilistCacheEntry({
+          anilistId: "1",
+          title: "Attack on Titan",
+          format: "TV",
+          episodes: 25,
+          relations: [{ anilistId: "2", title: "Attack on Titan S2", relationType: "SEQUEL" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
+        });
+        repo.setAnilistCacheEntry({
+          anilistId: "2",
+          title: "Attack on Titan S2",
+          format: "TV",
+          episodes: 12,
+          relations: [{ anilistId: "1", title: "Attack on Titan", relationType: "PREQUEL" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
+        });
+
+        const aggregate = new FranchiseAggregate({
+          library: repo,
+          provider: createMockProvider(new Map()),
+        });
+
+        const anime1 = repo.upsertAnime({ title: "Attack on Titan", episodeCount: 25 });
+        const anime2 = repo.upsertAnime({ title: "Attack on Titan S2", episodeCount: 12 });
+
+        const group1 = repo.upsertEpisodeGroup({
+          animeId: anime1.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+        });
+        const group2 = repo.upsertEpisodeGroup({
+          animeId: anime2.id,
+          entryType: "tv",
+          seasonNumber: 1,
+          watchStatus: "completed",
+        });
+
+        const mediaResults = new Map<string, EnrichmentMediaResult>();
+        mediaResults.set("1", {
+          anilistId: "1",
+          title: "Attack on Titan",
+          format: "TV",
+          episodes: 25,
+          relations: [{ anilistId: "2", title: "Attack on Titan S2", relationType: "SEQUEL" }],
+        });
+        mediaResults.set("2", {
+          anilistId: "2",
+          title: "Attack on Titan S2",
+          format: "TV",
+          episodes: 12,
+          relations: [{ anilistId: "1", title: "Attack on Titan", relationType: "PREQUEL" }],
+        });
+
+        const animeByAnilistId = new Map<string, number[]>();
+        animeByAnilistId.set("1", [anime1.id]);
+        animeByAnilistId.set("2", [anime2.id]);
+
+        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+
+        const updatedGroup1 = repo.getEpisodeGroup(group1.id);
+        const updatedGroup2 = repo.getEpisodeGroup(group2.id);
+        expect(updatedGroup1?.seasonNumber).toBe(1);
+        expect(updatedGroup2?.seasonNumber).toBe(2);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("does not mutate caller's animeByAnilistId map", async () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        repo.setAnilistCacheEntry({
+          anilistId: "1",
+          title: "Anime A",
+          format: "TV",
+          episodes: 12,
+          relations: [],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
+        });
+
+        const aggregate = new FranchiseAggregate({
+          library: repo,
+          provider: createMockProvider(new Map()),
+        });
+
+        const anime = repo.upsertAnime({ title: "Anime A", episodeCount: 12 });
+        repo.createAnimeSourceMapping({ animeId: anime.id, source: "anilist", externalId: "1" });
+
+        const mediaResults = new Map<string, EnrichmentMediaResult>();
+        mediaResults.set("1", {
+          anilistId: "1",
+          title: "Anime A",
+          format: "TV",
+          episodes: 12,
+          relations: [],
+        });
+
+        const animeByAnilistId = new Map<string, number[]>();
+        const originalIds: number[] = [];
+        animeByAnilistId.set("1", originalIds);
+
+        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+
+        expect(originalIds).toEqual([]);
+        expect(animeByAnilistId.get("1")).toEqual([]);
+      } finally {
+        sqlite.close();
+      }
+    });
   });
 
   describe("buildFranchiseSets", () => {

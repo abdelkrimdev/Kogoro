@@ -142,6 +142,8 @@ export class FranchiseAggregate {
         mediaResults,
         needsSearchByTitle,
       );
+
+      this.applySeasonNumbers(componentIds, animeByAnilistId);
     }
   }
 
@@ -293,6 +295,32 @@ export class FranchiseAggregate {
 
       const mediaResults = await this.walkFranchiseGraph([searchResult.anilistId]);
       await this.resolveFranchises(mediaResults, animeByAnilistId, needsSearchByTitle);
+    }
+  }
+
+  private applySeasonNumbers(
+    componentIds: string[],
+    animeByAnilistId: Map<string, number[]>,
+  ): void {
+    const seasonNumbers = this.assignSeasonNumbers(componentIds);
+
+    for (const [anilistId, season] of seasonNumbers) {
+      if (season === undefined) continue;
+
+      const animeIds = new Set(animeByAnilistId.get(anilistId) ?? []);
+      const mapping = this.deps.library.findAnimeSourceMapping("anilist", anilistId);
+      if (mapping) {
+        animeIds.add(mapping.animeId);
+      }
+
+      for (const animeId of animeIds) {
+        const groups = this.deps.library.getEpisodeGroupsByAnimeId(animeId);
+        for (const group of groups) {
+          if ((group.seasonNumber ?? 1) !== season) {
+            this.deps.library.updateEpisodeGroupSeasonNumber(group.id, season);
+          }
+        }
+      }
     }
   }
 

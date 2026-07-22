@@ -763,6 +763,11 @@ export class LibraryRepository {
     return this.getEpisodeGroup(groupId);
   }
 
+  updateEpisodeGroupSeasonNumber(groupId: number, seasonNumber: number): EpisodeGroup | null {
+    this.db.update(episodeGroups).set({ seasonNumber }).where(eq(episodeGroups.id, groupId)).run();
+    return this.getEpisodeGroup(groupId);
+  }
+
   deleteEpisodeGroup(groupId: number): void {
     this.db.delete(episodeGroups).where(eq(episodeGroups.id, groupId)).run();
   }
