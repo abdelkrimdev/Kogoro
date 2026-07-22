@@ -258,7 +258,7 @@ export class FranchiseAggregate {
       const anime = this.deps.library.getAnime(animeId);
       if (!anime) continue;
       if (anime.franchiseId) continue;
-      if (this.deps.library.hasAnimeTrackerMapping(animeId, "anilist")) continue;
+      if (this.deps.library.hasAnimeSourceMapping(animeId, "anilist")) continue;
 
       const matchedAnilistId =
         animeIdToAnilistId.get(animeId) ?? titleToAnilistId.get(anime.title.toLowerCase()) ?? null;
@@ -284,7 +284,7 @@ export class FranchiseAggregate {
     for (const { animeId, title } of needsSearch) {
       const anime = this.deps.library.getAnime(animeId);
       if (!anime || anime.franchiseId) continue;
-      if (this.deps.library.hasAnimeTrackerMapping(animeId, "anilist")) continue;
+      if (this.deps.library.hasAnimeSourceMapping(animeId, "anilist")) continue;
 
       const searchResult = await this.deps.provider.searchByTitle(title);
       if (!searchResult) continue;
@@ -318,7 +318,7 @@ export class FranchiseAggregate {
   }
 
   private findAnimeByAnilistId(anilistId: string): LibraryAnime | null {
-    const mapping = this.deps.library.findAnimeByTrackerMapping("anilist", anilistId);
+    const mapping = this.deps.library.findAnimeSourceMapping("anilist", anilistId);
     if (mapping) {
       return this.deps.library.getAnime(mapping.animeId);
     }
@@ -326,8 +326,8 @@ export class FranchiseAggregate {
   }
 
   private ensureMappingAndAssign(animeId: number, anilistId: string, franchiseId: number): void {
-    if (!this.deps.library.hasAnimeTrackerMapping(animeId, "anilist")) {
-      this.deps.library.createAnimeTrackerMapping({
+    if (!this.deps.library.hasAnimeSourceMapping(animeId, "anilist")) {
+      this.deps.library.createAnimeSourceMapping({
         animeId,
         source: "anilist",
         externalId: anilistId,
@@ -341,7 +341,7 @@ export class FranchiseAggregate {
       const byAnilist = this.deps.library.findFranchiseByAnilistId(id);
       if (byAnilist) return byAnilist;
 
-      const mapping = this.deps.library.findAnimeByTrackerMapping("anilist", id);
+      const mapping = this.deps.library.findAnimeSourceMapping("anilist", id);
       if (mapping) {
         const anime = this.deps.library.getAnime(mapping.animeId);
         if (anime?.franchiseId) {

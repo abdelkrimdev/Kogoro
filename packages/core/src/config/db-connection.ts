@@ -6,7 +6,7 @@ import { LibraryRepository } from "../library/library-repository";
 import {
   anilistCache,
   anime,
-  animeTrackerMappings,
+  animeSourceMappings,
   episodeGroups,
   episodes,
   franchises,
@@ -42,7 +42,7 @@ export function createLibraryConnection(dbPath: string): LibraryRepository {
       episodes,
       groupTrackerMappings,
       franchises,
-      animeTrackerMappings,
+      animeSourceMappings,
       anilistCache,
     },
   });

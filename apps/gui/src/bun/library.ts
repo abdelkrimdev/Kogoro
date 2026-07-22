@@ -17,7 +17,6 @@ export interface LibraryAnimeDetail {
     id: string;
     titleEn: string;
     alternativeTitles?: string[];
-    sourceDb: string;
     totalEpisodes: number;
     coverArt?: string;
     genres?: string[];
@@ -135,7 +134,6 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
           id: String(anime.id),
           titleEn: anime.title,
           alternativeTitles: anime.alternativeTitles,
-          sourceDb: anime.sourceDb,
           totalEpisodes: anime.episodeCount,
           coverArt,
           genres: anime.genres,

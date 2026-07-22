@@ -49,7 +49,7 @@ export { AnimeAggregate } from "./library/anime-aggregate";
 export { FranchiseAggregate } from "./library/franchise-aggregate";
 export type {
   AnilistCacheEntry,
-  AnimeTrackerMapping,
+  AnimeSourceMapping,
   EpisodeGroup,
   Franchise,
   GroupTrackerMapping,

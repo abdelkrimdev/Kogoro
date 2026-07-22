@@ -259,7 +259,7 @@ describe("ScanOrchestrator", () => {
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
         });
-        aggregate.rebuildFromMatches(matches);
+        await aggregate.rebuildFromMatches(matches);
 
         const animeList = libraryRepo.listAnime();
         expect(animeList).toHaveLength(1);

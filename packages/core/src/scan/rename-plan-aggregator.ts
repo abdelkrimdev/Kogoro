@@ -195,8 +195,7 @@ export function buildReviewPlan(
 
     const mergeMode =
       animeAggregate != null &&
-      (animeAggregate.animeExistsByTitle(title, sourceDb ?? "tvdb") ||
-        animeAggregate.animeExists(cid, sourceDb));
+      (animeAggregate.animeExistsByTitle(title) || animeAggregate.animeExists(cid, sourceDb));
 
     groups.push({
       animeId: cid,
@@ -325,7 +324,7 @@ export async function aggregateReviewPlan(
 
     if (animeAggregate && group.animeId) {
       group.mergeMode =
-        animeAggregate.animeExistsByTitle(group.animeTitle, sourceDb ?? "tvdb") ||
+        animeAggregate.animeExistsByTitle(group.animeTitle) ||
         animeAggregate.animeExists(group.animeId, sourceDb);
     }
 

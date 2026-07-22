@@ -16,8 +16,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });
@@ -65,8 +63,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });
@@ -128,8 +124,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });
@@ -177,8 +171,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });
@@ -222,8 +214,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });
@@ -279,8 +269,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 2,
         });
@@ -331,8 +319,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });
@@ -371,8 +357,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });
@@ -406,8 +390,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });
@@ -448,8 +430,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });
@@ -490,8 +470,6 @@ describe("WatchTracker", () => {
         const tracker = new WatchTracker({ library: repo, events: evtRepo });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 1,
         });

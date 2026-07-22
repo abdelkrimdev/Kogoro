@@ -9,13 +9,12 @@ import { createLibraryHandlers } from "./library";
 
 function seedLibrary(repo: LibraryRepository, coverDir?: string) {
   const jjk = repo.upsertAnime({
-    externalId: "tvdb-12345",
-    sourceDb: "tvdb",
     title: "Jujutsu Kaisen",
     alternativeTitles: ["呪術廻戦", "Jujutsu Kaisen"],
     episodeCount: 24,
     coverArtPath: coverDir ? join(coverDir, "jjk.jpg") : undefined,
   });
+  repo.createAnimeSourceMapping({ animeId: jjk.id, source: "tvdb", externalId: "tvdb-12345" });
 
   const jjkGroup = repo.upsertEpisodeGroup({
     animeId: jjk.id,
@@ -44,12 +43,11 @@ function seedLibrary(repo: LibraryRepository, coverDir?: string) {
   });
 
   const aot = repo.upsertAnime({
-    externalId: "tvdb-67890",
-    sourceDb: "tvdb",
     title: "Attack on Titan",
     episodeCount: 25,
     coverArtPath: coverDir ? join(coverDir, "aot.jpg") : undefined,
   });
+  repo.createAnimeSourceMapping({ animeId: aot.id, source: "tvdb", externalId: "tvdb-67890" });
 
   const aotGroup = repo.upsertEpisodeGroup({
     animeId: aot.id,
@@ -285,10 +283,13 @@ describe("rebuild", () => {
         const { repo, close } = createLibraryRepository(dir);
         const { close: closeEvt } = createEventRepository(dir);
         const jjk = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 2,
+        });
+        repo.createAnimeSourceMapping({
+          animeId: jjk.id,
+          source: "tvdb",
+          externalId: "tvdb-12345",
         });
 
         const jjkGroup = repo.upsertEpisodeGroup({
@@ -318,10 +319,13 @@ describe("rebuild", () => {
         });
 
         const aot = repo.upsertAnime({
-          externalId: "tvdb-67890",
-          sourceDb: "tvdb",
           title: "Attack on Titan",
           episodeCount: 1,
+        });
+        repo.createAnimeSourceMapping({
+          animeId: aot.id,
+          source: "tvdb",
+          externalId: "tvdb-67890",
         });
 
         const aotGroup = repo.upsertEpisodeGroup({

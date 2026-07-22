@@ -318,8 +318,6 @@ describe("buildReviewPlan", () => {
         computeAndPersistLibraryState: () => {},
       });
       libraryRepo.upsertAnime({
-        externalId: "1",
-        sourceDb: "tvdb",
         title: "Jujutsu Kaisen",
         episodeCount: 24,
       });
@@ -692,8 +690,6 @@ describe("aggregateReviewPlan", () => {
         computeAndPersistLibraryState: () => {},
       });
       libraryRepo.upsertAnime({
-        externalId: "100",
-        sourceDb: "tvdb",
         title: "Jujutsu Kaisen",
         episodeCount: 24,
       });

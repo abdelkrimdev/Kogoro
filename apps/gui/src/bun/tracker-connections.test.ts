@@ -265,10 +265,13 @@ describe("disconnectTracker", () => {
     await store.setCredential("anilist", "token");
 
     const anime = aggregate.library.upsertAnime({
-      externalId: "tvdb-12345",
-      sourceDb: "tvdb",
       title: "Jujutsu Kaisen",
       episodeCount: 24,
+    });
+    aggregate.library.createAnimeSourceMapping({
+      animeId: anime.id,
+      source: "tvdb",
+      externalId: "tvdb-12345",
     });
 
     const group = aggregate.library.upsertEpisodeGroup({
@@ -303,10 +306,13 @@ describe("disconnectTracker", () => {
     await store.setCredential("anilist", "token");
 
     const anime = aggregate.library.upsertAnime({
-      externalId: "tvdb-12345",
-      sourceDb: "tvdb",
       title: "Jujutsu Kaisen",
       episodeCount: 24,
+    });
+    aggregate.library.createAnimeSourceMapping({
+      animeId: anime.id,
+      source: "tvdb",
+      externalId: "tvdb-12345",
     });
 
     const group = aggregate.library.upsertEpisodeGroup({
@@ -337,10 +343,13 @@ describe("disconnectTracker", () => {
     await store.setCredential("anilist", "token");
 
     const anime = aggregate.library.upsertAnime({
-      externalId: "tvdb-12345",
-      sourceDb: "tvdb",
       title: "Jujutsu Kaisen",
       episodeCount: 24,
+    });
+    aggregate.library.createAnimeSourceMapping({
+      animeId: anime.id,
+      source: "tvdb",
+      externalId: "tvdb-12345",
     });
 
     const group = aggregate.library.upsertEpisodeGroup({

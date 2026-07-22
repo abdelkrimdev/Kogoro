@@ -393,8 +393,6 @@ describe("FranchiseAggregate", () => {
         });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -434,15 +432,11 @@ describe("FranchiseAggregate", () => {
         });
 
         const anime1 = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
 
         const anime2 = repo.upsertAnime({
-          externalId: "tvdb-12346",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen S2",
           episodeCount: 23,
         });
@@ -491,15 +485,11 @@ describe("FranchiseAggregate", () => {
         });
 
         const anime1 = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
 
         const anime2 = repo.upsertAnime({
-          externalId: "tvdb-67890",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
@@ -552,8 +542,6 @@ describe("FranchiseAggregate", () => {
         });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -593,8 +581,6 @@ describe("FranchiseAggregate", () => {
         });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -613,7 +599,7 @@ describe("FranchiseAggregate", () => {
 
         await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
-        const mapping = repo.findAnimeByTrackerMapping("anilist", "1");
+        const mapping = repo.findAnimeSourceMapping("anilist", "1");
         expect(mapping).not.toBeNull();
         expect(mapping?.animeId).toBe(anime.id);
       } finally {
@@ -631,8 +617,6 @@ describe("FranchiseAggregate", () => {
         });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "My Custom Title",
           episodeCount: 24,
         });
@@ -1034,8 +1018,6 @@ describe("FranchiseAggregate", () => {
         });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1064,8 +1046,6 @@ describe("FranchiseAggregate", () => {
 
         const franchise = repo.createFranchise({ title: "Existing Franchise" });
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1091,12 +1071,10 @@ describe("FranchiseAggregate", () => {
         });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
-        repo.createAnimeTrackerMapping({
+        repo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "anilist",
           externalId: "12345",
@@ -1158,15 +1136,11 @@ describe("FranchiseAggregate", () => {
         const aggregate = new FranchiseAggregate({ library: repo, provider });
 
         const anime1 = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
 
         const anime2 = repo.upsertAnime({
-          externalId: "tvdb-12346",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen Season 2",
           episodeCount: 23,
         });
@@ -1208,8 +1182,6 @@ describe("FranchiseAggregate", () => {
         const aggregate = new FranchiseAggregate({ library: repo, provider });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Attack on Titan",
           episodeCount: 25,
         });
@@ -1223,7 +1195,7 @@ describe("FranchiseAggregate", () => {
         expect(franchise).not.toBeNull();
         expect(franchise?.title).toBe("Attack on Titan");
 
-        const mapping = repo.findAnimeByTrackerMapping("anilist", "16498");
+        const mapping = repo.findAnimeSourceMapping("anilist", "16498");
         expect(mapping).not.toBeNull();
         expect(mapping?.animeId).toBe(anime.id);
       } finally {
@@ -1254,8 +1226,6 @@ describe("FranchiseAggregate", () => {
         const aggregate = new FranchiseAggregate({ library: repo, provider });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
@@ -1280,7 +1250,7 @@ describe("FranchiseAggregate", () => {
         const franchise = repo.getFranchiseById(1);
         expect(franchise).not.toBeNull();
 
-        const mapping = repo.findAnimeByTrackerMapping("anilist", "21");
+        const mapping = repo.findAnimeSourceMapping("anilist", "21");
         expect(mapping).not.toBeNull();
         expect(mapping?.animeId).toBe(anime.id);
       } finally {
@@ -1335,15 +1305,11 @@ describe("FranchiseAggregate", () => {
         const aggregate = new FranchiseAggregate({ library: repo, provider });
 
         const anime1 = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
 
         const anime2 = repo.upsertAnime({
-          externalId: "tvdb-12346",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen Season 2",
           episodeCount: 23,
         });
@@ -1385,8 +1351,6 @@ describe("FranchiseAggregate", () => {
         const aggregate = new FranchiseAggregate({ library: repo, provider });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1425,8 +1389,6 @@ describe("FranchiseAggregate", () => {
         const aggregate = new FranchiseAggregate({ library: repo, provider });
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Unknown Anime",
           episodeCount: 24,
         });

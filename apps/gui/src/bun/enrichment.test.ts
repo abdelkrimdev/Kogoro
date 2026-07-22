@@ -65,10 +65,13 @@ async function seedLibraryAndCache(
 
   const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository(configDir);
   const anime = libraryRepo.upsertAnime({
-    externalId: "tvdb-12345",
-    sourceDb: "tvdb",
     title: "Test Anime",
     episodeCount: 2,
+  });
+  libraryRepo.createAnimeSourceMapping({
+    animeId: anime.id,
+    source: "tvdb",
+    externalId: "tvdb-12345",
   });
 
   const group = libraryRepo.upsertEpisodeGroup({
@@ -133,10 +136,13 @@ describe("enrichArtwork", () => {
     await withTempDir("enrich-artwork-no-episodes", async (dir) => {
       const { repo: libraryRepo } = createLibraryRepository(dir);
       const anime = libraryRepo.upsertAnime({
-        externalId: "tvdb-12345",
-        sourceDb: "tvdb",
         title: "Empty Anime",
         episodeCount: 0,
+      });
+      libraryRepo.createAnimeSourceMapping({
+        animeId: anime.id,
+        source: "tvdb",
+        externalId: "tvdb-12345",
       });
 
       const { svc, watchTracker, close } = createAggregate(dir);

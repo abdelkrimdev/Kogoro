@@ -6,11 +6,10 @@ import { createDashboardHandlers } from "./dashboard";
 
 function seedWatchingAnime(repo: LibraryRepository) {
   const sg = repo.upsertAnime({
-    externalId: "tvdb-100",
-    sourceDb: "tvdb",
     title: "Steins;Gate",
     episodeCount: 24,
   });
+  repo.createAnimeSourceMapping({ animeId: sg.id, source: "tvdb", externalId: "tvdb-100" });
 
   const sgGroup = repo.upsertEpisodeGroup({
     animeId: sg.id,
@@ -36,11 +35,10 @@ function seedWatchingAnime(repo: LibraryRepository) {
 
 function seedCompletedAnime(repo: LibraryRepository) {
   const aot = repo.upsertAnime({
-    externalId: "tvdb-200",
-    sourceDb: "tvdb",
     title: "Attack on Titan",
     episodeCount: 25,
   });
+  repo.createAnimeSourceMapping({ animeId: aot.id, source: "tvdb", externalId: "tvdb-200" });
 
   const aotGroup = repo.upsertEpisodeGroup({
     animeId: aot.id,
@@ -66,11 +64,10 @@ function seedCompletedAnime(repo: LibraryRepository) {
 
 function seedPlanToWatchAnime(repo: LibraryRepository) {
   const drr = repo.upsertAnime({
-    externalId: "tvdb-300",
-    sourceDb: "tvdb",
     title: "Darling in the Franxx",
     episodeCount: 24,
   });
+  repo.createAnimeSourceMapping({ animeId: drr.id, source: "tvdb", externalId: "tvdb-300" });
 
   const drrGroup = repo.upsertEpisodeGroup({
     animeId: drr.id,

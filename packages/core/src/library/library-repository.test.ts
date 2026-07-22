@@ -9,8 +9,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           alternativeTitles: ["呪術廻戦", "Jujutsu Kaisen"],
           episodeCount: 24,
@@ -19,8 +17,6 @@ describe("LibraryRepository", () => {
         });
 
         expect(anime.id).toBeGreaterThan(0);
-        expect(anime.externalId).toBe("tvdb-12345");
-        expect(anime.sourceDb).toBe("tvdb");
         expect(anime.title).toBe("Jujutsu Kaisen");
         expect(anime.alternativeTitles).toEqual(["呪術廻戦", "Jujutsu Kaisen"]);
         expect(anime.episodeCount).toBe(24);
@@ -32,22 +28,20 @@ describe("LibraryRepository", () => {
       }
     });
 
-    test("updates existing anime with same externalId and sourceDb", () => {
+    test("updates existing anime with same anilistId", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
+          anilistId: "12345",
         });
 
         const updated = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen Season 2",
           episodeCount: 48,
+          anilistId: "12345",
         });
 
         expect(updated.id).toBe(anime.id);
@@ -63,8 +57,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
           lastSynced: "2026-01-01T00:00:00.000Z",
@@ -81,8 +73,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -100,8 +90,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const inserted = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -130,11 +118,14 @@ describe("LibraryRepository", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
+        const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
           episodeCount: 24,
+        });
+        repo.createAnimeSourceMapping({
+          animeId: anime.id,
+          source: "tvdb",
+          externalId: "tvdb-12345",
         });
 
         const found = repo.findAnime("tvdb-12345", "tvdb");
@@ -155,14 +146,10 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         repo.upsertAnime({
-          externalId: "tvdb-1",
-          sourceDb: "tvdb",
           title: "Z anime",
           episodeCount: 12,
         });
         repo.upsertAnime({
-          externalId: "tvdb-2",
-          sourceDb: "tvdb",
           title: "A anime",
           episodeCount: 1,
         });
@@ -181,8 +168,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-1",
-          sourceDb: "tvdb",
           title: "Steins;Gate",
           episodeCount: 24,
         });
@@ -224,8 +209,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -244,8 +227,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -291,8 +272,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -335,8 +314,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -379,8 +356,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -416,8 +391,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -452,8 +425,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -512,8 +483,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -550,8 +519,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -582,8 +549,6 @@ describe("LibraryRepository", () => {
 
         const rows = repo.getAllEpisodesWithAnime();
         expect(rows).toHaveLength(2);
-        expect(rows[0]?.animeExternalId).toBe("tvdb-12345");
-        expect(rows[0]?.animeSourceDb).toBe("tvdb");
         expect(rows[0]?.watched).toBe(true);
         expect(rows[1]?.watched).toBe(false);
       } finally {
@@ -598,8 +563,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -645,8 +608,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -685,14 +646,10 @@ describe("LibraryRepository", () => {
         const repo = new LibraryRepository(db);
         const result = repo.transaction((tx) => {
           tx.upsertAnime({
-            externalId: "tvdb-1",
-            sourceDb: "tvdb",
             title: "Anime 1",
             episodeCount: 0,
           });
           tx.upsertAnime({
-            externalId: "tvdb-2",
-            sourceDb: "tvdb",
             title: "Anime 2",
             episodeCount: 0,
           });
@@ -712,8 +669,6 @@ describe("LibraryRepository", () => {
         try {
           repo.transaction((tx) => {
             tx.upsertAnime({
-              externalId: "tvdb-1",
-              sourceDb: "tvdb",
               title: "Anime 1",
               episodeCount: 0,
             });
@@ -746,10 +701,14 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
+        });
+
+        repo.createAnimeSourceMapping({
+          animeId: anime.id,
+          source: "tvdb",
+          externalId: "tvdb-12345",
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -779,10 +738,14 @@ describe("LibraryRepository", () => {
         });
 
         const anime2 = repo.upsertAnime({
-          externalId: "tvdb-67890",
-          sourceDb: "tvdb",
           title: "Attack on Titan",
           episodeCount: 25,
+        });
+
+        repo.createAnimeSourceMapping({
+          animeId: anime2.id,
+          source: "anilist",
+          externalId: "tracker-1",
         });
 
         const group2 = repo.upsertEpisodeGroup({
@@ -819,10 +782,14 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
+        });
+
+        repo.createAnimeSourceMapping({
+          animeId: anime.id,
+          source: "tvdb",
+          externalId: "tvdb-12345",
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -856,28 +823,32 @@ describe("LibraryRepository", () => {
 
         repo.deleteAll();
 
+        const createdAnimeByTitle = new Map<string, number>();
         for (const match of exported) {
-          const created = repo.upsertAnime({
-            externalId: match.animeId,
-            sourceDb: match.sourceDb,
-            title: match.animeTitle,
-            episodeCount: 0,
-          });
+          let animeId = createdAnimeByTitle.get(match.animeTitle);
+          if (!animeId) {
+            const created = repo.upsertAnime({
+              title: match.animeTitle,
+              episodeCount: 0,
+            });
+            animeId = created.id;
+            createdAnimeByTitle.set(match.animeTitle, animeId);
+          }
           const newGroup = repo.upsertEpisodeGroup({
-            animeId: created.id,
+            animeId,
             entryType: match.entryType,
             seasonNumber: match.season ?? 1,
             watchStatus: "plan_to_watch",
           });
           repo.upsertEpisodeFromMatch({
-            animeId: created.id,
+            animeId,
             groupId: newGroup.id,
             episode: match.episode,
             filePath: match.filePath,
             title: match.episodeTitle,
             season: match.season,
           });
-          repo.updateEpisodeCount(created.id);
+          repo.updateEpisodeCount(animeId);
         }
 
         const animeList = repo.listAnime();
@@ -896,8 +867,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -932,8 +901,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -966,8 +933,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -999,8 +964,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1029,8 +992,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1062,8 +1023,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1096,8 +1055,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1142,8 +1099,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1183,8 +1138,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1233,8 +1186,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1270,8 +1221,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1314,8 +1263,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1367,8 +1314,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1408,8 +1353,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1473,8 +1416,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1512,8 +1453,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1549,8 +1488,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1586,8 +1523,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1624,15 +1559,11 @@ describe("LibraryRepository", () => {
         const repo = new LibraryRepository(db);
         const animeList = repo.upsertAnimeBatch([
           {
-            externalId: "tvdb-12345",
-            sourceDb: "tvdb",
             title: "Jujutsu Kaisen",
             alternativeTitles: ["呪術廻戦"],
             episodeCount: 24,
           },
           {
-            externalId: "tvdb-67890",
-            sourceDb: "tvdb",
             title: "Attack on Titan",
             episodeCount: 87,
           },
@@ -1649,25 +1580,23 @@ describe("LibraryRepository", () => {
       }
     });
 
-    test("updates existing anime with same externalId and sourceDb", () => {
+    test("updates existing anime with same anilistId", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
         const first = repo.upsertAnimeBatch([
           {
-            externalId: "tvdb-12345",
-            sourceDb: "tvdb",
             title: "Jujutsu Kaisen",
             episodeCount: 24,
+            anilistId: "al-jjk",
           },
         ]);
 
         const second = repo.upsertAnimeBatch([
           {
-            externalId: "tvdb-12345",
-            sourceDb: "tvdb",
             title: "Jujutsu Kaisen Season 2",
             episodeCount: 48,
+            anilistId: "al-jjk",
           },
         ]);
 
@@ -1697,20 +1626,14 @@ describe("LibraryRepository", () => {
         const repo = new LibraryRepository(db);
         const result = repo.upsertAnimeBatch([
           {
-            externalId: "tvdb-1",
-            sourceDb: "tvdb",
             title: "First",
             episodeCount: 1,
           },
           {
-            externalId: "tvdb-2",
-            sourceDb: "tvdb",
             title: "Second",
             episodeCount: 2,
           },
           {
-            externalId: "tvdb-3",
-            sourceDb: "tvdb",
             title: "Third",
             episodeCount: 3,
           },
@@ -1731,8 +1654,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1770,8 +1691,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1819,8 +1738,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1861,8 +1778,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
@@ -1935,14 +1850,10 @@ describe("LibraryRepository", () => {
         const repo = new LibraryRepository(db);
 
         const anime1 = repo.upsertAnime({
-          externalId: "tvdb-100",
-          sourceDb: "tvdb",
           title: "Attack on Titan",
           episodeCount: 25,
         });
         const anime2 = repo.upsertAnime({
-          externalId: "tvdb-101",
-          sourceDb: "tvdb",
           title: "Attack on Titan Season 2",
           episodeCount: 12,
         });
@@ -1987,14 +1898,10 @@ describe("LibraryRepository", () => {
         const repo = new LibraryRepository(db);
 
         const anime1 = repo.upsertAnime({
-          externalId: "tvdb-100",
-          sourceDb: "tvdb",
           title: "Evangelion",
           episodeCount: 26,
         });
         const anime2 = repo.upsertAnime({
-          externalId: "tvdb-101",
-          sourceDb: "tvdb",
           title: "Evangelion (Remake)",
           episodeCount: 26,
         });
@@ -2031,8 +1938,6 @@ describe("LibraryRepository", () => {
         const repo = new LibraryRepository(db);
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-100",
-          sourceDb: "tvdb",
           title: "Naruto",
           episodeCount: 220,
         });
@@ -2073,24 +1978,20 @@ describe("LibraryRepository", () => {
         const repo = new LibraryRepository(db);
 
         const anime1 = repo.upsertAnime({
-          externalId: "tvdb-100",
-          sourceDb: "tvdb",
           title: "Attack on Titan",
           episodeCount: 25,
         });
         const anime2 = repo.upsertAnime({
-          externalId: "tvdb-101",
-          sourceDb: "tvdb",
           title: "Attack on Titan Season 2",
           episodeCount: 12,
         });
 
-        repo.createAnimeTrackerMapping({
+        repo.createAnimeSourceMapping({
           animeId: anime1.id,
           source: "anilist",
           externalId: "10871",
         });
-        repo.createAnimeTrackerMapping({
+        repo.createAnimeSourceMapping({
           animeId: anime2.id,
           source: "anilist",
           externalId: "10872",
@@ -2112,24 +2013,20 @@ describe("LibraryRepository", () => {
         const repo = new LibraryRepository(db);
 
         const anime1 = repo.upsertAnime({
-          externalId: "tvdb-100",
-          sourceDb: "tvdb",
           title: "Evangelion",
           episodeCount: 26,
         });
         const anime2 = repo.upsertAnime({
-          externalId: "tvdb-101",
-          sourceDb: "tvdb",
           title: "Evangelion (Remake)",
           episodeCount: 26,
         });
 
-        repo.createAnimeTrackerMapping({
+        repo.createAnimeSourceMapping({
           animeId: anime1.id,
           source: "anilist",
           externalId: "30",
         });
-        repo.createAnimeTrackerMapping({
+        repo.createAnimeSourceMapping({
           animeId: anime2.id,
           source: "anilist",
           externalId: "31",
@@ -2151,13 +2048,11 @@ describe("LibraryRepository", () => {
         const repo = new LibraryRepository(db);
 
         const anime = repo.upsertAnime({
-          externalId: "tvdb-100",
-          sourceDb: "tvdb",
           title: "Naruto",
           episodeCount: 220,
         });
 
-        repo.createAnimeTrackerMapping({
+        repo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "mal",
           externalId: "1735",
@@ -2188,8 +2083,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
@@ -2211,8 +2104,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
@@ -2230,8 +2121,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
@@ -2257,8 +2146,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
@@ -2283,8 +2170,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
@@ -2311,8 +2196,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
@@ -2332,8 +2215,6 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime = repo.upsertAnime({
-          externalId: "tvdb-12345",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
@@ -2355,14 +2236,10 @@ describe("LibraryRepository", () => {
       try {
         const repo = new LibraryRepository(db);
         const anime1 = repo.upsertAnime({
-          externalId: "tvdb-100",
-          sourceDb: "tvdb",
           title: "One Piece",
           episodeCount: 1100,
         });
         repo.upsertAnime({
-          externalId: "tvdb-200",
-          sourceDb: "tvdb",
           title: "Naruto",
           episodeCount: 220,
         });

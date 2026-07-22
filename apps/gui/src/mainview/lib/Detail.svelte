@@ -21,17 +21,6 @@
   let trackerLoading = $state(false);
   let rescanLoading = $state(false);
 
-  function sourceDbLabel(db: string): string {
-    switch (db) {
-      case "tvdb":
-        return "TVDB";
-      case "anidb":
-        return "AniDB";
-      default:
-        return db;
-    }
-  }
-
   async function loadDetail() {
     loading = true;
     error = null;
@@ -198,8 +187,6 @@
               <p class="text-surface-700-300 text-sm mt-1">{detail.anime.alternativeTitles.join(" / ")}</p>
             {/if}
             <div class="flex flex-wrap items-center gap-3 mt-3">
-              <span class="text-sm text-surface-700-300">{sourceDbLabel(detail.anime.sourceDb)}</span>
-              <span class="text-sm text-surface-600-400">·</span>
               <span class="text-sm text-surface-700-300">{detail.anime.totalEpisodes} episodes</span>
               <span class="text-sm text-surface-600-400">·</span>
               <span class="text-sm text-surface-700-300">{totalEpisodes} files on disk</span>

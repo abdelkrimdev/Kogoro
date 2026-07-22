@@ -179,10 +179,13 @@ describe("SyncHandlers", () => {
       await setup.credentialStore.setCredential("anilist", "test-token");
 
       const anime = setup.aggregate.library.upsertAnime({
-        externalId: "tvdb-1",
-        sourceDb: "tvdb",
         title: "Frieren",
         episodeCount: 28,
+      });
+      setup.aggregate.library.createAnimeSourceMapping({
+        animeId: anime.id,
+        source: "tvdb",
+        externalId: "tvdb-1",
       });
 
       const group = setup.aggregate.library.upsertEpisodeGroup({
@@ -242,10 +245,13 @@ describe("SyncHandlers", () => {
       await setup.credentialStore.setCredential("anilist", "test-token");
 
       const anime = setup.aggregate.library.upsertAnime({
-        externalId: "tvdb-2",
-        sourceDb: "tvdb",
         title: "Mushishi",
         episodeCount: 26,
+      });
+      setup.aggregate.library.createAnimeSourceMapping({
+        animeId: anime.id,
+        source: "tvdb",
+        externalId: "tvdb-2",
       });
 
       const group = setup.aggregate.library.upsertEpisodeGroup({
@@ -350,10 +356,13 @@ describe("SyncHandlers", () => {
       await setup.credentialStore.setCredential("anilist", "test-token");
 
       const anime = setup.aggregate.library.upsertAnime({
-        externalId: "tracker-tl-1",
-        sourceDb: "anilist",
         title: "Attack on Titan",
         episodeCount: 25,
+      });
+      setup.aggregate.library.createAnimeSourceMapping({
+        animeId: anime.id,
+        source: "anilist",
+        externalId: "tracker-tl-1",
       });
 
       const group = setup.aggregate.library.upsertEpisodeGroup({

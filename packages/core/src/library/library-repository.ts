@@ -5,7 +5,6 @@ import {
   anilistCache,
   anime,
   animeSourceMappings,
-  animeTrackerMappings,
   episodeGroups,
   episodes,
   franchises,
@@ -14,8 +13,6 @@ import {
 
 export interface LibraryAnime {
   id: number;
-  externalId: string;
-  sourceDb: string;
   title: string;
   alternativeTitles?: string[];
   episodeCount: number;
@@ -67,7 +64,7 @@ export interface Franchise {
   createdAt: string;
 }
 
-export interface AnimeTrackerMapping {
+export interface AnimeSourceMapping {
   id: number;
   animeId: number;
   source: string;
@@ -90,7 +87,7 @@ type LibrarySchema = {
   episodes: typeof episodes;
   groupTrackerMappings: typeof groupTrackerMappings;
   franchises: typeof franchises;
-  animeTrackerMappings: typeof animeTrackerMappings;
+  animeSourceMappings: typeof animeSourceMappings;
   anilistCache: typeof anilistCache;
 };
 type LibraryDb = BaseSQLiteDatabase<"sync", void, LibrarySchema>;
@@ -102,15 +99,18 @@ export class LibraryRepository {
     animeData: Omit<LibraryAnime, "id" | "lastSynced"> & { lastSynced?: string },
   ): LibraryAnime {
     const now = animeData.lastSynced ?? new Date().toISOString();
-    const existing = this.db
-      .select({ id: anime.id })
-      .from(anime)
-      .where(
-        and(eq(anime.externalId, animeData.externalId), eq(anime.sourceDb, animeData.sourceDb)),
-      )
-      .get();
 
-    if (existing) {
+    let existingId: number | null = null;
+    if (animeData.anilistId) {
+      const existing = this.db
+        .select({ id: anime.id })
+        .from(anime)
+        .where(eq(anime.anilistId, animeData.anilistId))
+        .get();
+      existingId = existing?.id ?? null;
+    }
+
+    if (existingId) {
       this.db
         .update(anime)
         .set({
@@ -122,16 +122,14 @@ export class LibraryRepository {
           libraryState: animeData.libraryState ?? "not_on_disk",
           lastSynced: now,
         })
-        .where(eq(anime.id, existing.id))
+        .where(eq(anime.id, existingId))
         .run();
-      return this.getAnime(existing.id) as LibraryAnime;
+      return this.getAnime(existingId) as LibraryAnime;
     }
 
     const result = this.db
       .insert(anime)
       .values({
-        externalId: animeData.externalId,
-        sourceDb: animeData.sourceDb,
         title: animeData.title,
         alternativeTitles: animeData.alternativeTitles ?? null,
         episodeCount: animeData.episodeCount,
@@ -139,6 +137,7 @@ export class LibraryRepository {
         genres: animeData.genres ?? null,
         libraryState: animeData.libraryState ?? "not_on_disk",
         lastSynced: now,
+        anilistId: animeData.anilistId ?? null,
       })
       .returning()
       .get();
@@ -151,21 +150,50 @@ export class LibraryRepository {
     return row ? this.rowToAnime(row) : null;
   }
 
-  findAnime(externalId: string, sourceDb: string): LibraryAnime | null {
-    const row = this.db
-      .select()
-      .from(anime)
-      .where(and(eq(anime.externalId, externalId), eq(anime.sourceDb, sourceDb)))
-      .get();
-    return row ? this.rowToAnime(row) : null;
+  updateAnime(
+    id: number,
+    fields: {
+      title?: string;
+      alternativeTitles?: string[];
+      episodeCount?: number;
+      coverArtPath?: string;
+      genres?: string[];
+      libraryState?: string;
+    },
+  ): void {
+    this.db
+      .update(anime)
+      .set({
+        ...(fields.title !== undefined && { title: fields.title }),
+        ...(fields.alternativeTitles !== undefined && {
+          alternativeTitles: fields.alternativeTitles ?? null,
+        }),
+        ...(fields.episodeCount !== undefined && { episodeCount: fields.episodeCount }),
+        ...(fields.coverArtPath !== undefined && { coverArtPath: fields.coverArtPath ?? null }),
+        ...(fields.genres !== undefined && { genres: fields.genres ?? null }),
+        ...(fields.libraryState !== undefined && { libraryState: fields.libraryState }),
+      })
+      .where(eq(anime.id, id))
+      .run();
   }
 
-  findAnimeByTitle(title: string, sourceDb: string): LibraryAnime | null {
-    const row = this.db
-      .select()
-      .from(anime)
-      .where(and(eq(anime.title, title), eq(anime.sourceDb, sourceDb)))
+  findAnime(externalId: string, sourceDb: string): LibraryAnime | null {
+    const mapping = this.db
+      .select({ animeId: animeSourceMappings.animeId })
+      .from(animeSourceMappings)
+      .where(
+        and(
+          eq(animeSourceMappings.externalId, externalId),
+          eq(animeSourceMappings.source, sourceDb),
+        ),
+      )
       .get();
+    if (!mapping) return null;
+    return this.getAnime(mapping.animeId);
+  }
+
+  findAnimeByTitle(title: string): LibraryAnime | null {
+    const row = this.db.select().from(anime).where(eq(anime.title, title)).get();
     return row ? this.rowToAnime(row) : null;
   }
 
@@ -199,8 +227,6 @@ export class LibraryRepository {
     const rows = this.db
       .select({
         id: anime.id,
-        externalId: anime.externalId,
-        sourceDb: anime.sourceDb,
         title: anime.title,
         alternativeTitles: anime.alternativeTitles,
         episodeCount: anime.episodeCount,
@@ -350,13 +376,14 @@ export class LibraryRepository {
     this.db.delete(groupTrackerMappings).run();
     this.db.delete(episodes).run();
     this.db.delete(episodeGroups).run();
+    this.db.delete(animeSourceMappings).run();
     this.db.delete(anime).run();
   }
 
   getAllEpisodesWithAnime(): Array<{
     episodeId: number;
-    animeExternalId: string;
-    animeSourceDb: string;
+    animeId: number;
+    anilistId: string | null;
     season: number | null;
     episodeNumber: number;
     watched: boolean;
@@ -364,8 +391,8 @@ export class LibraryRepository {
     return this.db
       .select({
         episodeId: episodes.id,
-        animeExternalId: anime.externalId,
-        animeSourceDb: anime.sourceDb,
+        animeId: anime.id,
+        anilistId: anime.anilistId,
         season: episodes.season,
         episodeNumber: episodes.episodeNumber,
         watched: episodes.watched,
@@ -422,6 +449,8 @@ export class LibraryRepository {
   }
 
   exportMatches(): Array<{
+    anilistId: string | null;
+    sourceDb: string;
     animeId: string;
     animeTitle: string;
     entryType: EntryType;
@@ -429,13 +458,12 @@ export class LibraryRepository {
     filePath: string;
     episodeTitle: string | null;
     season: number | null;
-    sourceDb: string;
     groupId: number;
   }> {
     const rows = this.db
       .select({
-        externalId: anime.externalId,
-        sourceDb: anime.sourceDb,
+        animeId: anime.id,
+        anilistId: anime.anilistId,
         title: anime.title,
         entryType: episodeGroups.entryType,
         groupId: episodes.groupId,
@@ -443,22 +471,38 @@ export class LibraryRepository {
         filePath: episodes.filePath,
         episodeTitle: episodes.title,
         season: episodes.season,
+        sourceExternalId: animeSourceMappings.externalId,
+        sourceDb: animeSourceMappings.source,
       })
       .from(anime)
       .innerJoin(episodes, eq(episodes.animeId, anime.id))
       .innerJoin(episodeGroups, eq(episodeGroups.id, episodes.groupId))
+      .leftJoin(
+        animeSourceMappings,
+        and(
+          eq(animeSourceMappings.animeId, anime.id),
+          eq(
+            animeSourceMappings.id,
+            this.db
+              .select({ id: sql<number>`min(${animeSourceMappings.id})` })
+              .from(animeSourceMappings)
+              .where(eq(animeSourceMappings.animeId, anime.id)),
+          ),
+        ),
+      )
       .orderBy(anime.title, episodes.season, episodes.episodeNumber)
       .all();
 
     return rows.map((row) => ({
-      animeId: row.externalId,
+      anilistId: row.anilistId ?? null,
+      sourceDb: row.sourceDb ?? "unknown",
+      animeId: row.sourceExternalId ?? String(row.animeId),
       animeTitle: row.title,
       entryType: row.entryType as EntryType,
       episode: row.episodeNumber,
       filePath: row.filePath,
       episodeTitle: row.episodeTitle ?? null,
       season: row.season ?? null,
-      sourceDb: row.sourceDb,
       groupId: row.groupId,
     }));
   }
@@ -531,42 +575,7 @@ export class LibraryRepository {
       });
     }
 
-    const pendingTrackerMappings = this.db
-      .select()
-      .from(animeTrackerMappings)
-      .where(eq(animeTrackerMappings.animeId, pendingAnimeId))
-      .all();
-    for (const mapping of pendingTrackerMappings) {
-      this.db
-        .insert(animeTrackerMappings)
-        .values({
-          animeId: canonicalAnimeId,
-          source: mapping.source,
-          externalId: mapping.externalId,
-        })
-        .onConflictDoNothing()
-        .run();
-    }
-
     this.deleteAnime(pendingAnimeId);
-  }
-
-  getEpisodesWithSourceDb(): Array<{
-    id: number;
-    animeId: number;
-    filePath: string;
-    sourceDb: string;
-  }> {
-    return this.db
-      .select({
-        id: episodes.id,
-        animeId: episodes.animeId,
-        filePath: episodes.filePath,
-        sourceDb: anime.sourceDb,
-      })
-      .from(episodes)
-      .innerJoin(anime, eq(episodes.animeId, anime.id))
-      .all();
   }
 
   deleteEpisodesByIds(ids: number[]): void {
@@ -840,39 +849,14 @@ export class LibraryRepository {
     items: Array<Omit<LibraryAnime, "id" | "lastSynced"> & { lastSynced?: string }>,
   ): LibraryAnime[] {
     if (items.length === 0) return [];
-    const now = new Date().toISOString();
+    const results: LibraryAnime[] = [];
 
-    const rows = this.db
-      .insert(anime)
-      .values(
-        items.map((item) => ({
-          externalId: item.externalId,
-          sourceDb: item.sourceDb,
-          title: item.title,
-          alternativeTitles: item.alternativeTitles ?? null,
-          episodeCount: item.episodeCount,
-          coverArtPath: item.coverArtPath ?? null,
-          genres: item.genres ?? null,
-          libraryState: item.libraryState ?? "not_on_disk",
-          lastSynced: item.lastSynced ?? now,
-        })),
-      )
-      .onConflictDoUpdate({
-        target: [anime.externalId, anime.sourceDb],
-        set: {
-          title: sql.raw("excluded.title"),
-          alternativeTitles: sql.raw("excluded.alternative_titles"),
-          episodeCount: sql.raw("excluded.episode_count"),
-          coverArtPath: sql.raw("excluded.cover_art_path"),
-          genres: sql.raw("excluded.genres"),
-          libraryState: sql.raw("excluded.library_state"),
-          lastSynced: sql.raw("excluded.last_synced"),
-        },
-      })
-      .returning()
-      .all();
+    for (const item of items) {
+      const result = this.upsertAnime(item);
+      results.push(result);
+    }
 
-    return rows.map(this.rowToAnime);
+    return results;
   }
 
   upsertEpisodeGroupBatch(
@@ -973,37 +957,52 @@ export class LibraryRepository {
     return rows.map(this.rowToFranchise);
   }
 
-  // Anime-tracker mapping operations
+  // Anime source mapping operations
 
-  createAnimeTrackerMapping(data: {
-    animeId: number;
-    source: string;
-    externalId: string;
-  }): AnimeTrackerMapping {
-    const result = this.db
-      .insert(animeTrackerMappings)
-      .values({
-        animeId: data.animeId,
-        source: data.source,
-        externalId: data.externalId,
-      })
-      .returning()
-      .get();
-    return this.rowToAnimeTrackerMapping(result);
-  }
-
-  findAnimeByTrackerMapping(source: string, externalId: string): AnimeTrackerMapping | null {
+  findAnimeSourceMapping(source: string, externalId: string): AnimeSourceMapping | null {
     const row = this.db
       .select()
-      .from(animeTrackerMappings)
+      .from(animeSourceMappings)
       .where(
-        and(
-          eq(animeTrackerMappings.source, source),
-          eq(animeTrackerMappings.externalId, externalId),
-        ),
+        and(eq(animeSourceMappings.source, source), eq(animeSourceMappings.externalId, externalId)),
       )
       .get();
-    return row ? this.rowToAnimeTrackerMapping(row) : null;
+    return row ? this.rowToAnimeSourceMapping(row) : null;
+  }
+
+  getAnimeSourceMappingsByAnimeId(animeId: number): AnimeSourceMapping[] {
+    const rows = this.db
+      .select()
+      .from(animeSourceMappings)
+      .where(eq(animeSourceMappings.animeId, animeId))
+      .all();
+    return rows.map(this.rowToAnimeSourceMapping);
+  }
+
+  hasAnimeSourceMapping(animeId: number, source: string): boolean {
+    return (
+      this.db
+        .select({ id: animeSourceMappings.id })
+        .from(animeSourceMappings)
+        .where(
+          and(eq(animeSourceMappings.animeId, animeId), eq(animeSourceMappings.source, source)),
+        )
+        .get() !== undefined
+    );
+  }
+
+  getAnimeSourceMapping(animeId: number, source: string): AnimeSourceMapping | null {
+    const row = this.db
+      .select()
+      .from(animeSourceMappings)
+      .where(and(eq(animeSourceMappings.animeId, animeId), eq(animeSourceMappings.source, source)))
+      .get();
+    return row ? this.rowToAnimeSourceMapping(row) : null;
+  }
+
+  getAllAnimeSourceMappings(): AnimeSourceMapping[] {
+    const rows = this.db.select().from(animeSourceMappings).all();
+    return rows.map(this.rowToAnimeSourceMapping);
   }
 
   // AniList cache operations
@@ -1089,16 +1088,16 @@ export class LibraryRepository {
     return result;
   }
 
-  // Known AniList IDs from anime tracker mappings
+  // Known AniList IDs from anime source mappings
 
   getAnimeAnilistIds(): Map<string, number[]> {
     const rows = this.db
       .select({
-        anilistId: animeTrackerMappings.externalId,
-        animeId: animeTrackerMappings.animeId,
+        anilistId: animeSourceMappings.externalId,
+        animeId: animeSourceMappings.animeId,
       })
-      .from(animeTrackerMappings)
-      .where(eq(animeTrackerMappings.source, "anilist"))
+      .from(animeSourceMappings)
+      .where(eq(animeSourceMappings.source, "anilist"))
       .all();
 
     const result = new Map<string, number[]>();
@@ -1129,44 +1128,15 @@ export class LibraryRepository {
       .where(
         and(
           isNull(anime.franchiseId),
-          sql`${anime.id} NOT IN (SELECT anime_id FROM anime_tracker_mappings)`,
+          sql`${anime.id} NOT IN (SELECT anime_id FROM anime_source_mappings)`,
         ),
       )
       .all();
     return rows.map((row) => row.id);
   }
 
-  hasAnimeTrackerMapping(animeId: number, source: string): boolean {
-    const row = this.db
-      .select({ id: animeTrackerMappings.id })
-      .from(animeTrackerMappings)
-      .where(
-        and(eq(animeTrackerMappings.animeId, animeId), eq(animeTrackerMappings.source, source)),
-      )
-      .get();
-    return row !== undefined;
-  }
-
-  getAnimeTrackerMapping(animeId: number, source: string): AnimeTrackerMapping | null {
-    const row = this.db
-      .select()
-      .from(animeTrackerMappings)
-      .where(
-        and(eq(animeTrackerMappings.animeId, animeId), eq(animeTrackerMappings.source, source)),
-      )
-      .get();
-    return row ? this.rowToAnimeTrackerMapping(row) : null;
-  }
-
-  getAllAnimeTrackerMappings(): AnimeTrackerMapping[] {
-    const rows = this.db.select().from(animeTrackerMappings).all();
-    return rows.map((row) => this.rowToAnimeTrackerMapping(row));
-  }
-
   private rowToAnime(row: {
     id: number;
-    externalId: string;
-    sourceDb: string;
     title: string;
     alternativeTitles: string[] | null;
     episodeCount: number;
@@ -1179,8 +1149,6 @@ export class LibraryRepository {
   }): LibraryAnime {
     return {
       id: row.id,
-      externalId: row.externalId,
-      sourceDb: row.sourceDb,
       title: row.title,
       alternativeTitles: row.alternativeTitles ?? undefined,
       episodeCount: row.episodeCount,
@@ -1271,12 +1239,12 @@ export class LibraryRepository {
     };
   }
 
-  private rowToAnimeTrackerMapping(row: {
+  private rowToAnimeSourceMapping(row: {
     id: number;
     animeId: number;
     source: string;
     externalId: string;
-  }): AnimeTrackerMapping {
+  }): AnimeSourceMapping {
     return {
       id: row.id,
       animeId: row.animeId,

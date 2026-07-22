@@ -68,6 +68,8 @@ export interface ScanMergeEntry {
     filePath: string;
     title?: string;
   }>;
+  externalId?: string;
+  source?: string;
 }
 
 export interface ImportMergeEntry {
@@ -141,12 +143,18 @@ function findAnimeByTitleMatch(
 }
 
 function groupCompositeKey(
-  animeExternalId: string,
-  sourceDb: string,
+  anilistId: string,
   entryType: string,
   seasonNumber: number | undefined,
 ): string {
-  return `${animeExternalId}:${sourceDb}:${entryType}:${seasonNumber ?? "null"}`;
+  return `${anilistId}:${entryType}:${seasonNumber ?? "null"}`;
+}
+
+interface TrackerDataEntry {
+  source: TrackerSource;
+  externalId: string;
+  entryType: EntryType;
+  seasonNumber: number | null;
 }
 
 export interface AnimeAggregateDeps {
@@ -380,7 +388,10 @@ export class AnimeAggregate {
     let animeList = this.deps.library.listAnime();
 
     if (filters?.sourceDb) {
-      animeList = animeList.filter((a) => a.sourceDb === filters.sourceDb);
+      const sourceDb = filters.sourceDb;
+      animeList = animeList.filter(
+        (a) => this.deps.library.getAnimeSourceMapping(a.id, sourceDb) !== null,
+      );
     }
     if (filters?.franchiseId !== undefined) {
       animeList = animeList.filter((a) => a.franchiseId === filters.franchiseId);
@@ -583,22 +594,52 @@ export class AnimeAggregate {
     }));
   }
 
-  rebuildFromMatches(
+  async rebuildFromMatches(
     matches: MatchEntry[],
     onBeforeWipe?: (snapshot: {
       groupByCompositeKey: Map<string, number>;
       episodeByCompositeKey: Map<string, number>;
     }) => void,
-  ): void {
+  ): Promise<void> {
+    const anilistIdByMatchKey = new Map<string, string>();
+    for (const match of matches) {
+      const matchKey = `${match.animeId}:${match.sourceDb}`;
+      if (anilistIdByMatchKey.has(matchKey)) continue;
+
+      const existingAnime = this.deps.library.findAnime(match.animeId, match.sourceDb);
+      if (existingAnime?.anilistId) {
+        anilistIdByMatchKey.set(matchKey, existingAnime.anilistId);
+        continue;
+      }
+
+      const provider = await this.ensureEnrichmentProvider();
+      const resolved = await this.resolveAnilistId(match.animeTitle, provider);
+      if (resolved) {
+        anilistIdByMatchKey.set(matchKey, resolved);
+      }
+    }
+
     this.deps.library.transaction((tx) => {
       const oldState = tx.getAllEpisodesWithAnime();
 
       const oldEpisodeKey = new Map<string, number>();
       const oldWatched = new Map<number, boolean>();
       const oldNotes = new Map<number, string | undefined>();
+
+      const allSourceMappings = tx.getAllAnimeSourceMappings();
+      const externalIdByAnimeId = new Map<number, string>();
+      for (const mapping of allSourceMappings) {
+        if (!externalIdByAnimeId.has(mapping.animeId)) {
+          externalIdByAnimeId.set(mapping.animeId, mapping.externalId);
+        }
+      }
+
       for (const row of oldState) {
-        const key = `${row.animeExternalId}:${row.animeSourceDb}:${row.season ?? 1}:${row.episodeNumber}`;
-        oldEpisodeKey.set(key, row.episodeId);
+        const identityKey = row.anilistId ?? externalIdByAnimeId.get(row.animeId);
+        const key = identityKey ? `${identityKey}:${row.season ?? 1}:${row.episodeNumber}` : null;
+        if (key) {
+          oldEpisodeKey.set(key, row.episodeId);
+        }
         oldWatched.set(row.episodeId, row.watched);
         const ep = tx.getEpisode(row.episodeId);
         if (ep) {
@@ -607,9 +648,9 @@ export class AnimeAggregate {
       }
 
       const oldGroups = tx.getAllEpisodeGroups();
-      const oldAnimeById = new Map<number, { externalId: string; sourceDb: string }>();
+      const oldAnimeById = new Map<number, { anilistId: string | null }>();
       for (const a of tx.listAnime()) {
-        oldAnimeById.set(a.id, { externalId: a.externalId, sourceDb: a.sourceDb });
+        oldAnimeById.set(a.id, { anilistId: a.anilistId ?? null });
       }
 
       const oldGroupById = new Map<number, EpisodeGroup>();
@@ -623,16 +664,13 @@ export class AnimeAggregate {
         }
       >();
       const groupByCompositeKey = new Map<string, number>();
+
       for (const group of oldGroups) {
         oldGroupById.set(group.id, group);
         const animeInfo = oldAnimeById.get(group.animeId);
-        if (!animeInfo) continue;
-        const key = groupCompositeKey(
-          animeInfo.externalId,
-          animeInfo.sourceDb,
-          group.entryType,
-          group.seasonNumber,
-        );
+        const identityKey = animeInfo?.anilistId ?? externalIdByAnimeId.get(group.animeId);
+        if (!identityKey) continue;
+        const key = groupCompositeKey(identityKey, group.entryType, group.seasonNumber);
         groupStateByKey.set(key, {
           watchStatus: group.watchStatus,
           synopsis: group.synopsis,
@@ -647,13 +685,9 @@ export class AnimeAggregate {
         const group = oldGroupById.get(mapping.groupId);
         if (!group) continue;
         const animeInfo = oldAnimeById.get(group.animeId);
-        if (!animeInfo) continue;
-        const key = groupCompositeKey(
-          animeInfo.externalId,
-          animeInfo.sourceDb,
-          group.entryType,
-          group.seasonNumber,
-        );
+        const identityKey = animeInfo?.anilistId ?? externalIdByAnimeId.get(group.animeId);
+        if (!identityKey) continue;
+        const key = groupCompositeKey(identityKey, group.entryType, group.seasonNumber);
         const entry = mappingsByKey.get(key);
         const mapped: GroupTrackerMapping = {
           groupId: 0,
@@ -671,17 +705,14 @@ export class AnimeAggregate {
         onBeforeWipe({ groupByCompositeKey, episodeByCompositeKey: oldEpisodeKey });
       }
 
-      const oldAnimeTrackerMappings = tx.getAllAnimeTrackerMappings();
-      const mappingByCompositeKey = new Map<string, typeof oldAnimeTrackerMappings>();
-      for (const m of oldAnimeTrackerMappings) {
-        const anime = oldAnimeById.get(m.animeId);
-        if (!anime) continue;
-        const key = `${anime.externalId}:${anime.sourceDb}`;
-        const list = mappingByCompositeKey.get(key);
+      const oldSourceMappings = tx.getAllAnimeSourceMappings();
+      const sourceMappingByAnimeId = new Map<number, typeof oldSourceMappings>();
+      for (const m of oldSourceMappings) {
+        const list = sourceMappingByAnimeId.get(m.animeId);
         if (list) {
           list.push(m);
         } else {
-          mappingByCompositeKey.set(key, [m]);
+          sourceMappingByAnimeId.set(m.animeId, [m]);
         }
       }
 
@@ -689,20 +720,37 @@ export class AnimeAggregate {
 
       const now = new Date().toISOString();
       const animeIds = new Set<number>();
-      const externalIdToAnimeId = new Map<string, number>();
+      const anilistIdToAnimeId = new Map<string, number>();
 
       const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
+      const animeByMatchKey = new Map<string, number>();
 
       for (const match of matches) {
-        const libraryAnime = tx.upsertAnime({
+        const matchKey = `${match.animeId}:${match.sourceDb}`;
+        const resolvedAnilistId = anilistIdByMatchKey.get(matchKey);
+
+        let animeId = resolvedAnilistId
+          ? anilistIdToAnimeId.get(resolvedAnilistId)
+          : animeByMatchKey.get(matchKey);
+        if (!animeId) {
+          const libraryAnime = tx.upsertAnime({
+            title: match.animeTitle,
+            episodeCount: 0,
+            lastSynced: now,
+            anilistId: resolvedAnilistId,
+          });
+          animeId = libraryAnime.id;
+          if (resolvedAnilistId) {
+            anilistIdToAnimeId.set(resolvedAnilistId, animeId);
+          }
+        }
+
+        tx.createAnimeSourceMapping({
+          animeId,
+          source: match.sourceDb,
           externalId: match.animeId,
-          sourceDb: match.sourceDb,
-          title: match.animeTitle,
-          episodeCount: 0,
-          lastSynced: now,
         });
-        const animeId = libraryAnime.id;
-        externalIdToAnimeId.set(`${match.animeId}:${match.sourceDb}`, animeId);
+        animeByMatchKey.set(matchKey, animeId);
 
         animeIds.add(animeId);
 
@@ -712,12 +760,8 @@ export class AnimeAggregate {
 
           let groupEntry = groupKeyToGroup.get(groupKey);
           if (!groupEntry) {
-            const compositeKey = groupCompositeKey(
-              match.animeId,
-              match.sourceDb,
-              match.entryType,
-              match.season ?? 1,
-            );
+            const identityKey = resolvedAnilistId ?? match.animeId;
+            const compositeKey = groupCompositeKey(identityKey, match.entryType, match.season ?? 1);
             const savedState = groupStateByKey.get(compositeKey);
 
             const group = tx.upsertEpisodeGroup({
@@ -754,8 +798,15 @@ export class AnimeAggregate {
             season: match.season,
           });
 
-          const oldKey = `${match.animeId}:${match.sourceDb}:${match.season ?? 1}:${match.episode}`;
-          const oldEpId = oldEpisodeKey.get(oldKey);
+          const identityKey = resolvedAnilistId ?? match.animeId;
+          const oldKey = `${identityKey}:${match.season ?? 1}:${match.episode}`;
+          let oldEpId = oldEpisodeKey.get(oldKey);
+
+          if (oldEpId === undefined && resolvedAnilistId) {
+            const fallbackKey = `${match.animeId}:${match.season ?? 1}:${match.episode}`;
+            oldEpId = oldEpisodeKey.get(fallbackKey);
+          }
+
           if (oldEpId !== undefined) {
             const oldWatchedValue = oldWatched.get(oldEpId);
             if (oldWatchedValue !== undefined) {
@@ -773,11 +824,13 @@ export class AnimeAggregate {
         tx.updateEpisodeCount(id);
       }
 
-      for (const [compositeKey, mappings] of mappingByCompositeKey) {
-        const newAnimeId = externalIdToAnimeId.get(compositeKey);
+      for (const [oldAnimeId, mappings] of sourceMappingByAnimeId) {
+        const animeInfo = oldAnimeById.get(oldAnimeId);
+        if (!animeInfo?.anilistId) continue;
+        const newAnimeId = anilistIdToAnimeId.get(animeInfo.anilistId);
         if (newAnimeId === undefined) continue;
         for (const mapping of mappings) {
-          tx.createAnimeTrackerMapping({
+          tx.createAnimeSourceMapping({
             animeId: newAnimeId,
             source: mapping.source,
             externalId: mapping.externalId,
@@ -791,7 +844,7 @@ export class AnimeAggregate {
         const anime = tx.getAnime(id);
         if (!anime || anime.franchiseId) continue;
 
-        const mapping = tx.getAnimeTrackerMapping(id, "anilist");
+        const mapping = tx.getAnimeSourceMapping(id, "anilist");
         if (!mapping) continue;
 
         const franchise = tx.findFranchiseByAnilistId(mapping.externalId);
@@ -803,18 +856,125 @@ export class AnimeAggregate {
   }
 
   async rebuild(sourceDb?: string): Promise<void> {
-    this.rebuildBase(sourceDb);
+    await this.rebuildBase(sourceDb);
     const unenrichedIds = this.deps.library.getUnenrichedAnimeIds();
     if (unenrichedIds.length > 0) {
       await this.enrichAnime(unenrichedIds);
     }
   }
 
-  async rebuildWithTrackers(sourceDb?: string): Promise<void> {
-    this.rebuildBase(sourceDb);
+  async rebuildWithTrackers(
+    trackers: Array<{ plugin: TrackerPlugin; source: TrackerSource }>,
+    sourceDb?: string,
+  ): Promise<void> {
+    const oldLocalStatuses = new Map<string, string>();
+    const oldTrackerData = new Map<string, TrackerDataEntry[]>();
+
+    this.deps.library.transaction((tx) => {
+      for (const anime of tx.listAnime()) {
+        if (!anime.anilistId) continue;
+        const groups = tx.getEpisodeGroupsByAnimeId(anime.id);
+        for (const group of groups) {
+          if (group.watchStatus !== "plan_to_watch") {
+            oldLocalStatuses.set(
+              `${anime.anilistId}:${group.entryType}:${group.seasonNumber ?? 1}`,
+              group.watchStatus,
+            );
+          }
+          const mappings = tx.getTrackerMappingsByGroupId(group.id);
+          for (const mapping of mappings) {
+            const existing = oldTrackerData.get(anime.anilistId);
+            const entry: {
+              source: TrackerSource;
+              externalId: string;
+              entryType: EntryType;
+              seasonNumber: number | null;
+            } = {
+              source: mapping.source as TrackerSource,
+              externalId: mapping.externalId,
+              entryType: group.entryType,
+              seasonNumber: group.seasonNumber ?? null,
+            };
+            if (existing) {
+              existing.push(entry);
+            } else {
+              oldTrackerData.set(anime.anilistId, [entry]);
+            }
+          }
+        }
+      }
+    });
+
+    await this.rebuildBase(sourceDb);
+
+    for (const { plugin, source } of trackers) {
+      await this.importFromTracker(plugin, source);
+    }
+
+    this.reconcileAfterReimport(oldLocalStatuses, oldTrackerData);
   }
 
-  private rebuildBase(sourceDb?: string): void {
+  private reconcileAfterReimport(
+    oldLocalStatuses: Map<string, string>,
+    oldTrackerData: Map<string, TrackerDataEntry[]>,
+  ): void {
+    const statusesByAnilist = new Map<string, Map<string, string>>();
+    for (const [compositeKey, status] of oldLocalStatuses) {
+      const firstColon = compositeKey.indexOf(":");
+      if (firstColon === -1) continue;
+      const anilistId = compositeKey.slice(0, firstColon);
+      const groupKey = compositeKey.slice(firstColon + 1);
+      let groupMap = statusesByAnilist.get(anilistId);
+      if (!groupMap) {
+        groupMap = new Map();
+        statusesByAnilist.set(anilistId, groupMap);
+      }
+      groupMap.set(groupKey, status);
+    }
+
+    for (const [anilistId, groupStatuses] of statusesByAnilist) {
+      const anime = this.deps.library.findAnimeByAnilistId(anilistId);
+      if (!anime) continue;
+
+      const groups = this.deps.library.getEpisodeGroupsByAnimeId(anime.id);
+      for (const group of groups) {
+        const groupKey = `${group.entryType}:${group.seasonNumber ?? 1}`;
+        const savedStatus = groupStatuses.get(groupKey);
+        if (savedStatus && group.watchStatus !== savedStatus) {
+          this.deps.library.updateEpisodeGroupStatus(group.id, savedStatus as LocalWatchStatus);
+        }
+      }
+    }
+
+    for (const [anilistId, trackerEntries] of oldTrackerData) {
+      const anime = this.deps.library.findAnimeByAnilistId(anilistId);
+      if (!anime) continue;
+
+      const groups = this.deps.library.getEpisodeGroupsByAnimeId(anime.id);
+      for (const trackerEntry of trackerEntries) {
+        const targetGroup = groups.find(
+          (g) =>
+            g.entryType === trackerEntry.entryType &&
+            (g.seasonNumber ?? 1) === (trackerEntry.seasonNumber ?? 1),
+        );
+        if (!targetGroup) continue;
+
+        const existingMapping = this.deps.library.getTrackerMapping(
+          targetGroup.id,
+          trackerEntry.source,
+        );
+        if (!existingMapping) {
+          this.deps.library.upsertGroupTrackerMapping({
+            groupId: targetGroup.id,
+            source: trackerEntry.source,
+            externalId: trackerEntry.externalId,
+          });
+        }
+      }
+    }
+  }
+
+  private async rebuildBase(sourceDb?: string): Promise<void> {
     const matches = this.getFilteredMatches(sourceDb);
     let oldEntitySnapshot:
       | {
@@ -823,7 +983,7 @@ export class AnimeAggregate {
         }
       | undefined;
 
-    this.rebuildFromMatches(matches, (snapshot) => {
+    await this.rebuildFromMatches(matches, (snapshot) => {
       oldEntitySnapshot = snapshot;
     });
 
@@ -860,6 +1020,8 @@ export class AnimeAggregate {
             filePath: m.filePath,
             title: m.title ?? undefined,
           })),
+        externalId: first.animeId,
+        source: first.sourceDb,
       });
     }
 
@@ -900,7 +1062,7 @@ export class AnimeAggregate {
     }
 
     for (const [anilistId, entries] of entriesByAnilistId) {
-      const { animeId, isNew } = this.findOrCreateAnimeForMerge(anilistId, entries, input.source);
+      const { animeId, isNew } = this.findOrCreateAnimeForMerge(anilistId, entries);
       allAnimeIds.push(animeId);
       if (isNew) newAnimeIds.push(animeId);
 
@@ -908,12 +1070,11 @@ export class AnimeAggregate {
 
       this.processMergeEntries(animeId, entries, groupKeyToGroup);
       this.deps.library.updateEpisodeCount(animeId);
+      this.createSourceMappingsFromEntries(animeId, entries);
     }
 
     for (const [title, entries] of pendingEntriesByTitle) {
       const anime = this.deps.library.upsertAnime({
-        externalId: `merge-${title}`,
-        sourceDb: input.source,
         title,
         episodeCount: entries.reduce((sum, e) => {
           if (e.kind === "scan") return sum + e.episodes.length;
@@ -926,6 +1087,7 @@ export class AnimeAggregate {
       const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
       this.processMergeEntries(anime.id, entries, groupKeyToGroup);
       this.deps.library.updateEpisodeCount(anime.id);
+      this.createSourceMappingsFromEntries(anime.id, entries);
     }
 
     for (const animeId of allAnimeIds) {
@@ -994,7 +1156,6 @@ export class AnimeAggregate {
   private findOrCreateAnimeForMerge(
     anilistId: string,
     entries: MergeEntry[],
-    source: string,
   ): { animeId: number; isNew: boolean } {
     const existingAnime = this.deps.library.findAnimeByAnilistId(anilistId);
     if (existingAnime) {
@@ -1010,15 +1171,24 @@ export class AnimeAggregate {
     }, 0);
 
     const anime = this.deps.library.upsertAnime({
-      externalId: `merge-${anilistId}`,
-      sourceDb: source,
       title: firstEntry.title,
       episodeCount: totalEpisodes,
+      anilistId,
     });
 
-    this.deps.library.updateAnimeAnilistId(anime.id, anilistId);
-
     return { animeId: anime.id, isNew: true };
+  }
+
+  private createSourceMappingsFromEntries(animeId: number, entries: MergeEntry[]): void {
+    for (const entry of entries) {
+      if (entry.kind === "scan" && entry.externalId && entry.source) {
+        this.deps.library.createAnimeSourceMapping({
+          animeId,
+          source: entry.source,
+          externalId: entry.externalId,
+        });
+      }
+    }
   }
 
   private getOrCreateGroup(
@@ -1127,18 +1297,7 @@ export class AnimeAggregate {
   }
 
   updateCoverArtPath(animeId: number, coverArtPath: string): void {
-    const existing = this.deps.library.getAnime(animeId);
-    if (!existing) return;
-    this.deps.library.upsertAnime({
-      externalId: existing.externalId,
-      sourceDb: existing.sourceDb,
-      title: existing.title,
-      alternativeTitles: existing.alternativeTitles,
-      episodeCount: existing.episodeCount,
-      coverArtPath,
-      genres: existing.genres,
-      libraryState: existing.libraryState,
-    });
+    this.deps.library.updateAnime(animeId, { coverArtPath });
   }
 
   deleteEpisodesByAnimeId(animeId: number): void {
@@ -1176,7 +1335,7 @@ export class AnimeAggregate {
     return this.deps.library.findAnime(externalId, sourceDb) !== null;
   }
 
-  animeExistsByTitle(title: string, sourceDb = "tvdb"): boolean {
-    return this.deps.library.findAnimeByTitle(title, sourceDb) !== null;
+  animeExistsByTitle(title: string): boolean {
+    return this.deps.library.findAnimeByTitle(title) !== null;
   }
 }

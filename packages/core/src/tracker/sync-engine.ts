@@ -165,15 +165,8 @@ export class SyncEngine {
     const merged = [...new Set([...existing, ...newTitles])];
     if (merged.length <= existing.length) return;
 
-    this.aggregate.library.upsertAnime({
-      externalId: anime.externalId,
-      sourceDb: anime.sourceDb,
-      title: anime.title,
+    this.aggregate.library.updateAnime(animeId, {
       alternativeTitles: merged,
-      episodeCount: anime.episodeCount,
-      coverArtPath: anime.coverArtPath,
-      genres: anime.genres,
-      filesOnDisk: anime.filesOnDisk,
     });
   }
 

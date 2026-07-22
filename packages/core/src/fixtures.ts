@@ -16,7 +16,7 @@ import { HttpClient } from "./io/http-client";
 import { AnimeAggregate } from "./library/anime-aggregate";
 import type {
   AnilistCacheEntry,
-  AnimeTrackerMapping,
+  AnimeSourceMapping,
   Franchise,
 } from "./library/library-repository";
 import { LibraryRepository } from "./library/library-repository";
@@ -730,9 +730,9 @@ export function makeFranchise(overrides: Partial<Franchise> = {}): Franchise {
   };
 }
 
-export function makeAnimeTrackerMapping(
-  overrides: Partial<AnimeTrackerMapping> = {},
-): AnimeTrackerMapping {
+export function makeAnimeSourceMapping(
+  overrides: Partial<AnimeSourceMapping> = {},
+): AnimeSourceMapping {
   return {
     id: 1,
     animeId: 1,
