@@ -1832,12 +1832,12 @@ describe("LibraryRepository", () => {
     });
   });
 
-  describe("getKnownAnilistIds", () => {
+  describe("getAnilistIdsFromTrackerMappings", () => {
     test("returns empty map when no anilist mappings exist", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const result = repo.getKnownAnilistIds();
+        const result = repo.getAnilistIdsFromTrackerMappings();
         expect(result.size).toBe(0);
       } finally {
         sqlite.close();
@@ -1882,7 +1882,7 @@ describe("LibraryRepository", () => {
           externalId: "10872",
         });
 
-        const result = repo.getKnownAnilistIds();
+        const result = repo.getAnilistIdsFromTrackerMappings();
 
         expect(result.size).toBe(2);
         expect(result.get("10871")).toEqual([anime1.id]);
@@ -1922,7 +1922,7 @@ describe("LibraryRepository", () => {
         repo.upsertGroupTrackerMapping({ groupId: group1.id, source: "anilist", externalId: "30" });
         repo.upsertGroupTrackerMapping({ groupId: group2.id, source: "anilist", externalId: "31" });
 
-        const result = repo.getKnownAnilistIds();
+        const result = repo.getAnilistIdsFromTrackerMappings();
 
         expect(result.size).toBe(2);
         expect(result.get("30")).toEqual([anime1.id]);
@@ -1951,7 +1951,7 @@ describe("LibraryRepository", () => {
 
         repo.upsertGroupTrackerMapping({ groupId: group.id, source: "mal", externalId: "1735" });
 
-        const result = repo.getKnownAnilistIds();
+        const result = repo.getAnilistIdsFromTrackerMappings();
 
         expect(result.size).toBe(0);
       } finally {
@@ -1960,12 +1960,12 @@ describe("LibraryRepository", () => {
     });
   });
 
-  describe("getAnimeAnilistIds", () => {
+  describe("getAnilistIdsFromSourceMappings", () => {
     test("returns empty map when no anime tracker mappings exist", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const result = repo.getAnimeAnilistIds();
+        const result = repo.getAnilistIdsFromSourceMappings();
         expect(result.size).toBe(0);
       } finally {
         sqlite.close();
@@ -1997,7 +1997,7 @@ describe("LibraryRepository", () => {
           externalId: "10872",
         });
 
-        const result = repo.getAnimeAnilistIds();
+        const result = repo.getAnilistIdsFromSourceMappings();
 
         expect(result.size).toBe(2);
         expect(result.get("10871")).toEqual([anime1.id]);
@@ -2032,7 +2032,7 @@ describe("LibraryRepository", () => {
           externalId: "31",
         });
 
-        const result = repo.getAnimeAnilistIds();
+        const result = repo.getAnilistIdsFromSourceMappings();
 
         expect(result.size).toBe(2);
         expect(result.get("30")).toEqual([anime1.id]);
@@ -2058,7 +2058,7 @@ describe("LibraryRepository", () => {
           externalId: "1735",
         });
 
-        const result = repo.getAnimeAnilistIds();
+        const result = repo.getAnilistIdsFromSourceMappings();
 
         expect(result.size).toBe(0);
       } finally {

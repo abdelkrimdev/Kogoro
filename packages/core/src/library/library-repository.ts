@@ -179,15 +179,12 @@ export class LibraryRepository {
       .run();
   }
 
-  findAnime(externalId: string, sourceDb: string): LibraryAnime | null {
+  findAnime(externalId: string, source: string): LibraryAnime | null {
     const mapping = this.db
       .select({ animeId: animeSourceMappings.animeId })
       .from(animeSourceMappings)
       .where(
-        and(
-          eq(animeSourceMappings.externalId, externalId),
-          eq(animeSourceMappings.source, sourceDb),
-        ),
+        and(eq(animeSourceMappings.externalId, externalId), eq(animeSourceMappings.source, source)),
       )
       .get();
     if (!mapping) return null;
@@ -1071,7 +1068,7 @@ export class LibraryRepository {
 
   // Known AniList IDs from group tracker mappings
 
-  getKnownAnilistIds(): Map<string, number[]> {
+  getAnilistIdsFromTrackerMappings(): Map<string, number[]> {
     const rows = this.db
       .select({
         anilistId: groupTrackerMappings.externalId,
@@ -1097,7 +1094,7 @@ export class LibraryRepository {
 
   // Known AniList IDs from anime source mappings
 
-  getAnimeAnilistIds(): Map<string, number[]> {
+  getAnilistIdsFromSourceMappings(): Map<string, number[]> {
     const rows = this.db
       .select({
         anilistId: animeSourceMappings.externalId,

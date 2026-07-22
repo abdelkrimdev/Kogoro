@@ -239,7 +239,7 @@ export class FranchiseAggregate {
       else animeByAnilistId.set(key, [value]);
     };
 
-    const knownFromGroups = this.deps.library.getKnownAnilistIds();
+    const knownFromGroups = this.deps.library.getAnilistIdsFromTrackerMappings();
     const titleToAnilistId = new Map<string, string>();
     const animeIdToAnilistId = new Map<number, string>();
 

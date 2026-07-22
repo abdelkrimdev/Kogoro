@@ -659,11 +659,11 @@ describe("AnimeAggregate", () => {
         expect(rebuilt).toHaveLength(1);
         expect(rebuilt[0]?.anilistId).toBe("al-jjk");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt[0]!.id);
+        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt[0]?.id as number);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.watchStatus).toBe("watching");
 
-        const statuses = repo.getEpisodeWatchStatusByAnimeId(rebuilt[0]!.id);
+        const statuses = repo.getEpisodeWatchStatusByAnimeId(rebuilt[0]?.id as number);
         expect(statuses).toHaveLength(2);
         const ep1 = statuses.find((s) => {
           const ep = repo.getEpisode(s.episodeId);
@@ -2407,15 +2407,15 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0]!);
+        const anime = repo.getAnime(result.animeIds[0] as number);
         expect(anime?.anilistId).toBe("al-456");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0]!);
+        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.entryType).toBe("tv");
         expect(groups[0]?.seasonNumber).toBe(1);
 
-        const episodes = repo.getEpisodesByGroupId(groups[0]!.id);
+        const episodes = repo.getEpisodesByGroupId(groups[0]?.id as number);
         expect(episodes).toHaveLength(1);
         expect(episodes[0]?.filePath).toBe("/media/S01E01.mkv");
       } finally {
@@ -2459,7 +2459,7 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0]!);
+        const anime = repo.getAnime(result.animeIds[0] as number);
         expect(anime?.anilistId).toBe("al-cached");
       } finally {
         sqlite.close();
@@ -2502,7 +2502,7 @@ describe("AnimeAggregate", () => {
         expect(searchCalls.length).toBeGreaterThanOrEqual(1);
         expect(searchCalls[0]).toBe("Jujutsu Kaisen");
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0]!);
+        const anime = repo.getAnime(result.animeIds[0] as number);
         expect(anime?.anilistId).toBe("al-789");
 
         const cached = repo.getAnilistCacheEntry("al-789");
@@ -2545,7 +2545,7 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0]!);
+        const anime = repo.getAnime(result.animeIds[0] as number);
         expect(anime?.anilistId).toMatch(/^temp:/);
       } finally {
         sqlite.close();
@@ -2591,14 +2591,14 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0]!);
+        const anime = repo.getAnime(result.animeIds[0] as number);
         expect(anime?.title).toBe("Jujutsu Kaisen");
         expect(anime?.anilistId).toBe("al-new");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0]!);
+        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(1);
 
-        const episodes = repo.getEpisodesByAnimeId(result.animeIds[0]!);
+        const episodes = repo.getEpisodesByAnimeId(result.animeIds[0] as number);
         expect(episodes).toHaveLength(2);
       } finally {
         sqlite.close();
@@ -2700,7 +2700,7 @@ describe("AnimeAggregate", () => {
           source: "tvdb",
         });
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0]!);
+        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(2);
         const seasons = groups.map((g) => g.seasonNumber).sort();
         expect(seasons).toEqual([1, 2]);
@@ -3054,7 +3054,7 @@ describe("AnimeAggregate", () => {
           source: "tvdb",
         });
 
-        const anime = repo.getAnime(result.animeIds[0]!);
+        const anime = repo.getAnime(result.animeIds[0] as number);
         expect(anime?.franchiseId).not.toBeNull();
       } finally {
         sqlite.close();
@@ -3090,14 +3090,14 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0]!);
+        const anime = repo.getAnime(result.animeIds[0] as number);
         expect(anime?.anilistId).toBe("al-import");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0]!);
+        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.watchStatus).toBe("completed");
 
-        const mappings = repo.getTrackerMappingsByGroupId(groups[0]!.id);
+        const mappings = repo.getTrackerMappingsByGroupId(groups[0]?.id as number);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.source).toBe("anilist");
         expect(mappings[0]?.externalId).toBe("tracker-123");
@@ -3143,17 +3143,17 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0]!);
+        const anime = repo.getAnime(result.animeIds[0] as number);
         expect(anime?.anilistId).toBe("al-shared-entry");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0]!);
+        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(1);
 
-        const episodes = repo.getEpisodesByGroupId(groups[0]!.id);
+        const episodes = repo.getEpisodesByGroupId(groups[0]?.id as number);
         expect(episodes).toHaveLength(1);
         expect(episodes[0]?.filePath).toBe("/media/S01E01.mkv");
 
-        const mappings = repo.getTrackerMappingsByGroupId(groups[0]!.id);
+        const mappings = repo.getTrackerMappingsByGroupId(groups[0]?.id as number);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.externalId).toBe("tracker-456");
       } finally {
@@ -3599,10 +3599,10 @@ describe("AnimeAggregate", () => {
         const rebuilt = repo.findAnimeByAnilistId("al-jjk");
         expect(rebuilt).not.toBeNull();
 
-        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt!.id);
+        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
         expect(groups).toHaveLength(1);
 
-        const malMapping = repo.getTrackerMapping(groups[0]!.id, "mal");
+        const malMapping = repo.getTrackerMapping(groups[0]?.id as number, "mal");
         expect(malMapping).not.toBeNull();
         expect(malMapping?.externalId).toBe("mal-999");
       } finally {
@@ -3671,7 +3671,7 @@ describe("AnimeAggregate", () => {
         const rebuilt = repo.findAnimeByAnilistId("al-jjk");
         expect(rebuilt).not.toBeNull();
 
-        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt!.id);
+        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.watchStatus).toBe("completed");
       } finally {

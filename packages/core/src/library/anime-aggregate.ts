@@ -494,8 +494,8 @@ export class AnimeAggregate {
 
     const franchiseSets = franchiseAggregate.buildFranchiseSets(uniqueTrackerIds);
 
-    const knownAnilistIds = this.deps.library.getKnownAnilistIds();
-    const animeAnilistIds = this.deps.library.getAnimeAnilistIds();
+    const knownAnilistIds = this.deps.library.getAnilistIdsFromTrackerMappings();
+    const animeAnilistIds = this.deps.library.getAnilistIdsFromSourceMappings();
     const libraryAnimeAnilistIds = new Map<number, string>();
 
     for (const [anilistId, animeIds] of knownAnilistIds) {

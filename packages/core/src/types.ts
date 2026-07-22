@@ -10,6 +10,7 @@ export interface MatchEntry {
   title: string | null;
   filePath: string;
   sourceDb: string;
+  anilistId?: string;
 }
 
 export type ArtworkType = "poster" | "banner" | "fanart" | "thumbnail";
