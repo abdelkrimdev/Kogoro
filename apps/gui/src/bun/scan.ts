@@ -57,6 +57,7 @@ export interface ScanSessionStore {
   set(sessionId: string, entry: ScanSessionEntry): void;
   delete(sessionId: string): void;
   entries(): IterableIterator<[string, ScanSessionEntry]>;
+  readonly size: number;
 }
 
 function createInMemoryScanSessionStore(): ScanSessionStore {
@@ -332,6 +333,10 @@ export function createScanHandlers(dependencies: {
     }) {
       const { orchestrator } = requireSession(params.sessionId);
       await orchestrator.resolveMatch(params.fileId, params.animeId, params.episodeId);
+    },
+
+    get activeScanCount() {
+      return store.size;
     },
   };
 }

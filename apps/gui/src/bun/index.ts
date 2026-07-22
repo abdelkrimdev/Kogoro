@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   AnimeAggregate,
+  BackgroundRetryService,
   buildCredentialFromToken,
   CacheService,
   ConfigManager,
@@ -128,6 +129,12 @@ const scanHandlers = createScanHandlers({
     scanError: (data) => rpc.send.scanError(data),
   },
 });
+
+const backgroundRetry = new BackgroundRetryService({
+  animeAggregate,
+  isActive: () => scanHandlers.activeScanCount > 0 || trackerImportHandlers.isImporting,
+});
+backgroundRetry.start();
 
 function openDirectoryPickerResult(paths: string[]): { path: string } | null {
   const dir = paths[0];

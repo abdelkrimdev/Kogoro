@@ -15,7 +15,13 @@ interface TrackerImportHandlerOptions {
 export function createTrackerImportHandlers(options: TrackerImportHandlerOptions) {
   const { animeAggregate, pluginFactory } = options;
 
+  let importing = false;
+
   return {
+    get isImporting() {
+      return importing;
+    },
+
     async getImportPreview(params: {
       trackerName: string;
     }): Promise<{ preview: ImportPreview | null; error?: string }> {
@@ -51,6 +57,7 @@ export function createTrackerImportHandlers(options: TrackerImportHandlerOptions
         return { result: null, error: `Tracker "${trackerName}" is not connected` };
       }
 
+      importing = true;
       try {
         const result = await animeAggregate.importFromTracker(
           tracker,
@@ -63,6 +70,8 @@ export function createTrackerImportHandlers(options: TrackerImportHandlerOptions
           result: null,
           error: `Failed to import: ${err instanceof Error ? err.message : String(err)}`,
         };
+      } finally {
+        importing = false;
       }
     },
   };

@@ -46,6 +46,7 @@ export type {
   ScanMergeEntry,
 } from "./library/anime-aggregate";
 export { AnimeAggregate } from "./library/anime-aggregate";
+export { BackgroundRetryService } from "./library/background-retry";
 export { FranchiseAggregate } from "./library/franchise-aggregate";
 export type {
   AnilistCacheEntry,
