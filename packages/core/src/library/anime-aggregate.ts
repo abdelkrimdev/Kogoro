@@ -1035,22 +1035,29 @@ export class AnimeAggregate {
     const newAnimeIds: number[] = [];
 
     const entriesByAnilistId = new Map<string, MergeEntry[]>();
-    const pendingEntriesByTitle = new Map<string, MergeEntry[]>();
     for (const entry of input.entries) {
       let anilistId: string | null = entry.anilistId ?? null;
+
+      if (!anilistId) {
+        const sourceId = entry.kind === "import" ? entry.trackerId : entry.externalId;
+        const sourceName = entry.kind === "import" ? entry.trackerSource : entry.source;
+        if (sourceId && sourceName) {
+          const mapping = this.deps.library.findAnimeSourceMapping(sourceName, sourceId);
+          if (mapping) {
+            const anime = this.deps.library.getAnime(mapping.animeId);
+            if (anime?.anilistId) {
+              anilistId = anime.anilistId;
+            }
+          }
+        }
+      }
 
       if (!anilistId) {
         anilistId = await this.resolveAnilistId(entry.title, provider);
       }
 
       if (!anilistId) {
-        const existing = pendingEntriesByTitle.get(entry.title);
-        if (existing) {
-          existing.push(entry);
-        } else {
-          pendingEntriesByTitle.set(entry.title, [entry]);
-        }
-        continue;
+        anilistId = `temp:${crypto.randomUUID()}`;
       }
 
       const existing = entriesByAnilistId.get(anilistId);
@@ -1071,23 +1078,6 @@ export class AnimeAggregate {
       this.processMergeEntries(animeId, entries, groupKeyToGroup);
       this.deps.library.updateEpisodeCount(animeId);
       this.createSourceMappingsFromEntries(animeId, entries);
-    }
-
-    for (const [title, entries] of pendingEntriesByTitle) {
-      const anime = this.deps.library.upsertAnime({
-        title,
-        episodeCount: entries.reduce((sum, e) => {
-          if (e.kind === "scan") return sum + e.episodes.length;
-          return sum;
-        }, 0),
-      });
-      allAnimeIds.push(anime.id);
-      newAnimeIds.push(anime.id);
-
-      const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
-      this.processMergeEntries(anime.id, entries, groupKeyToGroup);
-      this.deps.library.updateEpisodeCount(anime.id);
-      this.createSourceMappingsFromEntries(anime.id, entries);
     }
 
     for (const animeId of allAnimeIds) {
@@ -1221,41 +1211,44 @@ export class AnimeAggregate {
     entries: MergeEntry[],
     groupKeyToGroup: Map<string, { animeId: number; groupId: number }>,
   ): void {
-    for (const entry of entries) {
-      if (entry.kind === "scan") {
-        const groupEntry = this.getOrCreateGroup(
-          animeId,
-          entry.entryType,
-          entry.season ?? 1,
-          "plan_to_watch",
-          groupKeyToGroup,
-        );
+    const scanEntries = entries.filter((e) => e.kind === "scan");
+    const importEntries = entries.filter((e) => e.kind === "import");
 
-        for (const ep of entry.episodes) {
-          this.deps.library.upsertEpisodeFromMatch({
-            animeId,
-            groupId: groupEntry.groupId,
-            episode: ep.episode,
-            filePath: ep.filePath,
-            title: ep.title,
-            season: entry.season,
-          });
-        }
-      } else {
-        const groupEntry = this.getOrCreateGroup(
-          animeId,
-          entry.entryType,
-          entry.season ?? 1,
-          mapTrackerStatus(entry.watchStatus),
-          groupKeyToGroup,
-        );
+    for (const entry of scanEntries) {
+      const groupEntry = this.getOrCreateGroup(
+        animeId,
+        entry.entryType,
+        entry.season ?? 1,
+        "plan_to_watch",
+        groupKeyToGroup,
+      );
 
-        this.deps.library.upsertGroupTrackerMapping({
+      for (const ep of entry.episodes) {
+        this.deps.library.upsertEpisodeFromMatch({
+          animeId,
           groupId: groupEntry.groupId,
-          source: entry.trackerSource,
-          externalId: entry.trackerId,
+          episode: ep.episode,
+          filePath: ep.filePath,
+          title: ep.title,
+          season: entry.season,
         });
       }
+    }
+
+    for (const entry of importEntries) {
+      const groupEntry = this.getOrCreateGroup(
+        animeId,
+        entry.entryType,
+        entry.season ?? 1,
+        mapTrackerStatus(entry.watchStatus),
+        groupKeyToGroup,
+      );
+
+      this.deps.library.upsertGroupTrackerMapping({
+        groupId: groupEntry.groupId,
+        source: entry.trackerSource,
+        externalId: entry.trackerId,
+      });
     }
   }
 

@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, like, or, sql } from "drizzle-orm";
 import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type { EnrichmentRelation, EntryType } from "../types";
 import {
@@ -159,6 +159,7 @@ export class LibraryRepository {
       coverArtPath?: string;
       genres?: string[];
       libraryState?: string;
+      anilistId?: string | null;
     },
   ): void {
     this.db
@@ -172,6 +173,7 @@ export class LibraryRepository {
         ...(fields.coverArtPath !== undefined && { coverArtPath: fields.coverArtPath ?? null }),
         ...(fields.genres !== undefined && { genres: fields.genres ?? null }),
         ...(fields.libraryState !== undefined && { libraryState: fields.libraryState }),
+        ...(fields.anilistId !== undefined && { anilistId: fields.anilistId ?? null }),
       })
       .where(eq(anime.id, id))
       .run();
@@ -1120,7 +1122,11 @@ export class LibraryRepository {
   // Pending identification
 
   findPendingAnime(): LibraryAnime[] {
-    const rows = this.db.select().from(anime).where(isNull(anime.anilistId)).all();
+    const rows = this.db
+      .select()
+      .from(anime)
+      .where(or(isNull(anime.anilistId), like(anime.anilistId, "temp:%")))
+      .all();
     return rows.map(this.rowToAnime);
   }
 

@@ -2514,7 +2514,7 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("leaves anilist_id NULL when AniList API unavailable and no cache hit", async () => {
+    test("assigns temp anilist_id when AniList API unavailable and no cache hit", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -2546,7 +2546,7 @@ describe("AnimeAggregate", () => {
 
         expect(result.animeIds).toHaveLength(1);
         const anime = repo.getAnime(result.animeIds[0]!);
-        expect(anime?.anilistId).toBeUndefined();
+        expect(anime?.anilistId).toMatch(/^temp:/);
       } finally {
         sqlite.close();
         evtSqlite.close();
