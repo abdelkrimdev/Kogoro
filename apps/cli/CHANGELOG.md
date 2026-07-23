@@ -10,6 +10,13 @@
 
 
 
+
+## 0.3.0
+<sub>2026-07-23</sub>
+
+-  *(minor)* - Override commands promoted to top-level CLI command
+-  *(patch)* - Fix library state not updating after episode deletion
+
 ## 0.2.9
 <sub>2026-06-14</sub>
 

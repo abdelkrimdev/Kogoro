@@ -10,6 +10,33 @@
 
 
 
+
+## 0.3.0
+<sub>2026-07-23</sub>
+
+-  *(minor)* - Show enrichment completion status in footer (cover art, metadata)
+-  *(minor)* - Remove drag-and-drop folder selection from Scan view
+-  *(minor)* - Skip missing files during library rebuild for more resilient scanning
+-  *(minor)* - Library view: filter by Library State and watch status, show group counts per anime
+-  *(minor)* - Add Dashboard home screen with currently watching, library stats, and quick actions
+-  *(minor)*
+  Anime detail page shows Episode Groups as accordion sections with per-group watch status, progress bars, and enriched metadata
+-  *(minor)* - Add tracker connection management to Settings page with connect/disconnect UI and onboarding wizard integration
+-  *(minor)* - Tracker disconnect now removes all tracker mappings for the disconnected source
+-  *(minor)* - Tracker import preview screen: review and confirm matches before importing from connected trackers
+-  *(minor)* - Onboarding Wizard tracker step: connect trackers and import data inline during setup
+-  *(minor)* - Show on-disk episode count in episode group accordion
+-  *(minor)* - Simplify tracker auth UX: ship client IDs, use AniList implicit grant, unify dialog
+-  *(minor)*
+  Add source field to TrackerAnime in AniList, MAL, and Kitsu plugins
+
+  The source field allows the system to track which tracker an entry came from, enabling source-specific matching logic and accurate metadata about entry provenance.
+-  *(patch)*
+  Fix cover art display by converting paths to data URLs, correct TVDB artwork response handling, and place cover art in correct parent directory
+-  *(patch)* - Fix Svelte 5 state_referenced_locally warning in SyncConflictView
+-  *(patch)*
+  Fix MyAnimeList authorization getting stuck at Waiting for authorization by exchanging OAuth code for token in the GUI connect flow
+
 ## 0.2.9
 <sub>2026-06-14</sub>
 
