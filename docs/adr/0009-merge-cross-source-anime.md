@@ -1,5 +1,7 @@
 # Merge cross-source anime into single records
 
+> **Superseded by [ADR 0012](0012-anilist-id-as-canonical-anime-key.md).** This ADR is kept as historical record of the original merge strategy that used `(externalId, sourceDb)` as anime identity.
+
 When the enrichment process discovers that an AniDB anime and an AniList anime are the same show (via AniList external links or relation graph), they are merged into a single Anime record. The surviving anime keeps its Database external ID (AniDB/TVDB) as its primary identity. The AniList ID is stored in a separate `anime_tracker_mappings` table as a tracker cross-reference. Episode groups, episodes, watch statuses, and tracker mappings from both records are consolidated into the surviving anime.
 
 ## Considered Options

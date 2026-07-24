@@ -1,6 +1,6 @@
 # Kogoro
 
-Tool for organizing and renaming anime collections, managing the user's anime library and watchlist, and syncing with online trackers (MAL, AniList, Kitsu). Matches media files against online databases, renames them, fetches artwork and metadata, and enriches the library with synopsis, rating, and genre data. Has a CLI and a desktop GUI.
+Kogoro is the user's anime library — a single authoritative record reconciling on-disk files, online databases, and tracker lists. It owns the user's collection state and pushes it outward to connected trackers.
 
 ## Language
 
@@ -15,12 +15,16 @@ A numbered entry within an anime series, covering regular episodes, movies, OVAs
 _Avoid_: chapter, entry, part
 
 **Franchise**:
-A group of related **Anime** connected by sequel, prequel, side story, summary, or parent relations (e.g. "One Piece" franchise contains seasons, movies, and OVAs). Top-level entry in the **Library**. Derived automatically from AniList relation data.
+A group of related **Anime** connected by sequel, prequel, side story, summary, or parent relations (e.g. "One Piece" franchise contains seasons, movies, and OVAs). Every **Anime** belongs to a **Franchise** — even standalone anime with no sequels form a "singleton franchise". Top-level entry in the **Library**. Derived automatically from AniList relation data.
 _Avoid_: franchise group, anime franchise, series group
 
 **Anime**:
-A single series or entry within a **Franchise** (e.g. "One Piece Season 1"). Canonically identified by its **AniList ID**. Multiple **Source References** (from **Databases** and **Trackers**) are stored as mappings on the same record, eliminating duplicates by construction — scan and import converge on the same **Anime** when they refer to the same show.
+A single series or entry within a **Franchise** (e.g. "One Piece Season 1"). Canonically identified by its **AniList ID**. Has exactly one **Canonical Title** (romaji) and zero or more **Alternative Titles**. Multiple **Source References** (from **Databases** and **Trackers**) are stored as mappings on the same record — scan and import always converge on the same **Anime** when they refer to the same show.
 _Avoid_: show, series, title, franchise
+
+**Canonical Title**:
+The romaji title of an **Anime**, used as the primary identifier for display and matching. Established by ADR 0007. Every **Anime** has exactly one **Canonical Title** and zero or more **Alternative Titles**.
+_Avoid_: romaji title, main title, primary title
 
 **Episode Group**:
 A subdivision of an **Anime** — a season, movie, OVA, or special arc — that has its own watch status, tracker mappings, and enriched metadata. Identified by (anime, entry type, season number).
@@ -39,7 +43,7 @@ An external online source of **Anime** and **Episode** data used for matching an
 _Avoid_: provider, source, API
 
 **Tracker**:
-An online anime list service (MAL, AniList, Kitsu) for importing, syncing, and enriching the user's library with watch status, synopsis, rating, and genre data.
+An online anime list service (MAL, AniList, Kitsu) that stores the user's watch status, scores, and lists. Kogoro connects to a Tracker to import and sync watch status and list entries bidirectionally.
 _Avoid_: list service, tracker service
 
 **Override**:
@@ -57,7 +61,7 @@ An SQLite database that stores the user's library: anime, episode groups, episod
 _Avoid_: library DB, library.db
 
 **Library State**:
-Derived per-anime status indicating file availability: **on disk** (all groups have at least one file), **partially on disk** (some groups have files), or **not on disk** (no files exist). Cached and recomputed on scan, file deletion, and rebuild.
+Derived per-anime status indicating file availability: **available** (all groups have at least one file), **partial** (some groups have files), or **missing** (no files exist). Cached and recomputed on scan, file deletion, and rebuild.
 _Avoid_: disk status, file presence
 
 **Watch Status**:
@@ -65,12 +69,20 @@ A per-**Episode Group** status indicating the user's viewing progress: watching,
 _Avoid_: viewing state, progress state
 
 **Alternative Titles**:
-A collection of title variants for an **Anime** (e.g. English, Japanese, synonyms). Used for matching **Tracker** entries against **Library** entries, and for display. Populated by both **Tracker** imports and **Database** matches.
+All non-canonical title variants of an **Anime** — English, Japanese, synonyms, and any other names under which the same anime is known. Populated by both **Tracker** imports and **Database** matches.
 _Avoid_: alt titles, alternative names, synonyms
 
 **Auto-Merge**:
-The process of resolving scan or import results to an **AniList ID**, then finding or creating the canonical **Anime** record and appending new **Episode Groups** and **Episodes** without creating duplicates. Used identically by both the scan and import pipelines.
+The guarantee that scan and import operations never create duplicate **Anime** — both resolve to an **AniList ID**, then find-or-create the canonical record, appending new **Episode Groups** and **Episodes** to the existing entry.
 _Avoid_: dedup, merge, reconciliation
+
+**Franchise Discovery**:
+The enrichment-time process of walking the AniList relation graph (BFS) to discover all **Anime** in a **Franchise**. Starting from a newly added anime, traverses SEQUEL, PREQUEL, SIDE_STORY, SUMMARY, and PARENT relations with no depth limit until the full connected component is found.
+_Avoid_: franchise resolution, franchise grouping
+
+**Import Clustering**:
+The import-time process of grouping newly imported entries into clusters using a union-find algorithm over AniList relations. Operates on the batch being imported, distinct from **Franchise Discovery** which walks the full library.
+_Avoid_: import grouping, batch clustering
 
 **Source Reference**:
 A mapping from an **Anime** to an external identifier from a **Database** or **Tracker** (e.g. TVDB ID 12345, MAL ID 67890). Stored in the `anime_source_mappings` table. An **Anime** may have multiple **Source References** — one per source.
@@ -91,7 +103,7 @@ The core domain service that orchestrates **Sync**: detecting local and remote c
 _Avoid_: sync service, reconciliation engine
 
 **Event Log**:
-An append-only record of local mutations (status changes, episode watched toggles, notes updates) stored in a separate `events.db` SQLite database. Used by the **Sync Engine** to replay and push changes to **Trackers**. Not used during rebuild.
+An append-only record of local mutations (status changes, episode watched toggles, notes updates) stored in a separate `events.db` SQLite database. Used by the **Sync Engine** to replay and push changes to **Trackers**. Also replayed during rebuild to restore post-import local mutations.
 _Avoid_: change log, mutation log, history
 
 ### Scan workflow
@@ -137,11 +149,11 @@ _Avoid_: setup flow, first-run experience
 ### Plugin system
 
 **TrackerPlugin**:
-A plugin type for connecting Kogoro to a **Tracker** (MAL, AniList, Kitsu). Implements `authenticate()`, `getUserList()`, `getEntry()`, `updateEntry()`, and `getAnimeDetails()`. Distinct from **DatabasePlugin**, **SubtitlePlugin**, and **EnrichmentProvider**.
+A plugin that connects Kogoro to a **Tracker** (MAL, AniList, Kitsu). Implements authentication, list import, entry sync, and watch status updates.
 _Avoid_: tracker integration, list plugin
 
 **EnrichmentProvider**:
-A plugin type for fetching anime metadata and relation data from external sources (e.g. AniList). Implements `searchByTitle()` and `getMediaDetailsBatch()`. Used during **Auto-Merge** to discover **Franchise** relationships and cross-reference **Anime** across **Databases** and **Trackers**. Distinct from **TrackerPlugin**.
+A source of structural and metadata enrichment for **Anime**: franchise relations, cross-referencing across **Databases** and **Trackers**, and canonical identity resolution. AniList serves as the canonical **EnrichmentProvider** — its media ID is the **Anime** primary key and its relation graph drives **Franchise** discovery.
 _Avoid_: enrichment plugin, metadata provider
 
 ## Relationships
@@ -153,13 +165,13 @@ _Avoid_: enrichment plugin, metadata provider
 - An **Episode Group** has exactly one **EntryType**
 - An **Episode Group** has exactly one **Watch Status** (watching, completed, plan to watch, on hold, dropped)
 - An **Episode** has an independent `watched` boolean
-- An **Anime** has exactly one derived **Library State** (on disk, partially on disk, not on disk)
-- An **Anime** belongs to zero or one **Franchise**
+- An **Anime** has exactly one derived **Library State** (available, partial, missing)
+- An **Anime** belongs to exactly one **Franchise** — **Enrichment** always creates a franchise, even for standalone anime with no sequels/prequels (a "singleton franchise")
 - An **Anime** may be mapped to zero or more **Source References** — one per **Database** or **Tracker** — for cross-source deduplication
 - A **Match** may have one or more **Overrides** (user corrections)
 - A **Match** is resolved against one primary **Database**, then cross-referenced to an **AniList ID** via the **EnrichmentProvider** before being merged into the **Library**
 - A **Library** entry is identified by its **AniList ID** (canonical), with zero or more **Source References** to **Databases** and **Trackers**
-- An **Anime** has exactly one canonical **romaji** title and zero or more **Alternative Titles**
+- An **Anime** has exactly one **Canonical Title** and zero or more **Alternative Titles**
 - An **Episode Group** may be mapped to zero or more **Tracker** entries via `group_tracker_mappings`
 - The **Scan Workflow** produces a **Rename Plan** that the user approves via the **Review Screen**
 - **Auto-Merge** links new scan or import results to existing **Library** entries by **AniList ID**, creating new **Episode Groups** and **Episodes** under the canonical **Anime** without duplicates
@@ -186,7 +198,7 @@ _Avoid_: enrichment plugin, metadata provider
 > **Domain expert:** "No — **Auto-Merge** detects the same **AniList ID** and appends the new **Episodes** to the existing **Episode Group**. The **Review Screen** shows 'Adding 12 episodes to existing: Oshi no Ko Season 3'."
 >
 > **Dev:** "I imported One Piece from MAL as plan to watch with no files. Then I download and scan Season 1. What happens?"
-> **Domain expert:** "The **Library State** transitions from not on disk to partially on disk. The Season 1 **Episode Group** keeps its MAL tracker mapping and imported metadata. The watch status stays as plan to watch — having files doesn't change it. The detail page shows '24 episodes, 24 on disk, 0 watched'."
+> **Domain expert:** "The **Library State** transitions from missing to partial. The Season 1 **Episode Group** keeps its MAL tracker mapping and imported metadata. The watch status stays as plan to watch — having files doesn't change it. The detail page shows '24 episodes, 24 on disk, 0 watched'."
 >
 > **Dev:** "MAL says I'm watching One Piece but anilist says I completed it. Which one does Kogoro use?"
 > **Domain expert:** "Kogoro is the hub. When you first connect both trackers, Kogoro shows a preview and asks you to resolve conflicts. After that, Kogoro's local state is the reconciled truth and gets pushed to both trackers."

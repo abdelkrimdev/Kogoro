@@ -1,4 +1,4 @@
-# Connected component grouping via AniList relations
+# Franchise Discovery — Connected component grouping via AniList relations
 
 Anime are grouped into Franchises by walking the AniList relation graph. Starting from a newly added anime, the enrichment service searches AniList by title, then performs a BFS walk of the relation graph using five relation types: SEQUEL, PREQUEL, SIDE_STORY, SUMMARY, and PARENT. All anime in the connected component belong to the same Franchise. There is no depth limit — the walk continues until all reachable nodes are visited. Results are cached per AniList media ID to avoid redundant API calls.
 

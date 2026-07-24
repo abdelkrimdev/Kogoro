@@ -6,7 +6,7 @@ Anime identity shifts from `(externalId, sourceDb)` to the AniList Media ID. Thi
 
 - **Keep `(externalId, sourceDb)` as PK, share merge logic** — Both paths create separate records, then run the same cross-source merge from enrichment. Rejected: still produces duplicates in the interim; `deleteAnimeFromOtherSourceDbs` in the scan path destroys tracker-imported data.
 - **UUID-based with deferred merge** — Every new operation creates an anime with a UUID; a background process merges duplicates via enrichment. Rejected: duplicates exist until merge runs, confusing the user.
-- **AniList ID as canonical** — One anime per AniList Media ID. Operations resolve to AniList first, then merge into the existing record. Chosen: eliminates duplicates by construction, makes scan and import converge on the same record.
+- **AniList ID as canonical** — One anime per AniList Media ID. Operations resolve to AniList first, then merge into the existing record. Chosen: eliminates duplicates — scan and import converge on the same record.
 
 ## Consequences
 
