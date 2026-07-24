@@ -4,11 +4,32 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createEventDb } from "../events/test-utils";
-import { createMockEnrichmentProvider, createMockTracker } from "../fixtures";
+import { createMockTracker } from "../fixtures";
 import type { MatchEntry } from "../types";
 import { AnimeAggregate } from "./anime-aggregate";
+import type { EnrichmentProvider } from "./franchise-aggregate";
 import { LibraryRepository } from "./library-repository";
 import { createLibraryDb } from "./test-utils";
+
+function createMockEnrichmentProvider(
+  overrides: Partial<EnrichmentProvider> = {},
+): EnrichmentProvider {
+  return {
+    async searchByTitle(title: string) {
+      return { anilistId: "1", title, format: "TV", episodes: 12 };
+    },
+    async getMediaDetailsBatch(anilistIds: string[]) {
+      return anilistIds.map((id) => ({
+        anilistId: id,
+        title: `Anime ${id}`,
+        format: "TV",
+        episodes: 12,
+        relations: [],
+      }));
+    },
+    ...overrides,
+  };
+}
 
 describe("AnimeAggregate", () => {
   describe("rebuildFromMatches", () => {

@@ -1,5 +1,26 @@
-import type { EnrichmentMediaResult, EnrichmentProvider, KnownEntry } from "../types";
+import type { EnrichmentRelation, KnownEntry } from "../types";
 import type { LibraryAnime, LibraryRepository } from "./library-repository";
+
+export interface EnrichmentSearchResult {
+  anilistId: string;
+  title: string;
+  format?: string;
+  episodes?: number;
+}
+
+export interface EnrichmentMediaResult {
+  anilistId: string;
+  title: string;
+  format?: string;
+  episodes?: number;
+  relations: EnrichmentRelation[];
+  externalLinks?: { site: string; id: string }[];
+}
+
+export interface EnrichmentProvider {
+  searchByTitle(title: string): Promise<EnrichmentSearchResult | null>;
+  getMediaDetailsBatch(anilistIds: string[]): Promise<EnrichmentMediaResult[]>;
+}
 
 export const RELATION_TYPES_TO_WALK = new Set([
   "SEQUEL",

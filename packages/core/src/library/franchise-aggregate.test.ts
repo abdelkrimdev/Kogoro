@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { EnrichmentMediaResult } from "../types";
+import type { EnrichmentMediaResult } from "./franchise-aggregate";
 import { FranchiseAggregate, RELATION_TYPES_TO_WALK } from "./franchise-aggregate";
 import { LibraryRepository } from "./library-repository";
 import { createLibraryDb } from "./test-utils";

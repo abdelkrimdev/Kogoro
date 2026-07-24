@@ -1,9 +1,29 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createMockEnrichmentProvider } from "../fixtures";
 import { AnimeAggregate } from "./anime-aggregate";
 import { BackgroundRetryService } from "./background-retry";
+import type { EnrichmentProvider } from "./franchise-aggregate";
 import { LibraryRepository } from "./library-repository";
 import { createLibraryDb } from "./test-utils";
+
+function createMockEnrichmentProvider(
+  overrides: Partial<EnrichmentProvider> = {},
+): EnrichmentProvider {
+  return {
+    async searchByTitle(title: string) {
+      return { anilistId: "1", title, format: "TV", episodes: 12 };
+    },
+    async getMediaDetailsBatch(anilistIds: string[]) {
+      return anilistIds.map((id) => ({
+        anilistId: id,
+        title: `Anime ${id}`,
+        format: "TV",
+        episodes: 12,
+        relations: [],
+      }));
+    },
+    ...overrides,
+  };
+}
 
 function createTestAggregate(resolvedAnilistId: string | null = null) {
   const { db, sqlite } = createLibraryDb();

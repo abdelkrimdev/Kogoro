@@ -42,9 +42,6 @@ import type {
   AnimeResult,
   ArtworkResult,
   DatabasePlugin,
-  EnrichmentMediaResult,
-  EnrichmentProvider,
-  EnrichmentSearchResult,
   EpisodeResult,
   TrackerPlugin,
 } from "./types";
@@ -188,9 +185,7 @@ export function createEventRepository(dir?: string): {
   return { repo, close: () => sqlite.close() };
 }
 
-export function createTrackerImportTestContext(
-  enrichmentProviderFactory?: () => Promise<import("./types").EnrichmentProvider | undefined>,
-): {
+export function createTrackerImportTestContext(): {
   repo: LibraryRepository;
   aggregate: AnimeAggregate;
   close: () => void;
@@ -210,7 +205,6 @@ export function createTrackerImportTestContext(
       const state = computeLibraryState(groupFiles);
       r.updateLibraryState(animeId, state);
     },
-    enrichmentProviderFactory,
   });
   return {
     repo,
@@ -688,31 +682,6 @@ export function createMockTracker(overrides: Partial<TrackerPlugin> = {}): Track
         entryType: "tv",
         alternativeTitles: [],
       };
-    },
-    ...overrides,
-  };
-}
-
-export function createMockEnrichmentProvider(
-  overrides: Partial<EnrichmentProvider> = {},
-): EnrichmentProvider {
-  return {
-    async searchByTitle(title: string): Promise<EnrichmentSearchResult | null> {
-      return {
-        anilistId: "1",
-        title,
-        format: "TV",
-        episodes: 12,
-      };
-    },
-    async getMediaDetailsBatch(anilistIds: string[]): Promise<EnrichmentMediaResult[]> {
-      return anilistIds.map((id) => ({
-        anilistId: id,
-        title: `Anime ${id}`,
-        format: "TV",
-        episodes: 12,
-        relations: [],
-      }));
     },
     ...overrides,
   };

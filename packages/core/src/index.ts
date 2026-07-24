@@ -47,7 +47,12 @@ export type {
 } from "./library/anime-aggregate";
 export { AnimeAggregate } from "./library/anime-aggregate";
 export { BackgroundRetryService } from "./library/background-retry";
-export { FranchiseAggregate } from "./library/franchise-aggregate";
+export {
+  type EnrichmentMediaResult,
+  type EnrichmentProvider,
+  type EnrichmentSearchResult,
+  FranchiseAggregate,
+} from "./library/franchise-aggregate";
 export type {
   AnilistCacheEntry,
   AnimeSourceMapping,
@@ -152,10 +157,7 @@ export type {
   ArtworkResult,
   ArtworkType,
   DatabasePlugin,
-  EnrichmentMediaResult,
-  EnrichmentProvider,
   EnrichmentRelation,
-  EnrichmentSearchResult,
   EntryType,
   EpisodeResult,
   FileRow,

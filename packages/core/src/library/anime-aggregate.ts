@@ -4,8 +4,6 @@ import { stripTypeDir } from "../config/schema";
 import type { LocalWatchStatus } from "../tracker/credential-utils";
 import { mapTrackerStatus } from "../tracker/credential-utils";
 import type {
-  EnrichmentMediaResult,
-  EnrichmentProvider,
   EntryType,
   KnownEntry,
   MatchEntry,
@@ -13,6 +11,7 @@ import type {
   TrackerSource,
   TrackerWatchStatus,
 } from "../types";
+import type { EnrichmentMediaResult, EnrichmentProvider } from "./franchise-aggregate";
 import { FranchiseAggregate } from "./franchise-aggregate";
 import type {
   EpisodeGroup,
