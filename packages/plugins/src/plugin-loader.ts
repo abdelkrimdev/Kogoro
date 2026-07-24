@@ -1,10 +1,4 @@
-import type {
-  CredentialStore,
-  DatabasePlugin,
-  EnrichmentProvider,
-  SubtitlePlugin,
-  TrackerPlugin,
-} from "@kogoro/core";
+import type { CredentialStore, DatabasePlugin, SubtitlePlugin, TrackerPlugin } from "@kogoro/core";
 import { getManifestEntry, type PluginLoadContext } from "./plugin-manifest";
 import { isPluginEnabled } from "./plugin-registry";
 
@@ -32,17 +26,11 @@ function isTrackerPlugin(obj: unknown): obj is TrackerPlugin {
   );
 }
 
-function isEnrichmentProvider(obj: unknown): obj is EnrichmentProvider {
-  return hasMethod(obj, "searchByTitle") && hasMethod(obj, "getMediaDetailsBatch");
-}
-
 export class PluginLoader {
   private databaseCache: Map<string, DatabasePlugin> = new Map();
   private subtitleCache: Map<string, SubtitlePlugin> = new Map();
   private trackerCache: Map<string, TrackerPlugin> = new Map();
-  private enrichmentCache: Map<string, EnrichmentProvider> = new Map();
-  private externalCache: Map<string, DatabasePlugin | TrackerPlugin | EnrichmentProvider> =
-    new Map();
+  private externalCache: Map<string, DatabasePlugin | TrackerPlugin> = new Map();
 
   constructor(private debug?: boolean) {}
 
@@ -111,29 +99,6 @@ export class PluginLoader {
     return this.loadExternalPlugin(name, isTrackerPlugin, "TrackerPlugin");
   }
 
-  async loadEnrichmentProvider(
-    name: string,
-    plugins: Record<string, { enabled: boolean }> | undefined,
-    credentialStore: CredentialStore,
-  ): Promise<EnrichmentProvider | undefined> {
-    if (!isPluginEnabled(name, plugins)) {
-      console.warn(`Plugin "${name}" is disabled`);
-      return undefined;
-    }
-    const cached = this.enrichmentCache.get(name);
-    if (cached) return cached;
-    const entry = getManifestEntry(name);
-    if (entry && entry.type === "enrichment") {
-      const ctx: PluginLoadContext = { credentialStore, debug: this.debug };
-      const plugin = await entry.load(ctx, entry);
-      if (plugin) {
-        this.enrichmentCache.set(name, plugin as EnrichmentProvider);
-      }
-      return plugin as EnrichmentProvider | undefined;
-    }
-    return this.loadExternalPlugin(name, isEnrichmentProvider, "EnrichmentProvider");
-  }
-
   private async loadExternalPlugin<T>(
     name: string,
     typeGuard: (obj: unknown) => obj is T,
@@ -154,7 +119,7 @@ export class PluginLoader {
         console.warn(`Plugin "${name}" does not implement ${displayName} interface`);
         return undefined;
       }
-      this.externalCache.set(name, instance as DatabasePlugin | TrackerPlugin | EnrichmentProvider);
+      this.externalCache.set(name, instance as DatabasePlugin | TrackerPlugin);
       return instance as T;
     } catch (err) {
       console.warn(`Failed to load external ${displayName} plugin "${name}": ${String(err)}`);

@@ -75,7 +75,6 @@ const animeAggregate = new AnimeAggregate({
   library: libraryRepo,
   replayUnpushedEvents: () => {},
   computeAndPersistLibraryState: () => {},
-  enrichmentProviderFactory: () => pluginFactory.enrichmentProvider(),
 });
 const watchTracker = new WatchTracker({ library: libraryRepo, events: eventsRepo });
 
