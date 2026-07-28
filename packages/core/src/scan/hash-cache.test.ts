@@ -242,6 +242,8 @@ describe("HashCache", () => {
         expect(stored?.animeId).toBe("1");
         expect(stored?.episodeId).toBe("101");
         expect(stored?.entryType).toBe("tv");
+        expect(stored?.season).toBe(1);
+        expect(stored?.episode).toBe(13);
       });
     });
 

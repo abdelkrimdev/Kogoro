@@ -14,6 +14,27 @@ describe("OverrideStore", () => {
     });
   });
 
+  test("stores and retrieves season and episode", async () => {
+    await withTempDir("override", async (dir) => {
+      const store = new OverrideStore(dir);
+      store.set("abc123", {
+        animeId: "tvdb-42",
+        episodeId: "ep-1",
+        entryType: "tv",
+        season: 2,
+        episode: 7,
+      });
+      const result = store.get("abc123");
+      expect(result).toEqual({
+        animeId: "tvdb-42",
+        episodeId: "ep-1",
+        entryType: "tv",
+        season: 2,
+        episode: 7,
+      });
+    });
+  });
+
   test("get returns undefined for non-existent hash", async () => {
     await withTempDir("override", async (dir) => {
       const store = new OverrideStore(dir);
@@ -62,11 +83,23 @@ describe("OverrideStore", () => {
   test("override persists across store reload", async () => {
     await withTempDir("override", async (dir) => {
       const store1 = new OverrideStore(dir);
-      store1.set("abc123", { animeId: "tvdb-42", episodeId: "ep-1", entryType: "movie" });
+      store1.set("abc123", {
+        animeId: "tvdb-42",
+        episodeId: "ep-1",
+        entryType: "movie",
+        season: 3,
+        episode: 5,
+      });
 
       const store2 = new OverrideStore(dir);
       const result = store2.get("abc123");
-      expect(result).toEqual({ animeId: "tvdb-42", episodeId: "ep-1", entryType: "movie" });
+      expect(result).toEqual({
+        animeId: "tvdb-42",
+        episodeId: "ep-1",
+        entryType: "movie",
+        season: 3,
+        episode: 5,
+      });
     });
   });
 

@@ -676,6 +676,29 @@ describe("Matcher", () => {
       expect(result.anime.entryType).toBe("movie");
       expect(result.episode).toBeUndefined();
     });
+
+    test("uses stored season and episode when provided", () => {
+      const result = matchResultFromOverride({
+        animeId: "tvdb-99",
+        episodeId: "ep-5",
+        entryType: "tv",
+        season: 2,
+        episode: 7,
+      });
+
+      expect(result.episode?.season).toBe(2);
+      expect(result.episode?.episode).toBe(7);
+    });
+
+    test("falls back to 0 when season and episode not provided", () => {
+      const result = matchResultFromOverride({
+        animeId: "tvdb-99",
+        episodeId: "ep-5",
+      });
+
+      expect(result.episode?.season).toBe(0);
+      expect(result.episode?.episode).toBe(0);
+    });
   });
 
   describe("matchResultFromCache", () => {

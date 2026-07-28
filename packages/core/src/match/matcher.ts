@@ -46,8 +46,8 @@ export function matchResultFromOverride(override: OverrideData): MatchResult {
     episode = {
       id: override.episodeId,
       animeId,
-      season: 0,
-      episode: 0,
+      season: override.season ?? 0,
+      episode: override.episode ?? 0,
       titleEn: "(overridden)",
       entryType,
     };

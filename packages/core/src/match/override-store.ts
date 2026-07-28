@@ -6,12 +6,16 @@ export const OVERRIDE_TOML_KEYS = {
   ANIME_ID: "anime-id",
   EPISODE_ID: "episode-id",
   ENTRY_TYPE: "entry-type",
+  SEASON: "season",
+  EPISODE: "episode",
 } as const;
 
 export interface OverrideData {
   animeId?: string;
   episodeId?: string;
   entryType?: EntryType;
+  season?: number;
+  episode?: number;
 }
 
 function tomlValue(value: string): string {
@@ -41,6 +45,8 @@ export class OverrideStore {
         animeId: data[OVERRIDE_TOML_KEYS.ANIME_ID] as string | undefined,
         episodeId: data[OVERRIDE_TOML_KEYS.EPISODE_ID] as string | undefined,
         entryType: data[OVERRIDE_TOML_KEYS.ENTRY_TYPE] as EntryType | undefined,
+        season: data[OVERRIDE_TOML_KEYS.SEASON] as number | undefined,
+        episode: data[OVERRIDE_TOML_KEYS.EPISODE] as number | undefined,
       });
     }
   }
@@ -66,6 +72,12 @@ export class OverrideStore {
         lines.push(
           `${quotedHash}.${OVERRIDE_TOML_KEYS.ENTRY_TYPE} = ${tomlValue(override.entryType)}`,
         );
+      }
+      if (override.season !== undefined) {
+        lines.push(`${quotedHash}.${OVERRIDE_TOML_KEYS.SEASON} = ${override.season}`);
+      }
+      if (override.episode !== undefined) {
+        lines.push(`${quotedHash}.${OVERRIDE_TOML_KEYS.EPISODE} = ${override.episode}`);
       }
     }
     const content = lines.length > 0 ? `${lines.join("\n")}\n` : "";

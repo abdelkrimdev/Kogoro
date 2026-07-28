@@ -103,6 +103,8 @@ export class HashCache {
       animeId: match.anime.id,
       episodeId: match.episode?.id,
       entryType: match.anime.entryType,
+      season: match.episode?.season,
+      episode: match.episode?.episode,
     });
   }
 }
