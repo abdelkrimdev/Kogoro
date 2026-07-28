@@ -851,12 +851,21 @@ describe("Matcher", () => {
       expect(resolveEpisode(episodes, 3, 4)?.id).toBe("s1e4");
     });
 
-    test("returns undefined for nonexistent season in multi-season data", () => {
+    test("falls back to absolute matching for multi-season data when parsed season not found", () => {
       const episodes = [
         { id: "e1", animeId: "1", season: 1, episode: 1, titleEn: "E1", entryType: "tv" as const },
         { id: "e2", animeId: "1", season: 2, episode: 13, titleEn: "E2", entryType: "tv" as const },
       ];
-      expect(resolveEpisode(episodes, 3, 1)).toBeUndefined();
+      expect(resolveEpisode(episodes, 3, 1)?.id).toBe("e1");
+      expect(resolveEpisode(episodes, 3, 1)?.season).toBe(1);
+    });
+
+    test("falls back to absolute matching for multi-season data when episode number matches across seasons", () => {
+      const episodes = [
+        { id: "e1", animeId: "1", season: 1, episode: 5, titleEn: "E1", entryType: "tv" as const },
+        { id: "e2", animeId: "1", season: 2, episode: 13, titleEn: "E2", entryType: "tv" as const },
+      ];
+      expect(resolveEpisode(episodes, 3, 5)?.id).toBe("e1");
     });
   });
 

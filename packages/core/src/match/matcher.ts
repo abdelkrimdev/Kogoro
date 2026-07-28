@@ -198,12 +198,7 @@ export function resolveEpisode(
     return seasonEpisodes[episode - 1];
   }
 
-  const maxSeason = Math.max(...episodes.map((e) => e.season), 0);
-  if (maxSeason <= 1) {
-    return findAbsolute(episodes, episode);
-  }
-
-  return undefined;
+  return findAbsolute(episodes, episode);
 }
 
 function findAbsolute(episodes: EpisodeResult[], episode: number): EpisodeResult | undefined {
