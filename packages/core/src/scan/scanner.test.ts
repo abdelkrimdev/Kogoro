@@ -450,4 +450,77 @@ describe("Scanner", () => {
       expect(savedOverride?.animeId).toBe("99");
     });
   });
+
+  test("onAmbiguous returning match with empty anime.id falls back to ambiguous", async () => {
+    await withTempDir("scan-ambiguous-invalid-id", async (dir) => {
+      const filePath = writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake content");
+
+      const overrideStore = new OverrideStore(dir);
+      const scanner = new Scanner({
+        hashCache: createTestHashCache({ overrideStore }),
+        matcher: createAmbiguousMatcher(),
+        overrideStore,
+      });
+
+      const result = await scanner.scanFile(filePath, {
+        onAmbiguous: async (candidates) => {
+          const c = candidates[0];
+          if (!c) return null;
+          return { ...c, anime: { ...c.anime, id: "" }, score: c.score };
+        },
+      });
+
+      expect(result.status).toBe("ambiguous");
+      expect(result.match).toBeNull();
+
+      const overrideHash = overrideKey(filePath);
+      expect(overrideStore.get(overrideHash)).toBeUndefined();
+    });
+  });
+
+  test("onFailed returning empty animeId falls back to failed", async () => {
+    await withTempDir("scan-failed-invalid-id", async (dir) => {
+      const filePath = writeTempFile(dir, "Unknown File.mkv");
+
+      const overrideStore = new OverrideStore(dir);
+      const scanner = new Scanner({
+        hashCache: createTestHashCache({ overrideStore }),
+        matcher: createMockMatcher([makeNoMatchResult()]),
+        overrideStore,
+      });
+
+      const result = await scanner.scanFile(filePath, {
+        onFailed: async () => ({ animeId: "", episode: 1, entryType: "tv" }),
+      });
+
+      expect(result.status).toBe("failed");
+      expect(result.match).toBeNull();
+
+      const overrideHash = overrideKey(filePath);
+      expect(overrideStore.get(overrideHash)).toBeUndefined();
+    });
+  });
+
+  test("onFailed returning negative episode falls back to failed", async () => {
+    await withTempDir("scan-failed-negative-episode", async (dir) => {
+      const filePath = writeTempFile(dir, "Unknown File.mkv");
+
+      const overrideStore = new OverrideStore(dir);
+      const scanner = new Scanner({
+        hashCache: createTestHashCache({ overrideStore }),
+        matcher: createMockMatcher([makeNoMatchResult()]),
+        overrideStore,
+      });
+
+      const result = await scanner.scanFile(filePath, {
+        onFailed: async () => ({ animeId: "42", episode: -1, entryType: "tv" }),
+      });
+
+      expect(result.status).toBe("failed");
+      expect(result.match).toBeNull();
+
+      const overrideHash = overrideKey(filePath);
+      expect(overrideStore.get(overrideHash)).toBeUndefined();
+    });
+  });
 });

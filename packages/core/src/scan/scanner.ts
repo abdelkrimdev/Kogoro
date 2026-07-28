@@ -203,7 +203,7 @@ export class Scanner {
 
       case "ambiguous": {
         const resolved = await options?.onAmbiguous?.(decision.candidates, parsed, filePath);
-        if (resolved) {
+        if (resolved && resolved.anime.id) {
           this.hashCache.persistOverride(filePath, resolved);
           return this.planAndPersist(filePath, hash, resolved, parsed, options);
         }
@@ -221,7 +221,7 @@ export class Scanner {
 
       case "failed": {
         const manual = await options?.onFailed?.(parsed, filePath);
-        if (manual) {
+        if (manual && manual.animeId && manual.episode >= 0) {
           const manualMatch = resolveManual({
             animeId: manual.animeId,
             episode: manual.episode,
