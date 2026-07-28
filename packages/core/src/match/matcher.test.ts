@@ -882,5 +882,17 @@ describe("Matcher", () => {
       expect(result.anime.entryType).toBe("tv");
       expect(result.episode?.entryType).toBe("tv");
     });
+
+    test("uses provided season instead of defaulting to 1", () => {
+      const result = matchResultFromManual("99", 5, "special", 3);
+
+      expect(result.episode?.season).toBe(3);
+    });
+
+    test("defaults season to 1 when not provided", () => {
+      const result = matchResultFromManual("99", 5, "special");
+
+      expect(result.episode?.season).toBe(1);
+    });
   });
 });

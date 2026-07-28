@@ -68,13 +68,14 @@ export function matchResultFromManual(
   animeId: string,
   episode: number,
   entryType: EntryType,
+  season?: number,
 ): MatchResult {
   return {
     anime: { id: animeId, titleEn: "", entryType },
     episode: {
       id: "",
       animeId,
-      season: 1,
+      season: season ?? 1,
       episode,
       titleEn: "",
       entryType,

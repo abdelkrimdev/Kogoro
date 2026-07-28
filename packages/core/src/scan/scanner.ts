@@ -53,7 +53,7 @@ interface ScanFileOptions {
   onFailed?: (
     parsed: ParsedResult,
     filePath: string,
-  ) => Promise<{ animeId: string; episode: number; entryType: string } | null>;
+  ) => Promise<{ animeId: string; episode: number; entryType: string; season?: number } | null>;
 }
 
 export class Scanner {
@@ -226,6 +226,7 @@ export class Scanner {
             animeId: manual.animeId,
             episode: manual.episode,
             entryType: manual.entryType as EntryType,
+            season: manual.season,
           });
           this.hashCache.persistOverride(filePath, manualMatch);
           return this.planAndPersist(filePath, hash, manualMatch, parsed, options);

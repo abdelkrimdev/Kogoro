@@ -32,6 +32,7 @@ export interface ManualResolution {
   animeId: string;
   episode: number;
   entryType: EntryType;
+  season?: number;
 }
 
 function isValidDirName(name: string): boolean {
@@ -97,7 +98,12 @@ export function resolveMatches(matches: MatchResult[]): MatchDecision {
 }
 
 export function resolveManual(resolution: ManualResolution): MatchResult {
-  return matchResultFromManual(resolution.animeId, resolution.episode, resolution.entryType);
+  return matchResultFromManual(
+    resolution.animeId,
+    resolution.episode,
+    resolution.entryType,
+    resolution.season,
+  );
 }
 
 export async function probeMatches(

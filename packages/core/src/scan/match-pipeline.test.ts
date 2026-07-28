@@ -287,6 +287,29 @@ describe("resolveManual", () => {
     expect(match.episode?.episode).toBe(5);
     expect(match.episode?.entryType).toBe("special");
   });
+
+  test("passes season through to match result", () => {
+    const resolution: ManualResolution = {
+      animeId: "99",
+      episode: 5,
+      entryType: "special",
+      season: 2,
+    };
+    const match = resolveManual(resolution);
+
+    expect(match.episode?.season).toBe(2);
+  });
+
+  test("defaults season to 1 when not provided", () => {
+    const resolution: ManualResolution = {
+      animeId: "99",
+      episode: 5,
+      entryType: "special",
+    };
+    const match = resolveManual(resolution);
+
+    expect(match.episode?.season).toBe(1);
+  });
 });
 
 describe("MatchPipeline", () => {
