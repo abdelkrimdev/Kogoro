@@ -44,12 +44,10 @@ export class HashCache {
     const overrideKey = computeFileHash(basename(filePath));
     let hash = "";
     let cachedMatch: CachedMatch | null = null;
-    let cachedStat: { size: number; mtimeMs: number } | null = null;
 
     if (!force && this.scanStateService) {
       try {
         const stat = statSync(filePath);
-        cachedStat = { size: stat.size, mtimeMs: stat.mtimeMs };
         const cachedHash = this.scanStateService.isFileUpToDate(
           filePath,
           stat.size,
@@ -74,7 +72,7 @@ export class HashCache {
 
     if (this.scanStateService) {
       try {
-        const stat = cachedStat ?? statSync(filePath);
+        const stat = statSync(filePath);
         this.scanStateService.set(filePath, stat.size, Math.floor(stat.mtimeMs / 1000), hash);
       } catch {
         // stat failed, skip state storage
