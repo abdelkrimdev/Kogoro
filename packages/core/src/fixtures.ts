@@ -26,11 +26,11 @@ import { CacheService } from "./match/cache-service";
 import type { CachedMatch } from "./match/match-repository";
 import { MatchRepository } from "./match/match-repository";
 import {
-  AMBIGUOUS_MATCH_REASON,
   bestPerAnimeId,
   isClearWinner,
   type MatcherLike,
   type MatchResult,
+  makeAmbiguousResult,
 } from "./match/matcher";
 import type { OverrideStore } from "./match/override-store";
 import { ScanStateRepository } from "./match/scan-state-repository";
@@ -568,11 +568,7 @@ export function createAmbiguousMatcher(): MatcherLike {
         const best = bestPerAnimeId(matches);
         const winner = isClearWinner(best);
         if (!winner) {
-          results.push({
-            anime: { id: "", titleEn: "", entryType: "tv" },
-            score: 0,
-            failureReason: AMBIGUOUS_MATCH_REASON,
-          });
+          results.push(makeAmbiguousResult(best));
         } else {
           results.push(winner);
         }

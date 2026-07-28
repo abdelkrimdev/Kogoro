@@ -378,6 +378,27 @@ describe("MatchPipeline", () => {
     expect(decision.type).toBe("match");
   });
 
+  test("decide with ambiguous precomputed match returns ambiguous decision with candidates", async () => {
+    const pipeline = new MatchPipeline(createMockMatcher());
+    const precomputed: MatchResult = {
+      ...makeMatchResult(),
+      ambiguous: true,
+      candidates: [
+        makeMatchResult({ anime: { id: "1", titleEn: "Anime A", entryType: "tv" } }),
+        makeMatchResult({ anime: { id: "2", titleEn: "Anime B", entryType: "tv" } }),
+      ],
+    };
+
+    const decision = await pipeline.decide(makeInput(), precomputed);
+
+    expect(decision.type).toBe("ambiguous");
+    if (decision.type === "ambiguous") {
+      expect(decision.candidates).toBeArrayOfSize(2);
+      expect(decision.candidates[0]?.anime.id).toBe("1");
+      expect(decision.candidates[1]?.anime.id).toBe("2");
+    }
+  });
+
   test("decide with null precomputed falls back to matcher", async () => {
     const pipeline = new MatchPipeline(createMockMatcher());
     const decision = await pipeline.decide(makeInput(), null);

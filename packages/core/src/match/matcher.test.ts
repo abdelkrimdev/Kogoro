@@ -573,6 +573,34 @@ describe("Matcher", () => {
       expect(results[0]?.failureReason).toBeUndefined();
     });
 
+    test("matchBatch sets ambiguous flag with candidates when no clear winner", async () => {
+      const mockDb = createMockDb({
+        track: true,
+        searchAnime: () => [
+          { id: "1", titleEn: "One Piece", entryType: "tv" },
+          { id: "2", titleEn: "One Piece", entryType: "tv" },
+        ],
+        getEpisodes: (animeId) => [
+          {
+            id: "101",
+            animeId,
+            season: 1,
+            episode: 1,
+            titleEn: "Ep 1",
+            entryType: "tv",
+          },
+        ],
+      });
+
+      const matcher = new Matcher({ database: mockDb });
+      const results = await matcher.matchBatch([makeParsedResult("One Piece", null, 1)]);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.ambiguous).toBe(true);
+      expect(results[0]?.candidates).toBeArrayOfSize(2);
+      expect(results[0]?.failureReason).toBeUndefined();
+    });
+
     test("single clear winner passes through matchBatch without ambiguity", async () => {
       const mockDb = createMockDb({
         track: true,

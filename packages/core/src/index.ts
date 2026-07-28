@@ -69,10 +69,10 @@ export type { CachedMatch } from "./match/match-repository";
 export { MatchRepository } from "./match/match-repository";
 export type { MatcherLike, MatchResult } from "./match/matcher";
 export {
-  AMBIGUOUS_MATCH_REASON,
   bestPerAnimeId,
   isClearWinner,
   Matcher,
+  makeAmbiguousResult,
   matchResultFromCache,
   matchResultFromManual,
   matchResultFromOverride,

@@ -13,8 +13,7 @@ import {
   writeTempFile,
 } from "../fixtures";
 import type { ProgressEvent, TaskContext } from "../io/progress";
-import type { MatcherLike, MatchResult } from "../match/matcher";
-import { AMBIGUOUS_MATCH_REASON } from "../match/matcher";
+import type { MatchResult } from "../match/matcher";
 import { OverrideStore } from "../match/override-store";
 import { Renamer } from "../rename/renamer";
 import { Scanner } from "./scanner";
@@ -393,55 +392,35 @@ describe("Scanner", () => {
     });
   });
 
-  test("scanBatch persists override after ambiguous batch match resolution", async () => {
-    await withTempDir("scan-batch-ambiguous-override", async (dir) => {
+  test("scanBatch routes ambiguous batch match to onAmbiguous with candidates", async () => {
+    await withTempDir("scan-batch-ambiguous-callback", async (dir) => {
       writeTempFile(dir, "[Group] My Anime - 01.mkv", "a");
 
       const overrideStore = new OverrideStore(dir);
       const ambiguousMatcher = createAmbiguousMatcher();
-      const batchMatcher: MatcherLike = {
-        async match(parsed) {
-          return ambiguousMatcher.match(parsed);
-        },
-        async matchBatch(parsedList) {
-          const results: MatchResult[] = [];
-          for (const p of parsedList) {
-            const matches = await ambiguousMatcher.match(p);
-            const first = matches[0];
-            if (matches.length > 1 && first) {
-              results.push({
-                anime: first.anime,
-                episode: first.episode,
-                score: first.score,
-                failureReason: AMBIGUOUS_MATCH_REASON,
-              });
-            } else {
-              results.push(first ?? makeNoMatchResult());
-            }
-          }
-          return results;
-        },
-      };
 
       const scanner = new Scanner({
         hashCache: createTestHashCache({ overrideStore }),
-        matcher: batchMatcher,
+        matcher: ambiguousMatcher,
         overrideStore,
       });
 
       const filePath = join(dir, "[Group] My Anime - 01.mkv");
+      let ambiguousCalled = false;
+      let receivedCandidates: MatchResult[] = [];
       const results = await scanner.scanBatch([filePath], {
         concurrency: 1,
-        onFailed: async () => ({ animeId: "1", episode: 1, entryType: "tv" }),
+        onAmbiguous: async (candidates) => {
+          ambiguousCalled = true;
+          receivedCandidates = candidates;
+          return candidates[0] ?? null;
+        },
       });
 
       expect(results).toHaveLength(1);
       expect(results[0]?.status).toBe("matched");
-
-      const overrideHash = overrideKey(filePath);
-      const savedOverride = overrideStore.get(overrideHash);
-      expect(savedOverride).toBeDefined();
-      expect(savedOverride?.animeId).toBe("1");
+      expect(ambiguousCalled).toBe(true);
+      expect(receivedCandidates.length).toBeGreaterThanOrEqual(2);
     });
   });
 

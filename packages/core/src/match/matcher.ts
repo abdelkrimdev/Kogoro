@@ -9,6 +9,8 @@ export interface MatchResult {
   score: number;
   failureReason?: string;
   allEpisodes?: EpisodeResult[];
+  ambiguous?: boolean;
+  candidates?: MatchResult[];
 }
 
 export function matchResultFromCache(cached: CachedMatch): MatchResult {
@@ -81,9 +83,15 @@ export function matchResultFromManual(
   };
 }
 
+export function makeAmbiguousResult(candidates: MatchResult[]): MatchResult {
+  const first = candidates[0];
+  return first
+    ? { ...first, ambiguous: true, candidates }
+    : noMatchResult("No matching episode found");
+}
+
 const AMBIGUITY_MARGIN = 0.2;
 const AMBIGUITY_EPSILON = 0.001;
-export const AMBIGUOUS_MATCH_REASON = "Ambiguous match";
 
 export function isClearWinner(best: MatchResult[]): MatchResult | undefined {
   if (best.length === 0) return undefined;
@@ -300,7 +308,7 @@ export class Matcher implements MatcherLike {
       const best = bestPerAnimeId(viable);
       const winner = isClearWinner(best);
       if (!winner) {
-        results.push(noMatchResult(AMBIGUOUS_MATCH_REASON));
+        results.push(makeAmbiguousResult(best));
         continue;
       }
       results.push(winner);

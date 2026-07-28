@@ -93,15 +93,7 @@ export function resolveMatches(matches: MatchResult[]): MatchDecision {
 
   const best = bestPerAnimeId(matches);
   const winner = isClearWinner(best);
-  if (winner) {
-    return { type: "match", match: winner };
-  }
-
-  if (best.length === 0) {
-    return { type: "failed", failureReason: "No matching episode found" };
-  }
-
-  return { type: "ambiguous", candidates: best };
+  return winner ? { type: "match", match: winner } : { type: "ambiguous", candidates: best };
 }
 
 export function resolveManual(resolution: ManualResolution): MatchResult {
@@ -145,6 +137,10 @@ export class MatchPipeline {
   private resolveEntry(input: MatchInput, matches: MatchResult[]): MatchDecision {
     if (input.override?.entryType) {
       applyEntryTypeOverride(matches, input.override.entryType);
+    }
+
+    if (matches[0]?.ambiguous && matches[0].candidates) {
+      return { type: "ambiguous", candidates: matches[0].candidates };
     }
 
     if (!input.parsed.title || matches.length === 0 || matches[0]?.failureReason) {

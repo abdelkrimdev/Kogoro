@@ -120,7 +120,7 @@ describe("ScanOrchestrator", () => {
       const progressEvents = events.filter((e) => e.type === "scanProgress");
       expect(progressEvents.length).toBe(1);
       expect(progressEvents[0]).toMatchObject({
-        status: "failed",
+        status: "ambiguous",
         matched: false,
       });
     });
