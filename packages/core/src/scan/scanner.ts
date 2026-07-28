@@ -198,17 +198,14 @@ export class Scanner {
       }
 
       case "override":
-      case "match": {
-        const resolvedHash = await this.hashCache.persistMatch(filePath, hash, decision.match);
-        return this.planAndExecute(filePath, resolvedHash, decision.match, parsed, options);
-      }
+      case "match":
+        return this.planAndPersist(filePath, hash, decision.match, parsed, options);
 
       case "ambiguous": {
         const resolved = await options?.onAmbiguous?.(decision.candidates, parsed, filePath);
         if (resolved) {
-          const resolvedHash = await this.hashCache.persistMatch(filePath, hash, resolved);
           this.hashCache.persistOverride(filePath, resolved);
-          return this.planAndExecute(filePath, resolvedHash, resolved, parsed, options);
+          return this.planAndPersist(filePath, hash, resolved, parsed, options);
         }
         return {
           file: filePath,
@@ -230,9 +227,8 @@ export class Scanner {
             episode: manual.episode,
             entryType: manual.entryType as EntryType,
           });
-          const resolvedHash = await this.hashCache.persistMatch(filePath, hash, manualMatch);
           this.hashCache.persistOverride(filePath, manualMatch);
-          return this.planAndExecute(filePath, resolvedHash, manualMatch, parsed, options);
+          return this.planAndPersist(filePath, hash, manualMatch, parsed, options);
         }
         return {
           file: filePath,
@@ -247,6 +243,21 @@ export class Scanner {
         };
       }
     }
+  }
+
+  private async planAndPersist(
+    filePath: string,
+    hash: string,
+    match: MatchResult,
+    parsed: ParsedResult,
+    options?: ScanFileOptions,
+  ): Promise<ScanResult> {
+    const result = await this.planAndExecute(filePath, hash, match, parsed, options);
+    if (result.status === "matched") {
+      const resolvedHash = await this.hashCache.persistMatch(filePath, hash, match);
+      return { ...result, hash: resolvedHash };
+    }
+    return result;
   }
 
   private async planAndExecute(
