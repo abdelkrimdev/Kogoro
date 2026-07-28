@@ -49,8 +49,6 @@ export { AnimeAggregate } from "./library/anime-aggregate";
 export { BackgroundRetryService } from "./library/background-retry";
 export {
   type EnrichmentMediaResult,
-  type EnrichmentProvider,
-  type EnrichmentSearchResult,
   FranchiseAggregate,
 } from "./library/franchise-aggregate";
 export type {

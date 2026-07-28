@@ -1,13 +1,6 @@
 import type { EnrichmentRelation, KnownEntry } from "../types";
 import type { LibraryAnime, LibraryRepository } from "./library-repository";
 
-export interface EnrichmentSearchResult {
-  anilistId: string;
-  title: string;
-  format?: string;
-  episodes?: number;
-}
-
 export interface EnrichmentMediaResult {
   anilistId: string;
   title: string;
@@ -15,11 +8,6 @@ export interface EnrichmentMediaResult {
   episodes?: number;
   relations: EnrichmentRelation[];
   externalLinks?: { site: string; id: string }[];
-}
-
-export interface EnrichmentProvider {
-  searchByTitle(title: string): Promise<EnrichmentSearchResult | null>;
-  getMediaDetailsBatch(anilistIds: string[]): Promise<EnrichmentMediaResult[]>;
 }
 
 export const RELATION_TYPES_TO_WALK = new Set([
@@ -32,13 +20,12 @@ export const RELATION_TYPES_TO_WALK = new Set([
 
 export interface FranchiseAggregateDeps {
   library: LibraryRepository;
-  provider: EnrichmentProvider;
 }
 
 export class FranchiseAggregate {
   constructor(private deps: FranchiseAggregateDeps) {}
 
-  async walkFranchiseGraph(startAnilistIds: string[]): Promise<Map<string, EnrichmentMediaResult>> {
+  walkFranchiseGraph(startAnilistIds: string[]): Map<string, EnrichmentMediaResult> {
     const visited = new Map<string, EnrichmentMediaResult>();
     const failed = new Set<string>();
     const queue = [...startAnilistIds];
@@ -47,32 +34,7 @@ export class FranchiseAggregate {
       const currentBatch = queue.filter((id) => !visited.has(id) && !failed.has(id));
       if (currentBatch.length === 0) break;
 
-      const uncachedIds = this.deps.library.getUncachedAnilistIds(currentBatch);
-      if (uncachedIds.length > 0) {
-        try {
-          const results = await this.deps.provider.getMediaDetailsBatch(uncachedIds);
-          for (const result of results) {
-            this.deps.library.setAnilistCacheEntry({
-              anilistId: result.anilistId,
-              title: result.title,
-              format: result.format ?? null,
-              episodes: result.episodes ?? null,
-              relations: result.relations,
-              externalLinks: result.externalLinks ?? null,
-              fetchedAt: new Date().toISOString(),
-            });
-            visited.set(result.anilistId, result);
-          }
-        } catch {
-          for (const id of uncachedIds) {
-            failed.add(id);
-          }
-        }
-      }
-
       for (const id of currentBatch) {
-        if (visited.has(id)) continue;
-
         const cached = this.deps.library.getAnilistCacheEntry(id);
         if (cached) {
           visited.set(id, {
@@ -83,6 +45,8 @@ export class FranchiseAggregate {
             relations: cached.relations,
             externalLinks: cached.externalLinks ?? undefined,
           });
+        } else {
+          failed.add(id);
         }
       }
 
@@ -93,7 +57,8 @@ export class FranchiseAggregate {
         for (const relation of media.relations) {
           if (
             RELATION_TYPES_TO_WALK.has(relation.relationType) &&
-            !visited.has(relation.anilistId)
+            !visited.has(relation.anilistId) &&
+            !failed.has(relation.anilistId)
           ) {
             queue.push(relation.anilistId);
           }
@@ -142,11 +107,10 @@ export class FranchiseAggregate {
     return components;
   }
 
-  async resolveFranchises(
+  resolveFranchises(
     mediaResults: Map<string, EnrichmentMediaResult>,
     animeByAnilistId: Map<string, number[]>,
-    needsSearchByTitle?: Map<string, number>,
-  ): Promise<void> {
+  ): void {
     if (mediaResults.size === 0) return;
 
     const components = this.findConnectedComponents(mediaResults);
@@ -156,13 +120,7 @@ export class FranchiseAggregate {
         this.findExistingFranchise(componentIds) ??
         this.createFranchiseForComponent(rootId, componentIds, mediaResults, animeByAnilistId);
 
-      this.assignComponentToFranchise(
-        componentIds,
-        franchise.id,
-        animeByAnilistId,
-        mediaResults,
-        needsSearchByTitle,
-      );
+      this.assignComponentToFranchise(componentIds, franchise.id, animeByAnilistId);
 
       this.applySeasonNumbers(componentIds, animeByAnilistId);
     }
@@ -250,8 +208,7 @@ export class FranchiseAggregate {
     return seasonMap;
   }
 
-  async enrichAnime(animeIds: number[], knownAnilistEntries?: KnownEntry[]): Promise<void> {
-    const needsSearch: Array<{ animeId: number; title: string }> = [];
+  enrichAnime(animeIds: number[], knownAnilistEntries?: KnownEntry[]): void {
     const animeByAnilistId = new Map<string, number[]>();
 
     const pushToMap = (key: string, value: number): void => {
@@ -288,34 +245,13 @@ export class FranchiseAggregate {
 
       if (matchedAnilistId) {
         pushToMap(matchedAnilistId, animeId);
-      } else {
-        needsSearch.push({ animeId: anime.id, title: anime.title });
       }
     }
 
     if (animeByAnilistId.size > 0) {
       const allAnilistIds = [...animeByAnilistId.keys()];
-      const mediaResults = await this.walkFranchiseGraph(allAnilistIds);
-      await this.resolveFranchises(mediaResults, animeByAnilistId);
-    }
-
-    const needsSearchByTitle = new Map<string, number>();
-    for (const { animeId, title } of needsSearch) {
-      needsSearchByTitle.set(title.toLowerCase(), animeId);
-    }
-
-    for (const { animeId, title } of needsSearch) {
-      const anime = this.deps.library.getAnime(animeId);
-      if (!anime || anime.franchiseId) continue;
-      if (this.deps.library.hasAnimeSourceMapping(animeId, "anilist")) continue;
-
-      const searchResult = await this.deps.provider.searchByTitle(title);
-      if (!searchResult) continue;
-
-      pushToMap(searchResult.anilistId, animeId);
-
-      const mediaResults = await this.walkFranchiseGraph([searchResult.anilistId]);
-      await this.resolveFranchises(mediaResults, animeByAnilistId, needsSearchByTitle);
+      const mediaResults = this.walkFranchiseGraph(allAnilistIds);
+      this.resolveFranchises(mediaResults, animeByAnilistId);
     }
   }
 
@@ -432,8 +368,6 @@ export class FranchiseAggregate {
     componentIds: string[],
     franchiseId: number,
     animeByAnilistId: Map<string, number[]>,
-    mediaResults: Map<string, EnrichmentMediaResult>,
-    needsSearchByTitle?: Map<string, number>,
   ): void {
     for (const id of componentIds) {
       for (const animeId of animeByAnilistId.get(id) ?? []) {
@@ -443,14 +377,6 @@ export class FranchiseAggregate {
       const existingAnime = this.findAnimeByAnilistId(id);
       if (existingAnime) {
         this.ensureMappingAndAssign(existingAnime.id, id, franchiseId);
-      }
-
-      if (needsSearchByTitle) {
-        const media = mediaResults.get(id);
-        const matchAnimeId = media ? needsSearchByTitle.get(media.title.toLowerCase()) : undefined;
-        if (matchAnimeId !== undefined) {
-          this.ensureMappingAndAssign(matchAnimeId, id, franchiseId);
-        }
       }
     }
   }

@@ -5,14 +5,12 @@ import type { LocalWatchStatus } from "../tracker/credential-utils";
 import { mapTrackerStatus } from "../tracker/credential-utils";
 import type {
   EntryType,
-  KnownEntry,
   MatchEntry,
   TrackerPlugin,
   TrackerSource,
   TrackerWatchStatus,
 } from "../types";
-import type { EnrichmentMediaResult, EnrichmentProvider } from "./franchise-aggregate";
-import { FranchiseAggregate } from "./franchise-aggregate";
+
 import type {
   EpisodeGroup,
   GroupTrackerMapping,
@@ -163,68 +161,33 @@ export interface AnimeAggregateDeps {
     episodeByCompositeKey: Map<string, number>;
   }) => void;
   computeAndPersistLibraryState: (animeId: number, repo?: LibraryRepository) => void;
-  enrichmentProviderFactory?: () => Promise<EnrichmentProvider | undefined>;
 }
 
 export class AnimeAggregate {
-  private franchiseAggregate: FranchiseAggregate | null = null;
-
   constructor(private deps: AnimeAggregateDeps) {}
 
   get library(): LibraryRepository {
     return this.deps.library;
   }
 
-  private async ensureFranchiseAggregate(): Promise<FranchiseAggregate | null> {
-    if (this.franchiseAggregate) return this.franchiseAggregate;
-    if (!this.deps.enrichmentProviderFactory) return null;
-    const provider = await this.deps.enrichmentProviderFactory();
-    if (!provider) return null;
-    this.franchiseAggregate = new FranchiseAggregate({ library: this.deps.library, provider });
-    return this.franchiseAggregate;
-  }
-
-  private async ensureEnrichmentProvider(): Promise<EnrichmentProvider | null> {
-    if (!this.deps.enrichmentProviderFactory) return null;
-    return (await this.deps.enrichmentProviderFactory()) ?? null;
-  }
-
-  async enrichAnime(animeIds: number[], knownEntries?: KnownEntry[]): Promise<void> {
-    const franchiseAggregate = await this.ensureFranchiseAggregate();
-    if (!franchiseAggregate) return;
-    await franchiseAggregate.enrichAnime(animeIds, knownEntries);
-  }
-
   async retryPendingIdentification(): Promise<{
     resolved: Array<{ id: number; mergedInto?: number }>;
     stillPending: LibraryAnime[];
   }> {
-    const provider = await this.ensureEnrichmentProvider();
     const pendingAnime = this.deps.library.findPendingAnime();
     const resolved: Array<{ id: number; mergedInto?: number }> = [];
-    const enrichedIds: number[] = [];
 
     for (const entry of pendingAnime) {
-      const resolvedAnilistId = await this.resolveAnilistId(entry.title, provider);
+      const resolvedAnilistId = this.resolveAnilistId(entry.title);
       if (!resolvedAnilistId) continue;
 
       const existingAnime = this.deps.library.findAnimeByAnilistId(resolvedAnilistId);
       if (existingAnime) {
         this.deps.library.mergeAnimeInto(entry.id, existingAnime.id);
         resolved.push({ id: entry.id, mergedInto: existingAnime.id });
-        enrichedIds.push(existingAnime.id);
       } else {
         this.deps.library.updateAnimeAnilistId(entry.id, resolvedAnilistId);
         resolved.push({ id: entry.id });
-        enrichedIds.push(entry.id);
-      }
-    }
-
-    if (enrichedIds.length > 0) {
-      try {
-        await this.enrichAnime(enrichedIds);
-      } catch {
-        // Enrichment failure should not prevent retry from completing
       }
     }
 
@@ -481,18 +444,10 @@ export class AnimeAggregate {
     return matchResults;
   }
 
-  private async buildRelationMatchContext(trackerList: Array<{ trackerId: string }>): Promise<{
+  private async buildRelationMatchContext(_trackerList: Array<{ trackerId: string }>): Promise<{
     franchiseSets: Map<string, Set<string>> | null;
     libraryAnimeAnilistIds: Map<number, string> | null;
   }> {
-    const franchiseAggregate = await this.ensureFranchiseAggregate();
-    if (!franchiseAggregate) return { franchiseSets: null, libraryAnimeAnilistIds: null };
-
-    const uniqueTrackerIds = [...new Set(trackerList.map((e) => e.trackerId))];
-    await this.getMediaDetails(uniqueTrackerIds);
-
-    const franchiseSets = franchiseAggregate.buildFranchiseSets(uniqueTrackerIds);
-
     const knownAnilistIds = this.deps.library.getAnilistIdsFromTrackerMappings();
     const animeAnilistIds = this.deps.library.getAnilistIdsFromSourceMappings();
     const libraryAnimeAnilistIds = new Map<number, string>();
@@ -511,7 +466,7 @@ export class AnimeAggregate {
       }
     }
 
-    return { franchiseSets, libraryAnimeAnilistIds };
+    return { franchiseSets: null, libraryAnimeAnilistIds };
   }
 
   private processEntryForExistingAnime(
@@ -563,16 +518,6 @@ export class AnimeAggregate {
     }
   }
 
-  async getMediaDetails(anilistIds: string[]): Promise<EnrichmentMediaResult[] | null> {
-    const provider = await this.ensureEnrichmentProvider();
-    if (!provider) return null;
-    try {
-      return await provider.getMediaDetailsBatch(anilistIds);
-    } catch {
-      return null;
-    }
-  }
-
   private getFilteredMatches(sourceDb?: string): MatchEntry[] {
     const allMatches = this.exportMatches();
     const filtered = sourceDb ? allMatches.filter((m) => m.sourceDb === sourceDb) : allMatches;
@@ -611,8 +556,7 @@ export class AnimeAggregate {
         continue;
       }
 
-      const provider = await this.ensureEnrichmentProvider();
-      const resolved = await this.resolveAnilistId(match.animeTitle, provider);
+      const resolved = this.resolveAnilistId(match.animeTitle);
       if (resolved) {
         anilistIdByMatchKey.set(matchKey, resolved);
       }
@@ -856,10 +800,6 @@ export class AnimeAggregate {
 
   async rebuild(sourceDb?: string): Promise<void> {
     await this.rebuildBase(sourceDb);
-    const unenrichedIds = this.deps.library.getUnenrichedAnimeIds();
-    if (unenrichedIds.length > 0) {
-      await this.enrichAnime(unenrichedIds);
-    }
   }
 
   async rebuildWithTrackers(
@@ -1029,7 +969,6 @@ export class AnimeAggregate {
   }
 
   async resolveAndMerge(input: ResolveAndMergeInput): Promise<ResolveAndMergeResult> {
-    const provider = await this.ensureEnrichmentProvider();
     const allAnimeIds: number[] = [];
     const newAnimeIds: number[] = [];
 
@@ -1052,7 +991,7 @@ export class AnimeAggregate {
       }
 
       if (!anilistId) {
-        anilistId = await this.resolveAnilistId(entry.title, provider);
+        anilistId = this.resolveAnilistId(entry.title);
       }
 
       if (!anilistId) {
@@ -1084,21 +1023,10 @@ export class AnimeAggregate {
       this.deps.computeAndPersistLibraryState(animeId);
     }
 
-    if (newAnimeIds.length > 0) {
-      try {
-        await this.enrichAnime(newAnimeIds);
-      } catch {
-        // Enrichment failure should not prevent merge from completing
-      }
-    }
-
     return { animeIds: allAnimeIds };
   }
 
-  private async resolveAnilistId(
-    title: string,
-    provider: EnrichmentProvider | null,
-  ): Promise<string | null> {
+  private resolveAnilistId(title: string): string | null {
     const titleLower = title.toLowerCase();
     const allAnime = this.deps.library.listAnime();
     for (const a of allAnime) {
@@ -1117,26 +1045,6 @@ export class AnimeAggregate {
     const cacheEntry = this.deps.library.findAnilistCacheByTitle(title);
     if (cacheEntry) {
       return cacheEntry.anilistId;
-    }
-
-    if (provider) {
-      try {
-        const result = await provider.searchByTitle(title);
-        if (result) {
-          this.deps.library.setAnilistCacheEntry({
-            anilistId: result.anilistId,
-            title: result.title,
-            format: result.format ?? null,
-            episodes: result.episodes ?? null,
-            relations: [],
-            externalLinks: null,
-            fetchedAt: new Date().toISOString(),
-          });
-          return result.anilistId;
-        }
-      } catch {
-        // AniList unavailable
-      }
     }
 
     return null;

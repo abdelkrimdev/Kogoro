@@ -4,47 +4,25 @@ import { FranchiseAggregate, RELATION_TYPES_TO_WALK } from "./franchise-aggregat
 import { LibraryRepository } from "./library-repository";
 import { createLibraryDb } from "./test-utils";
 
-function createMockProvider(mediaResults: Map<string, EnrichmentMediaResult>) {
-  return {
-    async searchByTitle(title: string) {
-      return { anilistId: "1", title, format: "TV", episodes: 12 };
-    },
-    async getMediaDetailsBatch(ids: string[]) {
-      return ids.map(
-        (id) =>
-          mediaResults.get(id) ?? {
-            anilistId: id,
-            title: "Unknown",
-            format: "TV",
-            episodes: 0,
-            relations: [],
-          },
-      );
-    },
-  };
-}
-
 describe("FranchiseAggregate", () => {
   describe("walkFranchiseGraph", () => {
-    test("fetches media details for starting IDs", async () => {
+    test("fetches media details from cache for starting IDs", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const mediaResults = new Map<string, EnrichmentMediaResult>();
-        mediaResults.set("1", {
+        repo.setAnilistCacheEntry({
           anilistId: "1",
           title: "Jujutsu Kaisen",
           format: "TV",
           episodes: 24,
           relations: [],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
 
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(mediaResults),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
-        const result = await aggregate.walkFranchiseGraph(["1"]);
+        const result = aggregate.walkFranchiseGraph(["1"]);
 
         expect(result.size).toBe(1);
         expect(result.get("1")?.title).toBe("Jujutsu Kaisen");
@@ -53,32 +31,32 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("follows SEQUEL and PREQUEL relations", async () => {
+    test("follows SEQUEL and PREQUEL relations", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const mediaResults = new Map<string, EnrichmentMediaResult>();
-        mediaResults.set("1", {
+        repo.setAnilistCacheEntry({
           anilistId: "1",
           title: "Jujutsu Kaisen",
           format: "TV",
           episodes: 24,
           relations: [{ anilistId: "2", title: "Jujutsu Kaisen S2", relationType: "SEQUEL" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
-        mediaResults.set("2", {
+        repo.setAnilistCacheEntry({
           anilistId: "2",
           title: "Jujutsu Kaisen S2",
           format: "TV",
           episodes: 23,
           relations: [{ anilistId: "1", title: "Jujutsu Kaisen", relationType: "PREQUEL" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
 
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(mediaResults),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
-        const result = await aggregate.walkFranchiseGraph(["1"]);
+        const result = aggregate.walkFranchiseGraph(["1"]);
 
         expect(result.size).toBe(2);
         expect(result.has("1")).toBe(true);
@@ -88,32 +66,32 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("follows SIDE_STORY and PARENT relations", async () => {
+    test("follows SIDE_STORY and PARENT relations", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const mediaResults = new Map<string, EnrichmentMediaResult>();
-        mediaResults.set("1", {
+        repo.setAnilistCacheEntry({
           anilistId: "1",
           title: "One Piece",
           format: "TV",
           episodes: 1100,
           relations: [{ anilistId: "2", title: "One Piece Film Red", relationType: "SIDE_STORY" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
-        mediaResults.set("2", {
+        repo.setAnilistCacheEntry({
           anilistId: "2",
           title: "One Piece Film Red",
           format: "MOVIE",
           episodes: 1,
           relations: [{ anilistId: "1", title: "One Piece", relationType: "PARENT" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
 
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(mediaResults),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
-        const result = await aggregate.walkFranchiseGraph(["1"]);
+        const result = aggregate.walkFranchiseGraph(["1"]);
 
         expect(result.size).toBe(2);
       } finally {
@@ -121,12 +99,11 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("does not follow ADAPTATION relation", async () => {
+    test("does not follow ADAPTATION relation", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const mediaResults = new Map<string, EnrichmentMediaResult>();
-        mediaResults.set("1", {
+        repo.setAnilistCacheEntry({
           anilistId: "1",
           title: "Jujutsu Kaisen",
           format: "TV",
@@ -134,14 +111,13 @@ describe("FranchiseAggregate", () => {
           relations: [
             { anilistId: "2", title: "Jujutsu Kaisen Manga", relationType: "ADAPTATION" },
           ],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
 
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(mediaResults),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
-        const result = await aggregate.walkFranchiseGraph(["1"]);
+        const result = aggregate.walkFranchiseGraph(["1"]);
 
         expect(result.size).toBe(1);
         expect(result.has("2")).toBe(false);
@@ -150,91 +126,14 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("uses cached entries instead of fetching", async () => {
+    test("returns empty map for uncached IDs", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
 
-        repo.setAnilistCacheEntry({
-          anilistId: "1",
-          title: "Cached Anime",
-          format: "TV",
-          episodes: 12,
-          relations: [],
-          externalLinks: null,
-          fetchedAt: new Date().toISOString(),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
-        let fetchCalled = false;
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: {
-            async searchByTitle() {
-              return null;
-            },
-            async getMediaDetailsBatch() {
-              fetchCalled = true;
-              return [];
-            },
-          },
-        });
-
-        const result = await aggregate.walkFranchiseGraph(["1"]);
-
-        expect(fetchCalled).toBe(false);
-        expect(result.size).toBe(1);
-        expect(result.get("1")?.title).toBe("Cached Anime");
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("caches fetched results", async () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const mediaResults = new Map<string, EnrichmentMediaResult>();
-        mediaResults.set("1", {
-          anilistId: "1",
-          title: "Jujutsu Kaisen",
-          format: "TV",
-          episodes: 24,
-          relations: [],
-        });
-
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(mediaResults),
-        });
-
-        await aggregate.walkFranchiseGraph(["1"]);
-
-        const cached = repo.getAnilistCacheEntry("1");
-        expect(cached).not.toBeNull();
-        expect(cached?.title).toBe("Jujutsu Kaisen");
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("handles batch fetch failure gracefully", async () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: {
-            async searchByTitle() {
-              return null;
-            },
-            async getMediaDetailsBatch() {
-              throw new Error("Network error");
-            },
-          },
-        });
-
-        const result = await aggregate.walkFranchiseGraph(["1"]);
+        const result = aggregate.walkFranchiseGraph(["1"]);
 
         expect(result.size).toBe(0);
       } finally {
@@ -242,32 +141,32 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("avoids infinite loops from circular relations", async () => {
+    test("avoids infinite loops from circular relations", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const mediaResults = new Map<string, EnrichmentMediaResult>();
-        mediaResults.set("1", {
+        repo.setAnilistCacheEntry({
           anilistId: "1",
           title: "Anime A",
           format: "TV",
           episodes: 12,
           relations: [{ anilistId: "2", title: "Anime B", relationType: "SEQUEL" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
-        mediaResults.set("2", {
+        repo.setAnilistCacheEntry({
           anilistId: "2",
           title: "Anime B",
           format: "TV",
           episodes: 12,
           relations: [{ anilistId: "1", title: "Anime A", relationType: "PREQUEL" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
 
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(mediaResults),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
-        const result = await aggregate.walkFranchiseGraph(["1"]);
+        const result = aggregate.walkFranchiseGraph(["1"]);
 
         expect(result.size).toBe(2);
       } finally {
@@ -281,10 +180,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
         mediaResults.set("1", {
@@ -317,10 +213,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
         mediaResults.set("1", {
@@ -352,10 +245,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
         mediaResults.set("1", {
@@ -383,14 +273,11 @@ describe("FranchiseAggregate", () => {
   });
 
   describe("resolveFranchises", () => {
-    test("creates franchise for single anime", async () => {
+    test("creates franchise for single anime", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
@@ -409,7 +296,7 @@ describe("FranchiseAggregate", () => {
         const animeByAnilistId = new Map<string, number[]>();
         animeByAnilistId.set("1", [anime.id]);
 
-        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+        aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
         const franchises = repo.getFranchises();
         expect(franchises.length).toBe(1);
@@ -422,14 +309,11 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("creates franchise for connected component", async () => {
+    test("creates franchise for connected component", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime1 = repo.upsertAnime({
           title: "Jujutsu Kaisen",
@@ -461,7 +345,7 @@ describe("FranchiseAggregate", () => {
         animeByAnilistId.set("1", [anime1.id]);
         animeByAnilistId.set("2", [anime2.id]);
 
-        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+        aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
         const franchises = repo.getFranchises();
         expect(franchises.length).toBe(1);
@@ -475,14 +359,11 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("creates separate franchises for disconnected components", async () => {
+    test("creates separate franchises for disconnected components", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime1 = repo.upsertAnime({
           title: "Jujutsu Kaisen",
@@ -514,7 +395,7 @@ describe("FranchiseAggregate", () => {
         animeByAnilistId.set("1", [anime1.id]);
         animeByAnilistId.set("2", [anime2.id]);
 
-        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+        aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
         const franchises = repo.getFranchises();
         expect(franchises.length).toBe(2);
@@ -527,14 +408,11 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("uses existing franchise when AniList ID matches", async () => {
+    test("uses existing franchise when AniList ID matches", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const existingFranchise = repo.createFranchise({
           title: "Existing Franchise",
@@ -558,7 +436,7 @@ describe("FranchiseAggregate", () => {
         const animeByAnilistId = new Map<string, number[]>();
         animeByAnilistId.set("1", [anime.id]);
 
-        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+        aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
         const franchises = repo.getFranchises();
         expect(franchises.length).toBe(1);
@@ -571,14 +449,11 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("creates tracker mappings for assigned anime", async () => {
+    test("creates tracker mappings for assigned anime", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
@@ -597,7 +472,7 @@ describe("FranchiseAggregate", () => {
         const animeByAnilistId = new Map<string, number[]>();
         animeByAnilistId.set("1", [anime.id]);
 
-        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+        aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
         const mapping = repo.findAnimeSourceMapping("anilist", "1");
         expect(mapping).not.toBeNull();
@@ -607,14 +482,11 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("uses anime title as franchise title when available", async () => {
+    test("uses anime title as franchise title when available", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime = repo.upsertAnime({
           title: "My Custom Title",
@@ -633,7 +505,7 @@ describe("FranchiseAggregate", () => {
         const animeByAnilistId = new Map<string, number[]>();
         animeByAnilistId.set("1", [anime.id]);
 
-        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+        aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
         const franchises = repo.getFranchises();
         expect(franchises[0]?.title).toBe("My Custom Title");
@@ -642,19 +514,16 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("handles empty media results", async () => {
+    test("handles empty media results", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
         const animeByAnilistId = new Map<string, number[]>();
 
-        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+        aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
         const franchises = repo.getFranchises();
         expect(franchises.length).toBe(0);
@@ -663,7 +532,7 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("assigns season numbers to episode groups from SEQUEL chain", async () => {
+    test("assigns season numbers to episode groups from SEQUEL chain", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
@@ -687,10 +556,7 @@ describe("FranchiseAggregate", () => {
           fetchedAt: new Date().toISOString(),
         });
 
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime1 = repo.upsertAnime({ title: "Attack on Titan", episodeCount: 25 });
         const anime2 = repo.upsertAnime({ title: "Attack on Titan S2", episodeCount: 12 });
@@ -728,7 +594,7 @@ describe("FranchiseAggregate", () => {
         animeByAnilistId.set("1", [anime1.id]);
         animeByAnilistId.set("2", [anime2.id]);
 
-        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+        aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
         const updatedGroup1 = repo.getEpisodeGroup(group1.id);
         const updatedGroup2 = repo.getEpisodeGroup(group2.id);
@@ -739,7 +605,7 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("does not mutate caller's animeByAnilistId map", async () => {
+    test("does not mutate caller's animeByAnilistId map", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
@@ -754,10 +620,7 @@ describe("FranchiseAggregate", () => {
           fetchedAt: new Date().toISOString(),
         });
 
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime = repo.upsertAnime({ title: "Anime A", episodeCount: 12 });
         repo.createAnimeSourceMapping({ animeId: anime.id, source: "anilist", externalId: "1" });
@@ -775,7 +638,7 @@ describe("FranchiseAggregate", () => {
         const originalIds: number[] = [];
         animeByAnilistId.set("1", originalIds);
 
-        await aggregate.resolveFranchises(mediaResults, animeByAnilistId);
+        aggregate.resolveFranchises(mediaResults, animeByAnilistId);
 
         expect(originalIds).toEqual([]);
         expect(animeByAnilistId.get("1")).toEqual([]);
@@ -790,10 +653,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         repo.setAnilistCacheEntry({
           anilistId: "1",
@@ -828,10 +688,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         repo.setAnilistCacheEntry({
           anilistId: "1",
@@ -866,10 +723,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         repo.setAnilistCacheEntry({
           anilistId: "1",
@@ -895,10 +749,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         repo.setAnilistCacheEntry({
           anilistId: "1",
@@ -935,10 +786,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         repo.setAnilistCacheEntry({
           anilistId: "1",
@@ -985,10 +833,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         repo.setAnilistCacheEntry({
           anilistId: "1",
@@ -1022,10 +867,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         repo.setAnilistCacheEntry({
           anilistId: "1",
@@ -1049,10 +891,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const seasonNumbers = aggregate.assignSeasonNumbers([]);
         expect(seasonNumbers.size).toBe(0);
@@ -1065,10 +904,7 @@ describe("FranchiseAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         repo.setAnilistCacheEntry({
           anilistId: "1",
@@ -1120,187 +956,21 @@ describe("FranchiseAggregate", () => {
   });
 
   describe("enrichAnime", () => {
-    test("creates franchise from AniList search result", async () => {
+    test("creates franchise from known AniList entries", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const mediaResults = new Map<string, EnrichmentMediaResult>();
-        mediaResults.set("1", {
-          anilistId: "1",
-          title: "Jujutsu Kaisen",
+        repo.setAnilistCacheEntry({
+          anilistId: "16498",
+          title: "Attack on Titan",
           format: "TV",
-          episodes: 24,
+          episodes: 25,
           relations: [],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
 
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(mediaResults),
-        });
-
-        const anime = repo.upsertAnime({
-          title: "Jujutsu Kaisen",
-          episodeCount: 24,
-        });
-
-        await aggregate.enrichAnime([anime.id]);
-
-        const franchise = repo.getFranchiseById(1);
-        expect(franchise).not.toBeNull();
-        expect(franchise?.title).toBe("Jujutsu Kaisen");
-
-        const updatedAnime = repo.getAnime(anime.id);
-        expect(updatedAnime?.franchiseId).toBe(franchise?.id);
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("skips anime that already has a franchise", async () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
-
-        const franchise = repo.createFranchise({ title: "Existing Franchise" });
-        const anime = repo.upsertAnime({
-          title: "Jujutsu Kaisen",
-          episodeCount: 24,
-        });
-        repo.assignAnimeToFranchise(anime.id, franchise.id);
-
-        await aggregate.enrichAnime([anime.id]);
-
-        const franchises = repo.getFranchises();
-        expect(franchises.length).toBe(1);
-        expect(franchises[0]?.title).toBe("Existing Franchise");
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("skips anime that already has an AniList mapping", async () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({
-          library: repo,
-          provider: createMockProvider(new Map()),
-        });
-
-        const anime = repo.upsertAnime({
-          title: "Jujutsu Kaisen",
-          episodeCount: 24,
-        });
-        repo.createAnimeSourceMapping({
-          animeId: anime.id,
-          source: "anilist",
-          externalId: "12345",
-        });
-
-        await aggregate.enrichAnime([anime.id]);
-
-        const franchises = repo.getFranchises();
-        expect(franchises.length).toBe(0);
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("walks relation graph and assigns related anime to same franchise", async () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-
-        const mediaResults = new Map<string, EnrichmentMediaResult>();
-        mediaResults.set("1", {
-          anilistId: "1",
-          title: "Jujutsu Kaisen",
-          format: "TV",
-          episodes: 24,
-          relations: [{ anilistId: "2", title: "Jujutsu Kaisen Season 2", relationType: "SEQUEL" }],
-        });
-        mediaResults.set("2", {
-          anilistId: "2",
-          title: "Jujutsu Kaisen Season 2",
-          format: "TV",
-          episodes: 23,
-          relations: [{ anilistId: "1", title: "Jujutsu Kaisen", relationType: "PREQUEL" }],
-        });
-
-        let searchCount = 0;
-        const provider = {
-          async searchByTitle(title: string) {
-            searchCount++;
-            if (searchCount === 1) {
-              return { anilistId: "1", title, format: "TV" as const, episodes: 24 };
-            }
-            return { anilistId: "2", title, format: "TV" as const, episodes: 23 };
-          },
-          async getMediaDetailsBatch(ids: string[]) {
-            return ids.map(
-              (id) =>
-                mediaResults.get(id) ?? {
-                  anilistId: id,
-                  title: "Unknown",
-                  format: "TV" as const,
-                  episodes: 0,
-                  relations: [],
-                },
-            );
-          },
-        };
-
-        const aggregate = new FranchiseAggregate({ library: repo, provider });
-
-        const anime1 = repo.upsertAnime({
-          title: "Jujutsu Kaisen",
-          episodeCount: 24,
-        });
-
-        const anime2 = repo.upsertAnime({
-          title: "Jujutsu Kaisen Season 2",
-          episodeCount: 23,
-        });
-
-        await aggregate.enrichAnime([anime1.id, anime2.id]);
-
-        const franchises = repo.getFranchises();
-        expect(franchises.length).toBe(1);
-
-        const updatedAnime1 = repo.getAnime(anime1.id);
-        const updatedAnime2 = repo.getAnime(anime2.id);
-        expect(updatedAnime1?.franchiseId).toBe(franchises[0]?.id);
-        expect(updatedAnime2?.franchiseId).toBe(franchises[0]?.id);
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("uses known AniList entries instead of searching by title", async () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        let searchCalled = false;
-        const provider = {
-          async searchByTitle() {
-            searchCalled = true;
-            return null;
-          },
-          async getMediaDetailsBatch(ids: string[]) {
-            return ids.map((id) => ({
-              anilistId: id,
-              title: "Attack on Titan",
-              format: "TV" as const,
-              episodes: 25,
-              relations: [],
-            }));
-          },
-        };
-        const aggregate = new FranchiseAggregate({ library: repo, provider });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime = repo.upsertAnime({
           title: "Attack on Titan",
@@ -1308,9 +978,7 @@ describe("FranchiseAggregate", () => {
         });
 
         const knownEntries = [{ anilistId: "16498", title: "Attack on Titan" }];
-        await aggregate.enrichAnime([anime.id], knownEntries);
-
-        expect(searchCalled).toBe(false);
+        aggregate.enrichAnime([anime.id], knownEntries);
 
         const franchise = repo.getFranchiseById(1);
         expect(franchise).not.toBeNull();
@@ -1324,27 +992,123 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("uses known AniList ID from group tracker mappings", async () => {
+    test("skips anime that already has a franchise", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        let searchCalled = false;
-        const provider = {
-          async searchByTitle() {
-            searchCalled = true;
-            return null;
-          },
-          async getMediaDetailsBatch(ids: string[]) {
-            return ids.map((id) => ({
-              anilistId: id,
-              title: "One Piece",
-              format: "TV" as const,
-              episodes: 1100,
-              relations: [],
-            }));
-          },
-        };
-        const aggregate = new FranchiseAggregate({ library: repo, provider });
+        const aggregate = new FranchiseAggregate({ library: repo });
+
+        const franchise = repo.createFranchise({ title: "Existing Franchise" });
+        const anime = repo.upsertAnime({
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+        repo.assignAnimeToFranchise(anime.id, franchise.id);
+
+        aggregate.enrichAnime([anime.id]);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(1);
+        expect(franchises[0]?.title).toBe("Existing Franchise");
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("skips anime that already has an AniList mapping", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        const aggregate = new FranchiseAggregate({ library: repo });
+
+        const anime = repo.upsertAnime({
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+        repo.createAnimeSourceMapping({
+          animeId: anime.id,
+          source: "anilist",
+          externalId: "12345",
+        });
+
+        aggregate.enrichAnime([anime.id]);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(0);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("walks relation graph and assigns related anime to same franchise", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+
+        repo.setAnilistCacheEntry({
+          anilistId: "1",
+          title: "Jujutsu Kaisen",
+          format: "TV",
+          episodes: 24,
+          relations: [{ anilistId: "2", title: "Jujutsu Kaisen Season 2", relationType: "SEQUEL" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
+        });
+        repo.setAnilistCacheEntry({
+          anilistId: "2",
+          title: "Jujutsu Kaisen Season 2",
+          format: "TV",
+          episodes: 23,
+          relations: [{ anilistId: "1", title: "Jujutsu Kaisen", relationType: "PREQUEL" }],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
+        });
+
+        const aggregate = new FranchiseAggregate({ library: repo });
+
+        const anime1 = repo.upsertAnime({
+          title: "Jujutsu Kaisen",
+          episodeCount: 24,
+        });
+
+        const anime2 = repo.upsertAnime({
+          title: "Jujutsu Kaisen Season 2",
+          episodeCount: 23,
+        });
+
+        const knownEntries = [
+          { anilistId: "1", title: "Jujutsu Kaisen" },
+          { anilistId: "2", title: "Jujutsu Kaisen Season 2" },
+        ];
+        aggregate.enrichAnime([anime1.id, anime2.id], knownEntries);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(1);
+
+        const updatedAnime1 = repo.getAnime(anime1.id);
+        const updatedAnime2 = repo.getAnime(anime2.id);
+        expect(updatedAnime1?.franchiseId).toBe(franchises[0]?.id);
+        expect(updatedAnime2?.franchiseId).toBe(franchises[0]?.id);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    test("uses known AniList ID from group tracker mappings", () => {
+      const { db, sqlite } = createLibraryDb();
+      try {
+        const repo = new LibraryRepository(db);
+        repo.setAnilistCacheEntry({
+          anilistId: "21",
+          title: "One Piece",
+          format: "TV",
+          episodes: 1100,
+          relations: [],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
+        });
+
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime = repo.upsertAnime({
           title: "One Piece",
@@ -1364,9 +1128,7 @@ describe("FranchiseAggregate", () => {
           externalId: "21",
         });
 
-        await aggregate.enrichAnime([anime.id]);
-
-        expect(searchCalled).toBe(false);
+        aggregate.enrichAnime([anime.id]);
 
         const franchise = repo.getFranchiseById(1);
         expect(franchise).not.toBeNull();
@@ -1379,104 +1141,29 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("skips search for anime already franchised by sibling graph walk", async () => {
+    test("creates franchise for single anime with no relations", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-
-        const mediaResults = new Map<string, EnrichmentMediaResult>();
-        mediaResults.set("1", {
+        repo.setAnilistCacheEntry({
           anilistId: "1",
           title: "Jujutsu Kaisen",
           format: "TV",
           episodes: 24,
-          relations: [{ anilistId: "2", title: "Jujutsu Kaisen Season 2", relationType: "SEQUEL" }],
-        });
-        mediaResults.set("2", {
-          anilistId: "2",
-          title: "Jujutsu Kaisen Season 2",
-          format: "TV",
-          episodes: 23,
-          relations: [{ anilistId: "1", title: "Jujutsu Kaisen", relationType: "PREQUEL" }],
+          relations: [],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
         });
 
-        let searchCount = 0;
-        const provider = {
-          async searchByTitle(title: string) {
-            searchCount++;
-            if (searchCount === 1) {
-              return { anilistId: "1", title, format: "TV" as const, episodes: 24 };
-            }
-            return { anilistId: "2", title, format: "TV" as const, episodes: 23 };
-          },
-          async getMediaDetailsBatch(ids: string[]) {
-            return ids.map(
-              (id) =>
-                mediaResults.get(id) ?? {
-                  anilistId: id,
-                  title: "Unknown",
-                  format: "TV" as const,
-                  episodes: 0,
-                  relations: [],
-                },
-            );
-          },
-        };
-
-        const aggregate = new FranchiseAggregate({ library: repo, provider });
-
-        const anime1 = repo.upsertAnime({
-          title: "Jujutsu Kaisen",
-          episodeCount: 24,
-        });
-
-        const anime2 = repo.upsertAnime({
-          title: "Jujutsu Kaisen Season 2",
-          episodeCount: 23,
-        });
-
-        await aggregate.enrichAnime([anime1.id, anime2.id]);
-
-        expect(searchCount).toBe(1);
-
-        const franchises = repo.getFranchises();
-        expect(franchises.length).toBe(1);
-
-        const updatedAnime1 = repo.getAnime(anime1.id);
-        const updatedAnime2 = repo.getAnime(anime2.id);
-        expect(updatedAnime1?.franchiseId).toBe(franchises[0]?.id);
-        expect(updatedAnime2?.franchiseId).toBe(franchises[0]?.id);
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("creates franchise for single anime with no relations", async () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const provider = {
-          async searchByTitle(title: string) {
-            return { anilistId: "1", title, format: "TV" as const, episodes: 24 };
-          },
-          async getMediaDetailsBatch(ids: string[]) {
-            return ids.map((id) => ({
-              anilistId: id,
-              title: "Jujutsu Kaisen",
-              format: "TV" as const,
-              episodes: 24,
-              relations: [],
-            }));
-          },
-        };
-        const aggregate = new FranchiseAggregate({ library: repo, provider });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
           episodeCount: 24,
         });
 
-        await aggregate.enrichAnime([anime.id]);
+        const knownEntries = [{ anilistId: "1", title: "Jujutsu Kaisen" }];
+        aggregate.enrichAnime([anime.id], knownEntries);
 
         const franchises = repo.getFranchises();
         expect(franchises.length).toBe(1);
@@ -1489,32 +1176,18 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("skips anime when AniList search returns null", async () => {
+    test("skips anime without known AniList ID", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        const provider = {
-          async searchByTitle() {
-            return null;
-          },
-          async getMediaDetailsBatch(ids: string[]) {
-            return ids.map((id) => ({
-              anilistId: id,
-              title: "Unknown Anime",
-              format: "TV" as const,
-              episodes: 12,
-              relations: [],
-            }));
-          },
-        };
-        const aggregate = new FranchiseAggregate({ library: repo, provider });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
         const anime = repo.upsertAnime({
           title: "Unknown Anime",
           episodeCount: 24,
         });
 
-        await aggregate.enrichAnime([anime.id]);
+        aggregate.enrichAnime([anime.id]);
 
         const franchises = repo.getFranchises();
         expect(franchises.length).toBe(0);
@@ -1523,33 +1196,16 @@ describe("FranchiseAggregate", () => {
       }
     });
 
-    test("skips anime that does not exist", async () => {
+    test("skips anime that does not exist", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
-        let searchCalled = false;
-        const provider = {
-          async searchByTitle() {
-            searchCalled = true;
-            return null;
-          },
-          async getMediaDetailsBatch(ids: string[]) {
-            return ids.map((id) => ({
-              anilistId: id,
-              title: "Unknown",
-              format: "TV" as const,
-              episodes: 0,
-              relations: [],
-            }));
-          },
-        };
-        const aggregate = new FranchiseAggregate({ library: repo, provider });
+        const aggregate = new FranchiseAggregate({ library: repo });
 
-        await aggregate.enrichAnime([999]);
+        aggregate.enrichAnime([999]);
 
         const franchises = repo.getFranchises();
         expect(franchises.length).toBe(0);
-        expect(searchCalled).toBe(false);
       } finally {
         sqlite.close();
       }

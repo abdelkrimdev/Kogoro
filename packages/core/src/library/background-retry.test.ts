@@ -1,55 +1,23 @@
 import { describe, expect, mock, test } from "bun:test";
 import { AnimeAggregate } from "./anime-aggregate";
 import { BackgroundRetryService } from "./background-retry";
-import type { EnrichmentProvider } from "./franchise-aggregate";
 import { LibraryRepository } from "./library-repository";
 import { createLibraryDb } from "./test-utils";
 
-function createMockEnrichmentProvider(
-  overrides: Partial<EnrichmentProvider> = {},
-): EnrichmentProvider {
-  return {
-    async searchByTitle(title: string) {
-      return { anilistId: "1", title, format: "TV", episodes: 12 };
-    },
-    async getMediaDetailsBatch(anilistIds: string[]) {
-      return anilistIds.map((id) => ({
-        anilistId: id,
-        title: `Anime ${id}`,
-        format: "TV",
-        episodes: 12,
-        relations: [],
-      }));
-    },
-    ...overrides,
-  };
-}
-
-function createTestAggregate(resolvedAnilistId: string | null = null) {
+function createTestAggregate() {
   const { db, sqlite } = createLibraryDb();
   const repo = new LibraryRepository(db);
   const aggregate = new AnimeAggregate({
     library: repo,
     replayUnpushedEvents: () => {},
     computeAndPersistLibraryState: () => {},
-    enrichmentProviderFactory: async () =>
-      createMockEnrichmentProvider({
-        searchByTitle: resolvedAnilistId
-          ? async (title) => ({
-              anilistId: resolvedAnilistId,
-              title,
-              format: "TV",
-              episodes: 12,
-            })
-          : async () => null,
-      }),
   });
   return { repo, aggregate, sqlite };
 }
 
 describe("BackgroundRetryService", () => {
   test("does not run when isActive returns true", async () => {
-    const { aggregate, sqlite } = createTestAggregate("al-123");
+    const { aggregate, sqlite } = createTestAggregate();
     try {
       const onResolved = mock(() => {});
       const service = new BackgroundRetryService({
@@ -68,7 +36,7 @@ describe("BackgroundRetryService", () => {
   });
 
   test("runs retry when isActive returns false", async () => {
-    const { repo, aggregate, sqlite } = createTestAggregate("al-resolved");
+    const { repo, aggregate, sqlite } = createTestAggregate();
     try {
       repo.upsertAnime({ title: "Pending Anime", episodeCount: 12 });
 
@@ -82,15 +50,16 @@ describe("BackgroundRetryService", () => {
       const result = await service.runNow();
 
       expect(result).not.toBeNull();
-      expect(result?.resolved).toHaveLength(1);
-      expect(onResolved).toHaveBeenCalledWith([{ id: expect.any(Number) }]);
+      expect(result?.resolved).toHaveLength(0);
+      expect(result?.stillPending).toHaveLength(1);
+      expect(onResolved).not.toHaveBeenCalled();
     } finally {
       sqlite.close();
     }
   });
 
   test("skips retry when already running", async () => {
-    const { aggregate, sqlite } = createTestAggregate("al-123");
+    const { aggregate, sqlite } = createTestAggregate();
     try {
       const service = new BackgroundRetryService({
         animeAggregate: aggregate,
@@ -106,37 +75,8 @@ describe("BackgroundRetryService", () => {
     }
   });
 
-  test("calls onError when retry throws", async () => {
-    const { db, sqlite } = createLibraryDb();
-    const repo = new LibraryRepository(db);
-    const aggregate = new AnimeAggregate({
-      library: repo,
-      replayUnpushedEvents: () => {},
-      computeAndPersistLibraryState: () => {},
-      enrichmentProviderFactory: async () => {
-        throw new Error("Enrichment failed");
-      },
-    });
-
-    try {
-      const onError = mock(() => {});
-      const service = new BackgroundRetryService({
-        animeAggregate: aggregate,
-        isActive: () => false,
-        onError,
-      });
-
-      const result = await service.runNow();
-
-      expect(result).toBeNull();
-      expect(onError).toHaveBeenCalledWith(expect.any(Error));
-    } finally {
-      sqlite.close();
-    }
-  });
-
   test("start and stop manage interval", async () => {
-    const { aggregate, sqlite } = createTestAggregate("al-123");
+    const { aggregate, sqlite } = createTestAggregate();
     try {
       const service = new BackgroundRetryService({
         animeAggregate: aggregate,

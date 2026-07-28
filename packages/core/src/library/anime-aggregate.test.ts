@@ -7,29 +7,8 @@ import { createEventDb } from "../events/test-utils";
 import { createMockTracker } from "../fixtures";
 import type { MatchEntry } from "../types";
 import { AnimeAggregate } from "./anime-aggregate";
-import type { EnrichmentProvider } from "./franchise-aggregate";
 import { LibraryRepository } from "./library-repository";
 import { createLibraryDb } from "./test-utils";
-
-function createMockEnrichmentProvider(
-  overrides: Partial<EnrichmentProvider> = {},
-): EnrichmentProvider {
-  return {
-    async searchByTitle(title: string) {
-      return { anilistId: "1", title, format: "TV", episodes: 12 };
-    },
-    async getMediaDetailsBatch(anilistIds: string[]) {
-      return anilistIds.map((id) => ({
-        anilistId: id,
-        title: `Anime ${id}`,
-        format: "TV",
-        episodes: 12,
-        relations: [],
-      }));
-    },
-    ...overrides,
-  };
-}
 
 describe("AnimeAggregate", () => {
   describe("rebuildFromMatches", () => {
@@ -546,18 +525,20 @@ describe("AnimeAggregate", () => {
       try {
         const repo = new LibraryRepository(db);
 
+        repo.setAnilistCacheEntry({
+          anilistId: "al-jjk",
+          title: "Jujutsu Kaisen",
+          format: "TV",
+          episodes: 24,
+          relations: [],
+          externalLinks: null,
+          fetchedAt: new Date().toISOString(),
+        });
+
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () => ({
-            async searchByTitle() {
-              return { anilistId: "al-jjk", title: "Jujutsu Kaisen", format: "TV", episodes: 24 };
-            },
-            async getMediaDetailsBatch() {
-              return [];
-            },
-          }),
         });
 
         const matches: MatchEntry[] = [
@@ -1475,63 +1456,6 @@ describe("AnimeAggregate", () => {
         rmSync(dir, { recursive: true, force: true });
       }
     });
-
-    test("enriches unenriched anime after rebuild", async () => {
-      const { db, sqlite } = createLibraryDb();
-      const { sqlite: evtSqlite } = createEventDb();
-      const dir = mkdtempSync(join(tmpdir(), "anime-agg-rebuild-enrich-"));
-      try {
-        const repo = new LibraryRepository(db);
-
-        writeFileSync(join(dir, "S01E01.mkv"), "content");
-
-        const searchCalls: string[] = [];
-
-        const aggregate = new AnimeAggregate({
-          library: repo,
-          replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () => ({
-            async searchByTitle(title: string) {
-              searchCalls.push(title);
-              return { anilistId: "1", title, format: "TV", episodes: 12 };
-            },
-            async getMediaDetailsBatch(ids: string[]) {
-              return ids.map((id) => ({
-                anilistId: id,
-                title: `Anime ${id}`,
-                format: "TV",
-                episodes: 12,
-                relations: [],
-              }));
-            },
-          }),
-        });
-
-        const matches: MatchEntry[] = [
-          {
-            animeId: "tvdb-12345",
-            animeTitle: "Jujutsu Kaisen",
-            entryType: "tv",
-            episodeId: "101",
-            episode: 1,
-            season: 1,
-            title: "Ryomen Sukuna",
-            filePath: join(dir, "S01E01.mkv"),
-            sourceDb: "tvdb",
-          },
-        ];
-
-        await aggregate.mergeFromMatches(matches);
-
-        expect(searchCalls.length).toBeGreaterThan(0);
-        expect(searchCalls[0]).toBe("Jujutsu Kaisen");
-      } finally {
-        sqlite.close();
-        evtSqlite.close();
-        rmSync(dir, { recursive: true, force: true });
-      }
-    });
   });
 
   describe("importFromTracker", () => {
@@ -1848,54 +1772,6 @@ describe("AnimeAggregate", () => {
         const mappings = repo.getTrackerMappingsByGroupId(group.id);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.externalId).toBe("tl-1");
-      } finally {
-        sqlite.close();
-        evtSqlite.close();
-      }
-    });
-
-    test("enriches newly imported anime", async () => {
-      const { db, sqlite } = createLibraryDb();
-      const { sqlite: evtSqlite } = createEventDb();
-      try {
-        const repo = new LibraryRepository(db);
-
-        const searchCalls: string[] = [];
-
-        const aggregate = new AnimeAggregate({
-          library: repo,
-          replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => {
-                searchCalls.push(title);
-                return { anilistId: "12345", title, format: "TV", episodes: 25 };
-              },
-            }),
-        });
-
-        const tracker = createMockTracker({
-          getUserList: async () => [
-            {
-              source: "anilist",
-              trackerId: "12345",
-              title: "Attack on Titan",
-              entryType: "tv",
-              watchStatus: "completed",
-              episodesWatched: 25,
-              totalEpisodes: 25,
-            },
-          ],
-        });
-
-        const result = await aggregate.importFromTracker(tracker, "anilist");
-
-        expect(result.imported).toBe(1);
-
-        const animeList = repo.listAnime();
-        expect(animeList).toHaveLength(1);
-        expect(animeList[0]?.franchiseId).not.toBeNull();
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -2488,54 +2364,7 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("resolves AniList ID via searchByTitle API and caches result", async () => {
-      const { db, sqlite } = createLibraryDb();
-      const { sqlite: evtSqlite } = createEventDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const searchCalls: string[] = [];
-        const aggregate = new AnimeAggregate({
-          library: repo,
-          replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => {
-                searchCalls.push(title);
-                return { anilistId: "al-789", title, format: "TV", episodes: 12 };
-              },
-            }),
-        });
-
-        const result = await aggregate.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
-
-        expect(searchCalls.length).toBeGreaterThanOrEqual(1);
-        expect(searchCalls[0]).toBe("Jujutsu Kaisen");
-        expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0] as number);
-        expect(anime?.anilistId).toBe("al-789");
-
-        const cached = repo.getAnilistCacheEntry("al-789");
-        expect(cached).not.toBeNull();
-        expect(cached?.title).toBe("Jujutsu Kaisen");
-      } finally {
-        sqlite.close();
-        evtSqlite.close();
-      }
-    });
-
-    test("assigns temp anilist_id when AniList API unavailable and no cache hit", async () => {
+    test("assigns temp anilist_id when no library or cache hit", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -2544,12 +2373,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async () => {
-                throw new Error("API unavailable");
-              },
-            }),
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2583,15 +2406,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-new",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2636,15 +2450,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-shared",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2688,15 +2493,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-groups",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2740,15 +2536,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-tracker",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2805,15 +2592,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-status",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2860,15 +2638,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-cleanup",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2919,15 +2688,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-preserve",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2983,15 +2743,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-nondefault",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
         });
 
         const existingAnime = repo.upsertAnime({
@@ -3024,59 +2775,6 @@ describe("AnimeAggregate", () => {
         const preservedGroup = repo.getEpisodeGroup(statusGroup.id);
         expect(preservedGroup).not.toBeNull();
         expect(preservedGroup?.watchStatus).toBe("watching");
-      } finally {
-        sqlite.close();
-        evtSqlite.close();
-      }
-    });
-
-    test("triggers franchise enrichment for newly created anime", async () => {
-      const { db, sqlite } = createLibraryDb();
-      const { sqlite: evtSqlite } = createEventDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const enrichmentCalls: string[][] = [];
-        const aggregate = new AnimeAggregate({
-          library: repo,
-          replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-enrich",
-                title,
-                format: "TV",
-                episodes: 24,
-              }),
-              getMediaDetailsBatch: async (ids) => {
-                enrichmentCalls.push(ids);
-                return ids.map((id) => ({
-                  anilistId: id,
-                  title: "Jujutsu Kaisen",
-                  format: "TV",
-                  episodes: 24,
-                  relations: [],
-                }));
-              },
-            }),
-        });
-
-        const result = await aggregate.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              anilistId: "al-enrich",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
-
-        const anime = repo.getAnime(result.animeIds[0] as number);
-        expect(anime?.franchiseId).not.toBeNull();
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -3194,10 +2892,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async () => null,
-            }),
         });
 
         const pendingAnime = repo.upsertAnime({
@@ -3221,107 +2915,6 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("updates anilist_id when resolved ID has no existing match", async () => {
-      const { db, sqlite } = createLibraryDb();
-      const { sqlite: evtSqlite } = createEventDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const aggregate = new AnimeAggregate({
-          library: repo,
-          replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => ({
-                anilistId: "al-new-id",
-                title,
-                format: "TV",
-                episodes: 12,
-              }),
-            }),
-        });
-
-        const pendingAnime = repo.upsertAnime({
-          title: "Solo Leveling",
-          episodeCount: 12,
-        });
-
-        const result = await aggregate.retryPendingIdentification();
-
-        expect(result.resolved).toHaveLength(1);
-        expect(result.resolved[0]?.id).toBe(pendingAnime.id);
-
-        const updated = repo.getAnime(pendingAnime.id);
-        expect(updated?.anilistId).toBe("al-new-id");
-      } finally {
-        sqlite.close();
-        evtSqlite.close();
-      }
-    });
-
-    test("merges pending anime into canonical when resolved ID matches existing", async () => {
-      const { db, sqlite } = createLibraryDb();
-      const { sqlite: evtSqlite } = createEventDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const aggregate = new AnimeAggregate({
-          library: repo,
-          replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async () => ({
-                anilistId: "al-canonical",
-                title: "Jujutsu Kaisen",
-                format: "TV",
-                episodes: 24,
-              }),
-            }),
-        });
-
-        const canonicalAnime = repo.upsertAnime({
-          title: "Jujutsu Kaisen",
-          episodeCount: 0,
-        });
-        repo.updateAnimeAnilistId(canonicalAnime.id, "al-canonical");
-
-        const pendingAnime = repo.upsertAnime({
-          title: "Jujutsu Kaisen",
-          episodeCount: 0,
-        });
-
-        const pendingGroup = repo.upsertEpisodeGroup({
-          animeId: pendingAnime.id,
-          entryType: "tv",
-          seasonNumber: 1,
-          watchStatus: "plan_to_watch",
-        });
-        repo.upsertEpisodeFromMatch({
-          animeId: pendingAnime.id,
-          groupId: pendingGroup.id,
-          episode: 1,
-          filePath: "/media/S01E01.mkv",
-          title: "Ryomen Sukuna",
-          season: 1,
-        });
-
-        const result = await aggregate.retryPendingIdentification();
-
-        expect(result.resolved).toHaveLength(1);
-        expect(result.resolved[0]?.mergedInto).toBe(canonicalAnime.id);
-
-        const deletedAnime = repo.getAnime(pendingAnime.id);
-        expect(deletedAnime).toBeNull();
-
-        const canonicalEpisodes = repo.getEpisodesByAnimeId(canonicalAnime.id);
-        expect(canonicalEpisodes).toHaveLength(1);
-        expect(canonicalEpisodes[0]?.filePath).toBe("/media/S01E01.mkv");
-      } finally {
-        sqlite.close();
-        evtSqlite.close();
-      }
-    });
-
     test("leaves anime pending when AniList still unavailable", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
@@ -3331,10 +2924,6 @@ describe("AnimeAggregate", () => {
           library: repo,
           replayUnpushedEvents: () => {},
           computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async () => null,
-            }),
         });
 
         const pendingAnime = repo.upsertAnime({
@@ -3356,48 +2945,7 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("triggers franchise enrichment for newly resolved anime", async () => {
-      const { db, sqlite } = createLibraryDb();
-      const { sqlite: evtSqlite } = createEventDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const searchCalls: string[] = [];
-        const aggregate = new AnimeAggregate({
-          library: repo,
-          replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async (title) => {
-                searchCalls.push(title);
-                return {
-                  anilistId: "al-enrich-pending",
-                  title,
-                  format: "TV",
-                  episodes: 12,
-                };
-              },
-            }),
-        });
-
-        const pendingAnime = repo.upsertAnime({
-          title: "Enrich Me",
-          episodeCount: 12,
-        });
-
-        await aggregate.retryPendingIdentification();
-
-        expect(searchCalls).toContain("Enrich Me");
-
-        const anime = repo.getAnime(pendingAnime.id);
-        expect(anime?.franchiseId).not.toBeNull();
-      } finally {
-        sqlite.close();
-        evtSqlite.close();
-      }
-    });
-
-    test("skips when no enrichment provider available", async () => {
+    test("skips when no library or cache match", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -3417,52 +2965,6 @@ describe("AnimeAggregate", () => {
 
         expect(result.resolved).toHaveLength(0);
         expect(result.stillPending).toHaveLength(1);
-      } finally {
-        sqlite.close();
-        evtSqlite.close();
-      }
-    });
-
-    test("transfers source mappings during merge", async () => {
-      const { db, sqlite } = createLibraryDb();
-      const { sqlite: evtSqlite } = createEventDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const aggregate = new AnimeAggregate({
-          library: repo,
-          replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
-          enrichmentProviderFactory: async () =>
-            createMockEnrichmentProvider({
-              searchByTitle: async () => ({
-                anilistId: "al-source",
-                title: "Test",
-                format: "TV",
-                episodes: 12,
-              }),
-            }),
-        });
-
-        const canonicalAnime = repo.upsertAnime({
-          title: "Test",
-          episodeCount: 0,
-        });
-        repo.updateAnimeAnilistId(canonicalAnime.id, "al-source");
-
-        const pendingAnime = repo.upsertAnime({
-          title: "Test",
-          episodeCount: 0,
-        });
-        repo.createAnimeSourceMapping({
-          animeId: pendingAnime.id,
-          source: "tvdb",
-          externalId: "tvdb-999",
-        });
-
-        await aggregate.retryPendingIdentification();
-
-        const deletedAnime = repo.getAnime(pendingAnime.id);
-        expect(deletedAnime).toBeNull();
       } finally {
         sqlite.close();
         evtSqlite.close();
