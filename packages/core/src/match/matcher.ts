@@ -320,7 +320,13 @@ export class Matcher implements MatcherLike {
     candidates: AnimeResult[],
   ): Array<{ anime: AnimeResult; score: number }> {
     return candidates
-      .map((anime) => ({ anime, score: computeScore(title, anime.titleEn) }))
+      .map((anime) => ({
+        anime,
+        score: Math.max(
+          computeScore(title, anime.titleEn),
+          anime.titleJa ? computeScore(title, anime.titleJa) : 0,
+        ),
+      }))
       .filter(({ score }) => score > Matcher.MIN_SIMILARITY);
   }
 
