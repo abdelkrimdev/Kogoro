@@ -175,6 +175,29 @@ describe("RenameExecutor", () => {
       expect(plan?.targetFilename).toMatch(/S1xE54/);
     });
 
+    test("absolute numbering falls back to match episode when conversion fails", () => {
+      const match = makeMatchResult({
+        episode: {
+          id: "ep-5",
+          animeId: "1",
+          season: 3,
+          episode: 5,
+          titleEn: "Ep 5",
+          entryType: "tv",
+        },
+        allEpisodes: [],
+      });
+      const parsed = makeParsedResult("Test Anime", 2, 5);
+      const executor = new RenameExecutor({ renamer: createRenamer() });
+
+      const plan = executor.planRename("/fake/file.mkv", match, parsed, {
+        episodeNumbering: "absolute" as EpisodeNumbering,
+      });
+
+      expect(plan).not.toBeNull();
+      expect(plan?.targetFilename).toMatch(/S3xE05/);
+    });
+
     test("relative numbering uses match episode when season not parsed", () => {
       const match = makeMatchResult({
         episode: {

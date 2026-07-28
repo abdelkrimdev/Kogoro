@@ -83,6 +83,9 @@ export class RenameExecutor {
         if (absolute !== null) {
           return { season: 1, episode: absolute };
         }
+        if (match.episode) {
+          return { season: match.episode.season, episode: match.episode.episode };
+        }
         return { season: parsed.season, episode: parsed.episode };
       }
       return { season: parsed.season, episode: parsed.episode };
