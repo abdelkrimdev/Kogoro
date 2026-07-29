@@ -1,5 +1,5 @@
 import { readdirSync, rmdirSync, unlinkSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 function hasOnlyHiddenFiles(dir: string): boolean {
   try {
@@ -18,9 +18,10 @@ function removeDirContents(dir: string): void {
 }
 
 export function cleanupEmptyDirs(sourceDirs: Set<string>, baseDir: string): void {
+  const resolvedBase = resolve(baseDir);
   for (const dir of sourceDirs) {
-    let current = dir;
-    while (current !== baseDir && current.startsWith(baseDir)) {
+    let current = resolve(dir);
+    while (current !== resolvedBase && current.startsWith(`${resolvedBase}/`)) {
       if (hasOnlyHiddenFiles(current)) {
         removeDirContents(current);
         rmdirSync(current);

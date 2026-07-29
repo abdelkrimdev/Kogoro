@@ -39,4 +39,34 @@ describe("cleanupEmptyDirs", () => {
     expect(existsSync(dir)).toBe(true);
     rmSync(dir, { recursive: true, force: true });
   });
+
+  test("works with relative baseDir by normalizing to absolute", () => {
+    const dir = "/tmp/kogoro-test-cleanup-relative";
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, "Anime", "TV"), { recursive: true });
+    writeFileSync(join(dir, "Anime", "TV", ".DS_Store"), "");
+
+    cleanupEmptyDirs(new Set([join(dir, "Anime", "TV")]), `${dir}/../kogoro-test-cleanup-relative`);
+
+    expect(existsSync(join(dir, "Anime", "TV"))).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("does not falsely match sibling directory with similar name", () => {
+    const dir = "/tmp/kogoro-test-cleanup-sibling";
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, "anime", "showA"), { recursive: true });
+    mkdirSync(join(dir, "anime2", "showB"), { recursive: true });
+    writeFileSync(join(dir, "anime", "showA", ".DS_Store"), "");
+    writeFileSync(join(dir, "anime2", "showB", "ep1.mkv"), "");
+
+    cleanupEmptyDirs(
+      new Set([join(dir, "anime", "showA"), join(dir, "anime2", "showB")]),
+      join(dir, "anime"),
+    );
+
+    expect(existsSync(join(dir, "anime", "showA"))).toBe(false);
+    expect(existsSync(join(dir, "anime2", "showB"))).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
+  });
 });
