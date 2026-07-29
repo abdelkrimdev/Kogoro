@@ -27,6 +27,7 @@ export interface ScanResult {
 interface ScanBatchOptions extends ScanFileOptions {
   concurrency?: number;
   ctx?: TaskContext;
+  stopOnError?: boolean;
 }
 
 interface ScannerOptions {
@@ -82,16 +83,26 @@ export class Scanner {
 
   private noMatchResult(filePath: string): ScanResult {
     const parsed = parseFilePath(filePath);
+    return this.createFailedResult(filePath, "", parsed, "No database configured");
+  }
+
+  private createFailedResult(
+    filePath: string,
+    hash: string,
+    parsed: ParsedResult,
+    failureReason: string,
+    match: MatchResult | null = null,
+  ): ScanResult {
     return {
       file: filePath,
-      hash: "",
+      hash,
       parsed,
-      match: null,
+      match,
       plan: null,
       cached: false,
       skipped: false,
       status: "failed",
-      failureReason: "No database configured",
+      failureReason,
     };
   }
 
@@ -122,54 +133,127 @@ export class Scanner {
     const results: ScanResult[] = [];
     const concurrency = Math.max(1, options?.concurrency ?? 1);
     const signal = options?.ctx?.abortSignal;
+    const stopOnError = options?.stopOnError ?? false;
+    let shouldStop = false;
+
+    type PreparedEntry = Awaited<ReturnType<HashCache["prepareFile"]>> & {
+      parsed: ReturnType<typeof parseFilePath>;
+    };
 
     let completed = 0;
-    for (let i = 0; i < filePaths.length && !signal?.aborted; i += concurrency) {
+    for (let i = 0; i < filePaths.length && !signal?.aborted && !shouldStop; i += concurrency) {
       const chunk = filePaths.slice(i, i + concurrency);
 
-      const preparedFiles = await Promise.all(
-        chunk.map(async (filePath) => {
-          const prepared = await this.hashCache.prepareFile(filePath, options?.force);
+      let preparedFiles: PreparedEntry[];
+      try {
+        preparedFiles = await Promise.all(
+          chunk.map(async (filePath) => {
+            const prepared = await this.hashCache.prepareFile(filePath, options?.force);
+            const parsed = parseFilePath(filePath, options?.extensions);
+            return { ...prepared, parsed };
+          }),
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        for (const filePath of chunk) {
           const parsed = parseFilePath(filePath, options?.extensions);
-          return { ...prepared, parsed };
-        }),
-      );
+          results.push(this.createFailedResult(filePath, "", parsed, message));
+          completed++;
+          options?.ctx?.progress({
+            completed,
+            total: filePaths.length,
+            file: filePath,
+            status: "failed",
+          });
+        }
+        if (stopOnError) {
+          shouldStop = true;
+          break;
+        }
+        continue;
+      }
 
-      const needsMatch = preparedFiles.filter((e) => !e.cachedMatch && !e.override?.animeId);
-      const matchResults =
-        needsMatch.length > 0 ? await this.matcher.matchBatch(needsMatch.map((e) => e.parsed)) : [];
-      const matchMap = new Map(needsMatch.map((e, idx) => [e, matchResults[idx]]));
+      let matchMap: Map<PreparedEntry, MatchResult | null>;
+      try {
+        const needsMatch = preparedFiles.filter((e) => !e.cachedMatch && !e.override?.animeId);
+        const matchResults =
+          needsMatch.length > 0
+            ? await this.matcher.matchBatch(needsMatch.map((e) => e.parsed))
+            : [];
+        matchMap = new Map(needsMatch.map((e, idx) => [e, matchResults[idx] ?? null]));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        for (const entry of preparedFiles) {
+          results.push(this.createFailedResult(entry.filePath, entry.hash, entry.parsed, message));
+          completed++;
+          options?.ctx?.progress({
+            completed,
+            total: filePaths.length,
+            file: entry.filePath,
+            status: "failed",
+          });
+        }
+        if (stopOnError) {
+          shouldStop = true;
+          break;
+        }
+        continue;
+      }
 
       for (const entry of preparedFiles) {
-        if (signal?.aborted) break;
+        if (signal?.aborted || shouldStop) break;
 
-        const input = {
-          parsed: entry.parsed,
-          override: entry.override,
-          cachedMatch: entry.cachedMatch,
-          sourceDb: entry.sourceDb,
-        };
+        try {
+          const input = {
+            parsed: entry.parsed,
+            override: entry.override,
+            cachedMatch: entry.cachedMatch,
+            sourceDb: entry.sourceDb,
+          };
 
-        const precomputed = matchMap.get(entry) ?? null;
-        const decision = await this.matchPipeline.decide(input, precomputed);
+          const precomputed = matchMap.get(entry) ?? null;
+          const decision = await this.matchPipeline.decide(input, precomputed);
 
-        const result = await this.executeDecision(
-          entry.filePath,
-          entry.hash,
-          entry.parsed,
-          decision,
-          options,
-        );
+          const result = await this.executeDecision(
+            entry.filePath,
+            entry.hash,
+            entry.parsed,
+            decision,
+            options,
+          );
 
-        results.push(result);
-        completed++;
-        options?.ctx?.progress({
-          completed,
-          total: filePaths.length,
-          file: entry.filePath,
-          status: result.status,
-        });
+          results.push(result);
+          completed++;
+          options?.ctx?.progress({
+            completed,
+            total: filePaths.length,
+            file: entry.filePath,
+            status: result.status,
+          });
+          if (result.status === "failed" && stopOnError) {
+            shouldStop = true;
+            break;
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          results.push(this.createFailedResult(entry.filePath, entry.hash, entry.parsed, message));
+          completed++;
+          options?.ctx?.progress({
+            completed,
+            total: filePaths.length,
+            file: entry.filePath,
+            status: "failed",
+          });
+          if (stopOnError) {
+            shouldStop = true;
+            break;
+          }
+        }
       }
+    }
+
+    if (results.some((r) => r.status === "failed") && this.renameExecutor.hasRollback()) {
+      this.renameExecutor.rollback();
     }
 
     return results;
@@ -203,7 +287,7 @@ export class Scanner {
 
       case "ambiguous": {
         const resolved = await options?.onAmbiguous?.(decision.candidates, parsed, filePath);
-        if (resolved && resolved.anime.id) {
+        if (resolved?.anime.id) {
           this.hashCache.persistOverride(filePath, resolved);
           return this.planAndPersist(filePath, hash, resolved, parsed, options);
         }
@@ -221,7 +305,7 @@ export class Scanner {
 
       case "failed": {
         const manual = await options?.onFailed?.(parsed, filePath);
-        if (manual && manual.animeId && manual.episode >= 0) {
+        if (manual?.animeId && manual.episode >= 0) {
           const manualMatch = resolveManual({
             animeId: manual.animeId,
             episode: manual.episode,
@@ -231,17 +315,7 @@ export class Scanner {
           this.hashCache.persistOverride(filePath, manualMatch);
           return this.planAndPersist(filePath, hash, manualMatch, parsed, options);
         }
-        return {
-          file: filePath,
-          hash,
-          parsed,
-          match: null,
-          plan: null,
-          cached: false,
-          skipped: false,
-          status: "failed",
-          failureReason: decision.failureReason,
-        };
+        return this.createFailedResult(filePath, hash, parsed, decision.failureReason ?? "");
       }
     }
   }
@@ -281,17 +355,13 @@ export class Scanner {
       const baseDir = options?.baseDir ?? dirname(filePath);
       const result = this.renameExecutor.executeRename(plan, baseDir);
       if (!result.success) {
-        return {
-          file: filePath,
+        return this.createFailedResult(
+          filePath,
           hash,
           parsed,
+          result.error?.message ?? "Rename failed",
           match,
-          plan: null,
-          cached: false,
-          skipped: false,
-          status: "failed",
-          failureReason: result.error?.message ?? "Rename failed",
-        };
+        );
       }
     }
 

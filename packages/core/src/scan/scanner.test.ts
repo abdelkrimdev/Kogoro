@@ -6,6 +6,7 @@ import {
   createMatchCacheService,
   createMockMatcher,
   createTestHashCache,
+  createThrowingMatcher,
   createTrackingMatcher,
   makeNoMatchResult,
   overrideKey,
@@ -521,6 +522,138 @@ describe("Scanner", () => {
 
       const overrideHash = overrideKey(filePath);
       expect(overrideStore.get(overrideHash)).toBeUndefined();
+    });
+  });
+
+  describe("scanBatch error isolation", () => {
+    test("continues processing when matcher throws for one file", async () => {
+      await withTempDir("scan-batch-error-iso", async (dir) => {
+        writeTempFile(dir, "[Group] Good Anime - 01.mkv", "a");
+        writeTempFile(dir, "[Group] Bad Anime - 02.mkv", "b");
+        writeTempFile(dir, "[Group] Another Good - 03.mkv", "c");
+
+        const throwingMatcher = createThrowingMatcher(
+          (p) => p.title === "Bad Anime",
+          "Database connection lost",
+        );
+
+        const scanner = new Scanner({
+          hashCache: createTestHashCache(),
+          matcher: throwingMatcher,
+        });
+        const filePaths = [
+          join(dir, "[Group] Good Anime - 01.mkv"),
+          join(dir, "[Group] Bad Anime - 02.mkv"),
+          join(dir, "[Group] Another Good - 03.mkv"),
+        ];
+
+        const results = await scanner.scanBatch(filePaths, { concurrency: 1 });
+
+        expect(results).toHaveLength(3);
+        expect(results[0]?.status).toBe("matched");
+        expect(results[1]?.status).toBe("failed");
+        expect(results[1]?.failureReason).toContain("Database connection lost");
+        expect(results[2]?.status).toBe("matched");
+      });
+    });
+
+    test("stopOnError halts processing after first failure", async () => {
+      await withTempDir("scan-batch-stop-on-error", async (dir) => {
+        writeTempFile(dir, "[Group] Good Anime - 01.mkv", "a");
+        writeTempFile(dir, "[Group] Bad Anime - 02.mkv", "b");
+        writeTempFile(dir, "[Group] Skipped Anime - 03.mkv", "c");
+
+        const throwingMatcher = createThrowingMatcher((p) => p.title === "Bad Anime", "Timeout");
+
+        const scanner = new Scanner({
+          hashCache: createTestHashCache(),
+          matcher: throwingMatcher,
+        });
+        const filePaths = [
+          join(dir, "[Group] Good Anime - 01.mkv"),
+          join(dir, "[Group] Bad Anime - 02.mkv"),
+          join(dir, "[Group] Skipped Anime - 03.mkv"),
+        ];
+
+        const results = await scanner.scanBatch(filePaths, {
+          concurrency: 1,
+          stopOnError: true,
+        });
+
+        expect(results).toHaveLength(2);
+        expect(results[0]?.status).toBe("matched");
+        expect(results[1]?.status).toBe("failed");
+      });
+    });
+
+    test("auto-rolls back succeeded renames when a file fails", async () => {
+      await withTempDir("scan-batch-auto-rollback", async (dir) => {
+        const filePath1 = writeTempFile(dir, "[Group] Good Anime - 01.mkv", "video content a");
+        const filePath2 = writeTempFile(dir, "[Group] Bad Anime - 02.mkv", "video content b");
+
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - {episode:02}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+          action: "move",
+        });
+
+        const throwingMatcher = createThrowingMatcher(
+          (p) => p.title === "Bad Anime",
+          "Permission denied",
+        );
+
+        const scanner = new Scanner({
+          hashCache: createTestHashCache(),
+          matcher: throwingMatcher,
+          renamer,
+        });
+
+        const results = await scanner.scanBatch([filePath1, filePath2], {
+          concurrency: 1,
+        });
+
+        expect(results).toHaveLength(2);
+        expect(results[0]?.status).toBe("matched");
+        expect(results[1]?.status).toBe("failed");
+
+        expect(existsSync(filePath1)).toBe(true);
+        expect(scanner.hasRollback()).toBe(false);
+      });
+    });
+
+    test("auto-rollback with stopOnError stops early and rolls back", async () => {
+      await withTempDir("scan-batch-rollback-stop", async (dir) => {
+        const filePath1 = writeTempFile(dir, "[Group] Good Anime - 01.mkv", "video content a");
+        writeTempFile(dir, "[Group] Bad Anime - 02.mkv", "video content b");
+        writeTempFile(dir, "[Group] Skipped - 03.mkv", "video content c");
+
+        const renamer = new Renamer({
+          filenameTemplate: "{anime} - {episode:02}.{ext}",
+          directoryTemplate: "{anime}/{type}",
+          action: "move",
+        });
+
+        const throwingMatcher = createThrowingMatcher((p) => p.title === "Bad Anime", "Error");
+
+        const scanner = new Scanner({
+          hashCache: createTestHashCache(),
+          matcher: throwingMatcher,
+          renamer,
+        });
+
+        const results = await scanner.scanBatch(
+          [
+            join(dir, "[Group] Good Anime - 01.mkv"),
+            join(dir, "[Group] Bad Anime - 02.mkv"),
+            join(dir, "[Group] Skipped - 03.mkv"),
+          ],
+          { concurrency: 1, stopOnError: true },
+        );
+
+        expect(results).toHaveLength(2);
+        expect(existsSync(filePath1)).toBe(true);
+        expect(scanner.hasRollback()).toBe(false);
+      });
     });
   });
 });

@@ -475,6 +475,25 @@ export function createEpisodeNumberingMatcher(
   };
 }
 
+export function createThrowingMatcher(
+  shouldThrow: (parsed: ParsedResult) => boolean,
+  errorMessage: string,
+): MatcherLike {
+  return {
+    async match() {
+      return [makeMatchResult()];
+    },
+    async matchBatch(parsedList) {
+      return parsedList.map((p) => {
+        if (shouldThrow(p)) {
+          throw new Error(errorMessage);
+        }
+        return makeMatchResult();
+      });
+    },
+  };
+}
+
 export function createMockMatcher(results?: MatchResult[]): MatcherLike {
   const defaultResults = results ?? [makeMatchResult()];
   return {
