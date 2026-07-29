@@ -11,10 +11,10 @@ import {
   type CacheService,
   type ConfigManager,
   createScanComponents,
+  type ManifestService,
   type Matcher,
   probeMatches,
   ScanOrchestrator,
-  type ScanStateService,
 } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
@@ -72,7 +72,7 @@ async function createScanOrchestrator(
   configManager: ConfigManager,
   animeAggregate: AnimeAggregate,
   cacheService: CacheService,
-  scanStateService: ScanStateService,
+  manifestService: ManifestService,
   store: ScanSessionStore,
   force?: boolean,
 ): Promise<ScanOrchestrator> {
@@ -81,7 +81,7 @@ async function createScanOrchestrator(
   const components = createScanComponents({
     config: configManager,
     cacheService,
-    scanStateService,
+    manifestService,
     database,
     sourceDb: configManager.primaryDb,
   });
@@ -105,7 +105,7 @@ async function createScanOrchestrator(
       animeAggregate,
       sourceDb: configManager.primaryDb,
       cacheService,
-      scanStateService,
+      manifestService,
       force,
     },
     sessionId,
@@ -120,7 +120,7 @@ export function createScanHandlers(dependencies: {
   configManager: ConfigManager;
   cacheService: CacheService;
   animeAggregate: AnimeAggregate;
-  scanStateService: ScanStateService;
+  manifestService: ManifestService;
   mergeMatches: (matches: MatchEntry[]) => Promise<void>;
   send: {
     scanProgress: (data: {
@@ -154,7 +154,7 @@ export function createScanHandlers(dependencies: {
     configManager,
     cacheService,
     animeAggregate,
-    scanStateService,
+    manifestService,
     mergeMatches,
     send,
     scanSessionStore,
@@ -188,7 +188,7 @@ export function createScanHandlers(dependencies: {
             configManager,
             animeAggregate,
             cacheService,
-            scanStateService,
+            manifestService,
             store,
             force,
           );

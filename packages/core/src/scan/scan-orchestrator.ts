@@ -4,8 +4,8 @@ import { dirname, extname, join, relative } from "node:path";
 import type { TaskContext } from "../io/progress";
 import type { AnimeAggregate } from "../library/anime-aggregate";
 import type { CacheService } from "../match/cache-service";
+import type { ManifestService } from "../match/manifest-service";
 import type { MatcherLike, MatchResult } from "../match/matcher";
-import type { ScanStateService } from "../match/scan-state-service";
 import type { RenamePlan, Renamer } from "../rename/renamer";
 import type { MatchEntry, ReviewPlan, ScanFileStatus, ScanSummary, TopCandidate } from "../types";
 import { cleanupEmptyDirs } from "./cleanup-dirs";
@@ -106,7 +106,7 @@ export interface ScanOrchestratorOptions {
   animeAggregate?: AnimeAggregate;
   sourceDb?: string;
   cacheService?: CacheService;
-  scanStateService?: ScanStateService;
+  manifestService?: ManifestService;
   force?: boolean;
 }
 
@@ -481,10 +481,10 @@ export class ScanOrchestrator {
         error: renameResult.error?.message,
       });
 
-      if (renameResult.success && this.options.scanStateService) {
+      if (renameResult.success && this.options.manifestService) {
         try {
           const targetAbsolute = join(this.baseDir, plan.targetPath);
-          this.options.scanStateService.moveRename(result.file, targetAbsolute, result.hash);
+          this.options.manifestService.moveRename(result.file, targetAbsolute, result.hash);
         } catch {
           // Target path stat failed — ignore
         }

@@ -166,10 +166,7 @@ export class Scanner {
             status: "failed",
           });
         }
-        if (stopOnError) {
-          shouldStop = true;
-          break;
-        }
+        if (stopOnError) shouldStop = true;
         continue;
       }
 
@@ -193,10 +190,7 @@ export class Scanner {
             status: "failed",
           });
         }
-        if (stopOnError) {
-          shouldStop = true;
-          break;
-        }
+        if (stopOnError) shouldStop = true;
         continue;
       }
 
@@ -244,10 +238,7 @@ export class Scanner {
             file: entry.filePath,
             status: "failed",
           });
-          if (stopOnError) {
-            shouldStop = true;
-            break;
-          }
+          if (stopOnError) shouldStop = true;
         }
       }
     }

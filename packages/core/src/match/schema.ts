@@ -17,7 +17,7 @@ export const matches = sqliteTable(
   (t) => [index("idx_matches_hash_source_db").on(t.hash, t.sourceDb)],
 );
 
-export const scanState = sqliteTable("scan_state", {
+export const manifest = sqliteTable("manifest", {
   path: text("path").primaryKey(),
   size: integer("size").notNull(),
   mtime: integer("mtime").notNull(),

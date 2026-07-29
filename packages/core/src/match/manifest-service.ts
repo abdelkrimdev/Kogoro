@@ -1,14 +1,14 @@
 import { statSync } from "node:fs";
-import type { ScanStateEntry, ScanStateRepository } from "./scan-state-repository";
+import type { ManifestEntry, ManifestRepository } from "./manifest-repository";
 
-export class ScanStateService {
-  constructor(private repo: ScanStateRepository) {}
+export class ManifestService {
+  constructor(private repo: ManifestRepository) {}
 
-  get(path: string): ScanStateEntry | null {
+  get(path: string): ManifestEntry | null {
     return this.repo.get(path);
   }
 
-  getBatch(paths: string[]): Map<string, ScanStateEntry> {
+  getBatch(paths: string[]): Map<string, ManifestEntry> {
     return this.repo.getBatch(paths);
   }
 

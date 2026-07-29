@@ -1,11 +1,11 @@
+import type { ManifestRepository } from "./manifest-repository";
 import type { CachedMatch, MatchRepository } from "./match-repository";
 import type { MatchResult } from "./matcher";
-import type { ScanStateRepository } from "./scan-state-repository";
 
 export class CacheService {
   constructor(
     private matches: MatchRepository,
-    private scanState: ScanStateRepository,
+    private manifest: ManifestRepository,
   ) {}
 
   list() {
@@ -43,23 +43,23 @@ export class CacheService {
 
   clear() {
     this.matches.clear();
-    this.scanState.deleteAll();
+    this.manifest.deleteAll();
   }
 
   purgeStale(currentPaths: string[]): void {
-    this.scanState.transaction(() => {
+    this.manifest.transaction(() => {
       if (currentPaths.length === 0) {
-        this.scanState.deleteAll();
+        this.manifest.deleteAll();
         this.matches.clear();
         return;
       }
 
       const currentSet = new Set(currentPaths);
-      const allPaths = this.scanState.getAllPaths();
+      const allPaths = this.manifest.getAllPaths();
       const stalePaths = allPaths.filter((p) => !currentSet.has(p));
-      this.scanState.deleteBatch(stalePaths);
+      this.manifest.deleteBatch(stalePaths);
 
-      const remainingHashes = new Set(this.scanState.getAllHashes());
+      const remainingHashes = new Set(this.manifest.getAllHashes());
       const allEntries = this.matches.list();
       for (const entry of allEntries) {
         if (!remainingHashes.has(entry.hash)) {

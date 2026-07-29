@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { statSync } from "node:fs";
 import { withTempDir, writeTempFile } from "../fixtures";
-import { ScanStateRepository } from "./scan-state-repository";
-import { ScanStateService } from "./scan-state-service";
+import { ManifestRepository } from "./manifest-repository";
+import { ManifestService } from "./manifest-service";
 import { createMatchCacheDb } from "./test-utils";
 
-describe("ScanStateService", () => {
+describe("ManifestService", () => {
   describe("isFileUpToDate", () => {
     test("returns stored hash when size and mtime match", () => {
       const { db, sqlite } = createMatchCacheDb();
       try {
-        const repo = new ScanStateRepository(db);
-        const service = new ScanStateService(repo);
+        const repo = new ManifestRepository(db);
+        const service = new ManifestService(repo);
 
         repo.set("/media/ep1.mkv", 1024, 5000, "abc123");
 
@@ -26,8 +26,8 @@ describe("ScanStateService", () => {
     test("returns null when size differs", () => {
       const { db, sqlite } = createMatchCacheDb();
       try {
-        const repo = new ScanStateRepository(db);
-        const service = new ScanStateService(repo);
+        const repo = new ManifestRepository(db);
+        const service = new ManifestService(repo);
 
         repo.set("/media/ep1.mkv", 1024, 5000, "abc123");
 
@@ -42,8 +42,8 @@ describe("ScanStateService", () => {
     test("returns null when mtime differs", () => {
       const { db, sqlite } = createMatchCacheDb();
       try {
-        const repo = new ScanStateRepository(db);
-        const service = new ScanStateService(repo);
+        const repo = new ManifestRepository(db);
+        const service = new ManifestService(repo);
 
         repo.set("/media/ep1.mkv", 1024, 5000, "abc123");
 
@@ -58,8 +58,8 @@ describe("ScanStateService", () => {
     test("returns null for unknown path", () => {
       const { db, sqlite } = createMatchCacheDb();
       try {
-        const repo = new ScanStateRepository(db);
-        const service = new ScanStateService(repo);
+        const repo = new ManifestRepository(db);
+        const service = new ManifestService(repo);
 
         const hash = service.isFileUpToDate("/media/new.mkv", 1024, 5000);
 
@@ -71,11 +71,11 @@ describe("ScanStateService", () => {
   });
 
   describe("setFromFs", () => {
-    test("stores scan state from file stats", async () => {
+    test("stores manifest entry from file stats", async () => {
       const { db, sqlite } = createMatchCacheDb();
       try {
-        const repo = new ScanStateRepository(db);
-        const service = new ScanStateService(repo);
+        const repo = new ManifestRepository(db);
+        const service = new ManifestService(repo);
 
         await withTempDir("setFromFs", async (dir) => {
           const filePath = writeTempFile(dir, "ep1.mkv", "video content");
@@ -94,11 +94,11 @@ describe("ScanStateService", () => {
       }
     });
 
-    test("overwrites existing scan state", async () => {
+    test("overwrites existing manifest entry", async () => {
       const { db, sqlite } = createMatchCacheDb();
       try {
-        const repo = new ScanStateRepository(db);
-        const service = new ScanStateService(repo);
+        const repo = new ManifestRepository(db);
+        const service = new ManifestService(repo);
 
         await withTempDir("setFromFs-overwrite", async (dir) => {
           const filePath = writeTempFile(dir, "ep1.mkv", "original content");
@@ -120,8 +120,8 @@ describe("ScanStateService", () => {
     test("deletes old path and stores new path with file stats", async () => {
       const { db, sqlite } = createMatchCacheDb();
       try {
-        const repo = new ScanStateRepository(db);
-        const service = new ScanStateService(repo);
+        const repo = new ManifestRepository(db);
+        const service = new ManifestService(repo);
 
         await withTempDir("moveRename", async (dir) => {
           const oldPath = writeTempFile(dir, "old-name.mkv", "video content");

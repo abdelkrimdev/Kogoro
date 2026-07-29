@@ -14,8 +14,8 @@ import {
   HttpClient,
   MAL_CLIENT_ID,
   MAL_REDIRECT_URI,
+  ManifestService,
   resolveDbPaths,
-  ScanStateService,
   WatchTracker,
 } from "@kogoro/core";
 import { PluginFactory } from "@kogoro/plugins";
@@ -66,11 +66,11 @@ const credentialStore = createCredentialStore();
 const pluginFactory = new PluginFactory(configManager, credentialStore);
 
 const { cacheDbPath, libraryDbPath, eventsDbPath } = resolveDbPaths();
-const { matchRepo, scanStateRepo } = createMatchCacheConnection(cacheDbPath);
+const { matchRepo, manifestRepo } = createMatchCacheConnection(cacheDbPath);
 const libraryRepo = createLibraryConnection(libraryDbPath);
 const eventsRepo = createEventsConnection(eventsDbPath);
-const cacheService = new CacheService(matchRepo, scanStateRepo);
-const scanStateService = new ScanStateService(scanStateRepo);
+const cacheService = new CacheService(matchRepo, manifestRepo);
+const manifestService = new ManifestService(manifestRepo);
 const animeAggregate = new AnimeAggregate({
   library: libraryRepo,
   replayUnpushedEvents: () => {},
@@ -117,7 +117,7 @@ const scanHandlers = createScanHandlers({
   configManager,
   cacheService,
   animeAggregate,
-  scanStateService,
+  manifestService,
   mergeMatches: async (matches) => animeAggregate.mergeFromMatches(matches),
   send: {
     scanProgress: (data) => rpc.send.scanProgress(data),

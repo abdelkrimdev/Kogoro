@@ -8,7 +8,7 @@ Accepted
 
 `LibraryDb` and `MatchCache` mix business logic (merge, rebuild, export) with raw SQL queries, manual row mapping, and schema management. This makes the code hard to test, maintain, and reason about. Every query is a raw string passed to `bun:sqlite` with manual `$param` binding and hand-written `rowTo*` mappers.
 
-Additionally, `MatchCache` conflates two unrelated concerns: match caching (hash → anime/episode data) and scan state tracking (path → size/mtime/hash). The CLI and GUI also use different default filenames for the same cache database (`cache.db` vs `match-cache.db`), breaking the shared state assumption.
+Additionally, `MatchCache` conflates two unrelated concerns: match caching (hash → anime/episode data) and manifest tracking (path → size/mtime/hash). The CLI and GUI also use different default filenames for the same cache database (`cache.db` vs `match-cache.db`), breaking the shared state assumption.
 
 ## Decision
 
@@ -21,12 +21,12 @@ Each database class is split into a **repository** (pure data access) and a **do
 | Module | Database | Tables | Role |
 |--------|----------|--------|------|
 | `MatchRepository` | `cache.db` | `matches` | CRUD for match entries |
-| `ScanStateRepository` | `cache.db` | `scan_state` | CRUD for file stat tracking |
+| `ManifestRepository` | `cache.db` | `manifest` | CRUD for file stat tracking |
 | `LibraryRepository` | `library.db` | `anime`, `episodes`, `watch_status` | CRUD for library data |
 | `LibraryService` | — | — | Business logic: merge, rebuild, export |
 | `CacheService` | — | — | Cross-repository cache hygiene: purgeStale |
 
-`MatchRepository` and `ScanStateRepository` share the same `cache.db` file via separate Drizzle schemas. `LibraryRepository` lives alone in `library.db`.
+`MatchRepository` and `ManifestRepository` share the same `cache.db` file via separate Drizzle schemas. `LibraryRepository` lives alone in `library.db`.
 
 ### 3. Drizzle ORM with `drizzle-orm/bun-sqlite`
 
@@ -50,7 +50,7 @@ library/
 match/
   schema.ts  # Drizzle table definitions
   match-repository.ts
-  scan-state-repository.ts
+  manifest-repository.ts
   cache-service.ts
   matcher.ts             # Unchanged
   ...
@@ -84,7 +84,7 @@ Fixture helpers in `fixtures.ts` (`createLibraryRepository(dir)`, `createMatchRe
 
 ### 12. Clean Break Public API
 
-Old class names (`LibraryDb`, `MatchCache`) are removed. New names (`LibraryRepository`, `LibraryService`, `MatchRepository`, `ScanStateRepository`, `CacheService`) are exported from `@kogoro/core`. No deprecated aliases — the apps are internal.
+Old class names (`LibraryDb`, `MatchCache`) are removed. New names (`LibraryRepository`, `LibraryService`, `MatchRepository`, `ManifestRepository`, `CacheService`) are exported from `@kogoro/core`. No deprecated aliases — the apps are internal.
 
 ### 13. Rollout
 

@@ -7,6 +7,7 @@ import {
   createScanComponents,
   type DatabasePlugin,
   type EpisodeNumbering,
+  type ManifestService,
   type MatchResult,
   type OverrideStore,
   type ParsedResult,
@@ -15,7 +16,6 @@ import {
   SCHEMA_DEFAULTS,
   type Scanner,
   type ScanResult,
-  type ScanStateService,
   walk,
 } from "@kogoro/core";
 import type { Logger } from "../logger";
@@ -23,7 +23,7 @@ import type { Logger } from "../logger";
 export interface ScanHandlerOptions {
   database: DatabasePlugin;
   cacheService: CacheService;
-  scanStateService?: ScanStateService;
+  manifestService?: ManifestService;
   renamer?: Renamer;
   config?: ConfigManager;
   overrideStore?: OverrideStore;
@@ -67,7 +67,7 @@ export function createScanHandlers(options: ScanHandlerOptions) {
   const pipeline = createScanComponents({
     config: options.config,
     cacheService: options.cacheService,
-    scanStateService: options.scanStateService,
+    manifestService: options.manifestService,
     database: options.database,
     renamer: options.renamer,
     overrideStore: options.overrideStore,

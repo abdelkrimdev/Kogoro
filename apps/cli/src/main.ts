@@ -5,9 +5,9 @@ import {
   ConfigManager,
   createCredentialStore,
   createMatchCacheConnection,
+  ManifestService,
   OverrideStore,
   resolveDbPaths,
-  ScanStateService,
 } from "@kogoro/core";
 import { PluginFactory } from "@kogoro/plugins";
 import yargs from "yargs";
@@ -38,9 +38,9 @@ export async function run(argv: string[]): Promise<void> {
   const credentialStore = createCredentialStore();
 
   const { cacheDbPath } = resolveDbPaths();
-  const { matchRepo, scanStateRepo } = createMatchCacheConnection(cacheDbPath);
-  const cacheService = new CacheService(matchRepo, scanStateRepo);
-  const scanStateService = new ScanStateService(scanStateRepo);
+  const { matchRepo, manifestRepo } = createMatchCacheConnection(cacheDbPath);
+  const cacheService = new CacheService(matchRepo, manifestRepo);
+  const manifestService = new ManifestService(manifestRepo);
 
   async function createDatabaseCommandsWithCredentials(debug?: boolean) {
     const { createDatabaseHandlers } = await import("./database/handlers");
@@ -59,7 +59,7 @@ export async function run(argv: string[]): Promise<void> {
     return createScanHandlers({
       database,
       cacheService,
-      scanStateService,
+      manifestService,
       config,
       overrideStore,
     });

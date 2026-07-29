@@ -10,9 +10,9 @@ import type {
 } from "@kogoro/core";
 import {
   AnimeAggregate,
+  ManifestService,
   SCHEMA_DEFAULTS,
   ScanOrchestrator,
-  ScanStateService,
   TEMPLATE_PRESETS,
 } from "@kogoro/core";
 import {
@@ -399,11 +399,11 @@ describe("ScanOrchestrator", () => {
   describe("CacheService wiring", () => {
     test("scan handlers accept and pass CacheService to orchestrator", async () => {
       await withTempDir("scan-cache-wire", async (dir) => {
-        const { matchRepo, scanStateRepo, cacheService, close } = createMatchCacheService(dir);
-        const scanStateService = new ScanStateService(scanStateRepo);
+        const { matchRepo, manifestRepo, cacheService, close } = createMatchCacheService(dir);
+        const manifestService = new ManifestService(manifestRepo);
 
         // Seed a stale entry that should be purged on scan
-        scanStateRepo.set("/deleted/old.mkv", 100, 1000, "staleHash");
+        manifestRepo.set("/deleted/old.mkv", 100, 1000, "staleHash");
         matchRepo.set("staleHash", {
           animeId: "99",
           entryType: "tv",
@@ -462,7 +462,7 @@ describe("ScanOrchestrator", () => {
           } as unknown as ConfigManager,
           cacheService,
           animeAggregate: aggregate,
-          scanStateService,
+          manifestService,
           mergeMatches: async () => {},
           send: {
             scanProgress: () => {},
@@ -479,7 +479,7 @@ describe("ScanOrchestrator", () => {
         await new Promise((r) => setTimeout(r, 100));
 
         // Stale entry should be purged via CacheService
-        expect(scanStateRepo.get("/deleted/old.mkv")).toBeNull();
+        expect(manifestRepo.get("/deleted/old.mkv")).toBeNull();
         expect(matchRepo.has("staleHash")).toBe(false);
 
         close();
@@ -488,8 +488,8 @@ describe("ScanOrchestrator", () => {
 
     test("caches the resolved match with computed hash", async () => {
       await withTempDir("resolve-cache", async (dir) => {
-        const { matchRepo, scanStateRepo, cacheService, close } = createMatchCacheService(dir);
-        const scanStateService = new ScanStateService(scanStateRepo);
+        const { matchRepo, manifestRepo, cacheService, close } = createMatchCacheService(dir);
+        const manifestService = new ManifestService(manifestRepo);
 
         const dbPlugin = createMockDb({
           searchAnime: (title: string) => {
@@ -544,7 +544,7 @@ describe("ScanOrchestrator", () => {
           } as unknown as ConfigManager,
           cacheService,
           animeAggregate: aggregate,
-          scanStateService,
+          manifestService,
           mergeMatches: async () => {},
           send: {
             scanProgress: () => {},
@@ -615,7 +615,7 @@ describe("ScanOrchestrator", () => {
           } as unknown as ConfigManager,
           cacheService: {} as unknown as CacheService,
           animeAggregate: {} as unknown as AnimeAggregate,
-          scanStateService: {} as unknown as ScanStateService,
+          manifestService: {} as unknown as ManifestService,
           mergeMatches: async () => {},
           send: {
             scanProgress: () => {},

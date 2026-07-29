@@ -65,6 +65,8 @@ export type { GroupFilesOnDisk, LibraryState } from "./library/library-state";
 export { computeLibraryState } from "./library/library-state";
 export { WatchTracker } from "./library/watch-tracker";
 export { CacheService } from "./match/cache-service";
+export { ManifestRepository } from "./match/manifest-repository";
+export { ManifestService } from "./match/manifest-service";
 export type { CachedMatch } from "./match/match-repository";
 export { MatchRepository } from "./match/match-repository";
 export type { MatcherLike, MatchResult } from "./match/matcher";
@@ -80,8 +82,6 @@ export {
 } from "./match/matcher";
 export type { OverrideData } from "./match/override-store";
 export { OVERRIDE_TOML_KEYS, OverrideStore } from "./match/override-store";
-export { ScanStateRepository } from "./match/scan-state-repository";
-export { ScanStateService } from "./match/scan-state-service";
 export { ArtworkFetcher } from "./media/artwork-fetcher";
 export { MetadataWriter } from "./media/metadata-writer";
 export { absoluteToRelative, relativeToAbsolute } from "./parse/numbering-converter";

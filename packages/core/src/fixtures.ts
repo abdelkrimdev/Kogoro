@@ -23,6 +23,8 @@ import { LibraryRepository } from "./library/library-repository";
 import { computeLibraryState, type GroupFilesOnDisk } from "./library/library-state";
 import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils";
 import { CacheService } from "./match/cache-service";
+import { ManifestRepository } from "./match/manifest-repository";
+import { ManifestService } from "./match/manifest-service";
 import type { CachedMatch } from "./match/match-repository";
 import { MatchRepository } from "./match/match-repository";
 import {
@@ -33,8 +35,6 @@ import {
   makeAmbiguousResult,
 } from "./match/matcher";
 import type { OverrideStore } from "./match/override-store";
-import { ScanStateRepository } from "./match/scan-state-repository";
-import { ScanStateService } from "./match/scan-state-service";
 import { createMatchCacheDb as createMatchCacheDbInstance } from "./match/test-utils";
 import type { ParsedResult, ParsedTags } from "./parse/parser";
 import { HashCache } from "./scan/hash-cache";
@@ -218,17 +218,17 @@ export function createTrackerImportTestContext(): {
 
 export function createMatchCacheService(dir?: string): {
   matchRepo: MatchRepository;
-  scanStateRepo: ScanStateRepository;
+  manifestRepo: ManifestRepository;
   cacheService: CacheService;
-  scanStateService: ScanStateService;
+  manifestService: ManifestService;
   close: () => void;
 } {
   const { db, sqlite } = createMatchCacheDbInstance(dir);
   const matchRepo = new MatchRepository(db);
-  const scanStateRepo = new ScanStateRepository(db);
-  const cacheService = new CacheService(matchRepo, scanStateRepo);
-  const scanStateService = new ScanStateService(scanStateRepo);
-  return { matchRepo, scanStateRepo, cacheService, scanStateService, close: () => sqlite.close() };
+  const manifestRepo = new ManifestRepository(db);
+  const cacheService = new CacheService(matchRepo, manifestRepo);
+  const manifestService = new ManifestService(manifestRepo);
+  return { matchRepo, manifestRepo, cacheService, manifestService, close: () => sqlite.close() };
 }
 
 export function createMockDb(opts: MockDbOptions = {}): MockDbResult {

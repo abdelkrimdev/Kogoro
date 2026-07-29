@@ -12,23 +12,23 @@ import {
   franchises,
   groupTrackerMappings,
 } from "../library/schema";
+import { ManifestRepository } from "../match/manifest-repository";
 import { MatchRepository } from "../match/match-repository";
-import { ScanStateRepository } from "../match/scan-state-repository";
-import { matches, scanState } from "../match/schema";
+import { manifest, matches } from "../match/schema";
 import { safeMigrate } from "./db-migrations";
 
 export interface MatchCacheConnection {
   matchRepo: MatchRepository;
-  scanStateRepo: ScanStateRepository;
+  manifestRepo: ManifestRepository;
 }
 
 export function createMatchCacheConnection(dbPath: string): MatchCacheConnection {
   const sqlite = new Database(dbPath);
-  const db = drizzle(sqlite, { schema: { matches, scanState } });
+  const db = drizzle(sqlite, { schema: { matches, manifest } });
   safeMigrate(db);
   return {
     matchRepo: new MatchRepository(db),
-    scanStateRepo: new ScanStateRepository(db),
+    manifestRepo: new ManifestRepository(db),
   };
 }
 

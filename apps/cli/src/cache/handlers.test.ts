@@ -76,9 +76,9 @@ describe("cache CLI commands", () => {
 describe("cache purge", () => {
   test("purge removes stale entries not in currentPaths", async () => {
     await withTempDir("cache-purge", async (dir) => {
-      const { matchRepo, scanStateRepo, cacheService, close } = createMatchCacheService(dir);
+      const { matchRepo, manifestRepo, cacheService, close } = createMatchCacheService(dir);
 
-      scanStateRepo.set("/old.mkv", 100, 1000, "oldHash");
+      manifestRepo.set("/old.mkv", 100, 1000, "oldHash");
       matchRepo.set("oldHash", makeCachedMatch({ animeId: "99" }));
 
       const handlers = createCacheHandlers({ cacheService });

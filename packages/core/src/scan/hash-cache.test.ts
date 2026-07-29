@@ -93,17 +93,17 @@ describe("HashCache", () => {
       });
     });
 
-    test("skips re-hashing when scan state is up to date", async () => {
+    test("skips re-hashing when manifest is up to date", async () => {
       await withTempDir("hashcache-skip-hash", async (_dir) => {
         const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
-        const { cacheService, scanStateService, close } = createMatchCacheService();
-        const hashCache = new HashCache({ cacheService, scanStateService });
+        const { cacheService, manifestService, close } = createMatchCacheService();
+        const hashCache = new HashCache({ cacheService, manifestService });
 
         const first = await hashCache.prepareFile(filePath);
         expect(first.hash).toBeTruthy();
 
         const stat = statSync(filePath);
-        const stored = scanStateService.get(filePath);
+        const stored = manifestService.get(filePath);
         expect(stored).not.toBeNull();
         expect(stored?.hash).toBe(first.hash);
         expect(stored?.size).toBe(stat.size);
@@ -116,16 +116,16 @@ describe("HashCache", () => {
       });
     });
 
-    test("stores scan state after hashing", async () => {
+    test("stores manifest entry after hashing", async () => {
       await withTempDir("hashcache-store-state", async (_dir) => {
         const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
-        const { cacheService, scanStateService, close } = createMatchCacheService();
-        const hashCache = new HashCache({ cacheService, scanStateService });
+        const { cacheService, manifestService, close } = createMatchCacheService();
+        const hashCache = new HashCache({ cacheService, manifestService });
 
         const result = await hashCache.prepareFile(filePath);
 
         const stat = statSync(filePath);
-        const stored = scanStateService.get(filePath);
+        const stored = manifestService.get(filePath);
         expect(stored).not.toBeNull();
         expect(stored?.hash).toBe(result.hash);
         expect(stored?.size).toBe(stat.size);
@@ -135,36 +135,36 @@ describe("HashCache", () => {
       });
     });
 
-    test("falls through to full hash when scan state is stale", async () => {
+    test("falls through to full hash when manifest is stale", async () => {
       await withTempDir("hashcache-stale-state", async (_dir) => {
         const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
-        const { cacheService, scanStateService, close } = createMatchCacheService();
-        const hashCache = new HashCache({ cacheService, scanStateService });
+        const { cacheService, manifestService, close } = createMatchCacheService();
+        const hashCache = new HashCache({ cacheService, manifestService });
 
-        scanStateService.set(filePath, 999, 999, "stale-hash");
+        manifestService.set(filePath, 999, 999, "stale-hash");
 
         const result = await hashCache.prepareFile(filePath);
         expect(result.hash).toBeTruthy();
         expect(result.hash).not.toBe("stale-hash");
 
-        const stored = scanStateService.get(filePath);
+        const stored = manifestService.get(filePath);
         expect(stored?.hash).toBe(result.hash);
 
         close();
       });
     });
 
-    test("returns cached match from scan state hash without re-hashing", async () => {
+    test("returns cached match from manifest hash without re-hashing", async () => {
       await withTempDir("hashcache-cached-from-state", async (_dir) => {
         const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
-        const { cacheService, scanStateService, close } = createMatchCacheService();
+        const { cacheService, manifestService, close } = createMatchCacheService();
 
         const hash = await hashFile(filePath);
         const stat = statSync(filePath);
-        scanStateService.set(filePath, stat.size, Math.floor(stat.mtimeMs / 1000), hash);
+        manifestService.set(filePath, stat.size, Math.floor(stat.mtimeMs / 1000), hash);
         cacheService.set(hash, makeCachedMatch({ animeId: "42", episodeId: "200" }));
 
-        const hashCache = new HashCache({ cacheService, scanStateService });
+        const hashCache = new HashCache({ cacheService, manifestService });
         const result = await hashCache.prepareFile(filePath);
 
         expect(result.hash).toBe(hash);
@@ -176,16 +176,16 @@ describe("HashCache", () => {
       });
     });
 
-    test("force bypasses scan state cache and re-hashes", async () => {
+    test("force bypasses manifest cache and re-hashes", async () => {
       await withTempDir("hashcache-force-bypass", async (_dir) => {
         const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "video content");
-        const { cacheService, scanStateService, close } = createMatchCacheService();
+        const { cacheService, manifestService, close } = createMatchCacheService();
 
         const hash = await hashFile(filePath);
         const stat = statSync(filePath);
-        scanStateService.set(filePath, stat.size, Math.floor(stat.mtimeMs / 1000), hash);
+        manifestService.set(filePath, stat.size, Math.floor(stat.mtimeMs / 1000), hash);
 
-        const hashCache = new HashCache({ cacheService, scanStateService });
+        const hashCache = new HashCache({ cacheService, manifestService });
         const result = await hashCache.prepareFile(filePath, true);
 
         expect(result.hash).toBe(hash);

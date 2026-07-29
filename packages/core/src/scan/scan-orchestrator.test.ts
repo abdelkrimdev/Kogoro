@@ -1450,7 +1450,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-incremental", async (dir) => {
         const { writeFileSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { cacheService, scanStateService, close } = createMatchCacheService();
+        const { cacheService, manifestService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
         const file2 = join(dir, "ep2.mkv");
@@ -1462,8 +1462,8 @@ describe("ScanOrchestrator", () => {
         const stat1 = statSync(file1);
         const hash1 = await hashFile(file1);
 
-        // Pre-populate scan state and matches cache for file1
-        scanStateService.set(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
+        // Pre-populate manifest and matches cache for file1
+        manifestService.set(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
         cacheService.set(hash1, makeCachedMatch({ animeId: "1", episodeId: "101", episode: 1 }));
 
         const orch = new ScanOrchestrator({
@@ -1499,7 +1499,7 @@ describe("ScanOrchestrator", () => {
             }),
           },
           cacheService,
-          scanStateService,
+          manifestService,
         });
 
         await orch.startScan(dir);
@@ -1524,7 +1524,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-cache-miss", async (dir) => {
         const { writeFileSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService();
+        const { manifestService, close } = createMatchCacheService();
         const scanFileCalls: string[] = [];
 
         const file1 = join(dir, "ep1.mkv");
@@ -1533,8 +1533,8 @@ describe("ScanOrchestrator", () => {
         const { statSync } = await import("node:fs");
         const stat1 = statSync(file1);
 
-        // Pre-populate scan state but NOT matches table
-        scanStateService.set(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), "stale-hash");
+        // Pre-populate manifest but NOT matches table
+        manifestService.set(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), "stale-hash");
 
         const orch = new ScanOrchestrator({
           pipeline: {
@@ -1547,7 +1547,7 @@ describe("ScanOrchestrator", () => {
             },
             plan: () => null,
           },
-          scanStateService,
+          manifestService,
         });
 
         await orch.startScan(dir);
@@ -1568,7 +1568,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-force", async (dir) => {
         const { writeFileSync, statSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService();
+        const { manifestService, close } = createMatchCacheService();
         const scanFileCalls: string[] = [];
 
         const file1 = join(dir, "ep1.mkv");
@@ -1576,7 +1576,7 @@ describe("ScanOrchestrator", () => {
 
         const stat1 = statSync(file1);
         const hash1 = await hashFile(file1);
-        scanStateService.set(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
+        manifestService.set(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
 
         const orch = new ScanOrchestrator({
           pipeline: {
@@ -1589,7 +1589,7 @@ describe("ScanOrchestrator", () => {
             },
             plan: () => null,
           },
-          scanStateService,
+          manifestService,
           force: true,
         });
 
@@ -1605,7 +1605,7 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-incr-progress", async (dir) => {
         const { writeFileSync, statSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { cacheService, scanStateService, close } = createMatchCacheService();
+        const { cacheService, manifestService, close } = createMatchCacheService();
         const events: ScanEvent[] = [];
 
         const file1 = join(dir, "ep1.mkv");
@@ -1613,7 +1613,7 @@ describe("ScanOrchestrator", () => {
 
         const stat1 = statSync(file1);
         const hash1 = await hashFile(file1);
-        scanStateService.set(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
+        manifestService.set(file1, stat1.size, Math.floor(stat1.mtimeMs / 1000), hash1);
         cacheService.set(hash1, makeCachedMatch({ animeId: "1", episodeId: "101", episode: 1 }));
 
         const orch = new ScanOrchestrator({
@@ -1657,7 +1657,7 @@ describe("ScanOrchestrator", () => {
             }),
           },
           cacheService,
-          scanStateService,
+          manifestService,
         });
 
         orch.on("*", (e) => events.push(e));
@@ -1674,18 +1674,18 @@ describe("ScanOrchestrator", () => {
       });
     });
 
-    test("purges stale scan_state entries during scan", async () => {
+    test("purges stale manifest entries during scan", async () => {
       await withTempDir("orch-stale-cleanup", async (dir) => {
         const { writeFileSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { cacheService, scanStateService, close } = createMatchCacheService();
+        const { cacheService, manifestService, close } = createMatchCacheService();
 
         // Create a real file
         const file1 = join(dir, "ep1.mkv");
         writeFileSync(file1, "content1");
 
-        // Add scan_state for a file that won't be in currentPaths (stale)
-        scanStateService.set("/deleted/ep2.mkv", 200, 2000, "staleHash");
+        // Add manifest entry for a file that won't be in currentPaths (stale)
+        manifestService.set("/deleted/ep2.mkv", 200, 2000, "staleHash");
 
         // Add a match for the stale hash
         cacheService.set("staleHash", makeCachedMatch({ animeId: "99" }));
@@ -1701,14 +1701,12 @@ describe("ScanOrchestrator", () => {
             plan: () => null,
           },
           cacheService,
-          scanStateService,
+          manifestService,
         });
 
         await orch.startScan(dir);
 
-        // Stale scan_state should be cleaned up
-        expect(scanStateService.get("/deleted/ep2.mkv")).toBeNull();
-        // Orphaned match should also be cleaned up
+        expect(manifestService.get("/deleted/ep2.mkv")).toBeNull();
         expect(cacheService.has("staleHash")).toBe(false);
         close();
       });
@@ -1718,13 +1716,13 @@ describe("ScanOrchestrator", () => {
       await withTempDir("orch-cache-service", async (dir) => {
         const { writeFileSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { cacheService, scanStateService, close } = createMatchCacheService();
+        const { cacheService, manifestService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
         writeFileSync(file1, "content1");
 
         // Stale entry that should be purged by CacheService
-        scanStateService.set("/deleted/ep2.mkv", 200, 2000, "staleHash");
+        manifestService.set("/deleted/ep2.mkv", 200, 2000, "staleHash");
         cacheService.set("staleHash", makeCachedMatch({ animeId: "99" }));
 
         const orch = new ScanOrchestrator({
@@ -1738,13 +1736,13 @@ describe("ScanOrchestrator", () => {
             plan: () => null,
           },
           cacheService,
-          scanStateService,
+          manifestService,
         });
 
         await orch.startScan(dir);
 
         // CacheService.purgeStale was called — stale entries removed
-        expect(scanStateService.get("/deleted/ep2.mkv")).toBeNull();
+        expect(manifestService.get("/deleted/ep2.mkv")).toBeNull();
         expect(cacheService.has("staleHash")).toBe(false);
         close();
       });
@@ -1771,11 +1769,11 @@ describe("ScanOrchestrator", () => {
       expect(scanFileCalls).toEqual(["/a/ep1.mkv", "/a/ep2.mkv"]);
     });
 
-    test("stores scan state after scanning a new file", async () => {
+    test("stores manifest entry after scanning a new file", async () => {
       await withTempDir("orch-store-state", async (dir) => {
         const { writeFileSync, statSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService();
+        const { manifestService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
         writeFileSync(file1, "content1");
@@ -1791,7 +1789,7 @@ describe("ScanOrchestrator", () => {
                 });
                 try {
                   const stat = statSync(filePath);
-                  scanStateService.set(
+                  manifestService.set(
                     filePath,
                     stat.size,
                     Math.floor(stat.mtimeMs / 1000),
@@ -1805,13 +1803,12 @@ describe("ScanOrchestrator", () => {
             },
             plan: () => null,
           },
-          scanStateService,
+          manifestService,
         });
 
         await orch.startScan(dir);
 
-        // Verify scan state was stored with hash from scanFile result
-        const stored = scanStateService.get(file1);
+        const stored = manifestService.get(file1);
         expect(stored).not.toBeNull();
         const stat1 = statSync(file1);
         expect(stored?.size).toBe(stat1.size);
@@ -1821,11 +1818,11 @@ describe("ScanOrchestrator", () => {
       });
     });
 
-    test("stores scan state when file deleted mid-scan", async () => {
+    test("stores manifest entry when file deleted mid-scan", async () => {
       await withTempDir("orch-setfromfs-race", async (dir) => {
         const { writeFileSync, unlinkSync, statSync } = await import("node:fs");
         const { join } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService();
+        const { manifestService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
         writeFileSync(file1, "content1");
@@ -1841,7 +1838,7 @@ describe("ScanOrchestrator", () => {
                 });
                 try {
                   const stat = statSync(filePath);
-                  scanStateService.set(
+                  manifestService.set(
                     filePath,
                     stat.size,
                     Math.floor(stat.mtimeMs / 1000),
@@ -1849,7 +1846,7 @@ describe("ScanOrchestrator", () => {
                   );
                 } catch {
                   // file was deleted, still store hash
-                  scanStateService.set(filePath, 0, 0, result.hash);
+                  manifestService.set(filePath, 0, 0, result.hash);
                 }
                 unlinkSync(filePath);
                 return result;
@@ -1857,24 +1854,24 @@ describe("ScanOrchestrator", () => {
             },
             plan: () => null,
           },
-          scanStateService,
+          manifestService,
         });
 
         await orch.startScan(dir);
         expect(orch.getState()).toBe("review");
 
-        const stored = scanStateService.get(file1);
+        const stored = manifestService.get(file1);
         expect(stored).not.toBeNull();
         expect(stored?.hash).toBe(`hash-${file1}`);
         close();
       });
     });
 
-    test("updates scan state after successful rename", async () => {
+    test("updates manifest entry after successful rename", async () => {
       await withTempDir("orch-execute-state", async (dir) => {
         const { writeFileSync, statSync, existsSync } = await import("node:fs");
         const { join, dirname } = await import("node:path");
-        const { scanStateService, close } = createMatchCacheService();
+        const { manifestService, close } = createMatchCacheService();
 
         const srcFile = join(dir, "downloads", "ep1.mkv");
         const destDir = join(dir, "Anime", "TV");
@@ -1905,7 +1902,7 @@ describe("ScanOrchestrator", () => {
                 });
                 try {
                   const stat = statSync(filePath);
-                  scanStateService.set(
+                  manifestService.set(
                     filePath,
                     stat.size,
                     Math.floor(stat.mtimeMs / 1000),
@@ -1926,24 +1923,22 @@ describe("ScanOrchestrator", () => {
             },
             plan: () => null,
           },
-          scanStateService,
+          manifestService,
         });
 
         await orch.startScan(dir);
 
-        // scan_state should exist for source path
-        expect(scanStateService.get(srcFile)).not.toBeNull();
+        expect(manifestService.get(srcFile)).not.toBeNull();
 
         await orch.approvePlan();
 
-        // After rename: old path scan_state should be deleted
-        expect(scanStateService.get(srcFile)).toBeNull();
-        // New path scan_state should exist (if the file exists)
+        expect(manifestService.get(srcFile)).toBeNull();
+        // New path manifest entry should exist (if the file exists)
         if (existsSync(destFile)) {
           const destStat = statSync(destFile);
-          const newScanState = scanStateService.get(destFile);
-          expect(newScanState).not.toBeNull();
-          expect(newScanState?.size).toBe(destStat.size);
+          const newManifestEntry = manifestService.get(destFile);
+          expect(newManifestEntry).not.toBeNull();
+          expect(newManifestEntry?.size).toBe(destStat.size);
         }
         close();
       });

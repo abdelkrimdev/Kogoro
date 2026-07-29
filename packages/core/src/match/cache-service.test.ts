@@ -1,27 +1,27 @@
 import { describe, expect, test } from "bun:test";
 import { makeCachedMatch, makeMatchResult } from "../fixtures";
 import { CacheService } from "./cache-service";
+import { ManifestRepository } from "./manifest-repository";
 import { MatchRepository } from "./match-repository";
-import { ScanStateRepository } from "./scan-state-repository";
 import { createMatchCacheDb } from "./test-utils";
 
 describe("CacheService", () => {
-  test("purgeStale removes scan_state entries not in currentPaths", () => {
+  test("purgeStale removes manifest entries not in currentPaths", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
       const matchRepo = new MatchRepository(db);
-      const scanRepo = new ScanStateRepository(db);
-      const service = new CacheService(matchRepo, scanRepo);
+      const manifestRepo = new ManifestRepository(db);
+      const service = new CacheService(matchRepo, manifestRepo);
 
-      scanRepo.set("/a.mkv", 100, 1000, "hashA");
-      scanRepo.set("/b.mkv", 200, 2000, "hashB");
-      scanRepo.set("/c.mkv", 300, 3000, "hashC");
+      manifestRepo.set("/a.mkv", 100, 1000, "hashA");
+      manifestRepo.set("/b.mkv", 200, 2000, "hashB");
+      manifestRepo.set("/c.mkv", 300, 3000, "hashC");
 
       service.purgeStale(["/a.mkv", "/c.mkv"]);
 
-      expect(scanRepo.get("/a.mkv")).toEqual({ size: 100, mtime: 1000, hash: "hashA" });
-      expect(scanRepo.get("/b.mkv")).toBeNull();
-      expect(scanRepo.get("/c.mkv")).toEqual({ size: 300, mtime: 3000, hash: "hashC" });
+      expect(manifestRepo.get("/a.mkv")).toEqual({ size: 100, mtime: 1000, hash: "hashA" });
+      expect(manifestRepo.get("/b.mkv")).toBeNull();
+      expect(manifestRepo.get("/c.mkv")).toEqual({ size: 300, mtime: 3000, hash: "hashC" });
     } finally {
       sqlite.close();
     }
@@ -31,16 +31,16 @@ describe("CacheService", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
       const matchRepo = new MatchRepository(db);
-      const scanRepo = new ScanStateRepository(db);
-      const service = new CacheService(matchRepo, scanRepo);
+      const manifestRepo = new ManifestRepository(db);
+      const service = new CacheService(matchRepo, manifestRepo);
 
       matchRepo.set("hashA", makeCachedMatch({ animeId: "1" }));
       matchRepo.set("hashB", makeCachedMatch({ animeId: "2" }));
       matchRepo.set("hashC", makeCachedMatch({ animeId: "3" }));
 
-      scanRepo.set("/a.mkv", 100, 1000, "hashA");
-      scanRepo.set("/b.mkv", 200, 2000, "hashB");
-      scanRepo.set("/c.mkv", 300, 3000, "hashC");
+      manifestRepo.set("/a.mkv", 100, 1000, "hashA");
+      manifestRepo.set("/b.mkv", 200, 2000, "hashB");
+      manifestRepo.set("/c.mkv", 300, 3000, "hashC");
 
       service.purgeStale(["/a.mkv", "/c.mkv"]);
 
@@ -56,8 +56,8 @@ describe("CacheService", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
       const matchRepo = new MatchRepository(db);
-      const scanRepo = new ScanStateRepository(db);
-      const service = new CacheService(matchRepo, scanRepo);
+      const manifestRepo = new ManifestRepository(db);
+      const service = new CacheService(matchRepo, manifestRepo);
 
       matchRepo.set("hashA", makeCachedMatch({ animeId: "1" }));
 
@@ -74,8 +74,8 @@ describe("CacheService", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
       const matchRepo = new MatchRepository(db);
-      const scanRepo = new ScanStateRepository(db);
-      const service = new CacheService(matchRepo, scanRepo);
+      const manifestRepo = new ManifestRepository(db);
+      const service = new CacheService(matchRepo, manifestRepo);
 
       expect(service.get("nonexistent")).toBeNull();
     } finally {
@@ -87,8 +87,8 @@ describe("CacheService", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
       const matchRepo = new MatchRepository(db);
-      const scanRepo = new ScanStateRepository(db);
-      const service = new CacheService(matchRepo, scanRepo);
+      const manifestRepo = new ManifestRepository(db);
+      const service = new CacheService(matchRepo, manifestRepo);
 
       matchRepo.set("hashA", makeCachedMatch({ animeId: "1", sourceDb: "tvdb" }));
 
@@ -104,12 +104,12 @@ describe("CacheService", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
       const matchRepo = new MatchRepository(db);
-      const scanRepo = new ScanStateRepository(db);
-      const service = new CacheService(matchRepo, scanRepo);
+      const manifestRepo = new ManifestRepository(db);
+      const service = new CacheService(matchRepo, manifestRepo);
 
       matchRepo.set("hashA", makeCachedMatch({ animeId: "1" }));
       matchRepo.set("hashB", makeCachedMatch({ animeId: "2" }));
-      scanRepo.set("/a.mkv", 100, 1000, "hashA");
+      manifestRepo.set("/a.mkv", 100, 1000, "hashA");
 
       service.clear();
 
@@ -123,8 +123,8 @@ describe("CacheService", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
       const matchRepo = new MatchRepository(db);
-      const scanRepo = new ScanStateRepository(db);
-      const service = new CacheService(matchRepo, scanRepo);
+      const manifestRepo = new ManifestRepository(db);
+      const service = new CacheService(matchRepo, manifestRepo);
 
       matchRepo.set(
         "hashB",
@@ -149,15 +149,15 @@ describe("CacheService", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
       const matchRepo = new MatchRepository(db);
-      const scanRepo = new ScanStateRepository(db);
-      const service = new CacheService(matchRepo, scanRepo);
+      const manifestRepo = new ManifestRepository(db);
+      const service = new CacheService(matchRepo, manifestRepo);
 
       matchRepo.set("hashA", makeCachedMatch());
-      scanRepo.set("/a.mkv", 100, 1000, "hashA");
+      manifestRepo.set("/a.mkv", 100, 1000, "hashA");
 
       service.purgeStale([]);
 
-      expect(scanRepo.getAllPaths()).toHaveLength(0);
+      expect(manifestRepo.getAllPaths()).toHaveLength(0);
       expect(matchRepo.list()).toHaveLength(0);
     } finally {
       sqlite.close();
@@ -169,8 +169,8 @@ describe("CacheService", () => {
       const { db, sqlite } = createMatchCacheDb();
       try {
         const matchRepo = new MatchRepository(db);
-        const scanRepo = new ScanStateRepository(db);
-        const service = new CacheService(matchRepo, scanRepo);
+        const manifestRepo = new ManifestRepository(db);
+        const service = new CacheService(matchRepo, manifestRepo);
 
         const match = makeMatchResult();
 
@@ -194,8 +194,8 @@ describe("CacheService", () => {
       const { db, sqlite } = createMatchCacheDb();
       try {
         const matchRepo = new MatchRepository(db);
-        const scanRepo = new ScanStateRepository(db);
-        const service = new CacheService(matchRepo, scanRepo);
+        const manifestRepo = new ManifestRepository(db);
+        const service = new CacheService(matchRepo, manifestRepo);
 
         const match = makeMatchResult({ episode: undefined });
 
@@ -213,21 +213,21 @@ describe("CacheService", () => {
     });
   });
 
-  test("clear also removes scan_state entries", () => {
+  test("clear also removes manifest entries", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
       const matchRepo = new MatchRepository(db);
-      const scanRepo = new ScanStateRepository(db);
-      const service = new CacheService(matchRepo, scanRepo);
+      const manifestRepo = new ManifestRepository(db);
+      const service = new CacheService(matchRepo, manifestRepo);
 
       matchRepo.set("hashA", makeCachedMatch({ animeId: "1" }));
-      scanRepo.set("/a.mkv", 100, 1000, "hashA");
-      scanRepo.set("/b.mkv", 200, 2000, "hashB");
+      manifestRepo.set("/a.mkv", 100, 1000, "hashA");
+      manifestRepo.set("/b.mkv", 200, 2000, "hashB");
 
       service.clear();
 
       expect(matchRepo.list()).toHaveLength(0);
-      expect(scanRepo.getAllPaths()).toHaveLength(0);
+      expect(manifestRepo.getAllPaths()).toHaveLength(0);
     } finally {
       sqlite.close();
     }

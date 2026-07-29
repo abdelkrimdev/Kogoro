@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { ScanStateRepository } from "./scan-state-repository";
+import { ManifestRepository } from "./manifest-repository";
 import { createMatchCacheDb } from "./test-utils";
 
-describe("ScanStateRepository", () => {
-  test("setScanState stores entry and getScanState retrieves it", () => {
+describe("ManifestRepository", () => {
+  test("set and get round-trip an entry", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
-      const repo = new ScanStateRepository(db);
+      const repo = new ManifestRepository(db);
       repo.set("/path/to/file.mkv", 1024, 1700000000, "abc123");
       const result = repo.get("/path/to/file.mkv");
       expect(result).toEqual({ size: 1024, mtime: 1700000000, hash: "abc123" });
@@ -18,17 +18,17 @@ describe("ScanStateRepository", () => {
   test("get returns null for missing path", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
-      const repo = new ScanStateRepository(db);
+      const repo = new ManifestRepository(db);
       expect(repo.get("/nonexistent")).toBeNull();
     } finally {
       sqlite.close();
     }
   });
 
-  test("setScanState overwrites existing entry", () => {
+  test("set overwrites existing entry", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
-      const repo = new ScanStateRepository(db);
+      const repo = new ManifestRepository(db);
       repo.set("/path/file.mkv", 100, 1000, "hash1");
       repo.set("/path/file.mkv", 200, 2000, "hash2");
       expect(repo.get("/path/file.mkv")).toEqual({ size: 200, mtime: 2000, hash: "hash2" });
@@ -37,10 +37,10 @@ describe("ScanStateRepository", () => {
     }
   });
 
-  test("deleteScanState removes an entry", () => {
+  test("delete removes an entry", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
-      const repo = new ScanStateRepository(db);
+      const repo = new ManifestRepository(db);
       repo.set("/path/file.mkv", 100, 1000, "hash");
       repo.delete("/path/file.mkv");
       expect(repo.get("/path/file.mkv")).toBeNull();
@@ -52,7 +52,7 @@ describe("ScanStateRepository", () => {
   test("getBatch returns entries for multiple paths", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
-      const repo = new ScanStateRepository(db);
+      const repo = new ManifestRepository(db);
       repo.set("/a.mkv", 100, 1000, "hashA");
       repo.set("/b.mkv", 200, 2000, "hashB");
       repo.set("/c.mkv", 300, 3000, "hashC");
@@ -69,7 +69,7 @@ describe("ScanStateRepository", () => {
   test("deleteBatch removes multiple entries", () => {
     const { db, sqlite } = createMatchCacheDb();
     try {
-      const repo = new ScanStateRepository(db);
+      const repo = new ManifestRepository(db);
       repo.set("/a.mkv", 100, 1000, "hashA");
       repo.set("/b.mkv", 200, 2000, "hashB");
       repo.set("/c.mkv", 300, 3000, "hashC");

@@ -2,10 +2,10 @@ import { statSync } from "node:fs";
 import { basename } from "node:path";
 import { hashFile } from "../io/file-hash";
 import type { CacheService } from "../match/cache-service";
+import type { ManifestService } from "../match/manifest-service";
 import type { CachedMatch } from "../match/match-repository";
 import type { MatchResult } from "../match/matcher";
 import type { OverrideData, OverrideStore } from "../match/override-store";
-import type { ScanStateService } from "../match/scan-state-service";
 
 function computeFileHash(input: string): string {
   return Bun.hash(input).toString(16);
@@ -14,7 +14,7 @@ function computeFileHash(input: string): string {
 export interface HashCacheOptions {
   cacheService: CacheService;
   overrideStore?: OverrideStore;
-  scanStateService?: ScanStateService;
+  manifestService?: ManifestService;
   sourceDb?: string;
 }
 
@@ -30,13 +30,13 @@ export interface PreparedFile {
 export class HashCache {
   private cacheService: CacheService;
   private overrideStore?: OverrideStore;
-  private scanStateService?: ScanStateService;
+  private manifestService?: ManifestService;
   private sourceDb: string;
 
   constructor(options: HashCacheOptions) {
     this.cacheService = options.cacheService;
     this.overrideStore = options.overrideStore;
-    this.scanStateService = options.scanStateService;
+    this.manifestService = options.manifestService;
     this.sourceDb = options.sourceDb ?? "tvdb";
   }
 
@@ -45,10 +45,10 @@ export class HashCache {
     let hash = "";
     let cachedMatch: CachedMatch | null = null;
 
-    if (!force && this.scanStateService) {
+    if (!force && this.manifestService) {
       try {
         const stat = statSync(filePath);
-        const cachedHash = this.scanStateService.isFileUpToDate(
+        const cachedHash = this.manifestService.isFileUpToDate(
           filePath,
           stat.size,
           Math.floor(stat.mtimeMs / 1000),
@@ -70,12 +70,12 @@ export class HashCache {
       cachedMatch = this.cacheService.get(hash, this.sourceDb);
     }
 
-    if (this.scanStateService) {
+    if (this.manifestService) {
       try {
         const stat = statSync(filePath);
-        this.scanStateService.set(filePath, stat.size, Math.floor(stat.mtimeMs / 1000), hash);
+        this.manifestService.set(filePath, stat.size, Math.floor(stat.mtimeMs / 1000), hash);
       } catch {
-        // stat failed, skip state storage
+        // stat failed, skip manifest storage
       }
     }
 

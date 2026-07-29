@@ -2,9 +2,9 @@ import type { ConfigManager } from "../config/config-manager";
 import { CONFIG_DIR, SCHEMA_DEFAULTS, TEMPLATE_PRESETS } from "../config/schema";
 import { walk } from "../io/directory-walker";
 import type { CacheService } from "../match/cache-service";
+import type { ManifestService } from "../match/manifest-service";
 import { Matcher } from "../match/matcher";
 import { OverrideStore } from "../match/override-store";
-import type { ScanStateService } from "../match/scan-state-service";
 import { Renamer } from "../rename/renamer";
 import type { SanitizeConfig } from "../rename/sanitize";
 import type { DatabasePlugin } from "../types";
@@ -14,7 +14,7 @@ import { Scanner } from "./scanner";
 export interface CreateScanComponentsOptions {
   config?: ConfigManager;
   cacheService: CacheService;
-  scanStateService?: ScanStateService;
+  manifestService?: ManifestService;
   database?: DatabasePlugin;
   renamer?: Renamer;
   overrideStore?: OverrideStore;
@@ -42,7 +42,7 @@ function resolveDirectoryTemplate(config?: ConfigManager): string {
 }
 
 export function createScanComponents(options: CreateScanComponentsOptions): ScanComponents {
-  const { config, cacheService, scanStateService, database, sourceDb: sourceDbOverride } = options;
+  const { config, cacheService, manifestService, database, sourceDb: sourceDbOverride } = options;
 
   const filenameTemplate = resolveFilenameTemplate(config);
   const directoryTemplate = resolveDirectoryTemplate(config);
@@ -65,7 +65,7 @@ export function createScanComponents(options: CreateScanComponentsOptions): Scan
   const hashCache = new HashCache({
     cacheService,
     overrideStore,
-    scanStateService,
+    manifestService,
     sourceDb,
   });
 
