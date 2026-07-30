@@ -387,69 +387,6 @@ describe("FranchiseAggregate", () => {
     });
   });
 
-  describe("enrichAnime", () => {
-    test("skips anime that already has a franchise", () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({ library: repo });
-
-        const franchise = repo.createFranchise({ title: "Existing Franchise" });
-        const anime = repo.upsertAnime({
-          title: "Jujutsu Kaisen",
-        });
-        repo.assignAnimeToFranchise(anime.id, franchise.id);
-
-        aggregate.enrichAnime([anime.id]);
-
-        const franchises = repo.getFranchises();
-        expect(franchises.length).toBe(1);
-        expect(franchises[0]?.title).toBe("Existing Franchise");
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("skips anime that already has an AniList mapping", () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({ library: repo });
-
-        const anime = repo.upsertAnime({
-          title: "Jujutsu Kaisen",
-        });
-        repo.createAnimeSourceMapping({
-          animeId: anime.id,
-          source: "anilist",
-          externalId: "12345",
-        });
-
-        aggregate.enrichAnime([anime.id]);
-
-        const franchises = repo.getFranchises();
-        expect(franchises.length).toBe(0);
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("skips anime that does not exist", () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const aggregate = new FranchiseAggregate({ library: repo });
-
-        aggregate.enrichAnime([999]);
-
-        const franchises = repo.getFranchises();
-        expect(franchises.length).toBe(0);
-      } finally {
-        sqlite.close();
-      }
-    });
-  });
-
   describe("RELATION_TYPES_TO_WALK", () => {
     test("includes SEQUEL", () => {
       expect(RELATION_TYPES_TO_WALK.has("SEQUEL")).toBe(true);

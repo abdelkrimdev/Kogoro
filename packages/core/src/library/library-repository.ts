@@ -444,6 +444,8 @@ export class LibraryRepository {
         animeSourceMappings,
         and(
           eq(animeSourceMappings.animeId, anime.id),
+          // Pick one source mapping per anime deterministically using alphabetical order.
+          // This replaced the previous min(id) approach after the auto-increment PK was removed.
           eq(
             animeSourceMappings.source,
             this.db

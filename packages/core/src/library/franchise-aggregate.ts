@@ -1,4 +1,4 @@
-import type { EnrichmentRelation, KnownEntry } from "../types";
+import type { EnrichmentRelation } from "../types";
 import type { LibraryRepository } from "./library-repository";
 
 export interface EnrichmentMediaResult {
@@ -78,10 +78,6 @@ export class FranchiseAggregate {
 
       this.assignComponentToFranchise(componentIds, franchise.id, animeByAnilistId);
     }
-  }
-
-  enrichAnime(_animeIds: number[], _knownAnilistEntries?: KnownEntry[]): void {
-    // Stubbed out — previously depended on anilist_cache which has been removed.
   }
 
   private ensureMappingAndAssign(animeId: number, anilistId: string, franchiseId: number): void {
