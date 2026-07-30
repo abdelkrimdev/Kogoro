@@ -1,5 +1,5 @@
 import type { EnrichmentRelation, KnownEntry } from "../types";
-import type { LibraryAnime, LibraryRepository } from "./library-repository";
+import type { LibraryRepository } from "./library-repository";
 
 export interface EnrichmentMediaResult {
   anilistId: string;
@@ -24,50 +24,6 @@ export interface FranchiseAggregateDeps {
 
 export class FranchiseAggregate {
   constructor(private deps: FranchiseAggregateDeps) {}
-
-  walkFranchiseGraph(startAnilistIds: string[]): Map<string, EnrichmentMediaResult> {
-    const visited = new Map<string, EnrichmentMediaResult>();
-    const failed = new Set<string>();
-    const queue = [...startAnilistIds];
-
-    while (queue.length > 0) {
-      const currentBatch = queue.filter((id) => !visited.has(id) && !failed.has(id));
-      if (currentBatch.length === 0) break;
-
-      for (const id of currentBatch) {
-        const cached = this.deps.library.getAnilistCacheEntry(id);
-        if (cached) {
-          visited.set(id, {
-            anilistId: cached.anilistId,
-            title: cached.title,
-            format: cached.format ?? undefined,
-            episodes: cached.episodes ?? undefined,
-            relations: cached.relations,
-            externalLinks: cached.externalLinks ?? undefined,
-          });
-        } else {
-          failed.add(id);
-        }
-      }
-
-      for (const id of currentBatch) {
-        const media = visited.get(id);
-        if (!media) continue;
-
-        for (const relation of media.relations) {
-          if (
-            RELATION_TYPES_TO_WALK.has(relation.relationType) &&
-            !visited.has(relation.anilistId) &&
-            !failed.has(relation.anilistId)
-          ) {
-            queue.push(relation.anilistId);
-          }
-        }
-      }
-    }
-
-    return visited;
-  }
 
   findConnectedComponents(mediaResults: Map<string, EnrichmentMediaResult>): Map<string, string[]> {
     const visited = new Set<string>();
@@ -117,197 +73,15 @@ export class FranchiseAggregate {
 
     for (const [rootId, componentIds] of components) {
       const franchise =
-        this.findExistingFranchise(componentIds) ??
+        this.findExistingFranchise(componentIds, animeByAnilistId) ??
         this.createFranchiseForComponent(rootId, componentIds, mediaResults, animeByAnilistId);
 
       this.assignComponentToFranchise(componentIds, franchise.id, animeByAnilistId);
-
-      this.applySeasonNumbers(componentIds, animeByAnilistId);
     }
   }
 
-  buildFranchiseSets(anilistIds: string[]): Map<string, Set<string>> {
-    const franchiseSets = new Map<string, Set<string>>();
-
-    for (const id of anilistIds) {
-      if (franchiseSets.has(id)) continue;
-
-      const cached = this.deps.library.getAnilistCacheEntry(id);
-      if (!cached) continue;
-
-      const franchise = new Set<string>();
-      const queue = [id];
-
-      while (queue.length > 0) {
-        const current = queue.pop();
-        if (current === undefined || franchise.has(current)) continue;
-
-        const currentCached = this.deps.library.getAnilistCacheEntry(current);
-        if (!currentCached) continue;
-
-        franchise.add(current);
-
-        for (const relation of currentCached.relations) {
-          if (
-            (relation.relationType === "SEQUEL" || relation.relationType === "PREQUEL") &&
-            !franchise.has(relation.anilistId)
-          ) {
-            queue.push(relation.anilistId);
-          }
-        }
-      }
-
-      for (const memberId of franchise) {
-        franchiseSets.set(memberId, franchise);
-      }
-    }
-
-    return franchiseSets;
-  }
-
-  assignSeasonNumbers(clusterAnilistIds: string[]): Map<string, number | undefined> {
-    const seasonMap = new Map<string, number | undefined>();
-
-    if (clusterAnilistIds.length === 0) return seasonMap;
-
-    for (const id of clusterAnilistIds) {
-      seasonMap.set(id, undefined);
-    }
-
-    const idSet = new Set(clusterAnilistIds);
-    const firstId = clusterAnilistIds[0];
-    if (firstId === undefined) return seasonMap;
-    const root = this.findPrequelChainRoot(firstId, idSet);
-
-    const rootCached = this.deps.library.getAnilistCacheEntry(root);
-    const hasChain = rootCached?.relations.some(
-      (r) => r.relationType === "SEQUEL" && idSet.has(r.anilistId),
-    );
-
-    if (!hasChain) return seasonMap;
-
-    let season = 1;
-    let current = root;
-    const visited = new Set<string>();
-
-    while (current && !visited.has(current) && idSet.has(current)) {
-      visited.add(current);
-      seasonMap.set(current, season);
-      season++;
-
-      const cached = this.deps.library.getAnilistCacheEntry(current);
-      if (!cached) break;
-
-      const sequelRel = cached.relations.find(
-        (r) => r.relationType === "SEQUEL" && idSet.has(r.anilistId),
-      );
-
-      current = sequelRel?.anilistId ?? "";
-    }
-
-    return seasonMap;
-  }
-
-  enrichAnime(animeIds: number[], knownAnilistEntries?: KnownEntry[]): void {
-    const animeByAnilistId = new Map<string, number[]>();
-
-    const pushToMap = (key: string, value: number): void => {
-      const existing = animeByAnilistId.get(key);
-      if (existing) existing.push(value);
-      else animeByAnilistId.set(key, [value]);
-    };
-
-    const knownFromGroups = this.deps.library.getAnilistIdsFromTrackerMappings();
-    const titleToAnilistId = new Map<string, string>();
-    const animeIdToAnilistId = new Map<number, string>();
-
-    for (const [anilistId, ids] of knownFromGroups) {
-      for (const animeId of ids) {
-        pushToMap(anilistId, animeId);
-        animeIdToAnilistId.set(animeId, anilistId);
-      }
-    }
-
-    if (knownAnilistEntries) {
-      for (const entry of knownAnilistEntries) {
-        titleToAnilistId.set(entry.title.toLowerCase(), entry.anilistId);
-      }
-    }
-
-    for (const animeId of animeIds) {
-      const anime = this.deps.library.getAnime(animeId);
-      if (!anime) continue;
-      if (anime.franchiseId) continue;
-      if (this.deps.library.hasAnimeSourceMapping(animeId, "anilist")) continue;
-
-      const matchedAnilistId =
-        animeIdToAnilistId.get(animeId) ?? titleToAnilistId.get(anime.title.toLowerCase()) ?? null;
-
-      if (matchedAnilistId) {
-        pushToMap(matchedAnilistId, animeId);
-      }
-    }
-
-    if (animeByAnilistId.size > 0) {
-      const allAnilistIds = [...animeByAnilistId.keys()];
-      const mediaResults = this.walkFranchiseGraph(allAnilistIds);
-      this.resolveFranchises(mediaResults, animeByAnilistId);
-    }
-  }
-
-  private applySeasonNumbers(
-    componentIds: string[],
-    animeByAnilistId: Map<string, number[]>,
-  ): void {
-    const seasonNumbers = this.assignSeasonNumbers(componentIds);
-
-    for (const [anilistId, season] of seasonNumbers) {
-      if (season === undefined) continue;
-
-      const animeIds = new Set(animeByAnilistId.get(anilistId) ?? []);
-      const mapping = this.deps.library.findAnimeSourceMapping("anilist", anilistId);
-      if (mapping) {
-        animeIds.add(mapping.animeId);
-      }
-
-      for (const animeId of animeIds) {
-        const groups = this.deps.library.getEpisodeGroupsByAnimeId(animeId);
-        for (const group of groups) {
-          if ((group.seasonNumber ?? 1) !== season) {
-            this.deps.library.updateEpisodeGroupSeasonNumber(group.id, season);
-          }
-        }
-      }
-    }
-  }
-
-  private findPrequelChainRoot(startId: string, idSet: Set<string>): string {
-    let current = startId;
-    const visited = new Set<string>();
-
-    while (current && !visited.has(current)) {
-      visited.add(current);
-
-      const cached = this.deps.library.getAnilistCacheEntry(current);
-      if (!cached) break;
-
-      const prequelRel = cached.relations.find(
-        (r) => r.relationType === "PREQUEL" && idSet.has(r.anilistId),
-      );
-
-      if (!prequelRel) break;
-      current = prequelRel.anilistId;
-    }
-
-    return current;
-  }
-
-  private findAnimeByAnilistId(anilistId: string): LibraryAnime | null {
-    const mapping = this.deps.library.findAnimeSourceMapping("anilist", anilistId);
-    if (mapping) {
-      return this.deps.library.getAnime(mapping.animeId);
-    }
-    return null;
+  enrichAnime(_animeIds: number[], _knownAnilistEntries?: KnownEntry[]): void {
+    // Stubbed out — previously depended on anilist_cache which has been removed.
   }
 
   private ensureMappingAndAssign(animeId: number, anilistId: string, franchiseId: number): void {
@@ -321,15 +95,14 @@ export class FranchiseAggregate {
     this.deps.library.assignAnimeToFranchise(animeId, franchiseId);
   }
 
-  private findExistingFranchise(componentIds: string[]): { id: number } | null {
+  private findExistingFranchise(
+    componentIds: string[],
+    animeByAnilistId: Map<string, number[]>,
+  ): { id: number } | null {
     for (const id of componentIds) {
-      const franchise = this.deps.library.findFranchiseByAnilistId(id);
-      if (franchise) return franchise;
-    }
-    for (const id of componentIds) {
-      const mapping = this.deps.library.findAnimeSourceMapping("anilist", id);
-      if (mapping) {
-        const anime = this.deps.library.getAnime(mapping.animeId);
+      const animeIds = this.collectAnimeIdsForAnilistId(id, animeByAnilistId);
+      for (const animeId of animeIds) {
+        const anime = this.deps.library.getAnime(animeId);
         if (anime?.franchiseId) {
           const franchise = this.deps.library.getFranchiseById(anime.franchiseId);
           if (franchise) return franchise;
@@ -337,6 +110,16 @@ export class FranchiseAggregate {
       }
     }
     return null;
+  }
+
+  private collectAnimeIdsForAnilistId(
+    anilistId: string,
+    animeByAnilistId: Map<string, number[]>,
+  ): number[] {
+    const ids = new Set<number>(animeByAnilistId.get(anilistId) ?? []);
+    const mapping = this.deps.library.findAnimeSourceMapping("anilist", anilistId);
+    if (mapping) ids.add(mapping.animeId);
+    return [...ids];
   }
 
   private createFranchiseForComponent(
@@ -371,13 +154,9 @@ export class FranchiseAggregate {
     animeByAnilistId: Map<string, number[]>,
   ): void {
     for (const id of componentIds) {
-      for (const animeId of animeByAnilistId.get(id) ?? []) {
+      const animeIds = this.collectAnimeIdsForAnilistId(id, animeByAnilistId);
+      for (const animeId of animeIds) {
         this.ensureMappingAndAssign(animeId, id, franchiseId);
-      }
-
-      const existingAnime = this.findAnimeByAnilistId(id);
-      if (existingAnime) {
-        this.ensureMappingAndAssign(existingAnime.id, id, franchiseId);
       }
     }
   }

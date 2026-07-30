@@ -64,6 +64,13 @@
       "when": 1785600000000,
       "tag": "0008_drop_anime_dropped_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785700000000,
+      "tag": "0009_remove_anilist_cache",
+      "breakpoints": true
     }
   ]
 }

@@ -104,13 +104,10 @@ function titlesMatch(
 
 function matchByRelation(
   trackerEntry: { trackerId: string },
-  franchiseSets: Map<string, Set<string>>,
   libraryAnimeAnidbIds: Map<number, string>,
 ): number | null {
-  const entryFranchise = franchiseSets.get(trackerEntry.trackerId);
-  if (!entryFranchise) return null;
   for (const [libraryId, anidbId] of libraryAnimeAnidbIds) {
-    if (entryFranchise.has(anidbId)) return libraryId;
+    if (trackerEntry.trackerId === anidbId) return libraryId;
   }
   return null;
 }
@@ -410,8 +407,7 @@ export class AnimeAggregate {
     const matchResults = new Map<string, number | null>();
     const libraryAnime = this.deps.library.listAnime();
 
-    const { franchiseSets, libraryAnimeAnidbIds } =
-      await this.buildRelationMatchContext(trackerList);
+    const { libraryAnimeAnidbIds } = await this.buildRelationMatchContext(trackerList);
 
     for (const entry of trackerList) {
       if (matchResults.has(entry.trackerId)) continue;
@@ -424,9 +420,7 @@ export class AnimeAggregate {
 
       let existingAnimeId: number | null = null;
 
-      if (franchiseSets && libraryAnimeAnidbIds) {
-        existingAnimeId = matchByRelation(entry, franchiseSets, libraryAnimeAnidbIds);
-      }
+      existingAnimeId = matchByRelation(entry, libraryAnimeAnidbIds);
 
       if (existingAnimeId === null) {
         existingAnimeId = findAnimeByTitleMatch(entry, libraryAnime);
@@ -439,8 +433,7 @@ export class AnimeAggregate {
   }
 
   private async buildRelationMatchContext(_trackerList: Array<{ trackerId: string }>): Promise<{
-    franchiseSets: Map<string, Set<string>> | null;
-    libraryAnimeAnidbIds: Map<number, string> | null;
+    libraryAnimeAnidbIds: Map<number, string>;
   }> {
     const knownAnidbIds = this.deps.library.getAnidbIdsFromTrackerMappings();
     const animeAnidbIds = this.deps.library.getAnidbIdsFromSourceMappings();
@@ -460,7 +453,7 @@ export class AnimeAggregate {
       }
     }
 
-    return { franchiseSets: null, libraryAnimeAnidbIds };
+    return { libraryAnimeAnidbIds };
   }
 
   private processEntryForExistingAnime(
@@ -661,6 +654,7 @@ export class AnimeAggregate {
 
       const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
       const animeByMatchKey = new Map<string, number>();
+      const animeByTitle = new Map<string, number>();
 
       for (const match of matches) {
         const matchKey = `${match.animeId}:${match.sourceDb}`;
@@ -668,7 +662,10 @@ export class AnimeAggregate {
 
         let animeId = resolvedAnidbId
           ? anidbIdToAnimeId.get(resolvedAnidbId)
-          : animeByMatchKey.get(matchKey);
+          : animeByTitle.get(match.animeTitle.toLowerCase());
+        if (!animeId) {
+          animeId = animeByMatchKey.get(matchKey);
+        }
         if (!animeId) {
           const libraryAnime = tx.upsertAnime({
             title: match.animeTitle,
@@ -679,6 +676,7 @@ export class AnimeAggregate {
           if (resolvedAnidbId) {
             anidbIdToAnimeId.set(resolvedAnidbId, animeId);
           }
+          animeByTitle.set(match.animeTitle.toLowerCase(), animeId);
         }
 
         tx.createAnimeSourceMapping({
@@ -767,19 +765,6 @@ export class AnimeAggregate {
             source: mapping.source,
             externalId: mapping.externalId,
           });
-        }
-      }
-
-      for (const id of animeIds) {
-        const anime = tx.getAnime(id);
-        if (!anime || anime.franchiseId) continue;
-
-        const mapping = tx.getAnimeSourceMapping(id, "anidb");
-        if (!mapping) continue;
-
-        const franchise = tx.findFranchiseByAnilistId(mapping.externalId);
-        if (franchise) {
-          tx.assignAnimeToFranchise(id, franchise.id);
         }
       }
     });
@@ -1025,11 +1010,6 @@ export class AnimeAggregate {
           }
         }
       }
-    }
-
-    const cacheEntry = this.deps.library.findAnilistCacheByTitle(title);
-    if (cacheEntry) {
-      return cacheEntry.anilistId;
     }
 
     return null;

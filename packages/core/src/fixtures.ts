@@ -14,11 +14,7 @@ import { EventRepository } from "./events/event-repository";
 import { createEventDb as createEventDbInstance } from "./events/test-utils";
 import { HttpClient } from "./io/http-client";
 import { AnimeAggregate } from "./library/anime-aggregate";
-import type {
-  AnilistCacheEntry,
-  AnimeSourceMapping,
-  Franchise,
-} from "./library/library-repository";
+import type { AnimeSourceMapping, Franchise } from "./library/library-repository";
 import { LibraryRepository } from "./library/library-repository";
 import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils";
 import { CacheService } from "./match/cache-service";
@@ -695,7 +691,6 @@ export function makeFranchise(overrides: Partial<Franchise> = {}): Franchise {
   return {
     id: 1,
     title: "Test Franchise",
-    anilistId: null,
     coverArtPath: null,
     synopsis: null,
     createdAt: new Date().toISOString(),
@@ -708,25 +703,9 @@ export function makeAnimeSourceMapping(
   overrides: Partial<AnimeSourceMapping> = {},
 ): AnimeSourceMapping {
   return {
-    id: 1,
     animeId: 1,
     source: "anilist",
     externalId: "1",
-    ...overrides,
-  };
-}
-
-export function makeAnilistCacheEntry(
-  overrides: Partial<AnilistCacheEntry> = {},
-): AnilistCacheEntry {
-  return {
-    anilistId: "1",
-    title: "Test Anime",
-    format: "TV",
-    episodes: 12,
-    relations: [],
-    externalLinks: null,
-    fetchedAt: new Date().toISOString(),
     ...overrides,
   };
 }

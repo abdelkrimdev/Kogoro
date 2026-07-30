@@ -503,21 +503,11 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("converges matches with the same AniList ID on a single anime", async () => {
+    test("converges matches with the same title on a single anime", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
         const repo = new LibraryRepository(db);
-
-        repo.setAnilistCacheEntry({
-          anilistId: "al-jjk",
-          title: "Jujutsu Kaisen",
-          format: "TV",
-          episodes: 24,
-          relations: [],
-          externalLinks: null,
-          fetchedAt: new Date().toISOString(),
-        });
 
         const aggregate = new AnimeAggregate({
           library: repo,
@@ -553,7 +543,6 @@ describe("AnimeAggregate", () => {
 
         const animeList = repo.listAnime();
         expect(animeList).toHaveLength(1);
-        expect(animeList[0]?.anidbId).toBe("al-jjk");
 
         const tvdbMapping = repo.findAnimeSourceMapping("tvdb", "tvdb-12345");
         expect(tvdbMapping).not.toBeNull();
@@ -2226,48 +2215,6 @@ describe("AnimeAggregate", () => {
         const episodes = repo.getEpisodesByGroupId(groups[0]?.id as number);
         expect(episodes).toHaveLength(1);
         expect(episodes[0]?.filePath).toBe("/media/S01E01.mkv");
-      } finally {
-        sqlite.close();
-        evtSqlite.close();
-      }
-    });
-
-    test("resolves AniList ID from anilist_cache when source mapping missing", async () => {
-      const { db, sqlite } = createLibraryDb();
-      const { sqlite: evtSqlite } = createEventDb();
-      try {
-        const repo = new LibraryRepository(db);
-        const aggregate = new AnimeAggregate({
-          library: repo,
-          replayUnpushedEvents: () => {},
-        });
-
-        repo.setAnilistCacheEntry({
-          anilistId: "al-cached",
-          title: "Jujutsu Kaisen",
-          format: "TV",
-          episodes: 24,
-          relations: [],
-          externalLinks: null,
-          fetchedAt: new Date().toISOString(),
-        });
-
-        const result = await aggregate.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
-
-        expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0] as number);
-        expect(anime?.anidbId).toBe("al-cached");
       } finally {
         sqlite.close();
         evtSqlite.close();

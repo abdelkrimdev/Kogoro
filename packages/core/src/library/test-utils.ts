@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import {
-  anilistCache,
   anime,
   animeSourceMappings,
   episodeGroups,
@@ -28,7 +27,6 @@ export function createLibraryDb(dir?: string) {
       groupTrackerMappings,
       franchises,
       animeSourceMappings,
-      anilistCache,
     },
   });
   migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });

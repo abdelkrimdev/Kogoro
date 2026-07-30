@@ -52,7 +52,6 @@ export {
   FranchiseAggregate,
 } from "./library/franchise-aggregate";
 export type {
-  AnilistCacheEntry,
   AnimeSourceMapping,
   EpisodeGroup,
   Franchise,

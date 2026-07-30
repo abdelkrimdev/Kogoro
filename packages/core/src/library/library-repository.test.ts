@@ -1962,7 +1962,7 @@ describe("LibraryRepository", () => {
   });
 
   describe("createAnimeSourceMapping", () => {
-    test("does not throw on duplicate source mapping", () => {
+    test("updates externalId on duplicate (anime_id, source)", () => {
       const { db, sqlite } = createLibraryDb();
       try {
         const repo = new LibraryRepository(db);
@@ -1978,8 +1978,11 @@ describe("LibraryRepository", () => {
         repo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "anilist",
-          externalId: "21",
+          externalId: "99",
         });
+
+        const mapping = repo.getAnimeSourceMapping(anime.id, "anilist");
+        expect(mapping?.externalId).toBe("99");
       } finally {
         sqlite.close();
       }
@@ -2003,64 +2006,6 @@ describe("LibraryRepository", () => {
           source: "mal",
           externalId: "21",
         });
-      } finally {
-        sqlite.close();
-      }
-    });
-  });
-
-  describe("findAnilistCacheByTitle", () => {
-    test("returns null when no cache entry exists", () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        expect(repo.findAnilistCacheByTitle("One Piece")).toBeNull();
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("returns cache entry when title matches", () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        repo.setAnilistCacheEntry({
-          anilistId: "21",
-          title: "One Piece",
-          format: "TV",
-          episodes: 1100,
-          relations: [],
-          externalLinks: null,
-          fetchedAt: new Date().toISOString(),
-        });
-
-        const found = repo.findAnilistCacheByTitle("One Piece");
-
-        expect(found).not.toBeNull();
-        expect(found?.anilistId).toBe("21");
-        expect(found?.title).toBe("One Piece");
-        expect(found?.format).toBe("TV");
-        expect(found?.episodes).toBe(1100);
-      } finally {
-        sqlite.close();
-      }
-    });
-
-    test("returns null for non-matching title", () => {
-      const { db, sqlite } = createLibraryDb();
-      try {
-        const repo = new LibraryRepository(db);
-        repo.setAnilistCacheEntry({
-          anilistId: "21",
-          title: "One Piece",
-          format: "TV",
-          episodes: 1100,
-          relations: [],
-          externalLinks: null,
-          fetchedAt: new Date().toISOString(),
-        });
-
-        expect(repo.findAnilistCacheByTitle("Naruto")).toBeNull();
       } finally {
         sqlite.close();
       }

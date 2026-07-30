@@ -77,7 +77,6 @@ export const episodes = sqliteTable(
 export const franchises = sqliteTable("franchises", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
-  anilistId: text("anilist_id").unique(),
   coverArtPath: text("cover_art_path"),
   synopsis: text("synopsis"),
   createdAt: text("created_at").notNull(),
@@ -87,22 +86,11 @@ export const franchises = sqliteTable("franchises", {
 export const animeSourceMappings = sqliteTable(
   "anime_source_mappings",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
     animeId: integer("anime_id")
       .notNull()
       .references(() => anime.id, { onDelete: "cascade" }),
     source: text("source").notNull(),
     externalId: text("external_id").notNull(),
   },
-  (t) => [unique("anime_source_mappings_source_external_id").on(t.source, t.externalId)],
+  (t) => [unique("anime_source_mappings_anime_id_source").on(t.animeId, t.source)],
 );
-
-export const anilistCache = sqliteTable("anilist_cache", {
-  anilistId: text("anilist_id").primaryKey(),
-  title: text("title").notNull(),
-  format: text("format"),
-  episodes: integer("episodes"),
-  relations: text("relations").notNull(),
-  externalLinks: text("external_links"),
-  fetchedAt: text("fetched_at").notNull(),
-});

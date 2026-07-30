@@ -67,6 +67,13 @@ export const journal = {
       tag: "0008_drop_anime_dropped_columns",
       breakpoints: true,
     },
+    {
+      idx: 9,
+      version: "6",
+      when: 1785700000000,
+      tag: "0009_remove_anilist_cache",
+      breakpoints: true,
+    },
   ],
 } as const;
 
@@ -87,4 +94,6 @@ export const migrations: Record<string, string> = {
     "-- Add anidb_id, format, and updated_at columns to anime table\nALTER TABLE `anime` ADD COLUMN `anidb_id` text;\n--> statement-breakpoint\nALTER TABLE `anime` ADD COLUMN `format` text;\n--> statement-breakpoint\nALTER TABLE `anime` ADD COLUMN `updated_at` text NOT NULL DEFAULT '';\n--> statement-breakpoint\n-- Add updated_at column to episode_groups table\nALTER TABLE `episode_groups` ADD COLUMN `updated_at` text NOT NULL DEFAULT '';\n--> statement-breakpoint\n-- Add updated_at column to franchises table\nALTER TABLE `franchises` ADD COLUMN `updated_at` text NOT NULL DEFAULT '';\n",
   "0008_drop_anime_dropped_columns":
     "-- Drop episode_count, genres, library_state, last_synced, anilist_id from anime table\n-- SQLite does not support ALTER TABLE DROP COLUMN before 3.35.0.\n-- Recreate the anime table without the dropped columns.\n\nPRAGMA foreign_keys = OFF;\n--> statement-breakpoint\n\nCREATE TABLE `anime_new` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`title` text NOT NULL,\n\t`alternative_titles` text,\n\t`cover_art_path` text,\n\t`franchise_id` integer,\n\t`anidb_id` text,\n\t`format` text,\n\t`updated_at` text NOT NULL DEFAULT '',\n\tFOREIGN KEY (`franchise_id`) REFERENCES `franchises`(`id`) ON UPDATE no action ON DELETE set null\n);\n--> statement-breakpoint\n\nINSERT INTO `anime_new` (`id`, `title`, `alternative_titles`, `cover_art_path`, `franchise_id`, `anidb_id`, `format`, `updated_at`)\nSELECT `id`, `title`, `alternative_titles`, `cover_art_path`, `franchise_id`, `anidb_id`, `format`, `updated_at` FROM `anime`;\n--> statement-breakpoint\n\nDROP TABLE `anime`;\n--> statement-breakpoint\n\nALTER TABLE `anime_new` RENAME TO `anime`;\n--> statement-breakpoint\n\nPRAGMA foreign_keys = ON;\n",
+  "0009_remove_anilist_cache":
+    "-- Drop anilist_cache table\nDROP TABLE IF EXISTS `anilist_cache`;\n--> statement-breakpoint\n\n-- Drop anilist_id column and its unique index from franchises\nDROP INDEX IF EXISTS `franchises_anilist_id_unique`;\n--> statement-breakpoint\nALTER TABLE `franchises` DROP COLUMN `anilist_id`;\n--> statement-breakpoint\n\n-- Recreate anime_source_mappings with composite PK (anime_id, source)\n-- First drop the old unique index\nDROP INDEX IF EXISTS `anime_source_mappings_source_external_id`;\n--> statement-breakpoint\n\n-- Drop and recreate the table with new schema\nDROP TABLE IF EXISTS `anime_source_mappings`;\n--> statement-breakpoint\n\nCREATE TABLE `anime_source_mappings` (\n\t`anime_id` integer NOT NULL,\n\t`source` text NOT NULL,\n\t`external_id` text NOT NULL,\n\tPRIMARY KEY(`anime_id`, `source`),\n\tFOREIGN KEY (`anime_id`) REFERENCES `anime`(`id`) ON UPDATE no action ON DELETE cascade\n);\n",
 } as const;
