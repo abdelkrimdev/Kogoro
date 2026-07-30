@@ -323,9 +323,10 @@ export class FranchiseAggregate {
 
   private findExistingFranchise(componentIds: string[]): { id: number } | null {
     for (const id of componentIds) {
-      const byAnilist = this.deps.library.findFranchiseByAnilistId(id);
-      if (byAnilist) return byAnilist;
-
+      const franchise = this.deps.library.findFranchiseByAnilistId(id);
+      if (franchise) return franchise;
+    }
+    for (const id of componentIds) {
       const mapping = this.deps.library.findAnimeSourceMapping("anilist", id);
       if (mapping) {
         const anime = this.deps.library.getAnime(mapping.animeId);
@@ -345,7 +346,7 @@ export class FranchiseAggregate {
     animeByAnilistId: Map<string, number[]>,
   ): { id: number } {
     const title = this.resolveFranchiseTitle(rootId, componentIds, mediaResults, animeByAnilistId);
-    return this.deps.library.createFranchise({ title, anilistId: rootId });
+    return this.deps.library.createFranchise({ title });
   }
 
   private resolveFranchiseTitle(

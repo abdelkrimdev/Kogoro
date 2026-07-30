@@ -4,7 +4,6 @@ import { EventRepository } from "../events/event-repository";
 import { createEventsTable, events as eventsSchema } from "../events/schema";
 import { LibraryRepository } from "../library/library-repository";
 import {
-  anilistCache,
   anime,
   animeSourceMappings,
   episodeGroups,
@@ -43,7 +42,6 @@ export function createLibraryConnection(dbPath: string): LibraryRepository {
       groupTrackerMappings,
       franchises,
       animeSourceMappings,
-      anilistCache,
     },
   });
   safeMigrate(db);

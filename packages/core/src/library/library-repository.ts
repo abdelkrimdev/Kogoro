@@ -93,7 +93,6 @@ type LibrarySchema = {
   groupTrackerMappings: typeof groupTrackerMappings;
   franchises: typeof franchises;
   animeSourceMappings: typeof animeSourceMappings;
-  anilistCache: typeof anilistCache;
 };
 type LibraryDb = BaseSQLiteDatabase<"sync", void, LibrarySchema>;
 
@@ -222,6 +221,11 @@ export class LibraryRepository {
     return row ? this.rowToAnime(row) : null;
   }
 
+  findAnimeByAnidbId(anidbId: string): LibraryAnime | null {
+    const row = this.db.select().from(anime).where(eq(anime.anidbId, anidbId)).get();
+    return row ? this.rowToAnime(row) : null;
+  }
+
   createAnimeSourceMapping(data: { animeId: number; source: string; externalId: string }): void {
     this.db
       .insert(animeSourceMappings)
@@ -236,6 +240,10 @@ export class LibraryRepository {
 
   updateAnimeAnilistId(animeId: number, anilistId: string): void {
     this.db.update(anime).set({ anilistId }).where(eq(anime.id, animeId)).run();
+  }
+
+  updateAnimeAnidbId(animeId: number, anidbId: string): void {
+    this.db.update(anime).set({ anidbId }).where(eq(anime.id, animeId)).run();
   }
 
   findAnilistCacheByTitle(title: string): AnilistCacheEntry | null {
@@ -407,6 +415,7 @@ export class LibraryRepository {
     episodeId: number;
     animeId: number;
     anilistId: string | null;
+    anidbId: string | null;
     season: number | null;
     episodeNumber: number;
     watched: boolean;
@@ -416,6 +425,7 @@ export class LibraryRepository {
         episodeId: episodes.id,
         animeId: anime.id,
         anilistId: anime.anilistId,
+        anidbId: anime.anidbId,
         season: episodes.season,
         episodeNumber: episodes.episodeNumber,
         watched: episodes.watched,
@@ -1138,6 +1148,32 @@ export class LibraryRepository {
     return result;
   }
 
+  // Known AniDB IDs from group tracker mappings
+
+  getAnidbIdsFromTrackerMappings(): Map<string, number[]> {
+    const rows = this.db
+      .select({
+        anidbId: groupTrackerMappings.externalId,
+        animeId: anime.id,
+      })
+      .from(groupTrackerMappings)
+      .innerJoin(episodeGroups, eq(episodeGroups.id, groupTrackerMappings.groupId))
+      .innerJoin(anime, eq(anime.id, episodeGroups.animeId))
+      .where(eq(groupTrackerMappings.source, "anidb"))
+      .all();
+
+    const result = new Map<string, number[]>();
+    for (const row of rows) {
+      const existing = result.get(row.anidbId);
+      if (existing) {
+        existing.push(row.animeId);
+      } else {
+        result.set(row.anidbId, [row.animeId]);
+      }
+    }
+    return result;
+  }
+
   // Known AniList IDs from anime source mappings
 
   getAnilistIdsFromSourceMappings(): Map<string, number[]> {
@@ -1162,13 +1198,37 @@ export class LibraryRepository {
     return result;
   }
 
+  // Known AniDB IDs from anime source mappings
+
+  getAnidbIdsFromSourceMappings(): Map<string, number[]> {
+    const rows = this.db
+      .select({
+        anidbId: animeSourceMappings.externalId,
+        animeId: animeSourceMappings.animeId,
+      })
+      .from(animeSourceMappings)
+      .where(eq(animeSourceMappings.source, "anidb"))
+      .all();
+
+    const result = new Map<string, number[]>();
+    for (const row of rows) {
+      const existing = result.get(row.anidbId);
+      if (existing) {
+        existing.push(row.animeId);
+      } else {
+        result.set(row.anidbId, [row.animeId]);
+      }
+    }
+    return result;
+  }
+
   // Pending identification
 
   findPendingAnime(): LibraryAnime[] {
     const rows = this.db
       .select()
       .from(anime)
-      .where(or(isNull(anime.anilistId), like(anime.anilistId, "temp:%")))
+      .where(or(isNull(anime.anidbId), like(anime.anidbId, "temp:%")))
       .all();
     return rows.map(this.rowToAnime);
   }
