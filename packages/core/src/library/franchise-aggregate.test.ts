@@ -281,7 +281,6 @@ describe("FranchiseAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
@@ -317,12 +316,10 @@ describe("FranchiseAggregate", () => {
 
         const anime1 = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
 
         const anime2 = repo.upsertAnime({
           title: "Jujutsu Kaisen S2",
-          episodeCount: 23,
         });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
@@ -367,12 +364,10 @@ describe("FranchiseAggregate", () => {
 
         const anime1 = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
 
         const anime2 = repo.upsertAnime({
           title: "One Piece",
-          episodeCount: 1100,
         });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
@@ -421,7 +416,6 @@ describe("FranchiseAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
@@ -457,7 +451,6 @@ describe("FranchiseAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
@@ -490,7 +483,6 @@ describe("FranchiseAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "My Custom Title",
-          episodeCount: 24,
         });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
@@ -558,8 +550,8 @@ describe("FranchiseAggregate", () => {
 
         const aggregate = new FranchiseAggregate({ library: repo });
 
-        const anime1 = repo.upsertAnime({ title: "Attack on Titan", episodeCount: 25 });
-        const anime2 = repo.upsertAnime({ title: "Attack on Titan S2", episodeCount: 12 });
+        const anime1 = repo.upsertAnime({ title: "Attack on Titan" });
+        const anime2 = repo.upsertAnime({ title: "Attack on Titan S2" });
 
         const group1 = repo.upsertEpisodeGroup({
           animeId: anime1.id,
@@ -622,7 +614,7 @@ describe("FranchiseAggregate", () => {
 
         const aggregate = new FranchiseAggregate({ library: repo });
 
-        const anime = repo.upsertAnime({ title: "Anime A", episodeCount: 12 });
+        const anime = repo.upsertAnime({ title: "Anime A" });
         repo.createAnimeSourceMapping({ animeId: anime.id, source: "anilist", externalId: "1" });
 
         const mediaResults = new Map<string, EnrichmentMediaResult>();
@@ -974,7 +966,6 @@ describe("FranchiseAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const knownEntries = [{ anilistId: "16498", title: "Attack on Titan" }];
@@ -1001,7 +992,6 @@ describe("FranchiseAggregate", () => {
         const franchise = repo.createFranchise({ title: "Existing Franchise" });
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
         repo.assignAnimeToFranchise(anime.id, franchise.id);
 
@@ -1023,7 +1013,6 @@ describe("FranchiseAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
         repo.createAnimeSourceMapping({
           animeId: anime.id,
@@ -1068,12 +1057,10 @@ describe("FranchiseAggregate", () => {
 
         const anime1 = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
 
         const anime2 = repo.upsertAnime({
           title: "Jujutsu Kaisen Season 2",
-          episodeCount: 23,
         });
 
         const knownEntries = [
@@ -1112,7 +1099,6 @@ describe("FranchiseAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "One Piece",
-          episodeCount: 1100,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -1159,7 +1145,6 @@ describe("FranchiseAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
 
         const knownEntries = [{ anilistId: "1", title: "Jujutsu Kaisen" }];
@@ -1184,7 +1169,6 @@ describe("FranchiseAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Unknown Anime",
-          episodeCount: 24,
         });
 
         aggregate.enrichAnime([anime.id]);

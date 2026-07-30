@@ -211,7 +211,6 @@ describe("disconnectTracker", () => {
     aggregate = new AnimeAggregate({
       library: repo,
       replayUnpushedEvents: () => {},
-      computeAndPersistLibraryState: () => {},
     });
     evtRepo = er;
     closeService = close;
@@ -266,7 +265,6 @@ describe("disconnectTracker", () => {
 
     const anime = aggregate.library.upsertAnime({
       title: "Jujutsu Kaisen",
-      episodeCount: 24,
     });
     aggregate.library.createAnimeSourceMapping({
       animeId: anime.id,
@@ -307,7 +305,6 @@ describe("disconnectTracker", () => {
 
     const anime = aggregate.library.upsertAnime({
       title: "Jujutsu Kaisen",
-      episodeCount: 24,
     });
     aggregate.library.createAnimeSourceMapping({
       animeId: anime.id,
@@ -344,7 +341,6 @@ describe("disconnectTracker", () => {
 
     const anime = aggregate.library.upsertAnime({
       title: "Jujutsu Kaisen",
-      episodeCount: 24,
     });
     aggregate.library.createAnimeSourceMapping({
       animeId: anime.id,

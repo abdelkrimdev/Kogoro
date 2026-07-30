@@ -315,11 +315,9 @@ describe("buildReviewPlan", () => {
       const aggregate = new AnimeAggregate({
         library: libraryRepo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       libraryRepo.upsertAnime({
         title: "Jujutsu Kaisen",
-        episodeCount: 24,
       });
 
       const results = [
@@ -345,7 +343,6 @@ describe("buildReviewPlan", () => {
       const aggregate = new AnimeAggregate({
         library: libraryRepo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
 
       const results = [
@@ -687,11 +684,9 @@ describe("aggregateReviewPlan", () => {
       const aggregate = new AnimeAggregate({
         library: libraryRepo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       libraryRepo.upsertAnime({
         title: "Jujutsu Kaisen",
-        episodeCount: 24,
       });
 
       const results = [
@@ -728,7 +723,6 @@ describe("aggregateReviewPlan", () => {
       const aggregate = new AnimeAggregate({
         library: libraryRepo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
 
       const results = [

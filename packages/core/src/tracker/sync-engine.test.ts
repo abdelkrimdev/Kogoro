@@ -18,13 +18,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -80,15 +78,12 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
           alternativeTitles: ["Shingeki no Kyojin"],
-          episodeCount: 25,
-          anilistId: "tracker-1",
         });
 
         aggregate.library.createAnimeSourceMapping({
@@ -150,15 +145,12 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
           alternativeTitles: ["Shingeki no Kyojin", "進撃の巨人"],
-          episodeCount: 25,
-          anilistId: "tracker-1",
         });
 
         aggregate.library.createAnimeSourceMapping({
@@ -224,13 +216,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -298,13 +288,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime1 = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group1 = aggregate.library.upsertEpisodeGroup({
@@ -322,7 +310,6 @@ describe("SyncEngine", () => {
 
         const anime2 = aggregate.library.upsertAnime({
           title: "Death Note",
-          episodeCount: 37,
         });
 
         const group2 = aggregate.library.upsertEpisodeGroup({
@@ -380,13 +367,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -452,13 +437,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime1 = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group1 = aggregate.library.upsertEpisodeGroup({
@@ -476,7 +459,6 @@ describe("SyncEngine", () => {
 
         const anime2 = aggregate.library.upsertAnime({
           title: "Death Note",
-          episodeCount: 37,
         });
 
         const group2 = aggregate.library.upsertEpisodeGroup({
@@ -546,13 +528,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -618,13 +598,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -679,13 +657,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -751,13 +727,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -836,13 +810,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -923,13 +895,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -996,13 +966,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -1070,13 +1038,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -1160,13 +1126,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -1249,7 +1213,6 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -1295,13 +1258,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -1344,13 +1305,11 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const anime = aggregate.library.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = aggregate.library.upsertEpisodeGroup({
@@ -1393,7 +1352,6 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 

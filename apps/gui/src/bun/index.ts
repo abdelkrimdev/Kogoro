@@ -74,7 +74,6 @@ const manifestService = new ManifestService(manifestRepo);
 const animeAggregate = new AnimeAggregate({
   library: libraryRepo,
   replayUnpushedEvents: () => {},
-  computeAndPersistLibraryState: () => {},
 });
 const watchTracker = new WatchTracker({ library: libraryRepo, events: eventsRepo });
 

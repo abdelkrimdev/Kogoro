@@ -15,14 +15,9 @@ export interface LibraryAnime {
   id: number;
   title: string;
   alternativeTitles?: string[];
-  episodeCount: number;
   filesOnDisk?: number;
   coverArtPath?: string;
-  genres?: string[];
-  libraryState?: "on_disk" | "partially_on_disk" | "not_on_disk";
   franchiseId?: number;
-  lastSynced: string;
-  anilistId?: string;
   anidbId?: string;
   format?: string;
   updatedAt: string;
@@ -100,22 +95,18 @@ export class LibraryRepository {
   constructor(private db: LibraryDb) {}
 
   upsertAnime(
-    animeData: Omit<LibraryAnime, "id" | "lastSynced" | "updatedAt"> & {
-      lastSynced?: string;
-      anidbId?: string;
-      format?: string;
+    animeData: Omit<LibraryAnime, "id" | "updatedAt"> & {
       updatedAt?: string;
     },
   ): LibraryAnime {
-    const now = animeData.lastSynced ?? new Date().toISOString();
     const updatedAt = animeData.updatedAt ?? new Date().toISOString();
 
     let existingId: number | null = null;
-    if (animeData.anilistId) {
+    if (animeData.anidbId) {
       const existing = this.db
         .select({ id: anime.id })
         .from(anime)
-        .where(eq(anime.anilistId, animeData.anilistId))
+        .where(eq(anime.anidbId, animeData.anidbId))
         .get();
       existingId = existing?.id ?? null;
     }
@@ -126,11 +117,7 @@ export class LibraryRepository {
         .set({
           title: animeData.title,
           alternativeTitles: animeData.alternativeTitles ?? null,
-          episodeCount: animeData.episodeCount,
           coverArtPath: animeData.coverArtPath ?? null,
-          genres: animeData.genres ?? null,
-          libraryState: animeData.libraryState ?? "not_on_disk",
-          lastSynced: now,
           anidbId: animeData.anidbId ?? null,
           format: animeData.format ?? null,
           updatedAt,
@@ -145,12 +132,7 @@ export class LibraryRepository {
       .values({
         title: animeData.title,
         alternativeTitles: animeData.alternativeTitles ?? null,
-        episodeCount: animeData.episodeCount,
         coverArtPath: animeData.coverArtPath ?? null,
-        genres: animeData.genres ?? null,
-        libraryState: animeData.libraryState ?? "not_on_disk",
-        lastSynced: now,
-        anilistId: animeData.anilistId ?? null,
         anidbId: animeData.anidbId ?? null,
         format: animeData.format ?? null,
         updatedAt,
@@ -171,11 +153,7 @@ export class LibraryRepository {
     fields: {
       title?: string;
       alternativeTitles?: string[];
-      episodeCount?: number;
       coverArtPath?: string;
-      genres?: string[];
-      libraryState?: string;
-      anilistId?: string | null;
       anidbId?: string | null;
       format?: string | null;
     },
@@ -187,11 +165,7 @@ export class LibraryRepository {
         ...(fields.alternativeTitles !== undefined && {
           alternativeTitles: fields.alternativeTitles ?? null,
         }),
-        ...(fields.episodeCount !== undefined && { episodeCount: fields.episodeCount }),
         ...(fields.coverArtPath !== undefined && { coverArtPath: fields.coverArtPath ?? null }),
-        ...(fields.genres !== undefined && { genres: fields.genres ?? null }),
-        ...(fields.libraryState !== undefined && { libraryState: fields.libraryState }),
-        ...(fields.anilistId !== undefined && { anilistId: fields.anilistId ?? null }),
         ...(fields.anidbId !== undefined && { anidbId: fields.anidbId ?? null }),
         ...(fields.format !== undefined && { format: fields.format ?? null }),
       })
@@ -216,11 +190,6 @@ export class LibraryRepository {
     return row ? this.rowToAnime(row) : null;
   }
 
-  findAnimeByAnilistId(anilistId: string): LibraryAnime | null {
-    const row = this.db.select().from(anime).where(eq(anime.anilistId, anilistId)).get();
-    return row ? this.rowToAnime(row) : null;
-  }
-
   findAnimeByAnidbId(anidbId: string): LibraryAnime | null {
     const row = this.db.select().from(anime).where(eq(anime.anidbId, anidbId)).get();
     return row ? this.rowToAnime(row) : null;
@@ -238,10 +207,6 @@ export class LibraryRepository {
       .run();
   }
 
-  updateAnimeAnilistId(animeId: number, anilistId: string): void {
-    this.db.update(anime).set({ anilistId }).where(eq(anime.id, animeId)).run();
-  }
-
   updateAnimeAnidbId(animeId: number, anidbId: string): void {
     this.db.update(anime).set({ anidbId }).where(eq(anime.id, animeId)).run();
   }
@@ -257,13 +222,8 @@ export class LibraryRepository {
         id: anime.id,
         title: anime.title,
         alternativeTitles: anime.alternativeTitles,
-        episodeCount: anime.episodeCount,
         coverArtPath: anime.coverArtPath,
-        genres: anime.genres,
-        libraryState: anime.libraryState,
         franchiseId: anime.franchiseId,
-        lastSynced: anime.lastSynced,
-        anilistId: anime.anilistId,
         anidbId: anime.anidbId,
         format: anime.format,
         updatedAt: anime.updatedAt,
@@ -378,19 +338,6 @@ export class LibraryRepository {
     return rows;
   }
 
-  updateEpisodeCount(animeId: number): void {
-    const row = this.db
-      .select({ count: sql<number>`cast(count(*) as int)` })
-      .from(episodes)
-      .where(eq(episodes.animeId, animeId))
-      .get();
-    this.db
-      .update(anime)
-      .set({ episodeCount: row?.count ?? 0 })
-      .where(eq(anime.id, animeId))
-      .run();
-  }
-
   getStats(): { animeCount: number; episodeCount: number } {
     const animeRow = this.db
       .select({ count: sql<number>`cast(count(*) as int)` })
@@ -414,7 +361,6 @@ export class LibraryRepository {
   getAllEpisodesWithAnime(): Array<{
     episodeId: number;
     animeId: number;
-    anilistId: string | null;
     anidbId: string | null;
     season: number | null;
     episodeNumber: number;
@@ -424,7 +370,6 @@ export class LibraryRepository {
       .select({
         episodeId: episodes.id,
         animeId: anime.id,
-        anilistId: anime.anilistId,
         anidbId: anime.anidbId,
         season: episodes.season,
         episodeNumber: episodes.episodeNumber,
@@ -482,7 +427,7 @@ export class LibraryRepository {
   }
 
   exportMatches(): Array<{
-    anilistId: string | null;
+    anidbId: string | null;
     sourceDb: string;
     animeId: string;
     animeTitle: string;
@@ -496,7 +441,7 @@ export class LibraryRepository {
     const rows = this.db
       .select({
         animeId: anime.id,
-        anilistId: anime.anilistId,
+        anidbId: anime.anidbId,
         title: anime.title,
         entryType: episodeGroups.entryType,
         groupId: episodes.groupId,
@@ -527,7 +472,7 @@ export class LibraryRepository {
       .all();
 
     return rows.map((row) => ({
-      anilistId: row.anilistId ?? null,
+      anidbId: row.anidbId ?? null,
       sourceDb: row.sourceDb ?? "unknown",
       animeId: row.sourceExternalId ?? String(row.animeId),
       animeTitle: row.title,
@@ -729,13 +674,6 @@ export class LibraryRepository {
     return row?.count ?? 0;
   }
 
-  updateLibraryState(
-    animeId: number,
-    libraryState: "on_disk" | "partially_on_disk" | "not_on_disk",
-  ): void {
-    this.db.update(anime).set({ libraryState }).where(eq(anime.id, animeId)).run();
-  }
-
   findEpisodeGroup(
     animeId: number,
     entryType: EntryType,
@@ -891,10 +829,7 @@ export class LibraryRepository {
 
   upsertAnimeBatch(
     items: Array<
-      Omit<LibraryAnime, "id" | "lastSynced" | "updatedAt"> & {
-        lastSynced?: string;
-        anidbId?: string;
-        format?: string;
+      Omit<LibraryAnime, "id" | "updatedAt"> & {
         updatedAt?: string;
       }
     >,
@@ -1253,13 +1188,8 @@ export class LibraryRepository {
     id: number;
     title: string;
     alternativeTitles: string[] | null;
-    episodeCount: number;
     coverArtPath: string | null;
-    genres: string[] | null;
-    libraryState: string;
     franchiseId: number | null;
-    lastSynced: string;
-    anilistId: string | null;
     anidbId: string | null;
     format: string | null;
     updatedAt: string;
@@ -1268,13 +1198,8 @@ export class LibraryRepository {
       id: row.id,
       title: row.title,
       alternativeTitles: row.alternativeTitles ?? undefined,
-      episodeCount: row.episodeCount,
       coverArtPath: row.coverArtPath ?? undefined,
-      genres: row.genres ?? undefined,
-      libraryState: row.libraryState as LibraryAnime["libraryState"],
       franchiseId: row.franchiseId ?? undefined,
-      lastSynced: row.lastSynced,
-      anilistId: row.anilistId ?? undefined,
       anidbId: row.anidbId ?? undefined,
       format: row.format ?? undefined,
       updatedAt: row.updatedAt,

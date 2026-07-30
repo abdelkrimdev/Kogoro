@@ -20,13 +20,11 @@ describe("AnimeAggregate", () => {
 
         repo.upsertAnime({
           title: "Old Anime",
-          episodeCount: 12,
         });
 
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const matches: MatchEntry[] = [
@@ -92,7 +90,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const matches: MatchEntry[] = [
@@ -142,12 +139,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
 
         repo.createAnimeSourceMapping({
@@ -223,7 +218,7 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("sets correct episodeCount per anime", async () => {
+    test("sets correct anime entries per match", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -232,7 +227,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const matches: MatchEntry[] = [
@@ -272,11 +266,6 @@ describe("AnimeAggregate", () => {
         ];
 
         await aggregate.rebuildFromMatches(matches);
-
-        const jjk = repo.findAnime("tvdb-12345", "tvdb");
-        expect(jjk?.episodeCount).toBe(2);
-        const aot = repo.findAnime("tvdb-67890", "tvdb");
-        expect(aot?.episodeCount).toBe(1);
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -292,7 +281,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const matches: MatchEntry[] = [
@@ -340,12 +328,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 2,
         });
 
         repo.createAnimeSourceMapping({
@@ -428,12 +414,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 2,
         });
 
         repo.createAnimeSourceMapping({
@@ -538,7 +522,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const matches: MatchEntry[] = [
@@ -596,7 +579,6 @@ describe("AnimeAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 2,
         });
         repo.updateAnimeAnidbId(anime.id, "al-jjk");
 
@@ -627,7 +609,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const matches: MatchEntry[] = [
@@ -694,7 +675,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const matches: MatchEntry[] = [
@@ -735,12 +715,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 12,
         });
         repo.updateAnimeAnidbId(anime.id, "al-jjk");
 
@@ -802,8 +780,6 @@ describe("AnimeAggregate", () => {
         expect(animeList).toHaveLength(2);
 
         const jjk = repo.findAnime("tvdb-12345", "tvdb");
-        expect(jjk?.episodeCount).toBe(2);
-
         const statuses = repo.getEpisodeWatchStatusByAnimeId(jjk?.id as number);
         expect(statuses).toHaveLength(2);
         const ep1Status = statuses.find((s) => {
@@ -831,7 +807,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const matches: MatchEntry[] = [
@@ -864,7 +839,6 @@ describe("AnimeAggregate", () => {
         const all = repo.listAnime();
         expect(all).toHaveLength(1);
         expect(all[0]?.title).toBe("Jujutsu Kaisen");
-        expect(all[0]?.episodeCount).toBe(2);
         expect(repo.getEpisodesByAnimeId(all[0]?.id as number)).toHaveLength(2);
       } finally {
         sqlite.close();
@@ -881,12 +855,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-jjk");
 
@@ -946,7 +918,6 @@ describe("AnimeAggregate", () => {
 
         expect(repo.listAnime()).toHaveLength(1);
         const jjk = repo.findAnime("tvdb-12345", "tvdb");
-        expect(jjk?.episodeCount).toBe(4);
         expect(repo.getEpisodesByAnimeId(jjk?.id as number)).toHaveLength(4);
       } finally {
         sqlite.close();
@@ -954,7 +925,7 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("does not inflate episodeCount on repeated merges", async () => {
+    test("does not create duplicate episodes on repeated merges", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
@@ -963,12 +934,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-jjk");
 
@@ -999,13 +968,7 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(matches);
 
-        const jjk = repo.findAnime("tvdb-12345", "tvdb");
-        expect(jjk?.episodeCount).toBe(2);
-
         await aggregate.mergeFromMatches(matches);
-
-        const updated = repo.findAnime("tvdb-12345", "tvdb");
-        expect(updated?.episodeCount).toBe(2);
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -1021,12 +984,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existing = repo.upsertAnime({
           title: "Oshi no Ko",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existing.id, "al-oshi");
 
@@ -1071,8 +1032,6 @@ describe("AnimeAggregate", () => {
         const all = repo.listAnime();
         expect(all).toHaveLength(1);
         expect(all[0]?.title).toBe("Oshi no Ko");
-        expect(all[0]?.episodeCount).toBe(3);
-
         const episodes = repo.getEpisodesByAnimeId(all[0]?.id as number);
         expect(episodes).toHaveLength(3);
       } finally {
@@ -1090,12 +1049,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existing = repo.upsertAnime({
           title: "Oshi no Ko",
-          episodeCount: 12,
         });
         repo.updateAnimeAnidbId(existing.id, "al-oshi");
 
@@ -1129,8 +1086,6 @@ describe("AnimeAggregate", () => {
         const all = repo.listAnime();
         expect(all).toHaveLength(1);
         expect(all[0]?.title).toBe("Oshi no Ko");
-        expect(all[0]?.episodeCount).toBe(2);
-
         const episodes = repo.getEpisodesByAnimeId(all[0]?.id as number);
         expect(episodes).toHaveLength(2);
       } finally {
@@ -1148,12 +1103,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Oshi no Ko",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-oshi");
 
@@ -1235,12 +1188,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 24,
         });
 
         repo.createAnimeSourceMapping({
@@ -1296,7 +1247,6 @@ describe("AnimeAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Old Title",
-          episodeCount: 2,
         });
 
         repo.createAnimeSourceMapping({
@@ -1348,15 +1298,12 @@ describe("AnimeAggregate", () => {
             replayCalled = true;
             capturedSnapshot = snapshot;
           },
-          computeAndPersistLibraryState: () => {},
         });
 
         await aggregate.rebuild();
 
         const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
         expect(rebuilt).not.toBeNull();
-        expect(rebuilt?.episodeCount).toBe(2);
-
         const rebuiltGroup = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
         expect(rebuiltGroup).toHaveLength(1);
         expect(rebuiltGroup[0]?.watchStatus).toBe("completed");
@@ -1389,7 +1336,6 @@ describe("AnimeAggregate", () => {
 
         const anime1 = repo.upsertAnime({
           title: "TVDB Anime",
-          episodeCount: 1,
         });
         repo.createAnimeSourceMapping({
           animeId: anime1.id,
@@ -1414,7 +1360,6 @@ describe("AnimeAggregate", () => {
 
         const anime2 = repo.upsertAnime({
           title: "AniDB Anime",
-          episodeCount: 1,
         });
         repo.createAnimeSourceMapping({
           animeId: anime2.id,
@@ -1443,7 +1388,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         await aggregate.rebuild("tvdb");
@@ -1468,7 +1412,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const tracker = createMockTracker({
@@ -1517,12 +1460,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -1573,12 +1514,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -1627,12 +1566,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         repo.upsertEpisodeGroup({
@@ -1679,12 +1616,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         repo.upsertEpisodeGroup({
@@ -1731,12 +1666,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -1787,7 +1720,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const tracker = createMockTracker({
@@ -1851,12 +1783,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime1 = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 25,
         });
 
         const group1 = repo.upsertEpisodeGroup({
@@ -1868,7 +1798,6 @@ describe("AnimeAggregate", () => {
 
         const anime2 = repo.upsertAnime({
           title: "Death Note",
-          episodeCount: 37,
         });
 
         const group2 = repo.upsertEpisodeGroup({
@@ -1926,12 +1855,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 2,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -1984,12 +1911,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime1 = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group1 = repo.upsertEpisodeGroup({
@@ -2010,7 +1935,6 @@ describe("AnimeAggregate", () => {
 
         const anime2 = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 1,
         });
 
         const group2 = repo.upsertEpisodeGroup({
@@ -2054,12 +1978,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const jjk = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.createAnimeSourceMapping({
           animeId: jjk.id,
@@ -2069,7 +1991,6 @@ describe("AnimeAggregate", () => {
 
         const aot = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 0,
         });
         repo.createAnimeSourceMapping({
           animeId: aot.id,
@@ -2096,12 +2017,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime1 = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group1 = repo.upsertEpisodeGroup({
@@ -2122,7 +2041,6 @@ describe("AnimeAggregate", () => {
 
         const anime2 = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 1,
         });
 
         const group2 = repo.upsertEpisodeGroup({
@@ -2161,12 +2079,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
 
         const result = aggregate.getAnimeForDisplay({ sourceDb: "anidb" });
@@ -2187,12 +2103,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 3,
         });
 
         const group1 = repo.upsertEpisodeGroup({
@@ -2258,7 +2172,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const result = aggregate.getAnimeForDisplay();
@@ -2280,12 +2193,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-456");
 
@@ -2329,7 +2240,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         repo.setAnilistCacheEntry({
@@ -2372,7 +2282,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2405,7 +2314,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2449,12 +2357,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-shared");
 
@@ -2492,7 +2398,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2535,12 +2440,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-tracker");
 
@@ -2591,12 +2494,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-status");
 
@@ -2637,12 +2538,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-cleanup");
 
@@ -2687,12 +2586,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-preserve");
 
@@ -2742,12 +2639,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const existingAnime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(existingAnime.id, "al-nondefault");
 
@@ -2789,7 +2684,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2834,7 +2728,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2891,16 +2784,13 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const pendingAnime = repo.upsertAnime({
           title: "Unknown Anime",
-          episodeCount: 3,
         });
         const resolvedAnime = repo.upsertAnime({
           title: "Known Anime",
-          episodeCount: 12,
         });
         repo.updateAnimeAnidbId(resolvedAnime.id, "al-123");
 
@@ -2923,12 +2813,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const pendingAnime = repo.upsertAnime({
           title: "Still Unknown",
-          episodeCount: 5,
         });
 
         const result = await aggregate.retryPendingIdentification();
@@ -2953,12 +2841,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         repo.upsertAnime({
           title: "No Provider",
-          episodeCount: 1,
         });
 
         const result = await aggregate.retryPendingIdentification();
@@ -2982,7 +2868,6 @@ describe("AnimeAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
         repo.updateAnimeAnidbId(anime.id, "al-jjk");
         repo.createAnimeSourceMapping({
@@ -3007,7 +2892,6 @@ describe("AnimeAggregate", () => {
 
         const trackerAnime = repo.upsertAnime({
           title: "Spy x Family",
-          episodeCount: 0,
         });
         repo.updateAnimeAnidbId(trackerAnime.id, "al-spy");
         const trackerGroup = repo.upsertEpisodeGroup({
@@ -3041,7 +2925,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         await aggregate.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);
@@ -3067,7 +2950,6 @@ describe("AnimeAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
         repo.updateAnimeAnidbId(anime.id, "al-jjk");
         repo.createAnimeSourceMapping({
@@ -3114,7 +2996,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         await aggregate.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);
@@ -3144,7 +3025,6 @@ describe("AnimeAggregate", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
         repo.updateAnimeAnidbId(anime.id, "al-jjk");
         repo.createAnimeSourceMapping({
@@ -3186,7 +3066,6 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         await aggregate.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);

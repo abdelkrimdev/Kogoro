@@ -66,25 +66,27 @@ export function createDashboardHandlers(options: { animeAggregate: AnimeAggregat
       let partiallyOnDisk = 0;
       let notOnDisk = 0;
 
-      for (const { anime } of displayData) {
-        switch (anime.libraryState) {
-          case "on_disk":
-            onDisk++;
-            break;
-          case "partially_on_disk":
-            partiallyOnDisk++;
-            break;
-          default:
-            notOnDisk++;
-            break;
-        }
-      }
-
       const currentlyWatching: DashboardCurrentlyWatching[] = [];
       const continueWatching: DashboardContinueWatching[] = [];
 
       for (const { anime, groups } of displayData) {
         const coverArt = anime.coverArtPath ? await toDataUrl(anime.coverArtPath) : undefined;
+
+        let totalEpisodes = 0;
+        let onDiskEpisodes = 0;
+        for (const group of groups) {
+          const episodes = svc.library.getEpisodesByGroupId(group.id);
+          totalEpisodes += episodes.length;
+          onDiskEpisodes += episodes.filter((ep) => ep.filePath !== "").length;
+        }
+
+        if (onDiskEpisodes === 0) {
+          notOnDisk++;
+        } else if (onDiskEpisodes >= totalEpisodes) {
+          onDisk++;
+        } else {
+          partiallyOnDisk++;
+        }
 
         for (const group of groups) {
           const watchedCount = group.episodes.filter((ep) => ep.watched).length;

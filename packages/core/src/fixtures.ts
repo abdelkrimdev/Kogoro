@@ -20,7 +20,6 @@ import type {
   Franchise,
 } from "./library/library-repository";
 import { LibraryRepository } from "./library/library-repository";
-import { computeLibraryState, type GroupFilesOnDisk } from "./library/library-state";
 import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils";
 import { CacheService } from "./match/cache-service";
 import { ManifestRepository } from "./match/manifest-repository";
@@ -195,16 +194,6 @@ export function createTrackerImportTestContext(): {
   const aggregate = new AnimeAggregate({
     library: repo,
     replayUnpushedEvents: () => {},
-    computeAndPersistLibraryState: (animeId, repoOverride) => {
-      const r = repoOverride ?? repo;
-      const groups = r.getEpisodeGroupsByAnimeId(animeId);
-      const groupFiles: GroupFilesOnDisk[] = groups.map((g) => ({
-        groupId: g.id,
-        filesOnDisk: r.getFilesOnDiskByGroupId(g.id),
-      }));
-      const state = computeLibraryState(groupFiles);
-      r.updateLibraryState(animeId, state);
-    },
   });
   return {
     repo,

@@ -21,7 +21,6 @@ function createTestSetup() {
   const aggregate = new AnimeAggregate({
     library: libraryRepo,
     replayUnpushedEvents: () => {},
-    computeAndPersistLibraryState: () => {},
   });
 
   return {
@@ -180,7 +179,6 @@ describe("SyncHandlers", () => {
 
       const anime = setup.aggregate.library.upsertAnime({
         title: "Frieren",
-        episodeCount: 28,
       });
       setup.aggregate.library.createAnimeSourceMapping({
         animeId: anime.id,
@@ -246,7 +244,6 @@ describe("SyncHandlers", () => {
 
       const anime = setup.aggregate.library.upsertAnime({
         title: "Mushishi",
-        episodeCount: 26,
       });
       setup.aggregate.library.createAnimeSourceMapping({
         animeId: anime.id,
@@ -357,7 +354,6 @@ describe("SyncHandlers", () => {
 
       const anime = setup.aggregate.library.upsertAnime({
         title: "Attack on Titan",
-        episodeCount: 25,
       });
       setup.aggregate.library.createAnimeSourceMapping({
         animeId: anime.id,

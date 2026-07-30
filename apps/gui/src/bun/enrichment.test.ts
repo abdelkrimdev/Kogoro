@@ -43,7 +43,6 @@ function createAggregate(dir: string): {
     svc: new AnimeAggregate({
       library: repo,
       replayUnpushedEvents: () => {},
-      computeAndPersistLibraryState: () => {},
     }),
     watchTracker: new WatchTracker({ library: repo, events: evtRepo }),
     close: () => {
@@ -66,7 +65,6 @@ async function seedLibraryAndCache(
   const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository(configDir);
   const anime = libraryRepo.upsertAnime({
     title: "Test Anime",
-    episodeCount: 2,
   });
   libraryRepo.createAnimeSourceMapping({
     animeId: anime.id,
@@ -137,7 +135,6 @@ describe("enrichArtwork", () => {
       const { repo: libraryRepo } = createLibraryRepository(dir);
       const anime = libraryRepo.upsertAnime({
         title: "Empty Anime",
-        episodeCount: 0,
       });
       libraryRepo.createAnimeSourceMapping({
         animeId: anime.id,

@@ -47,7 +47,6 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
@@ -75,7 +74,6 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const handlers = createTrackerImportHandlers({
           animeAggregate: aggregate,
@@ -102,7 +100,6 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const listData = {
@@ -209,7 +206,6 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
@@ -237,7 +233,6 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const handlers = createTrackerImportHandlers({
           animeAggregate: aggregate,
@@ -264,7 +259,6 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const listData = {

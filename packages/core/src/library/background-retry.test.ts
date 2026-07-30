@@ -10,7 +10,6 @@ function createTestAggregate() {
   const aggregate = new AnimeAggregate({
     library: repo,
     replayUnpushedEvents: () => {},
-    computeAndPersistLibraryState: () => {},
   });
   return { repo, aggregate, sqlite };
 }
@@ -38,7 +37,7 @@ describe("BackgroundRetryService", () => {
   test("runs retry when isActive returns false", async () => {
     const { repo, aggregate, sqlite } = createTestAggregate();
     try {
-      repo.upsertAnime({ title: "Pending Anime", episodeCount: 12 });
+      repo.upsertAnime({ title: "Pending Anime" });
 
       const onResolved = mock(() => {});
       const service = new BackgroundRetryService({

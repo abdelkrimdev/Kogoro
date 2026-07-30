@@ -19,7 +19,6 @@ export interface LibraryAnimeDetail {
     alternativeTitles?: string[];
     totalEpisodes: number;
     coverArt?: string;
-    genres?: string[];
   };
   groups: Array<{
     id: string;
@@ -75,16 +74,27 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       const displayData = svc.getAnimeForDisplay();
       return Promise.all(
         displayData.map(async ({ anime: a, groups }) => {
+          const episodeCount = groups.reduce(
+            (sum, g) => sum + svc.library.getEpisodesByGroupId(g.id).length,
+            0,
+          );
+          const filesOnDisk = a.filesOnDisk ?? episodeCount;
+
+          let libraryState: "on_disk" | "partially_on_disk" | "not_on_disk";
+          if (filesOnDisk === 0) {
+            libraryState = "not_on_disk";
+          } else if (filesOnDisk >= episodeCount) {
+            libraryState = "on_disk";
+          } else {
+            libraryState = "partially_on_disk";
+          }
           return {
             id: String(a.id),
             titleEn: a.title,
-            episodeCount: a.episodeCount,
-            filesOnDisk: a.filesOnDisk ?? a.episodeCount,
+            episodeCount,
+            filesOnDisk,
             coverArt: a.coverArtPath ? await toDataUrl(a.coverArtPath) : undefined,
-            libraryState: (a.libraryState ?? "not_on_disk") as
-              | "on_disk"
-              | "partially_on_disk"
-              | "not_on_disk",
+            libraryState,
             groups: groups.map((g) => ({
               entryType: g.entryType,
               watchStatus: g.watchStatus,
@@ -128,18 +138,18 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
       );
 
       const coverArt = anime.coverArtPath ? await toDataUrl(anime.coverArtPath) : undefined;
+      const totalEpisodes = totalEpisodeCount(groups);
 
       return {
         anime: {
           id: String(anime.id),
           titleEn: anime.title,
           alternativeTitles: anime.alternativeTitles,
-          totalEpisodes: anime.episodeCount,
+          totalEpisodes,
           coverArt,
-          genres: anime.genres,
         },
         groups,
-        filesOnDisk: totalEpisodeCount(groups),
+        filesOnDisk: totalEpisodes,
       };
     },
 

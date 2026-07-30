@@ -57,6 +57,13 @@
       "when": 1785500000000,
       "tag": "0007_add_new_schema_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1785600000000,
+      "tag": "0008_drop_anime_dropped_columns",
+      "breakpoints": true
     }
   ]
 }

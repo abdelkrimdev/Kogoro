@@ -17,7 +17,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -64,7 +63,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -125,7 +123,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -172,7 +169,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -215,7 +211,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -270,7 +265,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 2,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -320,7 +314,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -358,7 +351,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -391,7 +383,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -431,7 +422,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({
@@ -471,7 +461,6 @@ describe("WatchTracker", () => {
 
         const anime = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 1,
         });
 
         const group = repo.upsertEpisodeGroup({

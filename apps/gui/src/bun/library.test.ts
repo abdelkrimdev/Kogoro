@@ -11,7 +11,6 @@ function seedLibrary(repo: LibraryRepository, coverDir?: string) {
   const jjk = repo.upsertAnime({
     title: "Jujutsu Kaisen",
     alternativeTitles: ["呪術廻戦", "Jujutsu Kaisen"],
-    episodeCount: 24,
     coverArtPath: coverDir ? join(coverDir, "jjk.jpg") : undefined,
   });
   repo.createAnimeSourceMapping({ animeId: jjk.id, source: "tvdb", externalId: "tvdb-12345" });
@@ -44,7 +43,6 @@ function seedLibrary(repo: LibraryRepository, coverDir?: string) {
 
   const aot = repo.upsertAnime({
     title: "Attack on Titan",
-    episodeCount: 25,
     coverArtPath: coverDir ? join(coverDir, "aot.jpg") : undefined,
   });
   repo.createAnimeSourceMapping({ animeId: aot.id, source: "tvdb", externalId: "tvdb-67890" });
@@ -80,7 +78,6 @@ describe("getLibrary handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -90,10 +87,10 @@ describe("getLibrary handler", () => {
 
       expect(result).toHaveLength(2);
       expect(result[0]?.titleEn).toBe("Attack on Titan");
-      expect(result[0]?.episodeCount).toBe(25);
+      expect(result[0]?.episodeCount).toBe(1);
       expect(result[0]?.coverArt).toStartWith("data:image/jpeg;base64,");
       expect(result[1]?.titleEn).toBe("Jujutsu Kaisen");
-      expect(result[1]?.episodeCount).toBe(24);
+      expect(result[1]?.episodeCount).toBe(2);
       closeEvt();
       close();
     });
@@ -106,7 +103,6 @@ describe("getLibrary handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -132,7 +128,6 @@ describe("getAnimeDetail handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -167,7 +162,6 @@ describe("getAnimeDetail handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -190,7 +184,6 @@ describe("getLibraryStats handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -212,7 +205,6 @@ describe("getLibraryStats handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -236,7 +228,6 @@ describe("mergeMatches", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -284,7 +275,6 @@ describe("rebuild", () => {
         const { close: closeEvt } = createEventRepository(dir);
         const jjk = repo.upsertAnime({
           title: "Jujutsu Kaisen",
-          episodeCount: 2,
         });
         repo.createAnimeSourceMapping({
           animeId: jjk.id,
@@ -320,7 +310,6 @@ describe("rebuild", () => {
 
         const aot = repo.upsertAnime({
           title: "Attack on Titan",
-          episodeCount: 1,
         });
         repo.createAnimeSourceMapping({
           animeId: aot.id,
@@ -348,7 +337,6 @@ describe("rebuild", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         const handlers = createLibraryHandlers({
           animeAggregate: aggregate,
@@ -375,7 +363,6 @@ describe("rebuild", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
-        computeAndPersistLibraryState: () => {},
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,

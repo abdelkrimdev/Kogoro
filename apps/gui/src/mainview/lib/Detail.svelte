@@ -197,14 +197,6 @@
               {/if}
             </div>
 
-            {#if detail.anime.genres && detail.anime.genres.length > 0}
-              <div class="flex flex-wrap gap-2 mt-3">
-                {#each detail.anime.genres as genre (genre)}
-                  <span class="badge preset-tonal-surface">{genre}</span>
-                {/each}
-              </div>
-            {/if}
-
             <div class="mt-6 space-y-4">
               <h2 class="text-sm font-semibold text-surface-700-300 uppercase tracking-wide">Episode Groups</h2>
               {#if detail.groups.length === 0}

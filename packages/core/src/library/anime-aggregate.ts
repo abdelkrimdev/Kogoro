@@ -18,7 +18,6 @@ import type {
   LibraryEpisode,
   LibraryRepository,
 } from "./library-repository";
-import { computeLibraryState, type GroupFilesOnDisk } from "./library-state";
 
 export interface ImportResult {
   imported: number;
@@ -160,7 +159,6 @@ export interface AnimeAggregateDeps {
     groupByCompositeKey: Map<string, number>;
     episodeByCompositeKey: Map<string, number>;
   }) => void;
-  computeAndPersistLibraryState: (animeId: number, repo?: LibraryRepository) => void;
 }
 
 export class AnimeAggregate {
@@ -341,7 +339,6 @@ export class AnimeAggregate {
   getAnimeForDisplay(filters?: {
     sourceDb?: string;
     franchiseId?: number;
-    libraryState?: "on_disk" | "partially_on_disk" | "not_on_disk";
     watchStatus?: "watching" | "completed" | "plan_to_watch" | "on_hold" | "dropped";
   }): Array<{
     anime: LibraryAnime;
@@ -357,9 +354,6 @@ export class AnimeAggregate {
     }
     if (filters?.franchiseId !== undefined) {
       animeList = animeList.filter((a) => a.franchiseId === filters.franchiseId);
-    }
-    if (filters?.libraryState) {
-      animeList = animeList.filter((a) => a.libraryState === filters.libraryState);
     }
 
     const result: Array<{
@@ -578,7 +572,7 @@ export class AnimeAggregate {
       }
 
       for (const row of oldState) {
-        const identityKey = row.anidbId ?? row.anilistId ?? externalIdByAnimeId.get(row.animeId);
+        const identityKey = row.anidbId ?? externalIdByAnimeId.get(row.animeId);
         const key = identityKey ? `${identityKey}:${row.season ?? 1}:${row.episodeNumber}` : null;
         if (key) {
           oldEpisodeKey.set(key, row.episodeId);
@@ -678,7 +672,6 @@ export class AnimeAggregate {
         if (!animeId) {
           const libraryAnime = tx.upsertAnime({
             title: match.animeTitle,
-            episodeCount: 0,
             updatedAt: now,
             anidbId: resolvedAnidbId,
           });
@@ -763,10 +756,6 @@ export class AnimeAggregate {
         }
       }
 
-      for (const id of animeIds) {
-        tx.updateEpisodeCount(id);
-      }
-
       for (const [oldAnimeId, mappings] of sourceMappingByAnimeId) {
         const animeInfo = oldAnimeById.get(oldAnimeId);
         if (!animeInfo?.anidbId) continue;
@@ -782,8 +771,6 @@ export class AnimeAggregate {
       }
 
       for (const id of animeIds) {
-        this.deps.computeAndPersistLibraryState(id, tx);
-
         const anime = tx.getAnime(id);
         if (!anime || anime.franchiseId) continue;
 
@@ -1014,13 +1001,11 @@ export class AnimeAggregate {
       const groupKeyToGroup = new Map<string, { animeId: number; groupId: number }>();
 
       this.processMergeEntries(animeId, entries, groupKeyToGroup);
-      this.deps.library.updateEpisodeCount(animeId);
       this.createSourceMappingsFromEntries(animeId, entries);
     }
 
     for (const animeId of allAnimeIds) {
       this.cleanupEmptyGroups(animeId);
-      this.deps.computeAndPersistLibraryState(animeId);
     }
 
     return { animeIds: allAnimeIds };
@@ -1062,14 +1047,8 @@ export class AnimeAggregate {
     const firstEntry = entries[0];
     if (!firstEntry) return { animeId: 0, isNew: false };
 
-    const totalEpisodes = entries.reduce((sum, e) => {
-      if (e.kind === "scan") return sum + e.episodes.length;
-      return sum;
-    }, 0);
-
     const anime = this.deps.library.upsertAnime({
       title: firstEntry.title,
-      episodeCount: totalEpisodes,
       anidbId,
     });
 
@@ -1202,33 +1181,11 @@ export class AnimeAggregate {
 
   deleteEpisodesByAnimeId(animeId: number): void {
     this.deps.library.deleteEpisodesByAnimeId(animeId);
-    this.computeAndPersistLibraryState(animeId);
   }
 
   deleteEpisodesByIds(ids: number[]): void {
     if (ids.length === 0) return;
-    const affectedAnimeIds = new Set<number>();
-    for (const id of ids) {
-      const episode = this.deps.library.getEpisode(id);
-      if (episode) {
-        affectedAnimeIds.add(episode.animeId);
-      }
-    }
     this.deps.library.deleteEpisodesByIds(ids);
-    for (const animeId of affectedAnimeIds) {
-      this.computeAndPersistLibraryState(animeId);
-    }
-  }
-
-  private computeAndPersistLibraryState(animeId: number, repo?: LibraryRepository): void {
-    const r = repo ?? this.deps.library;
-    const groups = r.getEpisodeGroupsByAnimeId(animeId);
-    const groupFiles: GroupFilesOnDisk[] = groups.map((g) => ({
-      groupId: g.id,
-      filesOnDisk: r.getFilesOnDiskByGroupId(g.id),
-    }));
-    const state = computeLibraryState(groupFiles);
-    r.updateLibraryState(animeId, state);
   }
 
   animeExists(externalId: string, sourceDb = "tvdb"): boolean {

@@ -7,7 +7,6 @@ import { createDashboardHandlers } from "./dashboard";
 function seedWatchingAnime(repo: LibraryRepository) {
   const sg = repo.upsertAnime({
     title: "Steins;Gate",
-    episodeCount: 24,
   });
   repo.createAnimeSourceMapping({ animeId: sg.id, source: "tvdb", externalId: "tvdb-100" });
 
@@ -36,7 +35,6 @@ function seedWatchingAnime(repo: LibraryRepository) {
 function seedCompletedAnime(repo: LibraryRepository) {
   const aot = repo.upsertAnime({
     title: "Attack on Titan",
-    episodeCount: 25,
   });
   repo.createAnimeSourceMapping({ animeId: aot.id, source: "tvdb", externalId: "tvdb-200" });
 
@@ -65,7 +63,6 @@ function seedCompletedAnime(repo: LibraryRepository) {
 function seedPlanToWatchAnime(repo: LibraryRepository) {
   const drr = repo.upsertAnime({
     title: "Darling in the Franxx",
-    episodeCount: 24,
   });
   repo.createAnimeSourceMapping({ animeId: drr.id, source: "tvdb", externalId: "tvdb-300" });
 
@@ -101,7 +98,6 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         }),
       });
       const data = await handlers.getDashboardData();
@@ -125,7 +121,6 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         }),
       });
       const data = await handlers.getDashboardData();
@@ -147,16 +142,15 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         }),
       });
       const data = await handlers.getDashboardData();
 
       expect(data.libraryStats.totalAnime).toBe(3);
       expect(data.libraryStats.totalEpisodes).toBe(73);
-      expect(data.libraryStats.onDisk).toBe(0);
+      expect(data.libraryStats.onDisk).toBe(3);
       expect(data.libraryStats.partiallyOnDisk).toBe(0);
-      expect(data.libraryStats.notOnDisk).toBe(3);
+      expect(data.libraryStats.notOnDisk).toBe(0);
       closeEvt();
       close();
     });
@@ -172,7 +166,6 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         }),
       });
       const data = await handlers.getDashboardData();
@@ -195,7 +188,6 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         }),
       });
       const data = await handlers.getDashboardData();
@@ -214,7 +206,6 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         }),
       });
       const data = await handlers.getDashboardData();
@@ -237,7 +228,6 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         }),
       });
       const stats = handlers.getLibraryStats();

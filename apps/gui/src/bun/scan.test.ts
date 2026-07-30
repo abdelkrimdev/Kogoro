@@ -257,7 +257,6 @@ describe("ScanOrchestrator", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
         await aggregate.rebuildFromMatches(matches);
 
@@ -445,7 +444,6 @@ describe("ScanOrchestrator", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const handlers = createScanHandlers({
@@ -525,7 +523,6 @@ describe("ScanOrchestrator", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
-          computeAndPersistLibraryState: () => {},
         });
 
         const captured: { plan?: ReviewPlan } = {};
