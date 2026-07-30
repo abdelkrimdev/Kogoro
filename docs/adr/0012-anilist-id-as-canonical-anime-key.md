@@ -1,5 +1,7 @@
 # AniList ID as canonical anime key
 
+> Status: superseded by [ADR 0013](./0013-fribb-offline-identity-and-library-schema-simplification.md).
+
 Anime identity shifts from `(externalId, sourceDb)` to the AniList Media ID. This unifies scan and import into a single anime-creation path: both operations resolve to an AniList ID, then find-or-create the canonical anime record. Source references (TVDB, AniDB, MAL, Kitsu, AniList) are stored as mappings on the anime, not as the anime's primary identity.
 
 ## Considered Options
