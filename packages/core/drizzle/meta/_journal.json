@@ -50,6 +50,13 @@
       "when": 1785400000000,
       "tag": "0006_rename_scan_state_to_manifest",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1785500000000,
+      "tag": "0007_add_new_schema_columns",
+      "breakpoints": true
     }
   ]
 }

@@ -23,6 +23,9 @@ export interface LibraryAnime {
   franchiseId?: number;
   lastSynced: string;
   anilistId?: string;
+  anidbId?: string;
+  format?: string;
+  updatedAt: string;
 }
 
 export interface LibraryEpisode {
@@ -47,6 +50,7 @@ export interface EpisodeGroup {
   rating?: number;
   coverArtPath?: string;
   lastSynced: string;
+  updatedAt: string;
 }
 
 export interface GroupTrackerMapping {
@@ -62,6 +66,7 @@ export interface Franchise {
   coverArtPath: string | null;
   synopsis: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface AnimeSourceMapping {
@@ -96,9 +101,15 @@ export class LibraryRepository {
   constructor(private db: LibraryDb) {}
 
   upsertAnime(
-    animeData: Omit<LibraryAnime, "id" | "lastSynced"> & { lastSynced?: string },
+    animeData: Omit<LibraryAnime, "id" | "lastSynced" | "updatedAt"> & {
+      lastSynced?: string;
+      anidbId?: string;
+      format?: string;
+      updatedAt?: string;
+    },
   ): LibraryAnime {
     const now = animeData.lastSynced ?? new Date().toISOString();
+    const updatedAt = animeData.updatedAt ?? new Date().toISOString();
 
     let existingId: number | null = null;
     if (animeData.anilistId) {
@@ -121,6 +132,9 @@ export class LibraryRepository {
           genres: animeData.genres ?? null,
           libraryState: animeData.libraryState ?? "not_on_disk",
           lastSynced: now,
+          anidbId: animeData.anidbId ?? null,
+          format: animeData.format ?? null,
+          updatedAt,
         })
         .where(eq(anime.id, existingId))
         .run();
@@ -138,6 +152,9 @@ export class LibraryRepository {
         libraryState: animeData.libraryState ?? "not_on_disk",
         lastSynced: now,
         anilistId: animeData.anilistId ?? null,
+        anidbId: animeData.anidbId ?? null,
+        format: animeData.format ?? null,
+        updatedAt,
       })
       .returning()
       .get();
@@ -160,6 +177,8 @@ export class LibraryRepository {
       genres?: string[];
       libraryState?: string;
       anilistId?: string | null;
+      anidbId?: string | null;
+      format?: string | null;
     },
   ): void {
     this.db
@@ -174,6 +193,8 @@ export class LibraryRepository {
         ...(fields.genres !== undefined && { genres: fields.genres ?? null }),
         ...(fields.libraryState !== undefined && { libraryState: fields.libraryState }),
         ...(fields.anilistId !== undefined && { anilistId: fields.anilistId ?? null }),
+        ...(fields.anidbId !== undefined && { anidbId: fields.anidbId ?? null }),
+        ...(fields.format !== undefined && { format: fields.format ?? null }),
       })
       .where(eq(anime.id, id))
       .run();
@@ -235,6 +256,9 @@ export class LibraryRepository {
         franchiseId: anime.franchiseId,
         lastSynced: anime.lastSynced,
         anilistId: anime.anilistId,
+        anidbId: anime.anidbId,
+        format: anime.format,
+        updatedAt: anime.updatedAt,
         filesOnDisk: sql<number>`cast(count(${episodes.id}) as int)`,
       })
       .from(anime)
@@ -603,9 +627,13 @@ export class LibraryRepository {
   // Episode Groups
 
   upsertEpisodeGroup(
-    groupData: Omit<EpisodeGroup, "id" | "lastSynced"> & { lastSynced?: string },
+    groupData: Omit<EpisodeGroup, "id" | "lastSynced" | "updatedAt"> & {
+      lastSynced?: string;
+      updatedAt?: string;
+    },
   ): EpisodeGroup {
     const now = groupData.lastSynced ?? new Date().toISOString();
+    const updatedAt = groupData.updatedAt ?? new Date().toISOString();
     const seasonCondition =
       groupData.seasonNumber == null
         ? isNull(episodeGroups.seasonNumber)
@@ -631,6 +659,7 @@ export class LibraryRepository {
           rating: groupData.rating ?? null,
           coverArtPath: groupData.coverArtPath ?? null,
           lastSynced: now,
+          updatedAt,
         })
         .where(eq(episodeGroups.id, existing.id))
         .run();
@@ -648,6 +677,7 @@ export class LibraryRepository {
         rating: groupData.rating ?? null,
         coverArtPath: groupData.coverArtPath ?? null,
         lastSynced: now,
+        updatedAt,
       })
       .returning()
       .get();
@@ -850,7 +880,14 @@ export class LibraryRepository {
   }
 
   upsertAnimeBatch(
-    items: Array<Omit<LibraryAnime, "id" | "lastSynced"> & { lastSynced?: string }>,
+    items: Array<
+      Omit<LibraryAnime, "id" | "lastSynced" | "updatedAt"> & {
+        lastSynced?: string;
+        anidbId?: string;
+        format?: string;
+        updatedAt?: string;
+      }
+    >,
   ): LibraryAnime[] {
     if (items.length === 0) return [];
     const results: LibraryAnime[] = [];
@@ -864,7 +901,12 @@ export class LibraryRepository {
   }
 
   upsertEpisodeGroupBatch(
-    items: Array<Omit<EpisodeGroup, "id" | "lastSynced"> & { lastSynced?: string }>,
+    items: Array<
+      Omit<EpisodeGroup, "id" | "lastSynced" | "updatedAt"> & {
+        lastSynced?: string;
+        updatedAt?: string;
+      }
+    >,
   ): EpisodeGroup[] {
     if (items.length === 0) return [];
     const now = new Date().toISOString();
@@ -881,6 +923,7 @@ export class LibraryRepository {
           rating: item.rating ?? null,
           coverArtPath: item.coverArtPath ?? null,
           lastSynced: item.lastSynced ?? now,
+          updatedAt: item.updatedAt ?? now,
         })),
       )
       .onConflictDoUpdate({
@@ -891,6 +934,7 @@ export class LibraryRepository {
           rating: sql.raw("excluded.rating"),
           coverArtPath: sql.raw("excluded.cover_art_path"),
           lastSynced: sql.raw("excluded.last_synced"),
+          updatedAt: sql.raw("excluded.updated_at"),
         },
       })
       .returning()
@@ -928,6 +972,7 @@ export class LibraryRepository {
     coverArtPath?: string;
     synopsis?: string;
   }): Franchise {
+    const now = new Date().toISOString();
     const result = this.db
       .insert(franchises)
       .values({
@@ -935,7 +980,8 @@ export class LibraryRepository {
         anilistId: data.anilistId ?? null,
         coverArtPath: data.coverArtPath ?? null,
         synopsis: data.synopsis ?? null,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       })
       .returning()
       .get();
@@ -1154,6 +1200,9 @@ export class LibraryRepository {
     franchiseId: number | null;
     lastSynced: string;
     anilistId: string | null;
+    anidbId: string | null;
+    format: string | null;
+    updatedAt: string;
   }): LibraryAnime {
     return {
       id: row.id,
@@ -1166,6 +1215,9 @@ export class LibraryRepository {
       franchiseId: row.franchiseId ?? undefined,
       lastSynced: row.lastSynced,
       anilistId: row.anilistId ?? undefined,
+      anidbId: row.anidbId ?? undefined,
+      format: row.format ?? undefined,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -1203,6 +1255,7 @@ export class LibraryRepository {
     rating: number | null;
     coverArtPath: string | null;
     lastSynced: string;
+    updatedAt: string;
   }): EpisodeGroup {
     return {
       id: row.id,
@@ -1214,6 +1267,7 @@ export class LibraryRepository {
       rating: row.rating ?? undefined,
       coverArtPath: row.coverArtPath ?? undefined,
       lastSynced: row.lastSynced,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -1236,6 +1290,7 @@ export class LibraryRepository {
     coverArtPath: string | null;
     synopsis: string | null;
     createdAt: string;
+    updatedAt: string;
   }): Franchise {
     return {
       id: row.id,
@@ -1244,6 +1299,7 @@ export class LibraryRepository {
       coverArtPath: row.coverArtPath,
       synopsis: row.synopsis,
       createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 

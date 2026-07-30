@@ -53,6 +53,13 @@ export const journal = {
       tag: "0006_rename_scan_state_to_manifest",
       breakpoints: true,
     },
+    {
+      idx: 7,
+      version: "6",
+      when: 1785500000000,
+      tag: "0007_add_new_schema_columns",
+      breakpoints: true,
+    },
   ],
 } as const;
 
@@ -69,4 +76,6 @@ export const migrations: Record<string, string> = {
   "0005_contract_remove_legacy_identity":
     "-- Contract phase: remove legacy (external_id, source_db) identity from anime table\n-- Source references now live exclusively in anime_source_mappings (populated in 0004)\n\n-- Drop the UNIQUE(external_id, source_db) index\nDROP INDEX IF EXISTS `anime_external_id_source_db_unique`;\n--> statement-breakpoint\n\n-- SQLite does not support ALTER TABLE DROP COLUMN before 3.35.0.\n-- Recreate the anime table without external_id and source_db columns.\nPRAGMA foreign_keys = OFF;\n--> statement-breakpoint\n\nCREATE TABLE `anime_new` (\n\t`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,\n\t`title` text NOT NULL,\n\t`alternative_titles` text,\n\t`episode_count` integer DEFAULT 0 NOT NULL,\n\t`cover_art_path` text,\n\t`genres` text,\n\t`library_state` text DEFAULT 'not_on_disk' NOT NULL,\n\t`franchise_id` integer,\n\t`last_synced` text NOT NULL,\n\t`anilist_id` text,\n\tFOREIGN KEY (`franchise_id`) REFERENCES `franchises`(`id`) ON UPDATE no action ON DELETE set null\n);\n--> statement-breakpoint\n\nINSERT INTO `anime_new` (`id`, `title`, `alternative_titles`, `episode_count`, `cover_art_path`, `genres`, `library_state`, `franchise_id`, `last_synced`, `anilist_id`)\nSELECT `id`, `title`, `alternative_titles`, `episode_count`, `cover_art_path`, `genres`, `library_state`, `franchise_id`, `last_synced`, `anilist_id` FROM `anime`;\n--> statement-breakpoint\n\nDROP TABLE `anime`;\n--> statement-breakpoint\n\nALTER TABLE `anime_new` RENAME TO `anime`;\n--> statement-breakpoint\n\nCREATE UNIQUE INDEX `anime_anilist_id_unique` ON `anime` (`anilist_id`);\n--> statement-breakpoint\n\nPRAGMA foreign_keys = ON;\n--> statement-breakpoint\n\n-- Drop the anime_tracker_mappings table (rows already migrated to anime_source_mappings in 0004)\nDROP TABLE IF EXISTS `anime_tracker_mappings`;\n",
   "0006_rename_scan_state_to_manifest": "ALTER TABLE `scan_state` RENAME TO `manifest`;\n",
+  "0007_add_new_schema_columns":
+    "-- Add anidb_id, format, and updated_at columns to anime table\nALTER TABLE `anime` ADD COLUMN `anidb_id` text;\n--> statement-breakpoint\nALTER TABLE `anime` ADD COLUMN `format` text;\n--> statement-breakpoint\nALTER TABLE `anime` ADD COLUMN `updated_at` text NOT NULL DEFAULT '';\n--> statement-breakpoint\n-- Add updated_at column to episode_groups table\nALTER TABLE `episode_groups` ADD COLUMN `updated_at` text NOT NULL DEFAULT '';\n--> statement-breakpoint\n-- Add updated_at column to franchises table\nALTER TABLE `franchises` ADD COLUMN `updated_at` text NOT NULL DEFAULT '';\n",
 } as const;

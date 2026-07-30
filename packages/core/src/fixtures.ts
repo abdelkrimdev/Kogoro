@@ -710,6 +710,7 @@ export function makeFranchise(overrides: Partial<Franchise> = {}): Franchise {
     coverArtPath: null,
     synopsis: null,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     ...overrides,
   };
 }

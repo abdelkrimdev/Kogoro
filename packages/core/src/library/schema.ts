@@ -11,6 +11,9 @@ export const anime = sqliteTable("anime", {
   franchiseId: integer("franchise_id").references(() => franchises.id, { onDelete: "set null" }),
   lastSynced: text("last_synced").notNull(),
   anilistId: text("anilist_id").unique(),
+  anidbId: text("anidb_id").unique(),
+  format: text("format"),
+  updatedAt: text("updated_at").notNull(),
 });
 
 export const episodeGroups = sqliteTable(
@@ -27,6 +30,7 @@ export const episodeGroups = sqliteTable(
     rating: real("rating"),
     coverArtPath: text("cover_art_path"),
     lastSynced: text("last_synced").notNull(),
+    updatedAt: text("updated_at").notNull(),
   },
   (t) => [
     unique("episode_groups_anime_id_entry_type_season_number_unique").on(
@@ -82,6 +86,7 @@ export const franchises = sqliteTable("franchises", {
   coverArtPath: text("cover_art_path"),
   synopsis: text("synopsis"),
   createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 export const animeSourceMappings = sqliteTable(
