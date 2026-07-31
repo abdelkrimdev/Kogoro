@@ -748,21 +748,18 @@ describe("SyncEngine", () => {
         });
 
         libraryRepo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/ep1.mkv",
           watched: true,
         });
         libraryRepo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/ep2.mkv",
           watched: true,
         });
         libraryRepo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 3,
           filePath: "/ep3.mkv",
@@ -831,14 +828,12 @@ describe("SyncEngine", () => {
         });
 
         libraryRepo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/ep1.mkv",
           watched: true,
         });
         libraryRepo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/ep2.mkv",

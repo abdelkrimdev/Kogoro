@@ -566,7 +566,7 @@ export class AnimeAggregate {
 
       for (const row of oldState) {
         const identityKey = row.anidbId ?? externalIdByAnimeId.get(row.animeId);
-        const key = identityKey ? `${identityKey}:${row.season ?? 1}:${row.episodeNumber}` : null;
+        const key = identityKey ? `${identityKey}:${row.episodeNumber}` : null;
         if (key) {
           oldEpisodeKey.set(key, row.episodeId);
         }
@@ -724,20 +724,18 @@ export class AnimeAggregate {
           }
 
           const epResult = tx.upsertEpisodeFromMatch({
-            animeId,
             groupId: groupEntry.groupId,
             episode: match.episode,
             filePath: match.filePath,
             title: match.title,
-            season: match.season,
           });
 
           const identityKey = resolvedAnidbId ?? match.animeId;
-          const oldKey = `${identityKey}:${match.season ?? 1}:${match.episode}`;
+          const oldKey = `${identityKey}:${match.episode}`;
           let oldEpId = oldEpisodeKey.get(oldKey);
 
           if (oldEpId === undefined && resolvedAnidbId) {
-            const fallbackKey = `${match.animeId}:${match.season ?? 1}:${match.episode}`;
+            const fallbackKey = `${match.animeId}:${match.episode}`;
             oldEpId = oldEpisodeKey.get(fallbackKey);
           }
 
@@ -1091,12 +1089,10 @@ export class AnimeAggregate {
 
       for (const ep of entry.episodes) {
         this.deps.library.upsertEpisodeFromMatch({
-          animeId,
           groupId: groupEntry.groupId,
           episode: ep.episode,
           filePath: ep.filePath,
           title: ep.title,
-          season: entry.season,
         });
       }
     }

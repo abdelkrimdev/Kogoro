@@ -27,11 +27,9 @@ describe("WatchTracker", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -73,11 +71,9 @@ describe("WatchTracker", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
 
@@ -133,11 +129,9 @@ describe("WatchTracker", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -179,11 +173,9 @@ describe("WatchTracker", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
           notes: "Existing notes",
         });
@@ -221,11 +213,9 @@ describe("WatchTracker", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
 
@@ -275,20 +265,16 @@ describe("WatchTracker", () => {
         });
 
         const ep1 = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
 
         const ep2 = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
-          season: 1,
           watched: false,
         });
 

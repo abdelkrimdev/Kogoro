@@ -24,12 +24,10 @@ export interface LibraryAnime {
 
 export interface LibraryEpisode {
   id: number;
-  animeId: number;
   groupId: number;
   episodeNumber: number;
   filePath: string;
   title?: string;
-  season?: number;
   watched: boolean;
   notes?: string;
 }
@@ -43,7 +41,6 @@ export interface EpisodeGroup {
   synopsis?: string;
   rating?: number;
   coverArtPath?: string;
-  lastSynced: string;
   updatedAt: string;
 }
 
@@ -215,7 +212,8 @@ export class LibraryRepository {
         filesOnDisk: sql<number>`cast(count(${episodes.id}) as int)`,
       })
       .from(anime)
-      .leftJoin(episodes, eq(episodes.animeId, anime.id))
+      .leftJoin(episodeGroups, eq(episodeGroups.animeId, anime.id))
+      .leftJoin(episodes, eq(episodes.groupId, episodeGroups.id))
       .groupBy(anime.id)
       .orderBy(anime.title)
       .all();
@@ -232,9 +230,8 @@ export class LibraryRepository {
       .from(episodes)
       .where(
         and(
-          eq(episodes.animeId, episodeData.animeId),
+          eq(episodes.groupId, episodeData.groupId),
           eq(episodes.episodeNumber, episodeData.episodeNumber),
-          eq(episodes.season, episodeData.season ?? 1),
         ),
       )
       .get();
@@ -257,12 +254,10 @@ export class LibraryRepository {
     const result = this.db
       .insert(episodes)
       .values({
-        animeId: episodeData.animeId,
         groupId: episodeData.groupId,
         episodeNumber: episodeData.episodeNumber,
         filePath: episodeData.filePath,
         title: episodeData.title ?? null,
-        season: episodeData.season ?? 1,
         watched: episodeData.watched,
         notes: episodeData.notes || null,
       })
@@ -279,16 +274,22 @@ export class LibraryRepository {
 
   getEpisodesByAnimeId(animeId: number): LibraryEpisode[] {
     const rows = this.db
-      .select()
+      .select({ episodes: episodes })
       .from(episodes)
-      .where(eq(episodes.animeId, animeId))
-      .orderBy(episodes.season, episodes.episodeNumber)
+      .innerJoin(episodeGroups, eq(episodeGroups.id, episodes.groupId))
+      .where(eq(episodeGroups.animeId, animeId))
+      .orderBy(episodes.episodeNumber)
       .all();
-    return rows.map(this.rowToEpisode);
+    return rows.map((r) => this.rowToEpisode(r.episodes));
   }
 
   deleteEpisodesByAnimeId(animeId: number): void {
-    this.db.delete(episodes).where(eq(episodes.animeId, animeId)).run();
+    this.db
+      .delete(episodes)
+      .where(
+        sql`${episodes.groupId} IN (SELECT id FROM ${episodeGroups} WHERE ${episodeGroups.animeId} = ${animeId})`,
+      )
+      .run();
   }
 
   setEpisodeWatched(episodeId: number, watched: boolean): LibraryEpisode | null {
@@ -318,7 +319,8 @@ export class LibraryRepository {
     const rows = this.db
       .select({ episodeId: episodes.id, watched: episodes.watched })
       .from(episodes)
-      .where(eq(episodes.animeId, animeId))
+      .innerJoin(episodeGroups, eq(episodeGroups.id, episodes.groupId))
+      .where(eq(episodeGroups.animeId, animeId))
       .all();
     return rows;
   }
@@ -347,7 +349,6 @@ export class LibraryRepository {
     episodeId: number;
     animeId: number;
     anidbId: string | null;
-    season: number | null;
     episodeNumber: number;
     watched: boolean;
   }> {
@@ -356,36 +357,32 @@ export class LibraryRepository {
         episodeId: episodes.id,
         animeId: anime.id,
         anidbId: anime.anidbId,
-        season: episodes.season,
         episodeNumber: episodes.episodeNumber,
         watched: episodes.watched,
       })
       .from(episodes)
-      .innerJoin(anime, eq(episodes.animeId, anime.id))
+      .innerJoin(episodeGroups, eq(episodeGroups.id, episodes.groupId))
+      .innerJoin(anime, eq(anime.id, episodeGroups.animeId))
       .all();
   }
 
   upsertEpisodeFromMatch(match: {
-    animeId: number;
     groupId: number;
     episode: number;
     filePath: string;
     title?: string | null;
-    season?: number | null;
   }): { id: number } {
     const result = this.db
       .insert(episodes)
       .values({
-        animeId: match.animeId,
         groupId: match.groupId,
         episodeNumber: match.episode,
         filePath: match.filePath,
         title: match.title ?? null,
-        season: match.season ?? 1,
       })
       .onConflictDoUpdate({
-        target: [episodes.animeId, episodes.episodeNumber, episodes.season],
-        set: { filePath: match.filePath, title: match.title ?? null, groupId: match.groupId },
+        target: [episodes.groupId, episodes.episodeNumber],
+        set: { filePath: match.filePath, title: match.title ?? null },
       })
       .returning()
       .get();
@@ -429,17 +426,17 @@ export class LibraryRepository {
         anidbId: anime.anidbId,
         title: anime.title,
         entryType: episodeGroups.entryType,
+        seasonNumber: episodeGroups.seasonNumber,
         groupId: episodes.groupId,
         episodeNumber: episodes.episodeNumber,
         filePath: episodes.filePath,
         episodeTitle: episodes.title,
-        season: episodes.season,
         sourceExternalId: animeSourceMappings.externalId,
         sourceDb: animeSourceMappings.source,
       })
       .from(anime)
-      .innerJoin(episodes, eq(episodes.animeId, anime.id))
-      .innerJoin(episodeGroups, eq(episodeGroups.id, episodes.groupId))
+      .innerJoin(episodeGroups, eq(episodeGroups.animeId, anime.id))
+      .innerJoin(episodes, eq(episodes.groupId, episodeGroups.id))
       .leftJoin(
         animeSourceMappings,
         and(
@@ -453,7 +450,7 @@ export class LibraryRepository {
           ),
         ),
       )
-      .orderBy(anime.title, episodes.season, episodes.episodeNumber)
+      .orderBy(anime.title, episodes.episodeNumber)
       .all();
 
     return rows.map((row) => ({
@@ -465,7 +462,7 @@ export class LibraryRepository {
       episode: row.episodeNumber,
       filePath: row.filePath,
       episodeTitle: row.episodeTitle ?? null,
-      season: row.season ?? null,
+      season: row.seasonNumber ?? 1,
       groupId: row.groupId,
     }));
   }
@@ -490,12 +487,10 @@ export class LibraryRepository {
         const pendingEpisodes = this.getEpisodesByGroupId(pendingGroup.id);
         for (const ep of pendingEpisodes) {
           const upsertedEpisode = this.upsertEpisodeFromMatch({
-            animeId: canonicalAnimeId,
             groupId: targetGroup.id,
             episode: ep.episodeNumber,
             filePath: ep.filePath,
             title: ep.title,
-            season: ep.season,
           });
           if (ep.watched) {
             this.setEpisodeWatched(upsertedEpisode.id, true);
@@ -515,12 +510,6 @@ export class LibraryRepository {
           .update(episodeGroups)
           .set({ animeId: canonicalAnimeId })
           .where(eq(episodeGroups.id, pendingGroup.id))
-          .run();
-
-        this.db
-          .update(episodes)
-          .set({ animeId: canonicalAnimeId })
-          .where(eq(episodes.groupId, pendingGroup.id))
           .run();
       }
     }
@@ -559,7 +548,8 @@ export class LibraryRepository {
     const row = this.db
       .select({ count: sql<number>`cast(count(*) as int)` })
       .from(episodes)
-      .where(eq(episodes.animeId, animeId))
+      .innerJoin(episodeGroups, eq(episodeGroups.id, episodes.groupId))
+      .where(eq(episodeGroups.animeId, animeId))
       .get();
     return row?.count ?? 0;
   }
@@ -567,12 +557,10 @@ export class LibraryRepository {
   // Episode Groups
 
   upsertEpisodeGroup(
-    groupData: Omit<EpisodeGroup, "id" | "lastSynced" | "updatedAt"> & {
-      lastSynced?: string;
+    groupData: Omit<EpisodeGroup, "id" | "updatedAt"> & {
       updatedAt?: string;
     },
   ): EpisodeGroup {
-    const now = groupData.lastSynced ?? new Date().toISOString();
     const updatedAt = groupData.updatedAt ?? new Date().toISOString();
     const seasonCondition =
       groupData.seasonNumber == null
@@ -598,7 +586,6 @@ export class LibraryRepository {
           synopsis: groupData.synopsis ?? null,
           rating: groupData.rating ?? null,
           coverArtPath: groupData.coverArtPath ?? null,
-          lastSynced: now,
           updatedAt,
         })
         .where(eq(episodeGroups.id, existing.id))
@@ -616,7 +603,6 @@ export class LibraryRepository {
         synopsis: groupData.synopsis ?? null,
         rating: groupData.rating ?? null,
         coverArtPath: groupData.coverArtPath ?? null,
-        lastSynced: now,
         updatedAt,
       })
       .returning()
@@ -832,8 +818,7 @@ export class LibraryRepository {
 
   upsertEpisodeGroupBatch(
     items: Array<
-      Omit<EpisodeGroup, "id" | "lastSynced" | "updatedAt"> & {
-        lastSynced?: string;
+      Omit<EpisodeGroup, "id" | "updatedAt"> & {
         updatedAt?: string;
       }
     >,
@@ -852,7 +837,6 @@ export class LibraryRepository {
           synopsis: item.synopsis ?? null,
           rating: item.rating ?? null,
           coverArtPath: item.coverArtPath ?? null,
-          lastSynced: item.lastSynced ?? now,
           updatedAt: item.updatedAt ?? now,
         })),
       )
@@ -863,7 +847,6 @@ export class LibraryRepository {
           synopsis: sql.raw("excluded.synopsis"),
           rating: sql.raw("excluded.rating"),
           coverArtPath: sql.raw("excluded.cover_art_path"),
-          lastSynced: sql.raw("excluded.last_synced"),
           updatedAt: sql.raw("excluded.updated_at"),
         },
       })
@@ -1125,23 +1108,19 @@ export class LibraryRepository {
 
   private rowToEpisode(row: {
     id: number;
-    animeId: number;
     groupId: number;
     episodeNumber: number;
     filePath: string;
     title: string | null;
-    season: number | null;
     watched: boolean;
     notes: string | null;
   }): LibraryEpisode {
     return {
       id: row.id,
-      animeId: row.animeId,
       groupId: row.groupId,
       episodeNumber: row.episodeNumber,
       filePath: row.filePath,
       title: row.title ?? undefined,
-      season: row.season ?? undefined,
       watched: row.watched,
       notes: row.notes ?? undefined,
     };
@@ -1156,7 +1135,6 @@ export class LibraryRepository {
     synopsis: string | null;
     rating: number | null;
     coverArtPath: string | null;
-    lastSynced: string;
     updatedAt: string;
   }): EpisodeGroup {
     return {
@@ -1168,7 +1146,6 @@ export class LibraryRepository {
       synopsis: row.synopsis ?? undefined,
       rating: row.rating ?? undefined,
       coverArtPath: row.coverArtPath ?? undefined,
-      lastSynced: row.lastSynced,
       updatedAt: row.updatedAt,
     };
   }

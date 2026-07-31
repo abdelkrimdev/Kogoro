@@ -24,7 +24,6 @@ export const episodeGroups = sqliteTable(
     synopsis: text("synopsis"),
     rating: real("rating"),
     coverArtPath: text("cover_art_path"),
-    lastSynced: text("last_synced").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [
@@ -52,26 +51,16 @@ export const episodes = sqliteTable(
   "episodes",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    animeId: integer("anime_id")
-      .notNull()
-      .references(() => anime.id, { onDelete: "cascade" }),
     groupId: integer("group_id")
       .notNull()
       .references(() => episodeGroups.id, { onDelete: "cascade" }),
     episodeNumber: integer("episode_number").notNull(),
     filePath: text("file_path").notNull(),
     title: text("title"),
-    season: integer("season").default(1),
     watched: integer("watched", { mode: "boolean" }).notNull().default(false),
     notes: text("notes"),
   },
-  (t) => [
-    unique("episodes_anime_id_episode_number_season_unique").on(
-      t.animeId,
-      t.episodeNumber,
-      t.season,
-    ),
-  ],
+  (t) => [unique("episodes_group_id_episode_number_unique").on(t.groupId, t.episodeNumber)],
 );
 
 export const franchises = sqliteTable("franchises", {

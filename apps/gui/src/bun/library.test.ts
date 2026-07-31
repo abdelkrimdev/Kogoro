@@ -23,21 +23,17 @@ function seedLibrary(repo: LibraryRepository, coverDir?: string) {
   });
 
   repo.addEpisode({
-    animeId: jjk.id,
     groupId: jjkGroup.id,
     episodeNumber: 1,
     filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
     title: "Ryomen Sukuna",
-    season: 1,
     watched: false,
   });
   repo.addEpisode({
-    animeId: jjk.id,
     groupId: jjkGroup.id,
     episodeNumber: 2,
     filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
     title: "Cursed Womb Must Die",
-    season: 1,
     watched: false,
   });
 
@@ -55,12 +51,10 @@ function seedLibrary(repo: LibraryRepository, coverDir?: string) {
   });
 
   repo.addEpisode({
-    animeId: aot.id,
     groupId: aotGroup.id,
     episodeNumber: 1,
     filePath: "/media/Attack on Titan/S01E01.mkv",
     title: "To You, in 2000 Years",
-    season: 1,
     watched: false,
   });
 }
@@ -290,21 +284,17 @@ describe("rebuild", () => {
         });
 
         repo.addEpisode({
-          animeId: jjk.id,
           groupId: jjkGroup.id,
           episodeNumber: 1,
           filePath: ep1Path,
           title: "Ryomen Sukuna",
-          season: 1,
           watched: false,
         });
         repo.addEpisode({
-          animeId: jjk.id,
           groupId: jjkGroup.id,
           episodeNumber: 2,
           filePath: ep2Path,
           title: "Cursed Womb Must Die",
-          season: 1,
           watched: false,
         });
 
@@ -325,12 +315,10 @@ describe("rebuild", () => {
         });
 
         repo.addEpisode({
-          animeId: aot.id,
           groupId: aotGroup.id,
           episodeNumber: 1,
           filePath: ep3Path,
           title: "To You, in 2000 Years",
-          season: 1,
           watched: false,
         });
 

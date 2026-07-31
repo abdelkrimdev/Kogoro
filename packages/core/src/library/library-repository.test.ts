@@ -134,14 +134,12 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           watched: false,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
@@ -191,22 +189,18 @@ describe("LibraryRepository", () => {
         });
 
         const first = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/old-path.mkv",
           title: "Old Title",
-          season: 1,
           watched: false,
         });
 
         const updated = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/new-path.mkv",
           title: "New Title",
-          season: 1,
           watched: true,
         });
 
@@ -235,19 +229,15 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
-          season: 1,
           watched: false,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -276,19 +266,15 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -317,11 +303,9 @@ describe("LibraryRepository", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -351,11 +335,9 @@ describe("LibraryRepository", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -384,19 +366,15 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -441,11 +419,9 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
 
@@ -476,19 +452,15 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -519,21 +491,17 @@ describe("LibraryRepository", () => {
         });
 
         const first = repo.upsertEpisodeFromMatch({
-          animeId: anime.id,
           groupId: group.id,
           episode: 1,
           filePath: "/media/old.mkv",
           title: "Old",
-          season: 1,
         });
 
         const updated = repo.upsertEpisodeFromMatch({
-          animeId: anime.id,
           groupId: group.id,
           episode: 1,
           filePath: "/media/new.mkv",
           title: "New",
-          season: 1,
         });
 
         expect(updated.id).toBe(first.id);
@@ -563,11 +531,9 @@ describe("LibraryRepository", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -658,21 +624,17 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           title: "Ryomen Sukuna",
-          season: 1,
           watched: false,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
           title: "Cursed Womb Must Die",
-          season: 1,
           watched: false,
         });
 
@@ -694,12 +656,10 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime2.id,
           groupId: group2.id,
           episodeNumber: 1,
           filePath: "/media/AoT/S01E01.mkv",
           title: "To You, in 2000 Years",
-          season: 1,
           watched: false,
         });
 
@@ -737,21 +697,17 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           title: "Ryomen Sukuna",
-          season: 1,
           watched: false,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
           title: "Cursed Womb Must Die",
-          season: 1,
           watched: false,
         });
 
@@ -777,12 +733,10 @@ describe("LibraryRepository", () => {
             watchStatus: "plan_to_watch",
           });
           repo.upsertEpisodeFromMatch({
-            animeId,
             groupId: newGroup.id,
             episode: match.episode,
             filePath: match.filePath,
             title: match.episodeTitle,
-            season: match.season,
           });
         }
 
@@ -1122,7 +1076,6 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
@@ -1292,27 +1245,21 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group1.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group1.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
-          season: 1,
           watched: true,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group2.id,
           episodeNumber: 1,
           filePath: "/media/S02E01.mkv",
-          season: 2,
           watched: false,
         });
 
@@ -1347,11 +1294,9 @@ describe("LibraryRepository", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -1383,11 +1328,9 @@ describe("LibraryRepository", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
           notes: "Some notes",
         });
@@ -1417,11 +1360,9 @@ describe("LibraryRepository", () => {
         });
 
         const ep = repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
           notes: "First episode notes",
         });
@@ -1451,11 +1392,9 @@ describe("LibraryRepository", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
           notes: "Test notes",
         });

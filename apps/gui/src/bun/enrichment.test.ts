@@ -80,21 +80,17 @@ async function seedLibraryAndCache(
   });
 
   libraryRepo.addEpisode({
-    animeId: anime.id,
     groupId: group.id,
     episodeNumber: 1,
     filePath: ep1Path,
     title: "Episode 1",
-    season: 1,
     watched: false,
   });
   libraryRepo.addEpisode({
-    animeId: anime.id,
     groupId: group.id,
     episodeNumber: 2,
     filePath: ep2Path,
     title: "Episode 2",
-    season: 1,
     watched: false,
   });
   closeLibrary();

@@ -159,21 +159,17 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           title: "Ryomen Sukuna",
-          season: 1,
           watched: true,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
           title: "Cursed Womb Must Die",
-          season: 1,
           watched: false,
         });
 
@@ -350,19 +346,15 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -445,19 +437,15 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -579,19 +567,15 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -719,11 +703,9 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
 
@@ -1197,12 +1179,10 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           title: "Ryomen Sukuna",
-          season: 1,
           watched: false,
         });
 
@@ -1252,21 +1232,17 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: join(dir, "S01E01.mkv"),
           title: "Ep 1",
-          season: 1,
           watched: true,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: join(dir, "S01E02.mkv"),
           title: "Ep 2",
-          season: 1,
           watched: false,
         });
 
@@ -1338,12 +1314,10 @@ describe("AnimeAggregate", () => {
           watchStatus: "plan_to_watch",
         });
         repo.addEpisode({
-          animeId: anime1.id,
           groupId: group1.id,
           episodeNumber: 1,
           filePath: join(dir, "tvdb-ep1.mkv"),
           title: "TVDB Ep 1",
-          season: 1,
           watched: false,
         });
 
@@ -1362,12 +1336,10 @@ describe("AnimeAggregate", () => {
           watchStatus: "plan_to_watch",
         });
         repo.addEpisode({
-          animeId: anime2.id,
           groupId: group2.id,
           episodeNumber: 1,
           filePath: join(dir, "anidb-ep1.mkv"),
           title: "AniDB Ep 1",
-          season: 1,
           watched: false,
         });
 
@@ -1858,21 +1830,17 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           title: "Ryomen Sukuna",
-          season: 1,
           watched: true,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
           title: "Cursed Womb Must Die",
-          season: 1,
           watched: false,
         });
 
@@ -1914,11 +1882,9 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime1.id,
           groupId: group1.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -1934,11 +1900,9 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime2.id,
           groupId: group2.id,
           episodeNumber: 1,
           filePath: "/media/AoT/S01E01.mkv",
-          season: 1,
           watched: true,
         });
 
@@ -2020,11 +1984,9 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime1.id,
           groupId: group1.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: false,
         });
 
@@ -2040,11 +2002,9 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime2.id,
           groupId: group2.id,
           episodeNumber: 1,
           filePath: "/media/AoT/S01E01.mkv",
-          season: 1,
           watched: true,
         });
 
@@ -2106,11 +2066,9 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group1.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
-          season: 1,
           watched: true,
         });
 
@@ -2122,19 +2080,15 @@ describe("AnimeAggregate", () => {
         });
 
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group2.id,
           episodeNumber: 1,
           filePath: "/media/S02E01.mkv",
-          season: 2,
           watched: false,
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group2.id,
           episodeNumber: 2,
           filePath: "/media/S02E02.mkv",
-          season: 2,
           watched: false,
         });
 
@@ -2829,11 +2783,9 @@ describe("AnimeAggregate", () => {
           watchStatus: "watching",
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: join(dir, "S01E01.mkv"),
-          season: 1,
           watched: true,
         });
 
@@ -2916,11 +2868,9 @@ describe("AnimeAggregate", () => {
           externalId: "mal-999",
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: join(dir, "S01E01.mkv"),
-          season: 1,
           watched: false,
         });
 
@@ -2986,11 +2936,9 @@ describe("AnimeAggregate", () => {
           watchStatus: "completed",
         });
         repo.addEpisode({
-          animeId: anime.id,
           groupId: group.id,
           episodeNumber: 1,
           filePath: join(dir, "S01E01.mkv"),
-          season: 1,
           watched: true,
         });
 

@@ -19,12 +19,10 @@ function seedWatchingAnime(repo: LibraryRepository) {
 
   for (let i = 1; i <= 24; i++) {
     repo.addEpisode({
-      animeId: sg.id,
       groupId: sgGroup.id,
       episodeNumber: i,
       filePath: `/media/Steins;Gate/S01E${String(i).padStart(2, "0")}.mkv`,
       title: `Episode ${i}`,
-      season: 1,
       watched: i <= 12,
     });
   }
@@ -47,12 +45,10 @@ function seedCompletedAnime(repo: LibraryRepository) {
 
   for (let i = 1; i <= 25; i++) {
     repo.addEpisode({
-      animeId: aot.id,
       groupId: aotGroup.id,
       episodeNumber: i,
       filePath: `/media/Attack on Titan/S01E${String(i).padStart(2, "0")}.mkv`,
       title: `Episode ${i}`,
-      season: 1,
       watched: true,
     });
   }
@@ -75,12 +71,10 @@ function seedPlanToWatchAnime(repo: LibraryRepository) {
 
   for (let i = 1; i <= 24; i++) {
     repo.addEpisode({
-      animeId: drr.id,
       groupId: drrGroup.id,
       episodeNumber: i,
       filePath: `/media/Darling in the Franxx/S01E${String(i).padStart(2, "0")}.mkv`,
       title: `Episode ${i}`,
-      season: 1,
       watched: false,
     });
   }
