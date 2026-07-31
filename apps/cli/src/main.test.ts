@@ -15,6 +15,5 @@ describe("kogoro CLI", () => {
     const tvdb = parsed.find((p) => p.name === "tvdb");
     expect(tvdb).toBeDefined();
     expect(tvdb?.type).toBe("database");
-    expect(tvdb?.source).toBe("built-in");
   });
 });

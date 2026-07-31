@@ -5,7 +5,7 @@ import { PluginLoader } from "./plugin-loader";
 describe("PluginLoader", () => {
   describe("loadDatabase", () => {
     describe("tvdb", () => {
-      test("constructs TVDBPlugin with the provided API key", async () => {
+      test("constructs with the provided API key", async () => {
         let loginBody: string | undefined;
 
         await withMockFetch(
@@ -68,7 +68,7 @@ describe("PluginLoader", () => {
     });
 
     describe("anidb", () => {
-      test("constructs AniDBPlugin with correct client:clientver", async () => {
+      test("constructs with correct client:clientver", async () => {
         await withMockFetch(
           ((url: string | URL | Request) => {
             const urlStr = typeof url === "string" ? url : url.toString();
@@ -230,13 +230,30 @@ describe("PluginLoader", () => {
             "loader-subtitle",
             async (_dir, _config, credentialStore) => {
               const loader = new PluginLoader();
-              const plugin = await loader.loadSubtitle("opensubtitles", credentialStore);
+              const plugin = await loader.loadSubtitle("opensubtitles", undefined, credentialStore);
               expect(plugin).toBeDefined();
               expect(plugin?.constructor.name).toBe("OpenSubtitlesPlugin");
             },
             createMockKeytar({ "kogoro:opensubtitles": "test-os-key" }),
           );
         },
+      );
+    });
+
+    test("returns undefined for disabled plugins", async () => {
+      await withTestConfig(
+        "loader-subtitle-disabled",
+        async (_dir, config, credentialStore) => {
+          config.set("plugins.opensubtitles.enabled", "false");
+          const loader = new PluginLoader();
+          const plugin = await loader.loadSubtitle(
+            "opensubtitles",
+            config.plugins,
+            credentialStore,
+          );
+          expect(plugin).toBeUndefined();
+        },
+        createMockKeytar({ "kogoro:opensubtitles": "key" }),
       );
     });
   });

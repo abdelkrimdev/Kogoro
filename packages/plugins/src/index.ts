@@ -1,2 +1,2 @@
 export { PluginFactory } from "./plugin-factory";
-export { type PluginInfo, PluginRegistry } from "./plugin-registry";
+export { listPlugins, type PluginInfo } from "./plugin-registry";

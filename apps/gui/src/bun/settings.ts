@@ -1,5 +1,5 @@
 import type { ConfigManager, CredentialStore } from "@kogoro/core";
-import { type PluginInfo, PluginRegistry } from "@kogoro/plugins";
+import { listPlugins, type PluginInfo } from "@kogoro/plugins";
 
 type SettingsFormData = {
   primaryDb: string;
@@ -33,7 +33,7 @@ function maskApiKey(key: string | undefined): string {
 function buildPluginList(
   pluginsConfig: Record<string, { enabled: boolean }> | undefined,
 ): PluginInfo[] {
-  return new PluginRegistry().list(pluginsConfig);
+  return listPlugins(pluginsConfig);
 }
 
 export async function buildSettingsFormData(

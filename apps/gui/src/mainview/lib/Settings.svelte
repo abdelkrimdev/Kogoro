@@ -63,7 +63,7 @@
   let syncResult = $state<{ applied: number; conflicts: SyncConflictInfo[] } | null>(null);
 
   const plugins = $derived(
-    (settingsData["plugins"] as Array<{ name: string; type: string; source: string; enabled: boolean }>) ?? [],
+    (settingsData["plugins"] as Array<{ name: string; type: string; enabled: boolean }>) ?? [],
   );
   const apiKeys = $derived(
     Object.fromEntries(
@@ -604,7 +604,6 @@
           <div class="flex items-center gap-3">
             <span class="font-medium text-sm text-surface-950-50">{plugin.name}</span>
             <span class="badge preset-tonal-surface text-xs">{plugin.type}</span>
-            <span class="text-surface-600-400 text-xs">{plugin.source}</span>
           </div>
           <Switch
             checked={plugin.enabled}

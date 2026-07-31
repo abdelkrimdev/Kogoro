@@ -59,8 +59,13 @@ export class PluginLoader {
 
   async loadSubtitle(
     name: string,
+    plugins: Record<string, { enabled: boolean }> | undefined,
     credentialStore: CredentialStore,
   ): Promise<SubtitlePlugin | undefined> {
+    if (!isPluginEnabled(name, plugins)) {
+      console.warn(`Plugin "${name}" is disabled`);
+      return undefined;
+    }
     const cached = this.subtitleCache.get(name);
     if (cached) return cached;
     const entry = getManifestEntry(name);

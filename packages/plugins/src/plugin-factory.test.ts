@@ -5,7 +5,7 @@ import { PluginFactory } from "./plugin-factory";
 describe("PluginFactory", () => {
   describe("database", () => {
     describe("tvdb", () => {
-      test("constructs TVDBPlugin with the provided API key", async () => {
+      test("constructs with the provided API key", async () => {
         let loginBody: string | undefined;
 
         await withMockFetch(
@@ -68,7 +68,7 @@ describe("PluginFactory", () => {
     });
 
     describe("anidb", () => {
-      test("constructs AniDBPlugin with the provided client:clientver", async () => {
+      test("constructs with the provided client:clientver", async () => {
         await withMockFetch(
           ((url: string | URL | Request) => {
             const urlStr = typeof url === "string" ? url : url.toString();
@@ -194,6 +194,19 @@ describe("PluginFactory", () => {
           null,
         );
       });
+
+      test("returns undefined for disabled plugins", async () => {
+        await withTestConfig(
+          "disabled-test",
+          async (_dir, config, credentialStore) => {
+            config.set("plugins.tvdb.enabled", "false");
+            const factory = new PluginFactory(config, credentialStore);
+            const plugin = await factory.database("tvdb");
+            expect(plugin).toBeUndefined();
+          },
+          createMockKeytar({ "kogoro:tvdb": "key" }),
+        );
+      });
     });
   });
 
@@ -252,6 +265,19 @@ describe("PluginFactory", () => {
             createMockKeytar({ "kogoro:opensubtitles": "test-os-key" }),
           );
         },
+      );
+    });
+
+    test("returns undefined for disabled plugins", async () => {
+      await withTestConfig(
+        "subtitle-disabled-test",
+        async (_dir, config, credentialStore) => {
+          config.set("plugins.opensubtitles.enabled", "false");
+          const factory = new PluginFactory(config, credentialStore);
+          const plugin = await factory.subtitle();
+          expect(plugin).toBeUndefined();
+        },
+        createMockKeytar({ "kogoro:opensubtitles": "key" }),
       );
     });
   });
@@ -346,21 +372,6 @@ describe("PluginFactory", () => {
           expect(first).toBe(second);
         },
         null,
-      );
-    });
-  });
-
-  describe("disabled plugins", () => {
-    test("returns undefined for disabled plugins", async () => {
-      await withTestConfig(
-        "disabled-test",
-        async (_dir, config, credentialStore) => {
-          config.set("plugins.tvdb.enabled", "false");
-          const factory = new PluginFactory(config, credentialStore);
-          const plugin = await factory.database("tvdb");
-          expect(plugin).toBeUndefined();
-        },
-        createMockKeytar({ "kogoro:tvdb": "key" }),
       );
     });
   });

@@ -6,12 +6,11 @@ import type {
   TrackerPlugin,
 } from "@kogoro/core";
 import { PluginLoader } from "./plugin-loader";
-import { type PluginInfo, PluginRegistry } from "./plugin-registry";
+import { listPlugins, type PluginInfo } from "./plugin-registry";
 
 export type { PluginInfo } from "./plugin-registry";
 
 export class PluginFactory {
-  private registry = new PluginRegistry();
   private loader: PluginLoader;
 
   constructor(
@@ -31,7 +30,11 @@ export class PluginFactory {
   }
 
   async subtitle(name?: string): Promise<SubtitlePlugin | undefined> {
-    return this.loader.loadSubtitle(name ?? "opensubtitles", this.credentialStore);
+    return this.loader.loadSubtitle(
+      name ?? "opensubtitles",
+      this.config.plugins,
+      this.credentialStore,
+    );
   }
 
   async tracker(name: string): Promise<TrackerPlugin | undefined> {
@@ -39,6 +42,6 @@ export class PluginFactory {
   }
 
   list(): PluginInfo[] {
-    return this.registry.list(this.config.plugins);
+    return listPlugins(this.config.plugins);
   }
 }
