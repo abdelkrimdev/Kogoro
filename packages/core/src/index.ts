@@ -60,8 +60,6 @@ export type {
   LibraryEpisode,
 } from "./library/library-repository";
 export { LibraryRepository } from "./library/library-repository";
-export type { GroupFilesOnDisk, LibraryState } from "./library/library-state";
-export { computeLibraryState } from "./library/library-state";
 export { WatchTracker } from "./library/watch-tracker";
 export { CacheService } from "./match/cache-service";
 export { ManifestRepository } from "./match/manifest-repository";

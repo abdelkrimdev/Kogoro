@@ -18,7 +18,8 @@ function isAlreadyAppliedMessage(msg: string): boolean {
   return (
     msg.includes("duplicate column name") ||
     msg.includes("already exists") ||
-    msg.includes("no such table")
+    msg.includes("no such table") ||
+    msg.includes("no such column")
   );
 }
 

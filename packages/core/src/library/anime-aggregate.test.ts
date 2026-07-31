@@ -214,7 +214,7 @@ describe("AnimeAggregate", () => {
       }
     });
 
-    test("sets correct anime entries per match", async () => {
+    test("persists one anime per distinct match group", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
