@@ -12,6 +12,7 @@ export { hashFile } from "./io/file-hash";
 
 import { EventRepository } from "./events/event-repository";
 import { createEventDb as createEventDbInstance } from "./events/test-utils";
+import type { FribbSource } from "./fribb/identity-resolver";
 import { HttpClient } from "./io/http-client";
 import { AnimeAggregate } from "./library/anime-aggregate";
 import type { AnimeSourceMapping, Franchise } from "./library/library-repository";
@@ -40,6 +41,31 @@ import type {
   EpisodeResult,
   TrackerPlugin,
 } from "./types";
+
+export function createMockIdentityResolver(
+  resolveMap?: Map<string, string | null>,
+): import("./fribb/identity-resolver").IdentityResolver {
+  const map = resolveMap ?? new Map();
+  return {
+    async resolveToAnidb(_source: FribbSource, sourceId: string): Promise<string | null> {
+      return map.get(sourceId) ?? null;
+    },
+    async resolveBatchToAnidb(entries: { source: FribbSource; sourceId: string }[]) {
+      return entries.map((entry) => ({
+        source: entry.source,
+        sourceId: entry.sourceId,
+        anidbId: map.get(entry.sourceId) ?? null,
+      }));
+    },
+    async getMetadata() {
+      return {
+        datasetVersion: "mock",
+        datasetDate: "2026-01-01",
+        supportedSources: [] as FribbSource[],
+      };
+    },
+  };
+}
 
 export interface EnrichmentSend {
   enrichmentProgress?: (data: {
@@ -190,6 +216,8 @@ export function createTrackerImportTestContext(): {
   const aggregate = new AnimeAggregate({
     library: repo,
     replayUnpushedEvents: () => {},
+    identityResolver: createMockIdentityResolver(),
+    resolveTitleToAnidb: async () => null,
   });
   return {
     repo,

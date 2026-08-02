@@ -18,6 +18,7 @@ import {
   resolveDbPaths,
   WatchTracker,
 } from "@kogoro/core";
+import { createFribbConnection } from "@kogoro/fribb";
 import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow, PATHS, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
@@ -65,15 +66,21 @@ const configManager = new ConfigManager();
 const credentialStore = createCredentialStore();
 const pluginFactory = new PluginFactory(configManager, credentialStore);
 
-const { cacheDbPath, libraryDbPath, eventsDbPath } = resolveDbPaths();
+const { cacheDbPath, libraryDbPath, eventsDbPath, fribbDbPath } = resolveDbPaths();
 const { matchRepo, manifestRepo } = createMatchCacheConnection(cacheDbPath);
 const libraryRepo = createLibraryConnection(libraryDbPath);
 const eventsRepo = createEventsConnection(eventsDbPath);
+const fribb = createFribbConnection(fribbDbPath);
 const cacheService = new CacheService(matchRepo, manifestRepo);
 const manifestService = new ManifestService(manifestRepo);
 const animeAggregate = new AnimeAggregate({
   library: libraryRepo,
   replayUnpushedEvents: () => {},
+  identityResolver: fribb,
+  resolveTitleToAnidb: async (title: string) => {
+    const anime = libraryRepo.findAnimeByTitle(title);
+    return anime?.anidbId ?? null;
+  },
 });
 const watchTracker = new WatchTracker({ library: libraryRepo, events: eventsRepo });
 

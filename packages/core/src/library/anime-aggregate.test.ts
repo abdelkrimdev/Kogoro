@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createEventDb } from "../events/test-utils";
-import { createMockTracker } from "../fixtures";
+import { createMockIdentityResolver, createMockTracker } from "../fixtures";
 import type { MatchEntry } from "../types";
 import { AnimeAggregate } from "./anime-aggregate";
 import { LibraryRepository } from "./library-repository";
@@ -25,6 +25,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const matches: MatchEntry[] = [
@@ -90,6 +92,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const matches: MatchEntry[] = [
@@ -139,6 +143,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -223,6 +229,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const matches: MatchEntry[] = [
@@ -277,6 +285,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const matches: MatchEntry[] = [
@@ -324,6 +334,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -406,6 +418,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -500,6 +514,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const matches: MatchEntry[] = [
@@ -582,6 +598,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const matches: MatchEntry[] = [
@@ -648,6 +666,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const matches: MatchEntry[] = [
@@ -688,6 +708,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -778,6 +800,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const matches: MatchEntry[] = [
@@ -826,6 +850,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -905,6 +931,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -955,6 +983,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existing = repo.upsertAnime({
@@ -1020,6 +1050,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existing = repo.upsertAnime({
@@ -1074,6 +1106,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -1159,6 +1193,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -1263,6 +1299,8 @@ describe("AnimeAggregate", () => {
             replayCalled = true;
             capturedSnapshot = snapshot;
           },
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         await aggregate.rebuild();
@@ -1349,6 +1387,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         await aggregate.rebuild("tvdb");
@@ -1373,6 +1413,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const tracker = createMockTracker({
@@ -1421,11 +1463,14 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["tl-1", "aot-anidb"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
           title: "Attack on Titan",
         });
+        repo.updateAnimeAnidbId(anime.id, "aot-anidb");
 
         const group = repo.upsertEpisodeGroup({
           animeId: anime.id,
@@ -1475,6 +1520,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -1527,6 +1574,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -1577,11 +1626,14 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["tl-1", "aot-anidb"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
           title: "Attack on Titan",
         });
+        repo.updateAnimeAnidbId(anime.id, "aot-anidb");
 
         repo.upsertEpisodeGroup({
           animeId: anime.id,
@@ -1627,6 +1679,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -1681,6 +1735,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const tracker = createMockTracker({
@@ -1744,11 +1800,19 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(
+            new Map([
+              ["tl-1", "aot-anidb"],
+              ["tl-2", "dn-anidb"],
+            ]),
+          ),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime1 = repo.upsertAnime({
           title: "Attack on Titan",
         });
+        repo.updateAnimeAnidbId(anime1.id, "aot-anidb");
 
         const group1 = repo.upsertEpisodeGroup({
           animeId: anime1.id,
@@ -1760,6 +1824,7 @@ describe("AnimeAggregate", () => {
         const anime2 = repo.upsertAnime({
           title: "Death Note",
         });
+        repo.updateAnimeAnidbId(anime2.id, "dn-anidb");
 
         const group2 = repo.upsertEpisodeGroup({
           animeId: anime2.id,
@@ -1816,6 +1881,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -1868,6 +1935,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime1 = repo.upsertAnime({
@@ -1931,6 +2000,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const jjk = repo.upsertAnime({
@@ -1970,6 +2041,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime1 = repo.upsertAnime({
@@ -2028,6 +2101,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         repo.upsertAnime({
@@ -2052,6 +2127,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const anime = repo.upsertAnime({
@@ -2115,6 +2192,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const result = aggregate.getAnimeForDisplay();
@@ -2136,6 +2215,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["al-spy", "al-spy"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2149,7 +2230,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-456",
+              source: "anilist",
+              externalId: "al-456",
               season: 1,
               episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
             },
@@ -2183,6 +2265,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2215,6 +2299,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["al-new", "al-new"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2223,7 +2309,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-new",
+              source: "anilist",
+              externalId: "al-new",
               season: 1,
               episodes: [
                 { episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" },
@@ -2258,6 +2345,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["al-shared", "al-shared"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2271,7 +2360,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-shared",
+              source: "anilist",
+              externalId: "al-shared",
               season: 1,
               episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
             },
@@ -2299,6 +2389,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["al-groups", "al-groups"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2307,7 +2399,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-groups",
+              source: "anilist",
+              externalId: "al-groups",
               season: 1,
               episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ep 1" }],
             },
@@ -2315,7 +2408,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-groups",
+              source: "anilist",
+              externalId: "al-groups",
               season: 2,
               episodes: [{ episode: 1, filePath: "/media/S02E01.mkv", title: "Ep 1" }],
             },
@@ -2341,6 +2435,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["al-tracker", "al-tracker"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2366,7 +2462,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-tracker",
+              source: "anilist",
+              externalId: "al-tracker",
               season: 1,
               episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
             },
@@ -2395,6 +2492,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["al-status", "al-status"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2415,7 +2514,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-status",
+              source: "anilist",
+              externalId: "al-status",
               season: 1,
               episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
             },
@@ -2439,6 +2539,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["al-cleanup", "al-cleanup"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2459,7 +2561,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-cleanup",
+              source: "anilist",
+              externalId: "al-cleanup",
               season: 1,
               episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
             },
@@ -2487,6 +2590,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["al-preserve", "al-preserve"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2512,7 +2617,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-preserve",
+              source: "anilist",
+              externalId: "al-preserve",
               season: 1,
               episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
             },
@@ -2540,6 +2646,10 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(
+            new Map([["al-nondefault", "al-nondefault"]]),
+          ),
+          resolveTitleToAnidb: async () => null,
         });
 
         const existingAnime = repo.upsertAnime({
@@ -2560,7 +2670,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-nondefault",
+              source: "anilist",
+              externalId: "al-nondefault",
               season: 1,
               episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
             },
@@ -2585,6 +2696,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["tracker-123", "al-import"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2593,10 +2706,8 @@ describe("AnimeAggregate", () => {
               kind: "import",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-import",
-              season: 1,
-              trackerSource: "anilist",
-              trackerId: "tracker-123",
+              source: "anilist",
+              sourceId: "tracker-123",
               watchStatus: "completed",
             },
           ],
@@ -2629,6 +2740,13 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(
+            new Map([
+              ["al-shared-entry", "al-shared-entry"],
+              ["tracker-456", "al-shared-entry"],
+            ]),
+          ),
+          resolveTitleToAnidb: async () => null,
         });
 
         const result = await aggregate.resolveAndMerge({
@@ -2637,7 +2755,8 @@ describe("AnimeAggregate", () => {
               kind: "scan",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-shared-entry",
+              source: "anilist",
+              externalId: "al-shared-entry",
               season: 1,
               episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
             },
@@ -2645,10 +2764,8 @@ describe("AnimeAggregate", () => {
               kind: "import",
               title: "Jujutsu Kaisen",
               entryType: "tv",
-              anidbId: "al-shared-entry",
-              season: 1,
-              trackerSource: "anilist",
-              trackerId: "tracker-456",
+              source: "anilist",
+              sourceId: "tracker-456",
               watchStatus: "watching",
             },
           ],
@@ -2685,6 +2802,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const pendingAnime = repo.upsertAnime({
@@ -2714,6 +2833,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const pendingAnime = repo.upsertAnime({
@@ -2742,6 +2863,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         repo.upsertAnime({
@@ -2824,6 +2947,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(new Map([["al-spy", "al-spy"]])),
+          resolveTitleToAnidb: async () => null,
         });
 
         await aggregate.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);
@@ -2893,6 +3018,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         await aggregate.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);
@@ -2961,6 +3088,8 @@ describe("AnimeAggregate", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         await aggregate.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);

@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LibraryRepository, WatchTracker } from "@kogoro/core";
 import { AnimeAggregate } from "@kogoro/core";
-import { createEventRepository, createLibraryRepository, withTempDir } from "@kogoro/core/testing";
+import {
+  createEventRepository,
+  createLibraryRepository,
+  createMockIdentityResolver,
+  withTempDir,
+} from "@kogoro/core/testing";
 import { createLibraryHandlers } from "./library";
 
 function seedLibrary(repo: LibraryRepository, coverDir?: string) {
@@ -72,6 +77,8 @@ describe("getLibrary handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -97,6 +104,8 @@ describe("getLibrary handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -122,6 +131,8 @@ describe("getAnimeDetail handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -156,6 +167,8 @@ describe("getAnimeDetail handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -178,6 +191,8 @@ describe("getLibraryStats handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -199,6 +214,8 @@ describe("getLibraryStats handler", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -222,6 +239,8 @@ describe("mergeMatches", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
@@ -325,6 +344,8 @@ describe("rebuild", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const handlers = createLibraryHandlers({
           animeAggregate: aggregate,
@@ -351,6 +372,8 @@ describe("rebuild", () => {
       const aggregate = new AnimeAggregate({
         library: repo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,

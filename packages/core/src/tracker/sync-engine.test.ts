@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { EventRepository } from "../events/event-repository";
 import { createEventDb } from "../events/test-utils";
-import { createEventRepository, createLibraryRepository, createMockTracker } from "../fixtures";
+import {
+  createEventRepository,
+  createLibraryRepository,
+  createMockIdentityResolver,
+  createMockTracker,
+} from "../fixtures";
 import { AnimeAggregate } from "../library/anime-aggregate";
 import { WatchTracker } from "../library/watch-tracker";
 import type { SyncConflict } from "./sync-engine";
@@ -18,6 +23,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -78,6 +85,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -145,6 +154,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -216,6 +227,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -288,6 +301,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -367,6 +382,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -437,6 +454,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -528,6 +547,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -598,6 +619,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -657,6 +680,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -727,6 +752,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -807,6 +834,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -890,6 +919,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -961,6 +992,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -1033,6 +1066,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -1121,6 +1156,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -1208,6 +1245,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -1253,6 +1292,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -1300,6 +1341,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
@@ -1347,6 +1390,8 @@ describe("SyncEngine", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 

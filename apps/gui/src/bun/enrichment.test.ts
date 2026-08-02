@@ -8,6 +8,7 @@ import {
   createEventRepository,
   createLibraryRepository,
   createMatchCacheService,
+  createMockIdentityResolver,
   createMockTracker,
   createTrackingEnrichmentSend,
   hashFile,
@@ -43,6 +44,8 @@ function createAggregate(dir: string): {
     svc: new AnimeAggregate({
       library: repo,
       replayUnpushedEvents: () => {},
+      identityResolver: createMockIdentityResolver(),
+      resolveTitleToAnidb: async () => null,
     }),
     watchTracker: new WatchTracker({ library: repo, events: evtRepo }),
     close: () => {

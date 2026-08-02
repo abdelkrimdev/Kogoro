@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { LibraryRepository } from "@kogoro/core";
 import { AnimeAggregate } from "@kogoro/core";
-import { createEventRepository, createLibraryRepository, withTempDir } from "@kogoro/core/testing";
+import {
+  createEventRepository,
+  createLibraryRepository,
+  createMockIdentityResolver,
+  withTempDir,
+} from "@kogoro/core/testing";
 import { createDashboardHandlers } from "./dashboard";
 
 function seedWatchingAnime(repo: LibraryRepository) {
@@ -92,6 +97,8 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         }),
       });
       const data = await handlers.getDashboardData();
@@ -115,6 +122,8 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         }),
       });
       const data = await handlers.getDashboardData();
@@ -136,6 +145,8 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         }),
       });
       const data = await handlers.getDashboardData();
@@ -160,6 +171,8 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         }),
       });
       const data = await handlers.getDashboardData();
@@ -182,6 +195,8 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         }),
       });
       const data = await handlers.getDashboardData();
@@ -200,6 +215,8 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         }),
       });
       const data = await handlers.getDashboardData();
@@ -222,6 +239,8 @@ describe("getDashboardData handler", () => {
         animeAggregate: new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         }),
       });
       const stats = handlers.getLibraryStats();

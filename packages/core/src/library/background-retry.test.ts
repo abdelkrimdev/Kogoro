@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { createMockIdentityResolver } from "../fixtures";
 import { AnimeAggregate } from "./anime-aggregate";
 import { BackgroundRetryService } from "./background-retry";
 import { LibraryRepository } from "./library-repository";
@@ -10,6 +11,8 @@ function createTestAggregate() {
   const aggregate = new AnimeAggregate({
     library: repo,
     replayUnpushedEvents: () => {},
+    identityResolver: createMockIdentityResolver(),
+    resolveTitleToAnidb: async () => null,
   });
   return { repo, aggregate, sqlite };
 }

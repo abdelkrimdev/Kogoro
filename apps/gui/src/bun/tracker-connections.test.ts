@@ -3,6 +3,7 @@ import { AnimeAggregate, CredentialStore, TrackerError } from "@kogoro/core";
 import {
   createEventRepository,
   createLibraryRepository,
+  createMockIdentityResolver,
   createMockKeytar,
   withKogoroEnv,
 } from "@kogoro/core/testing";
@@ -211,6 +212,8 @@ describe("disconnectTracker", () => {
     aggregate = new AnimeAggregate({
       library: repo,
       replayUnpushedEvents: () => {},
+      identityResolver: createMockIdentityResolver(),
+      resolveTitleToAnidb: async () => null,
     });
     evtRepo = er;
     closeService = close;

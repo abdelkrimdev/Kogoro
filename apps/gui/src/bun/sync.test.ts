@@ -3,6 +3,7 @@ import { AnimeAggregate, ConfigManager, CredentialStore, type WatchTracker } fro
 import {
   createEventRepository,
   createLibraryRepository,
+  createMockIdentityResolver,
   createMockKeytar,
   createMockTracker,
   withMockFetch,
@@ -21,6 +22,8 @@ function createTestSetup() {
   const aggregate = new AnimeAggregate({
     library: libraryRepo,
     replayUnpushedEvents: () => {},
+    identityResolver: createMockIdentityResolver(),
+    resolveTitleToAnidb: async () => null,
   });
 
   return {

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createEventDb } from "../events/test-utils";
 import {
   createLibraryRepository,
+  createMockIdentityResolver,
   makeMatchResult,
   makeParsedResult,
   withTempDir,
@@ -315,6 +316,8 @@ describe("buildReviewPlan", () => {
       const aggregate = new AnimeAggregate({
         library: libraryRepo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       libraryRepo.upsertAnime({
         title: "Jujutsu Kaisen",
@@ -343,6 +346,8 @@ describe("buildReviewPlan", () => {
       const aggregate = new AnimeAggregate({
         library: libraryRepo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
 
       const results = [
@@ -684,6 +689,8 @@ describe("aggregateReviewPlan", () => {
       const aggregate = new AnimeAggregate({
         library: libraryRepo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
       libraryRepo.upsertAnime({
         title: "Jujutsu Kaisen",
@@ -723,6 +730,8 @@ describe("aggregateReviewPlan", () => {
       const aggregate = new AnimeAggregate({
         library: libraryRepo,
         replayUnpushedEvents: () => {},
+        identityResolver: createMockIdentityResolver(),
+        resolveTitleToAnidb: async () => null,
       });
 
       const results = [

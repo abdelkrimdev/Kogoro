@@ -3,6 +3,7 @@ import { AnimeAggregate, ConfigManager, CredentialStore } from "@kogoro/core";
 import {
   createEventRepository,
   createLibraryRepository,
+  createMockIdentityResolver,
   createMockKeytar,
   withMockFetch,
 } from "@kogoro/core/testing";
@@ -47,6 +48,8 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
@@ -74,6 +77,8 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const handlers = createTrackerImportHandlers({
           animeAggregate: aggregate,
@@ -100,6 +105,8 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const listData = {
@@ -206,6 +213,8 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
@@ -233,6 +242,8 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         const handlers = createTrackerImportHandlers({
           animeAggregate: aggregate,
@@ -259,6 +270,8 @@ describe("TrackerImportHandlers", () => {
         const aggregate = new AnimeAggregate({
           library: repo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const listData = {

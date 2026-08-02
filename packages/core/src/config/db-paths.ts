@@ -6,6 +6,7 @@ export interface DbPaths {
   libraryDbPath: string;
   cacheDbPath: string;
   eventsDbPath: string;
+  fribbDbPath: string;
 }
 
 export function resolveDbPaths(configDir: string = CONFIG_DIR): DbPaths {
@@ -16,5 +17,6 @@ export function resolveDbPaths(configDir: string = CONFIG_DIR): DbPaths {
     libraryDbPath: join(configDir, "library.db"),
     cacheDbPath: join(configDir, "cache.db"),
     eventsDbPath: join(configDir, "events.db"),
+    fribbDbPath: join(configDir, "fribb.db"),
   };
 }

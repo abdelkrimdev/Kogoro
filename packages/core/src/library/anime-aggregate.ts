@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { stripTypeDir } from "../config/schema";
+import type { FribbSource, IdentityResolver } from "../fribb/identity-resolver";
 import type { LocalWatchStatus } from "../tracker/credential-utils";
 import { mapTrackerStatus } from "../tracker/credential-utils";
 import type {
@@ -57,7 +58,6 @@ export interface ScanMergeEntry {
   kind: "scan";
   title: string;
   entryType: EntryType;
-  anidbId?: string;
   season?: number;
   episodes: Array<{
     episode: number;
@@ -72,10 +72,9 @@ export interface ImportMergeEntry {
   kind: "import";
   title: string;
   entryType: EntryType;
-  anidbId: string;
   season?: number;
-  trackerSource: TrackerSource;
-  trackerId: string;
+  source: TrackerSource;
+  sourceId: string;
   watchStatus: TrackerWatchStatus;
 }
 
@@ -88,51 +87,6 @@ export interface ResolveAndMergeInput {
 
 export interface ResolveAndMergeResult {
   animeIds: number[];
-}
-
-function titlesMatch(
-  animeTitle: string,
-  alternativeTitles: string[] | undefined,
-  targetLower: string,
-): boolean {
-  if (animeTitle.toLowerCase() === targetLower) return true;
-  if (alternativeTitles) {
-    return alternativeTitles.some((alt) => alt.toLowerCase() === targetLower);
-  }
-  return false;
-}
-
-function matchByRelation(
-  trackerEntry: { trackerId: string },
-  libraryAnimeAnidbIds: Map<number, string>,
-): number | null {
-  for (const [libraryId, anidbId] of libraryAnimeAnidbIds) {
-    if (trackerEntry.trackerId === anidbId) return libraryId;
-  }
-  return null;
-}
-
-function findAnimeByTitleMatch(
-  entry: { title: string; alternativeTitles?: string[] },
-  libraryAnime: Array<{ id: number; title: string; alternativeTitles?: string[] }>,
-): number | null {
-  const titleLower = entry.title.toLowerCase();
-  for (const anime of libraryAnime) {
-    if (titlesMatch(anime.title, anime.alternativeTitles, titleLower)) {
-      return anime.id;
-    }
-  }
-  if (entry.alternativeTitles) {
-    for (const altTitle of entry.alternativeTitles) {
-      const altLower = altTitle.toLowerCase();
-      for (const anime of libraryAnime) {
-        if (titlesMatch(anime.title, anime.alternativeTitles, altLower)) {
-          return anime.id;
-        }
-      }
-    }
-  }
-  return null;
 }
 
 function groupCompositeKey(
@@ -156,6 +110,8 @@ export interface AnimeAggregateDeps {
     groupByCompositeKey: Map<string, number>;
     episodeByCompositeKey: Map<string, number>;
   }) => void;
+  identityResolver: IdentityResolver;
+  resolveTitleToAnidb: (title: string) => Promise<string | null>;
 }
 
 export class AnimeAggregate {
@@ -173,7 +129,28 @@ export class AnimeAggregate {
     const resolved: Array<{ id: number; mergedInto?: number }> = [];
 
     for (const entry of pendingAnime) {
-      const resolvedAnidbId = this.resolveAnidbId(entry.title);
+      let resolvedAnidbId: string | null = null;
+
+      if (entry.anidbId?.startsWith("tracker:")) {
+        const parts = entry.anidbId.split(":");
+        const source = parts[1];
+        const sourceId = parts[2];
+        if (source && sourceId) {
+          try {
+            resolvedAnidbId = await this.deps.identityResolver.resolveToAnidb(
+              source as FribbSource,
+              sourceId,
+            );
+          } catch {
+            // IdentityResolver failed
+          }
+        }
+      } else if (entry.anidbId?.startsWith("temp:")) {
+        resolvedAnidbId = await this.deps.resolveTitleToAnidb(entry.title);
+      } else {
+        resolvedAnidbId = this.resolveAnidbId(entry.title);
+      }
+
       if (!resolvedAnidbId) continue;
 
       const existingAnime = this.deps.library.findAnimeByAnidbId(resolvedAnidbId);
@@ -203,15 +180,10 @@ export class AnimeAggregate {
       selectionMap.set(selection.trackerId, selection);
     }
 
-    const matchResults = await this.resolveTrackerMatchResults(trackerList, source);
+    const resolvedMap = await this.resolveBatchIdentities(trackerList, source);
 
     let skipped = 0;
     const newEntries: typeof trackerList = [];
-    const existingAnimeEntries: Array<{
-      entry: (typeof trackerList)[number];
-      selection: ImportSelection | undefined;
-      existingAnime: { id: number };
-    }> = [];
 
     for (const entry of trackerList) {
       const existingMapping = this.deps.library.findGroupByTrackerExternalId(
@@ -224,17 +196,12 @@ export class AnimeAggregate {
       }
 
       const selection = selectionMap.get(entry.trackerId);
-      const existingAnime = this.findExistingAnimeForImport(entry, selection, matchResults);
+      const resolvedAnidbId = resolvedMap.get(entry.trackerId) ?? null;
 
-      if (existingAnime) {
-        existingAnimeEntries.push({ entry, selection, existingAnime });
-      } else {
-        newEntries.push(entry);
-      }
-    }
+      const linked = this.linkTrackerToExistingAnime(entry, source, selection, resolvedAnidbId);
+      if (linked) continue;
 
-    for (const { entry, selection, existingAnime } of existingAnimeEntries) {
-      this.processEntryForExistingAnime(entry, selection, existingAnime, source);
+      newEntries.push(entry);
     }
 
     if (newEntries.length > 0) {
@@ -242,9 +209,8 @@ export class AnimeAggregate {
         kind: "import",
         title: entry.title,
         entryType: entry.entryType,
-        anidbId: entry.trackerId,
-        trackerSource: source,
-        trackerId: entry.trackerId,
+        source,
+        sourceId: entry.trackerId,
         watchStatus: entry.watchStatus,
       }));
 
@@ -256,7 +222,8 @@ export class AnimeAggregate {
 
   async getImportPreview(tracker: TrackerPlugin, source: TrackerSource): Promise<ImportPreview> {
     const trackerList = await tracker.getUserList();
-    const matchResults = await this.resolveTrackerMatchResults(trackerList, source);
+
+    const resolvedMap = await this.resolveBatchIdentities(trackerList, source);
 
     const matched: ImportPreviewEntry[] = [];
     const unmatched: ImportPreviewEntry[] = [];
@@ -275,7 +242,13 @@ export class AnimeAggregate {
         continue;
       }
 
-      const existingAnimeId = matchResults.get(entry.trackerId) ?? null;
+      const resolvedAnidbId = resolvedMap.get(entry.trackerId) ?? null;
+      let existingAnimeId: number | null = null;
+
+      if (resolvedAnidbId) {
+        const anime = this.deps.library.findAnimeByAnidbId(resolvedAnidbId);
+        if (anime) existingAnimeId = anime.id;
+      }
 
       const previewEntry: ImportPreviewEntry = {
         trackerId: entry.trackerId,
@@ -376,133 +349,6 @@ export class AnimeAggregate {
     }
 
     return result;
-  }
-
-  private findExistingAnimeForImport(
-    entry: { trackerId: string },
-    selection: ImportSelection | undefined,
-    matchResults: Map<string, number | null>,
-  ): { id: number } | null {
-    if (selection?.groupId) {
-      const group = this.deps.library.getEpisodeGroup(selection.groupId);
-      const anime = group ? this.deps.library.getAnime(group.animeId) : null;
-      if (anime) return anime;
-    }
-    if (matchResults.has(entry.trackerId)) {
-      const animeId = matchResults.get(entry.trackerId);
-      if (animeId != null) return { id: animeId };
-    }
-    return null;
-  }
-
-  private async resolveTrackerMatchResults(
-    trackerList: Array<{
-      trackerId: string;
-      title: string;
-      alternativeTitles?: string[];
-      entryType: EntryType;
-    }>,
-    source: TrackerSource,
-  ): Promise<Map<string, number | null>> {
-    const matchResults = new Map<string, number | null>();
-    const libraryAnime = this.deps.library.listAnime();
-
-    const { libraryAnimeAnidbIds } = await this.buildRelationMatchContext(trackerList);
-
-    for (const entry of trackerList) {
-      if (matchResults.has(entry.trackerId)) continue;
-
-      const existingMapping = this.deps.library.findGroupByTrackerExternalId(
-        source,
-        entry.trackerId,
-      );
-      if (existingMapping) continue;
-
-      let existingAnimeId: number | null = null;
-
-      existingAnimeId = matchByRelation(entry, libraryAnimeAnidbIds);
-
-      if (existingAnimeId === null) {
-        existingAnimeId = findAnimeByTitleMatch(entry, libraryAnime);
-      }
-
-      matchResults.set(entry.trackerId, existingAnimeId);
-    }
-
-    return matchResults;
-  }
-
-  private async buildRelationMatchContext(_trackerList: Array<{ trackerId: string }>): Promise<{
-    libraryAnimeAnidbIds: Map<number, string>;
-  }> {
-    const knownAnidbIds = this.deps.library.getAnidbIdsFromTrackerMappings();
-    const animeAnidbIds = this.deps.library.getAnidbIdsFromSourceMappings();
-    const libraryAnimeAnidbIds = new Map<number, string>();
-
-    for (const [anidbId, animeIds] of knownAnidbIds) {
-      const firstAnimeId = animeIds[0];
-      if (firstAnimeId !== undefined) {
-        libraryAnimeAnidbIds.set(firstAnimeId, anidbId);
-      }
-    }
-
-    for (const [anidbId, animeIds] of animeAnidbIds) {
-      const firstAnimeId = animeIds[0];
-      if (firstAnimeId !== undefined && !libraryAnimeAnidbIds.has(firstAnimeId)) {
-        libraryAnimeAnidbIds.set(firstAnimeId, anidbId);
-      }
-    }
-
-    return { libraryAnimeAnidbIds };
-  }
-
-  private processEntryForExistingAnime(
-    entry: {
-      trackerId: string;
-      entryType: EntryType;
-      watchStatus: TrackerWatchStatus;
-    },
-    selection: ImportSelection | undefined,
-    existingAnime: { id: number },
-    source: TrackerSource,
-  ): void {
-    const groups = this.deps.library.getEpisodeGroupsByAnimeId(existingAnime.id);
-
-    let targetGroup = groups.find(
-      (g) => g.entryType === entry.entryType && (g.seasonNumber ?? 1) === 1,
-    );
-
-    if (selection?.groupId) {
-      const linkedGroup = this.deps.library.getEpisodeGroup(selection.groupId);
-      if (linkedGroup) targetGroup = linkedGroup;
-    }
-
-    if (!targetGroup) {
-      const createdGroup = this.deps.library.upsertEpisodeGroup({
-        animeId: existingAnime.id,
-        entryType: entry.entryType,
-        seasonNumber: 1,
-        watchStatus: mapTrackerStatus(entry.watchStatus),
-      });
-
-      this.deps.library.upsertGroupTrackerMapping({
-        groupId: createdGroup.id,
-        source,
-        externalId: entry.trackerId,
-      });
-    } else {
-      if (selection?.resolution !== "keepLocal") {
-        this.deps.library.updateEpisodeGroupStatus(
-          targetGroup.id,
-          mapTrackerStatus(entry.watchStatus),
-        );
-      }
-      this.deps.library.upsertGroupTrackerMapping({
-        groupId: targetGroup.id,
-        source,
-        externalId: entry.trackerId,
-      });
-    }
   }
 
   private getFilteredMatches(sourceDb?: string): MatchEntry[] {
@@ -792,7 +638,8 @@ export class AnimeAggregate {
           }
           const mappings = tx.getTrackerMappingsByGroupId(group.id);
           for (const mapping of mappings) {
-            const existing = oldTrackerData.get(anime.anidbId);
+            const compositeKey = `${mapping.source}:${mapping.externalId}`;
+            const existing = oldTrackerData.get(compositeKey);
             const entry: {
               source: TrackerSource;
               externalId: string;
@@ -807,7 +654,7 @@ export class AnimeAggregate {
             if (existing) {
               existing.push(entry);
             } else {
-              oldTrackerData.set(anime.anidbId, [entry]);
+              oldTrackerData.set(compositeKey, [entry]);
             }
           }
         }
@@ -855,8 +702,17 @@ export class AnimeAggregate {
       }
     }
 
-    for (const [anidbId, trackerEntries] of oldTrackerData) {
-      const anime = this.deps.library.findAnimeByAnidbId(anidbId);
+    for (const [compositeKey, trackerEntries] of oldTrackerData) {
+      const colonIdx = compositeKey.indexOf(":");
+      const trackerSource = compositeKey.slice(0, colonIdx);
+      const trackerExternalId = compositeKey.slice(colonIdx + 1);
+
+      const sourceMapping = this.deps.library.findAnimeSourceMapping(
+        trackerSource,
+        trackerExternalId,
+      );
+      if (!sourceMapping) continue;
+      const anime = this.deps.library.getAnime(sourceMapping.animeId);
       if (!anime) continue;
 
       const groups = this.deps.library.getEpisodeGroupsByAnimeId(anime.id);
@@ -944,29 +800,7 @@ export class AnimeAggregate {
 
     const entriesByAnidbId = new Map<string, MergeEntry[]>();
     for (const entry of input.entries) {
-      let anidbId: string | null = entry.anidbId ?? null;
-
-      if (!anidbId) {
-        const sourceId = entry.kind === "import" ? entry.trackerId : entry.externalId;
-        const sourceName = entry.kind === "import" ? entry.trackerSource : entry.source;
-        if (sourceId && sourceName) {
-          const mapping = this.deps.library.findAnimeSourceMapping(sourceName, sourceId);
-          if (mapping) {
-            const anime = this.deps.library.getAnime(mapping.animeId);
-            if (anime?.anidbId) {
-              anidbId = anime.anidbId;
-            }
-          }
-        }
-      }
-
-      if (!anidbId) {
-        anidbId = this.resolveAnidbId(entry.title);
-      }
-
-      if (!anidbId) {
-        anidbId = `temp:${crypto.randomUUID()}`;
-      }
+      const anidbId = await this.resolveEntryAnidbId(entry);
 
       const existing = entriesByAnidbId.get(anidbId);
       if (existing) {
@@ -992,6 +826,150 @@ export class AnimeAggregate {
     }
 
     return { animeIds: allAnimeIds };
+  }
+
+  private async resolveEntryAnidbId(entry: MergeEntry): Promise<string> {
+    const sourceId = entry.kind === "import" ? entry.sourceId : entry.externalId;
+    const sourceName = entry.source;
+
+    // Tier 1: anime_source_mappings cache
+    if (sourceId && sourceName) {
+      const mapping = this.deps.library.findAnimeSourceMapping(sourceName, sourceId);
+      if (mapping) {
+        const anime = this.deps.library.getAnime(mapping.animeId);
+        if (anime?.anidbId) {
+          return anime.anidbId;
+        }
+      }
+    }
+
+    // Tier 2: IdentityResolver
+    if (sourceId && sourceName) {
+      try {
+        const resolved = await this.deps.identityResolver.resolveToAnidb(
+          sourceName as FribbSource,
+          sourceId,
+        );
+        if (resolved) {
+          const existingAnime = this.deps.library.findAnimeByAnidbId(resolved);
+          if (existingAnime) {
+            this.deps.library.createAnimeSourceMapping({
+              animeId: existingAnime.id,
+              source: sourceName,
+              externalId: sourceId,
+            });
+          }
+          return resolved;
+        }
+      } catch {
+        // IdentityResolver failed, fall through to tier 3
+      }
+    }
+
+    // Tier 3: Title match in library
+    const titleAnidbId = this.resolveAnidbId(entry.title);
+    if (titleAnidbId) {
+      return titleAnidbId;
+    }
+
+    // Tier 4: Synthetic ID
+    if (sourceId && sourceName) {
+      return `tracker:${sourceName}:${sourceId}`;
+    }
+    return `temp:${crypto.randomUUID()}`;
+  }
+
+  private async resolveBatchIdentities(
+    trackerList: Array<{ trackerId: string }>,
+    source: TrackerSource,
+  ): Promise<Map<string, string | null>> {
+    const entriesToResolve = trackerList
+      .filter((entry) => !this.deps.library.findGroupByTrackerExternalId(source, entry.trackerId))
+      .map((entry) => ({ source: source as FribbSource, sourceId: entry.trackerId }));
+
+    const resolvedEntries =
+      entriesToResolve.length > 0
+        ? await this.deps.identityResolver.resolveBatchToAnidb(entriesToResolve)
+        : [];
+
+    const resolvedMap = new Map<string, string | null>();
+    for (const result of resolvedEntries) {
+      resolvedMap.set(result.sourceId, result.anidbId);
+    }
+
+    for (const result of resolvedEntries) {
+      if (result.anidbId) {
+        const existingAnime = this.deps.library.findAnimeByAnidbId(result.anidbId);
+        if (existingAnime) {
+          this.deps.library.createAnimeSourceMapping({
+            animeId: existingAnime.id,
+            source,
+            externalId: result.sourceId,
+          });
+        }
+      }
+    }
+
+    return resolvedMap;
+  }
+
+  private linkTrackerToExistingAnime(
+    entry: { trackerId: string; entryType: EntryType; watchStatus: TrackerWatchStatus },
+    source: TrackerSource,
+    selection: ImportSelection | undefined,
+    resolvedAnidbId: string | null,
+  ): boolean {
+    // Explicit user selection takes priority
+    if (selection?.groupId) {
+      const group = this.deps.library.getEpisodeGroup(selection.groupId);
+      if (group) {
+        this.deps.library.upsertGroupTrackerMapping({
+          groupId: group.id,
+          source,
+          externalId: entry.trackerId,
+        });
+        if (selection.resolution !== "keepLocal") {
+          this.deps.library.updateEpisodeGroupStatus(group.id, mapTrackerStatus(entry.watchStatus));
+        }
+        return true;
+      }
+    }
+
+    // Identity resolution: find or create a group for the resolved anime
+    if (resolvedAnidbId) {
+      const anime = this.deps.library.findAnimeByAnidbId(resolvedAnidbId);
+      if (anime) {
+        const groups = this.deps.library.getEpisodeGroupsByAnimeId(anime.id);
+        let targetGroup = groups.find(
+          (g) => g.entryType === entry.entryType && (g.seasonNumber ?? 1) === 1,
+        );
+
+        if (!targetGroup) {
+          targetGroup = this.deps.library.upsertEpisodeGroup({
+            animeId: anime.id,
+            entryType: entry.entryType,
+            seasonNumber: 1,
+            watchStatus: mapTrackerStatus(entry.watchStatus),
+          });
+        }
+
+        this.deps.library.upsertGroupTrackerMapping({
+          groupId: targetGroup.id,
+          source,
+          externalId: entry.trackerId,
+        });
+
+        if (selection?.resolution !== "keepLocal") {
+          this.deps.library.updateEpisodeGroupStatus(
+            targetGroup.id,
+            mapTrackerStatus(entry.watchStatus),
+          );
+        }
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private resolveAnidbId(title: string): string | null {
@@ -1040,6 +1018,12 @@ export class AnimeAggregate {
           animeId,
           source: entry.source,
           externalId: entry.externalId,
+        });
+      } else if (entry.kind === "import" && entry.sourceId && entry.source) {
+        this.deps.library.createAnimeSourceMapping({
+          animeId,
+          source: entry.source,
+          externalId: entry.sourceId,
         });
       }
     }
@@ -1108,8 +1092,8 @@ export class AnimeAggregate {
 
       this.deps.library.upsertGroupTrackerMapping({
         groupId: groupEntry.groupId,
-        source: entry.trackerSource,
-        externalId: entry.trackerId,
+        source: entry.source,
+        externalId: entry.sourceId,
       });
     }
   }

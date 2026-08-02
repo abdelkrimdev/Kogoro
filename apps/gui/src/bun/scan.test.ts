@@ -21,6 +21,7 @@ import {
   createLibraryRepository,
   createMatchCacheService,
   createMockDb,
+  createMockIdentityResolver,
   hashFile,
   makeMatchResult,
   makeParsedResult,
@@ -257,6 +258,8 @@ describe("ScanOrchestrator", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
         await aggregate.rebuildFromMatches(matches);
 
@@ -444,6 +447,8 @@ describe("ScanOrchestrator", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const handlers = createScanHandlers({
@@ -523,6 +528,8 @@ describe("ScanOrchestrator", () => {
         const aggregate = new AnimeAggregate({
           library: libraryRepo,
           replayUnpushedEvents: () => {},
+          identityResolver: createMockIdentityResolver(),
+          resolveTitleToAnidb: async () => null,
         });
 
         const captured: { plan?: ReviewPlan } = {};
