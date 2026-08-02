@@ -11,14 +11,17 @@ import {
   createEventsConnection,
   createLibraryConnection,
   createMatchCacheConnection,
+  type FranchiseIndex,
+  FranchiseService,
   HttpClient,
+  type IdentityResolver,
   MAL_CLIENT_ID,
   MAL_REDIRECT_URI,
   ManifestService,
   resolveDbPaths,
   WatchTracker,
 } from "@kogoro/core";
-import { createFribbConnection } from "@kogoro/fribb";
+import { createFribbConnection, ensureDataset } from "@kogoro/fribb";
 import { PluginFactory } from "@kogoro/plugins";
 import { BrowserView, BrowserWindow, PATHS, Utils } from "electrobun/bun";
 import type { AppRPC } from "../shared/types";
@@ -70,17 +73,42 @@ const { cacheDbPath, libraryDbPath, eventsDbPath, fribbDbPath } = resolveDbPaths
 const { matchRepo, manifestRepo } = createMatchCacheConnection(cacheDbPath);
 const libraryRepo = createLibraryConnection(libraryDbPath);
 const eventsRepo = createEventsConnection(eventsDbPath);
-const fribb = createFribbConnection(fribbDbPath);
+
+let fribb: (IdentityResolver & FranchiseIndex) | undefined;
+let franchiseService: FranchiseService | undefined;
+try {
+  await ensureDataset(fribbDbPath);
+  fribb = createFribbConnection(fribbDbPath);
+  franchiseService = new FranchiseService({ library: libraryRepo, franchiseIndex: fribb });
+  await franchiseService.repairAll();
+} catch (err) {
+  console.warn(
+    "Fribb dataset unavailable, skipping identity resolution and franchise discovery:",
+    err,
+  );
+}
+
 const cacheService = new CacheService(matchRepo, manifestRepo);
 const manifestService = new ManifestService(manifestRepo);
 const animeAggregate = new AnimeAggregate({
   library: libraryRepo,
   replayUnpushedEvents: () => {},
-  identityResolver: fribb,
+  identityResolver: fribb ?? {
+    async resolveToAnidb() {
+      return null;
+    },
+    async resolveBatchToAnidb(entries) {
+      return entries.map((e) => ({ source: e.source, sourceId: e.sourceId, anidbId: null }));
+    },
+    async getMetadata() {
+      return { datasetVersion: "", datasetDate: "", supportedSources: [] as never[] };
+    },
+  },
   resolveTitleToAnidb: async (title: string) => {
     const anime = libraryRepo.findAnimeByTitle(title);
     return anime?.anidbId ?? null;
   },
+  franchiseService,
 });
 const watchTracker = new WatchTracker({ library: libraryRepo, events: eventsRepo });
 

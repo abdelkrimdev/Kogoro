@@ -4,11 +4,14 @@ import {
   CacheService,
   ConfigManager,
   createCredentialStore,
+  createLibraryConnection,
   createMatchCacheConnection,
+  FranchiseService,
   ManifestService,
   OverrideStore,
   resolveDbPaths,
 } from "@kogoro/core";
+import { createFribbConnection, ensureDataset } from "@kogoro/fribb";
 import { PluginFactory } from "@kogoro/plugins";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -37,10 +40,25 @@ export async function run(argv: string[]): Promise<void> {
   const config = new ConfigManager();
   const credentialStore = createCredentialStore();
 
-  const { cacheDbPath } = resolveDbPaths();
+  const { cacheDbPath, libraryDbPath, fribbDbPath } = resolveDbPaths();
   const { matchRepo, manifestRepo } = createMatchCacheConnection(cacheDbPath);
   const cacheService = new CacheService(matchRepo, manifestRepo);
   const manifestService = new ManifestService(manifestRepo);
+
+  try {
+    await ensureDataset(fribbDbPath);
+    const fribbClient = createFribbConnection(fribbDbPath);
+    const libraryRepo = createLibraryConnection(libraryDbPath);
+    const franchiseService = new FranchiseService({
+      library: libraryRepo,
+      franchiseIndex: fribbClient,
+    });
+    await franchiseService.repairAll();
+  } catch (err) {
+    log.warning(
+      `Fribb dataset unavailable, skipping identity resolution and franchise discovery: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   async function createDatabaseCommandsWithCredentials(debug?: boolean) {
     const { createDatabaseHandlers } = await import("./database/handlers");

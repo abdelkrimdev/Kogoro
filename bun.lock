@@ -24,6 +24,7 @@
       "dependencies": {
         "@clack/prompts": "^1.7.0",
         "@kogoro/core": "workspace:*",
+        "@kogoro/fribb": "workspace:*",
         "@kogoro/plugins": "workspace:*",
         "yargs": "^18.0.0",
       },
@@ -37,6 +38,7 @@
       "dependencies": {
         "@fontsource/inter": "^5.2.8",
         "@kogoro/core": "workspace:*",
+        "@kogoro/fribb": "workspace:*",
         "@kogoro/plugins": "workspace:*",
         "@lucide/svelte": "^1.24.0",
         "@skeletonlabs/skeleton": "^4.15.2",

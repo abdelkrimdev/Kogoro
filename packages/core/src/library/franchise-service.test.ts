@@ -1,33 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createLibraryRepository } from "../fixtures";
-import type { FranchiseCollection, FranchiseIndex } from "../fribb/franchise-index";
+import { createLibraryRepository, createMockFranchiseIndex } from "../fixtures";
+import type { FranchiseCollection } from "../fribb/franchise-index";
 import { FranchiseService } from "./franchise-service";
-
-function createMockFranchiseIndex(collections: FranchiseCollection[] = []): FranchiseIndex {
-  const byAnidb = new Map<string, FranchiseCollection>();
-  for (const c of collections) {
-    byAnidb.set(c.anidbId, c);
-    for (const member of c.members) {
-      byAnidb.set(member, c);
-    }
-  }
-
-  return {
-    async getCollectionForAnidb(anidbId: string) {
-      return byAnidb.get(anidbId) ?? null;
-    },
-    async getAllCollections() {
-      return collections;
-    },
-    async getMetadata() {
-      return {
-        datasetVersion: "mock",
-        datasetDate: "2026-01-01",
-        collectionCount: collections.length,
-      };
-    },
-  };
-}
 
 describe("FranchiseService", () => {
   describe("assignFranchise", () => {
