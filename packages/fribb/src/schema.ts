@@ -161,3 +161,60 @@ export const meta = sqliteTable("meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+export const INDEX_TABLE_NAMES = [
+  "idx_anidb",
+  "idx_anilist",
+  "idx_mal",
+  "idx_kitsu",
+  "idx_tvdb",
+  "idx_animecountdown",
+  "idx_animenewsnetwork",
+  "idx_anisearch",
+  "idx_livechart",
+  "idx_simkl",
+  "idx_tmdb_tv",
+] as const;
+
+export function createSchemaSql(): string[] {
+  return [
+    `CREATE TABLE IF NOT EXISTS entries (
+      anidb_id INTEGER PRIMARY KEY,
+      type TEXT,
+      anilist_id INTEGER,
+      mal_id INTEGER,
+      kitsu_id INTEGER,
+      tvdb_id INTEGER,
+      imdb_ids TEXT,
+      tmdb_tv_id INTEGER,
+      tmdb_movie_ids TEXT,
+      animecountdown_id INTEGER,
+      animenewsnetwork_id INTEGER,
+      anime_planet_id TEXT,
+      anisearch_id INTEGER,
+      livechart_id INTEGER,
+      simkl_id INTEGER,
+      season_tvdb INTEGER,
+      season_tmdb INTEGER,
+      episode_offset_tvdb INTEGER,
+      episode_offset_tmdb INTEGER
+    )`,
+    ...INDEX_TABLE_NAMES.flatMap((name) => [
+      `CREATE TABLE IF NOT EXISTS ${name} (
+        source_id INTEGER NOT NULL,
+        anidb_id INTEGER NOT NULL REFERENCES entries(anidb_id) ON DELETE CASCADE
+      )`,
+      `CREATE INDEX IF NOT EXISTS ${name}_source_id_idx ON ${name}(source_id)`,
+    ]),
+    `CREATE TABLE IF NOT EXISTS collections (
+      collection_name TEXT NOT NULL,
+      anidb_id INTEGER NOT NULL REFERENCES entries(anidb_id) ON DELETE CASCADE,
+      UNIQUE(collection_name, anidb_id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_collections_anidb_id ON collections(anidb_id)`,
+    `CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )`,
+  ];
+}

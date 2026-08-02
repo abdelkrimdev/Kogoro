@@ -5,7 +5,9 @@ import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import {
   collections as collectionsTable,
+  createSchemaSql,
   entries,
+  idxAnidb,
   idxAnilist,
   idxAnimecountdown,
   idxAnimenewsnetwork,
@@ -22,6 +24,7 @@ import type { FribbRawCollection, FribbRawEntry } from "./types";
 
 const SCHEMA_TABLES = {
   entries,
+  idxAnidb,
   idxAnilist,
   idxMal,
   idxKitsu,
@@ -43,69 +46,9 @@ export function createFribbDb(dir?: string) {
   const sqlite = new Database(path);
   sqlite.run("PRAGMA foreign_keys = ON");
 
-  sqlite.run(`
-    CREATE TABLE IF NOT EXISTS entries (
-      anidb_id INTEGER PRIMARY KEY,
-      type TEXT,
-      anilist_id INTEGER,
-      mal_id INTEGER,
-      kitsu_id INTEGER,
-      tvdb_id INTEGER,
-      imdb_ids TEXT,
-      tmdb_tv_id INTEGER,
-      tmdb_movie_ids TEXT,
-      animecountdown_id INTEGER,
-      animenewsnetwork_id INTEGER,
-      anime_planet_id TEXT,
-      anisearch_id INTEGER,
-      livechart_id INTEGER,
-      simkl_id INTEGER,
-      season_tvdb INTEGER,
-      season_tmdb INTEGER,
-      episode_offset_tvdb INTEGER,
-      episode_offset_tmdb INTEGER
-    )
-  `);
-
-  const indexTables = [
-    "idx_anidb",
-    "idx_anilist",
-    "idx_mal",
-    "idx_kitsu",
-    "idx_tvdb",
-    "idx_animecountdown",
-    "idx_animenewsnetwork",
-    "idx_anisearch",
-    "idx_livechart",
-    "idx_simkl",
-    "idx_tmdb_tv",
-  ];
-
-  for (const tableName of indexTables) {
-    sqlite.run(`
-      CREATE TABLE IF NOT EXISTS ${tableName} (
-        source_id INTEGER NOT NULL,
-        anidb_id INTEGER NOT NULL REFERENCES entries(anidb_id) ON DELETE CASCADE
-      )
-    `);
-    sqlite.run(`CREATE INDEX IF NOT EXISTS ${tableName}_source_id_idx ON ${tableName}(source_id)`);
+  for (const sql of createSchemaSql()) {
+    sqlite.run(sql);
   }
-
-  sqlite.run(`
-    CREATE TABLE IF NOT EXISTS collections (
-      collection_name TEXT NOT NULL,
-      anidb_id INTEGER NOT NULL REFERENCES entries(anidb_id) ON DELETE CASCADE,
-      UNIQUE(collection_name, anidb_id)
-    )
-  `);
-  sqlite.run(`CREATE INDEX IF NOT EXISTS idx_collections_anidb_id ON collections(anidb_id)`);
-
-  sqlite.run(`
-    CREATE TABLE IF NOT EXISTS meta (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    )
-  `);
 
   const db = drizzle(sqlite, { schema: SCHEMA_TABLES });
   return { db, sqlite };

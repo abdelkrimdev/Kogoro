@@ -9,20 +9,22 @@ import type {
   IdentityResolverMetadata,
   IdentityResolverResult,
 } from "@kogoro/core";
+import { INDEX_TABLE_NAMES } from "./schema";
 
-const SOURCE_INDEX_TABLE_MAP: Record<string, string> = {
-  anidb: "idx_anidb",
-  anilist: "idx_anilist",
-  mal: "idx_mal",
-  kitsu: "idx_kitsu",
-  tvdb: "idx_tvdb",
-  animecountdown: "idx_animecountdown",
-  animenewsnetwork: "idx_animenewsnetwork",
-  anisearch: "idx_anisearch",
-  livechart: "idx_livechart",
-  simkl: "idx_simkl",
-  tmdb: "idx_tmdb_tv",
-};
+function buildSourceIndexTableMap(): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const name of INDEX_TABLE_NAMES) {
+    const source = name.replace(/^idx_/, "");
+    if (source === "tmdb_tv") {
+      map["tmdb"] = name;
+    } else {
+      map[source] = name;
+    }
+  }
+  return map;
+}
+
+const SOURCE_INDEX_TABLE_MAP = buildSourceIndexTableMap();
 
 const SUPPORTED_SOURCES: FribbSource[] = [
   "anidb",
