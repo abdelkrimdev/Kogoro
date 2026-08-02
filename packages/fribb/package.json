@@ -9,6 +9,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@kogoro/core": "workspace:*",
     "drizzle-orm": "^0.45.2"
   }
 }
