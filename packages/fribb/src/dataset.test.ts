@@ -3,12 +3,12 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { ensureDataset } from "./dataset";
 import {
-  createFailingFetch,
   createFribbDb,
   createMockFetch,
   type FetchFn,
   makeRawCollection,
   makeRawEntry,
+  mockFailingFetch,
   withTempDir,
 } from "./fixtures";
 import { entries } from "./schema";
@@ -228,7 +228,7 @@ describe("ensureDataset", () => {
       const { utimesSync } = await import("node:fs");
       utimesSync(dbPath, eightDaysAgo / 1000, eightDaysAgo / 1000);
 
-      await ensureDataset(dir, { fetch: createFailingFetch() });
+      await ensureDataset(dir, { fetch: mockFailingFetch() });
 
       expect(existsSync(dbPath)).toBe(true);
       const { sqlite } = createFribbDb(dir);
@@ -243,7 +243,7 @@ describe("ensureDataset", () => {
 
   test("throws when no cached db exists and download fails", async () => {
     await withTempDir("no-cache-failure", async (dir) => {
-      await expect(ensureDataset(dir, { fetch: createFailingFetch() })).rejects.toThrow(
+      await expect(ensureDataset(dir, { fetch: mockFailingFetch() })).rejects.toThrow(
         "Failed to download Fribb dataset and no cached fribb.db exists",
       );
     });

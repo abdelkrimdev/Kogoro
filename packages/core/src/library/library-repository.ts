@@ -918,11 +918,6 @@ export class LibraryRepository {
     this.db.delete(franchises).where(eq(franchises.id, id)).run();
   }
 
-  getAnimeByFranchiseId(franchiseId: number): LibraryAnime[] {
-    const rows = this.db.select().from(anime).where(eq(anime.franchiseId, franchiseId)).all();
-    return rows.map(this.rowToAnime);
-  }
-
   countAnimeByFranchiseId(franchiseId: number): number {
     const row = this.db
       .select({ count: sql<number>`cast(count(*) as int)` })
@@ -986,7 +981,9 @@ export class LibraryRepository {
     const rows = this.db
       .select()
       .from(anime)
-      .where(or(isNull(anime.anidbId), like(anime.anidbId, "temp:%")))
+      .where(
+        or(isNull(anime.anidbId), like(anime.anidbId, "temp:%"), like(anime.anidbId, "tracker:%")),
+      )
       .all();
     return rows.map(this.rowToAnime);
   }

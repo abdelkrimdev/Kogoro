@@ -3,10 +3,10 @@ import { join } from "node:path";
 import { createFribbConnection } from "./client";
 import { ensureDataset } from "./dataset";
 import {
-  createFailingFetch,
   createMockFetch,
   makeRawCollection,
   makeRawEntry,
+  mockFailingFetch,
   withTempDir,
 } from "./fixtures";
 
@@ -41,7 +41,7 @@ describe("Fribb startup wiring", () => {
 
   test("graceful degradation when ensureDataset fails and no cached db exists", async () => {
     await withTempDir("startup-no-db", async (dir) => {
-      await expect(ensureDataset(dir, { fetch: createFailingFetch() })).rejects.toThrow(
+      await expect(ensureDataset(dir, { fetch: mockFailingFetch() })).rejects.toThrow(
         "Failed to download Fribb dataset and no cached fribb.db exists",
       );
 

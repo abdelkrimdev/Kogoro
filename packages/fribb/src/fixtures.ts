@@ -176,7 +176,7 @@ export function createMockFetch(
   };
 }
 
-export function createFailingFetch(): FetchFn {
+export function mockFailingFetch(): FetchFn {
   return async () => {
     throw new Error("Network error");
   };
