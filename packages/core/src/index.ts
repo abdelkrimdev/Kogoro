@@ -28,6 +28,18 @@ export {
 export type { AppendEventInput, Event } from "./events/event-repository";
 export { EventRepository } from "./events/event-repository";
 export type { EnrichmentSend } from "./fixtures";
+export type {
+  FranchiseCollection,
+  FranchiseIndex,
+  FranchiseIndexMetadata,
+} from "./fribb/franchise-index";
+export type {
+  FribbSource,
+  IdentityResolver,
+  IdentityResolverEntry,
+  IdentityResolverMetadata,
+  IdentityResolverResult,
+} from "./fribb/identity-resolver";
 export { walk } from "./io/directory-walker";
 export { hashFile } from "./io/file-hash";
 export type { DebugEntry } from "./io/http-client";

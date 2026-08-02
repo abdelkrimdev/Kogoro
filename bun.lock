@@ -62,6 +62,13 @@
         "drizzle-kit": "^0.31.10",
       },
     },
+    "packages/fribb": {
+      "name": "@kogoro/fribb",
+      "version": "0.1.0",
+      "dependencies": {
+        "@kogoro/core": "workspace:*",
+      },
+    },
     "packages/plugins": {
       "name": "@kogoro/plugins",
       "version": "0.1.0",
@@ -184,6 +191,8 @@
     "@kogoro/cli": ["@kogoro/cli@workspace:apps/cli"],
 
     "@kogoro/core": ["@kogoro/core@workspace:packages/core"],
+
+    "@kogoro/fribb": ["@kogoro/fribb@workspace:packages/fribb"],
 
     "@kogoro/gui": ["@kogoro/gui@workspace:apps/gui"],
 
