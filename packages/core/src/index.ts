@@ -59,10 +59,7 @@ export type {
 } from "./library/anime-aggregate";
 export { AnimeAggregate } from "./library/anime-aggregate";
 export { BackgroundRetryService } from "./library/background-retry";
-export {
-  type EnrichmentMediaResult,
-  FranchiseAggregate,
-} from "./library/franchise-aggregate";
+export { FranchiseService } from "./library/franchise-service";
 export type {
   AnimeSourceMapping,
   EpisodeGroup,

@@ -909,6 +909,29 @@ export class LibraryRepository {
     return rows.map(this.rowToFranchise);
   }
 
+  findFranchiseByTitle(title: string): Franchise | null {
+    const row = this.db.select().from(franchises).where(eq(franchises.title, title)).get();
+    return row ? this.rowToFranchise(row) : null;
+  }
+
+  deleteFranchise(id: number): void {
+    this.db.delete(franchises).where(eq(franchises.id, id)).run();
+  }
+
+  getAnimeByFranchiseId(franchiseId: number): LibraryAnime[] {
+    const rows = this.db.select().from(anime).where(eq(anime.franchiseId, franchiseId)).all();
+    return rows.map(this.rowToAnime);
+  }
+
+  countAnimeByFranchiseId(franchiseId: number): number {
+    const row = this.db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(anime)
+      .where(eq(anime.franchiseId, franchiseId))
+      .get();
+    return row?.count ?? 0;
+  }
+
   // Anime source mapping operations
 
   findAnimeSourceMapping(source: string, externalId: string): AnimeSourceMapping | null {

@@ -12,6 +12,7 @@ import type {
   TrackerWatchStatus,
 } from "../types";
 
+import type { FranchiseService } from "./franchise-service";
 import type {
   EpisodeGroup,
   GroupTrackerMapping,
@@ -112,6 +113,7 @@ export interface AnimeAggregateDeps {
   }) => void;
   identityResolver: IdentityResolver;
   resolveTitleToAnidb: (title: string) => Promise<string | null>;
+  franchiseService?: FranchiseService;
 }
 
 export class AnimeAggregate {
@@ -823,6 +825,15 @@ export class AnimeAggregate {
 
     for (const animeId of allAnimeIds) {
       this.cleanupEmptyGroups(animeId);
+    }
+
+    for (const animeId of newAnimeIds) {
+      if (this.deps.franchiseService) {
+        const anime = this.deps.library.getAnime(animeId);
+        if (anime) {
+          await this.deps.franchiseService.assignFranchise(anime);
+        }
+      }
     }
 
     return { animeIds: allAnimeIds };
