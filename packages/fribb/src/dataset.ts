@@ -29,7 +29,6 @@ const COLLECTION_SOURCES = [
   "anilist",
   "mal",
   "kitsu",
-  "tvdb",
   "animecountdown",
   "animenewsnetwork",
   "anisearch",
@@ -123,7 +122,7 @@ function populateDb(
 ): void {
   const db = drizzle(sqlite);
 
-  sqlite.exec("PRAGMA foreign_keys = ON");
+  sqlite.exec("PRAGMA foreign_keys = OFF");
   sqlite.exec("BEGIN TRANSACTION");
 
   try {
@@ -167,6 +166,8 @@ function populateDb(
   } catch (error) {
     sqlite.exec("ROLLBACK");
     throw error;
+  } finally {
+    sqlite.exec("PRAGMA foreign_keys = ON");
   }
 }
 
@@ -179,6 +180,10 @@ export async function ensureDataset(dir: string, options?: DatasetOptions): Prom
   const tmpPath = `${dbPath}.tmp`;
 
   try {
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+
     const [animeList, ...collectionResults] = await Promise.all([
       downloadJson<FribbRawEntry[]>(ANIME_LIST_URL, fetchFn),
       ...COLLECTION_SOURCES.map((source) =>
@@ -188,10 +193,6 @@ export async function ensureDataset(dir: string, options?: DatasetOptions): Prom
         ).then((collections) => ({ source, collections })),
       ),
     ]);
-
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
 
     const sqlite = new Database(tmpPath);
     try {

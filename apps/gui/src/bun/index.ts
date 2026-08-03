@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   AnimeAggregate,
@@ -77,7 +77,7 @@ const eventsRepo = createEventsConnection(eventsDbPath);
 let fribb: (IdentityResolver & FranchiseIndex) | undefined;
 let franchiseService: FranchiseService | undefined;
 try {
-  await ensureDataset(fribbDbPath);
+  await ensureDataset(dirname(fribbDbPath));
   fribb = createFribbConnection(fribbDbPath);
   franchiseService = new FranchiseService({ library: libraryRepo, franchiseIndex: fribb });
   await franchiseService.repairAll();

@@ -1,4 +1,6 @@
 import { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
+import { dirname } from "node:path";
 import type {
   FranchiseCollection,
   FranchiseIndex,
@@ -40,6 +42,13 @@ class FribbClient implements IdentityResolver, FranchiseIndex {
   private sqlite: Database;
 
   constructor(dbPath: string) {
+    const dir = dirname(dbPath);
+    if (!existsSync(dir)) {
+      throw new Error(`Fribb database directory does not exist: ${dir}`);
+    }
+    if (!existsSync(dbPath)) {
+      throw new Error(`Fribb database file does not exist: ${dbPath}. Run ensureDataset() first.`);
+    }
     this.sqlite = new Database(dbPath, { readonly: true });
   }
 

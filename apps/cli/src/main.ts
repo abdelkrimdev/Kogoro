@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { log } from "@clack/prompts";
 import {
   CacheService,
@@ -46,7 +47,7 @@ export async function run(argv: string[]): Promise<void> {
   const manifestService = new ManifestService(manifestRepo);
 
   try {
-    await ensureDataset(fribbDbPath);
+    await ensureDataset(dirname(fribbDbPath));
     const fribbClient = createFribbConnection(fribbDbPath);
     const libraryRepo = createLibraryConnection(libraryDbPath);
     const franchiseService = new FranchiseService({
