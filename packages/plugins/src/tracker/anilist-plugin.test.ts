@@ -861,7 +861,7 @@ describe("AniListPlugin", () => {
       const store = new CredentialStore({ keytar: createMockKeytar() });
       const expiredCredential = JSON.stringify({
         access_token: "expired-token",
-        expires_at: Date.now() - 1000, // Expired
+        expires_at: Date.now() - 1000,
       });
       await store.setCredential("anilist", expiredCredential);
 
@@ -879,7 +879,7 @@ describe("AniListPlugin", () => {
       const store = new CredentialStore({ keytar: createMockKeytar() });
       const expiredCredential = JSON.stringify({
         access_token: "expired-token",
-        expires_at: Date.now() - 1000, // Expired
+        expires_at: Date.now() - 1000,
       });
       await store.setCredential("anilist", expiredCredential);
 
