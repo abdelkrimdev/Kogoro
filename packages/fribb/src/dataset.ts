@@ -66,109 +66,85 @@ function createTables(sqlite: Database): void {
   }
 }
 
-function insertEntry(db: ReturnType<typeof drizzle>, raw: FribbRawEntry): void {
-  if (raw.anidb_id == null) return;
-
-  const imdbIds = raw.imdb_id ?? [];
-  const tmdbMovieIds = raw.themoviedb_id?.movie ?? [];
-
-  db.insert(entries)
-    .values({
-      anidbId: raw.anidb_id,
-      type: raw.type ?? null,
-      anilistId: raw.anilist_id ?? null,
-      malId: raw.mal_id ?? null,
-      kitsuId: raw.kitsu_id ?? null,
-      tvdbId: raw.tvdb_id ?? null,
-      imdbIds: imdbIds.length > 0 ? imdbIds : null,
-      tmdbTvId: raw.themoviedb_id?.tv ?? null,
-      tmdbMovieIds: tmdbMovieIds.length > 0 ? tmdbMovieIds : null,
-      animecountdownId: raw.animecountdown_id ?? null,
-      animenewsnetworkId: raw.animenewsnetwork_id ?? null,
-      animePlanetId: raw["anime-planet_id"] ?? null,
-      anisearchId: raw.anisearch_id ?? null,
-      livechartId: raw.livechart_id ?? null,
-      simklId: raw.simkl_id ?? null,
-      seasonTvdb: raw.season?.tvdb ?? null,
-      seasonTmdb: raw.season?.tmdb ?? null,
-      episodeOffsetTvdb: raw.episode_offset?.tvdb ?? null,
-      episodeOffsetTmdb: raw.episode_offset?.tmdb ?? null,
-    })
-    .run();
-}
-
-function insertIndexRow(
-  db: ReturnType<typeof drizzle>,
-  table: SQLiteTable,
-  sourceId: number | undefined,
-  anidbId: number,
-): void {
-  if (sourceId == null) return;
-  db.insert(table).values({ sourceId, anidbId }).run();
-}
-
-function insertCollection(
-  db: ReturnType<typeof drizzle>,
-  collectionName: string,
-  anidbId: number,
-): void {
-  db.insert(collectionsTable).values({ collectionName, anidbId }).run();
-}
-
 function populateDb(
   sqlite: Database,
   animeList: FribbRawEntry[],
   collectionData: Array<{ source: string; collections: FribbRawCollection[] }>,
 ): void {
-  const db = drizzle(sqlite);
+  const db = drizzle({ client: sqlite });
 
-  sqlite.exec("PRAGMA foreign_keys = OFF");
-  sqlite.exec("BEGIN TRANSACTION");
-
-  try {
+  db.transaction((tx) => {
     for (const raw of animeList) {
-      insertEntry(db, raw);
+      if (raw.anidb_id == null) continue;
 
-      if (raw.anidb_id != null) {
-        insertIndexRow(db, idxAnidb, raw.anidb_id, raw.anidb_id);
-        insertIndexRow(db, idxAnilist, raw.anilist_id, raw.anidb_id);
-        insertIndexRow(db, idxMal, raw.mal_id, raw.anidb_id);
-        insertIndexRow(db, idxKitsu, raw.kitsu_id, raw.anidb_id);
-        insertIndexRow(db, idxTvdb, raw.tvdb_id, raw.anidb_id);
-        insertIndexRow(db, idxAnimecountdown, raw.animecountdown_id, raw.anidb_id);
-        insertIndexRow(db, idxAnimenewsnetwork, raw.animenewsnetwork_id, raw.anidb_id);
-        insertIndexRow(db, idxAnisearch, raw.anisearch_id, raw.anidb_id);
-        insertIndexRow(db, idxLivechart, raw.livechart_id, raw.anidb_id);
-        insertIndexRow(db, idxSimkl, raw.simkl_id, raw.anidb_id);
-        insertIndexRow(db, idxTmdbTv, raw.themoviedb_id?.tv, raw.anidb_id);
+      const imdbIds = raw.imdb_id ?? [];
+      const tmdbMovieIds = raw.themoviedb_id?.movie ?? [];
+
+      tx.insert(entries)
+        .values({
+          anidbId: raw.anidb_id,
+          type: raw.type ?? null,
+          anilistId: raw.anilist_id ?? null,
+          malId: raw.mal_id ?? null,
+          kitsuId: raw.kitsu_id ?? null,
+          tvdbId: raw.tvdb_id ?? null,
+          imdbIds: imdbIds.length > 0 ? imdbIds : null,
+          tmdbTvId: raw.themoviedb_id?.tv ?? null,
+          tmdbMovieIds: tmdbMovieIds.length > 0 ? tmdbMovieIds : null,
+          animecountdownId: raw.animecountdown_id ?? null,
+          animenewsnetworkId: raw.animenewsnetwork_id ?? null,
+          animePlanetId: raw["anime-planet_id"] ?? null,
+          anisearchId: raw.anisearch_id ?? null,
+          livechartId: raw.livechart_id ?? null,
+          simklId: raw.simkl_id ?? null,
+          seasonTvdb: raw.season?.tvdb ?? null,
+          seasonTmdb: raw.season?.tmdb ?? null,
+          episodeOffsetTvdb: raw.episode_offset?.tvdb ?? null,
+          episodeOffsetTmdb: raw.episode_offset?.tmdb ?? null,
+        })
+        .run();
+
+      const indexRows: Array<{ table: SQLiteTable; sourceId: number | undefined }> = [
+        { table: idxAnidb, sourceId: raw.anidb_id },
+        { table: idxAnilist, sourceId: raw.anilist_id },
+        { table: idxMal, sourceId: raw.mal_id },
+        { table: idxKitsu, sourceId: raw.kitsu_id },
+        { table: idxTvdb, sourceId: raw.tvdb_id },
+        { table: idxAnimecountdown, sourceId: raw.animecountdown_id },
+        { table: idxAnimenewsnetwork, sourceId: raw.animenewsnetwork_id },
+        { table: idxAnisearch, sourceId: raw.anisearch_id },
+        { table: idxLivechart, sourceId: raw.livechart_id },
+        { table: idxSimkl, sourceId: raw.simkl_id },
+        { table: idxTmdbTv, sourceId: raw.themoviedb_id?.tv },
+      ];
+
+      for (const { table, sourceId } of indexRows) {
+        if (sourceId != null) {
+          tx.insert(table).values({ sourceId, anidbId: raw.anidb_id }).run();
+        }
       }
     }
 
     for (const { source, collections: colls } of collectionData) {
       for (const coll of colls) {
         for (const anidbId of coll.ids) {
-          insertCollection(db, `${source}:${coll.name}`, anidbId);
+          tx.insert(collectionsTable)
+            .values({ collectionName: `${source}:${coll.name}`, anidbId })
+            .run();
         }
       }
     }
 
     const now = new Date().toISOString();
-    db.insert(meta).values({ key: "dataset_version", value: now }).run();
-    db.insert(meta).values({ key: "dataset_date", value: now }).run();
-    db.insert(meta)
+    tx.insert(meta).values({ key: "dataset_version", value: now }).run();
+    tx.insert(meta).values({ key: "dataset_date", value: now }).run();
+    tx.insert(meta)
       .values({
         key: "entry_count",
         value: String(animeList.filter((e) => e.anidb_id != null).length),
       })
       .run();
-
-    sqlite.exec("COMMIT");
-  } catch (error) {
-    sqlite.exec("ROLLBACK");
-    throw error;
-  } finally {
-    sqlite.exec("PRAGMA foreign_keys = ON");
-  }
+  });
 }
 
 export async function ensureDataset(dir: string, options?: DatasetOptions): Promise<void> {

@@ -50,7 +50,7 @@ export function createFribbDb(dir?: string) {
     sqlite.run(sql);
   }
 
-  const db = drizzle(sqlite, { schema: SCHEMA_TABLES });
+  const db = drizzle({ client: sqlite, schema: SCHEMA_TABLES });
   return { db, sqlite };
 }
 
