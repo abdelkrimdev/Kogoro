@@ -11,22 +11,15 @@ import type {
   IdentityResolverMetadata,
   IdentityResolverResult,
 } from "@kogoro/core";
-import { INDEX_TABLE_NAMES } from "./schema";
 
-function buildSourceIndexTableMap(): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const name of INDEX_TABLE_NAMES) {
-    const source = name.replace(/^idx_/, "");
-    if (source === "tmdb_tv") {
-      map["tmdb"] = name;
-    } else {
-      map[source] = name;
-    }
-  }
-  return map;
-}
-
-const SOURCE_INDEX_TABLE_MAP = buildSourceIndexTableMap();
+const SOURCE_INDEX_TABLES: Record<string, string> = {
+  anidb: "idx_anidb",
+  anilist: "idx_anilist",
+  mal: "idx_mal",
+  kitsu: "idx_kitsu",
+  tvdb: "idx_tvdb",
+  tmdb: "idx_tmdb_tv",
+};
 
 const SUPPORTED_SOURCES: FribbSource[] = [
   "anidb",
@@ -70,7 +63,7 @@ class FribbClient implements IdentityResolver, FranchiseIndex {
     if (source === "imdb") {
       return this.resolveImdbToAnidb(sourceId);
     }
-    const tableName = SOURCE_INDEX_TABLE_MAP[source];
+    const tableName = SOURCE_INDEX_TABLES[source];
     if (!tableName) return null;
 
     const row = this.sqlite
@@ -107,7 +100,7 @@ class FribbClient implements IdentityResolver, FranchiseIndex {
         continue;
       }
 
-      const tableName = SOURCE_INDEX_TABLE_MAP[source];
+      const tableName = SOURCE_INDEX_TABLES[source];
       if (!tableName) {
         for (const entry of entries) {
           results.push({ source: entry.source, sourceId: entry.sourceId, anidbId: null });
@@ -155,7 +148,9 @@ class FribbClient implements IdentityResolver, FranchiseIndex {
 
   async getCollectionForAnidb(anidbId: string): Promise<FranchiseCollection | null> {
     const collectionRow = this.sqlite
-      .query("SELECT collection_name FROM collections WHERE anidb_id = ?")
+      .query(
+        "SELECT collection_name FROM collections WHERE anidb_id = ? AND collection_name LIKE 'anidb:%'",
+      )
       .get(Number(anidbId)) as { collection_name: string } | undefined;
     if (!collectionRow) return null;
 
@@ -174,7 +169,9 @@ class FribbClient implements IdentityResolver, FranchiseIndex {
 
   async getAllCollections(): Promise<FranchiseCollection[]> {
     const rows = this.sqlite
-      .query("SELECT collection_name, anidb_id FROM collections ORDER BY collection_name")
+      .query(
+        "SELECT collection_name, anidb_id FROM collections WHERE collection_name LIKE 'anidb:%' ORDER BY collection_name",
+      )
       .all() as Array<{ collection_name: string; anidb_id: number }>;
 
     const collectionMap = new Map<string, string[]>();
@@ -187,7 +184,6 @@ class FribbClient implements IdentityResolver, FranchiseIndex {
     const collections: FranchiseCollection[] = [];
     for (const [collectionName, members] of collectionMap) {
       const { franchiseTitle } = this.parseFranchiseTitle(collectionName);
-      // Use first member as anidbId (any member would work)
       collections.push({
         anidbId: members[0] ?? "",
         franchiseTitle,

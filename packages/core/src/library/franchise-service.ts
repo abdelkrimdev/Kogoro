@@ -40,10 +40,15 @@ export class FranchiseService {
 
     for (const anime of allAnime) {
       if (!anime.anidbId) continue;
-      if (!anime.franchiseId) continue;
 
       const franchiseTitle = collectionByAnidb.get(anime.anidbId);
       if (!franchiseTitle) continue;
+
+      if (!anime.franchiseId) {
+        const targetFranchise = await this.findOrCreateFranchiseByTitle(franchiseTitle);
+        this.deps.library.assignAnimeToFranchise(anime.id, targetFranchise.id);
+        continue;
+      }
 
       const currentFranchise = this.deps.library.getFranchiseById(anime.franchiseId);
       if (!currentFranchise) continue;

@@ -162,7 +162,7 @@ export const meta = sqliteTable("meta", {
   value: text("value").notNull(),
 });
 
-export const INDEX_TABLE_NAMES = [
+const INDEX_TABLES = [
   "idx_anidb",
   "idx_anilist",
   "idx_mal",
@@ -174,7 +174,7 @@ export const INDEX_TABLE_NAMES = [
   "idx_livechart",
   "idx_simkl",
   "idx_tmdb_tv",
-] as const;
+];
 
 export function createSchemaSql(): string[] {
   return [
@@ -199,7 +199,7 @@ export function createSchemaSql(): string[] {
       episode_offset_tvdb INTEGER,
       episode_offset_tmdb INTEGER
     )`,
-    ...INDEX_TABLE_NAMES.flatMap((name) => [
+    ...INDEX_TABLES.flatMap((name) => [
       `CREATE TABLE IF NOT EXISTS ${name} (
         source_id INTEGER NOT NULL,
         anidb_id INTEGER NOT NULL REFERENCES entries(anidb_id) ON DELETE CASCADE

@@ -212,7 +212,7 @@ describe("FranchiseService", () => {
       }
     });
 
-    test("handles anime not in any collection (leaves as singleton)", async () => {
+    test("leaves anime not in any collection as singleton", async () => {
       const { repo, close } = createLibraryRepository();
       try {
         const franchiseIndex = createMockFranchiseIndex([]);
@@ -242,6 +242,85 @@ describe("FranchiseService", () => {
 
         const franchises = repo.getFranchises();
         expect(franchises.length).toBe(0);
+      } finally {
+        close();
+      }
+    });
+
+    test("merges incorrectly assigned seasons into correct franchise", async () => {
+      const { repo, close } = createLibraryRepository();
+      try {
+        const collection: FranchiseCollection = {
+          anidbId: "11395",
+          franchiseTitle: "3-gatsu no Lion",
+          members: ["11395", "11606", "12994"],
+        };
+        const franchiseIndex = createMockFranchiseIndex([collection]);
+        const service = new FranchiseService({ library: repo, franchiseIndex });
+
+        const anime1 = repo.upsertAnime({ title: "3-gatsu no Lion", anidbId: "11395" });
+        const anime2 = repo.upsertAnime({ title: "3-gatsu no Lion 2nd Season", anidbId: "11606" });
+        const anime3 = repo.upsertAnime({
+          title: "3-gatsu no Lion 2nd Season Part 2",
+          anidbId: "12994",
+        });
+
+        const wrongFranchise1 = repo.createFranchise({ title: "Flanders no Inu (Movie)" });
+        const wrongFranchise2 = repo.createFranchise({ title: "Wrong Franchise" });
+        repo.assignAnimeToFranchise(anime1.id, wrongFranchise1.id);
+        repo.assignAnimeToFranchise(anime2.id, wrongFranchise2.id);
+
+        await service.repairAll();
+
+        const franchises = repo.getFranchises();
+        const correctFranchise = franchises.find((f) => f.title === "3-gatsu no Lion");
+        expect(correctFranchise).toBeDefined();
+
+        expect(repo.getAnime(anime1.id)?.franchiseId).toBe(correctFranchise?.id);
+        expect(repo.getAnime(anime2.id)?.franchiseId).toBe(correctFranchise?.id);
+        expect(repo.getAnime(anime3.id)?.franchiseId).toBe(correctFranchise?.id);
+
+        const wrongFranchises = franchises.filter(
+          (f) => f.title === "Flanders no Inu (Movie)" || f.title === "Wrong Franchise",
+        );
+        expect(wrongFranchises.length).toBe(0);
+      } finally {
+        close();
+      }
+    });
+
+    test("keeps different franchises separate", async () => {
+      const { repo, close } = createLibraryRepository();
+      try {
+        const lionCollection: FranchiseCollection = {
+          anidbId: "11395",
+          franchiseTitle: "3-gatsu no Lion",
+          members: ["11395", "11606"],
+        };
+        const ajinCollection: FranchiseCollection = {
+          anidbId: "11265",
+          franchiseTitle: "Ajin",
+          members: ["11265", "11577"],
+        };
+        const franchiseIndex = createMockFranchiseIndex([lionCollection, ajinCollection]);
+        const service = new FranchiseService({ library: repo, franchiseIndex });
+
+        const anime1 = repo.upsertAnime({ title: "3-gatsu no Lion", anidbId: "11395" });
+        const anime2 = repo.upsertAnime({ title: "Ajin", anidbId: "11265" });
+
+        await service.assignFranchise(anime1);
+        await service.assignFranchise(anime2);
+
+        const franchises = repo.getFranchises();
+        expect(franchises.length).toBe(2);
+
+        const lion = franchises.find((f) => f.title === "3-gatsu no Lion");
+        const ajin = franchises.find((f) => f.title === "Ajin");
+        expect(lion).toBeDefined();
+        expect(ajin).toBeDefined();
+
+        expect(repo.getAnime(anime1.id)?.franchiseId).toBe(lion?.id);
+        expect(repo.getAnime(anime2.id)?.franchiseId).toBe(ajin?.id);
       } finally {
         close();
       }

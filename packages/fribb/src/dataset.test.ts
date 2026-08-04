@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { ensureDataset } from "./dataset";
 import {
@@ -202,7 +202,6 @@ describe("ensureDataset", () => {
 
       const dbPath = join(dir, "fribb.db");
       const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
-      const { utimesSync } = await import("node:fs");
       utimesSync(dbPath, eightDaysAgo / 1000, eightDaysAgo / 1000);
 
       let callCount = 0;
@@ -225,7 +224,6 @@ describe("ensureDataset", () => {
 
       const dbPath = join(dir, "fribb.db");
       const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
-      const { utimesSync } = await import("node:fs");
       utimesSync(dbPath, eightDaysAgo / 1000, eightDaysAgo / 1000);
 
       await ensureDataset(dir, { fetch: mockFailingFetch() });
@@ -249,7 +247,7 @@ describe("ensureDataset", () => {
     });
   });
 
-  test("handles entries with missing optional fields", async () => {
+  test("stores null for missing optional fields", async () => {
     await withTempDir("missing-fields", async (dir) => {
       const rawEntries = [
         makeRawEntry({

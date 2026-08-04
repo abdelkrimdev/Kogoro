@@ -6,10 +6,9 @@ import { createFribbDb, withTempDir } from "./fixtures";
 import { collections, entries, idxAnilist, idxMal, idxTmdbTv, meta } from "./schema";
 
 describe("FribbClient", () => {
-  test("createFribbConnection opens database and returns client implementing both interfaces", async () => {
+  test("opens database and exposes resolver, franchise, and metadata methods", async () => {
     await withTempDir("client-open", async (dir) => {
       const dbPath = join(dir, "fribb.db");
-      // create a minimal database
       const { sqlite } = createFribbDb(dir);
       sqlite.close();
 
@@ -27,7 +26,6 @@ describe("FribbClient", () => {
     test("returns anidb_id for known anilist source", async () => {
       await withTempDir("resolve-anilist", async (dir) => {
         const { db, sqlite } = createFribbDb(dir);
-        // insert entry
         db.insert(entries).values({ anidbId: 123, anilistId: 456 }).run();
         db.insert(idxAnilist).values({ sourceId: 456, anidbId: 123 }).run();
         sqlite.close();
@@ -99,7 +97,7 @@ describe("FribbClient", () => {
       });
     });
 
-    test("returns dataset info", async () => {
+    test("returns version, date, and supported sources", async () => {
       await withTempDir("metadata", async (dir) => {
         const { db, sqlite } = createFribbDb(dir);
         db.insert(meta).values({ key: "dataset_version", value: "2026-01-01" }).run();
@@ -147,7 +145,7 @@ describe("FribbClient", () => {
       });
     });
 
-    test("returns all collections", async () => {
+    test("returns only anidb: collections", async () => {
       await withTempDir("all-collections", async (dir) => {
         const { db, sqlite } = createFribbDb(dir);
         db.insert(entries).values({ anidbId: 1 }).run();
@@ -160,17 +158,16 @@ describe("FribbClient", () => {
 
         const client = createFribbConnection(join(dir, "fribb.db"));
         const allCollections = await client.getAllCollections();
-        expect(allCollections).toHaveLength(2);
+        expect(allCollections).toHaveLength(1);
         const gundam = allCollections.find((c) => c.franchiseTitle === "Gundam");
         expect(gundam).toBeDefined();
         expect(gundam?.members).toHaveLength(2);
         const naruto = allCollections.find((c) => c.franchiseTitle === "Naruto");
-        expect(naruto).toBeDefined();
-        expect(naruto?.members).toHaveLength(1);
+        expect(naruto).toBeUndefined();
       });
     });
 
-    test("returns index info", async () => {
+    test("returns version, date, and collection count", async () => {
       await withTempDir("index-metadata", async (dir) => {
         const { db, sqlite } = createFribbDb(dir);
         db.insert(meta).values({ key: "dataset_version", value: "2026-01-01" }).run();
