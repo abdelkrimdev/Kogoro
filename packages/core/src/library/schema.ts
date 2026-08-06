@@ -1,4 +1,10 @@
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import { integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import type { EventRepository } from "../events/event-repository";
+import { AnimeRepository } from "./anime-repository";
+import { EpisodeRepository } from "./episode-repository";
+import { FranchiseRepository } from "./franchise-repository";
+import { GroupRepository } from "./group-repository";
 
 export const anime = sqliteTable("anime", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -83,3 +89,30 @@ export const animeSourceMappings = sqliteTable(
   },
   (t) => [unique("anime_source_mappings_anime_id_source").on(t.animeId, t.source)],
 );
+
+type LibrarySchema = {
+  anime: typeof anime;
+  episodeGroups: typeof episodeGroups;
+  episodes: typeof episodes;
+  groupTrackerMappings: typeof groupTrackerMappings;
+  franchises: typeof franchises;
+  animeSourceMappings: typeof animeSourceMappings;
+};
+export type LibraryDb = BaseSQLiteDatabase<"sync", void, LibrarySchema>;
+
+export function createLibraryRepos(
+  db: LibraryDb,
+  events?: EventRepository,
+): {
+  animeRepo: AnimeRepository;
+  episodeRepo: EpisodeRepository;
+  groupRepo: GroupRepository;
+  franchiseRepo: FranchiseRepository;
+} {
+  return {
+    animeRepo: new AnimeRepository({ db }),
+    episodeRepo: new EpisodeRepository({ db, events }),
+    groupRepo: new GroupRepository({ db, events }),
+    franchiseRepo: new FranchiseRepository({ db }),
+  };
+}

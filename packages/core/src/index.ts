@@ -7,7 +7,7 @@ export { ConfigManager } from "./config/config-manager";
 export type { PromptsAPI } from "./config/config-wizard";
 export { runConfigWizard } from "./config/config-wizard";
 export { CredentialStore, createCredentialStore } from "./config/credential-store";
-export type { MatchCacheConnection } from "./config/db-connection";
+export type { LibraryConnection, MatchCacheConnection } from "./config/db-connection";
 export {
   createEventsConnection,
   createLibraryConnection,
@@ -58,18 +58,18 @@ export type {
   ScanMergeEntry,
 } from "./library/anime-aggregate";
 export { AnimeAggregate } from "./library/anime-aggregate";
+export type { AnimeSourceMapping, LibraryAnime } from "./library/anime-repository";
+export { AnimeRepository } from "./library/anime-repository";
 export { BackgroundRetryService } from "./library/background-retry";
+export type { LibraryEpisode } from "./library/episode-repository";
+export { EpisodeRepository } from "./library/episode-repository";
+export type { Franchise } from "./library/franchise-repository";
+export { FranchiseRepository } from "./library/franchise-repository";
 export { FranchiseService } from "./library/franchise-service";
-export type {
-  AnimeSourceMapping,
-  EpisodeGroup,
-  Franchise,
-  GroupTrackerMapping,
-  LibraryAnime,
-  LibraryEpisode,
-} from "./library/library-repository";
-export { LibraryRepository } from "./library/library-repository";
-export { WatchTracker } from "./library/watch-tracker";
+export type { EpisodeGroup, GroupTrackerMapping } from "./library/group-repository";
+export { GroupRepository } from "./library/group-repository";
+export type { LibraryDb } from "./library/schema";
+export { createLibraryRepos } from "./library/schema";
 export { CacheService } from "./match/cache-service";
 export { ManifestRepository } from "./match/manifest-repository";
 export { ManifestService } from "./match/manifest-service";

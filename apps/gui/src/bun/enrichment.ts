@@ -7,8 +7,8 @@ import {
   type CredentialStore,
   type DatabasePlugin,
   type EnrichmentSend,
+  type GroupRepository,
   MetadataWriter,
-  type WatchTracker,
 } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
@@ -16,7 +16,7 @@ interface EnrichmentOptions {
   configManager: ConfigManager;
   send: EnrichmentSend;
   animeAggregate: AnimeAggregate;
-  watchTracker: WatchTracker;
+  groupRepo: GroupRepository;
   cacheService: CacheService;
   pluginFactory?: PluginFactory;
   database?: DatabasePlugin;
@@ -50,7 +50,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     send,
     database: overrideDb,
     animeAggregate: svc,
-    watchTracker,
+    groupRepo,
     cacheService,
     credentialStore,
   } = options;
@@ -66,10 +66,10 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     | {
         animeId: number;
         animeDir: string;
-        anime: NonNullable<ReturnType<AnimeAggregate["library"]["getAnime"]>>;
+        anime: NonNullable<ReturnType<AnimeAggregate["animeRepo"]["getAnime"]>>;
       }
     | { error: string } {
-    const anime = svc.library.getAnime(Number(id));
+    const anime = svc.animeRepo.getAnime(Number(id));
     if (!anime) return { error: "Anime not found in library" };
     const animeDir = svc.getAnimeDir(anime.id);
     if (!animeDir) return { error: "No episode files found for this anime" };
@@ -190,14 +190,14 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
       return { success: true, summary: { total: 0, enriched: 0, skipped: 0, errors: 0 } };
     }
 
-    const groups = svc.library.getEpisodeGroupsByAnimeId(resolved.animeId);
+    const groups = svc.groupRepo.getEpisodeGroupsByAnimeId(resolved.animeId);
     let total = 0;
     let enriched = 0;
     let skipped = 0;
     let errors = 0;
 
     for (const group of groups) {
-      const mappings = svc.library.getTrackerMappingsByGroupId(group.id);
+      const mappings = svc.groupRepo.getTrackerMappingsByGroupId(group.id);
       if (mappings.length === 0) {
         skipped++;
         continue;
@@ -229,7 +229,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
           }
 
           if (Object.keys(metadata).length > 0) {
-            watchTracker.updateEpisodeGroupMetadata(group.id, metadata);
+            groupRepo.updateEpisodeGroupMetadata(group.id, metadata);
           }
 
           enriched++;

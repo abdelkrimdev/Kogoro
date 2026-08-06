@@ -1,21 +1,25 @@
 import { describe, expect, test } from "bun:test";
-import type { LibraryRepository } from "@kogoro/core";
+import type { AnimeRepository, EpisodeRepository, GroupRepository } from "@kogoro/core";
 import { AnimeAggregate } from "@kogoro/core";
 import {
   createEventRepository,
-  createLibraryRepository,
+  createLibraryRepositories,
   createMockIdentityResolver,
   withTempDir,
 } from "@kogoro/core/testing";
 import { createDashboardHandlers } from "./dashboard";
 
-function seedWatchingAnime(repo: LibraryRepository) {
-  const sg = repo.upsertAnime({
+function seedWatchingAnime(
+  animeRepo: AnimeRepository,
+  episodeRepo: EpisodeRepository,
+  groupRepo: GroupRepository,
+) {
+  const sg = animeRepo.upsertAnime({
     title: "Steins;Gate",
   });
-  repo.createAnimeSourceMapping({ animeId: sg.id, source: "tvdb", externalId: "tvdb-100" });
+  animeRepo.createAnimeSourceMapping({ animeId: sg.id, source: "tvdb", externalId: "tvdb-100" });
 
-  const sgGroup = repo.upsertEpisodeGroup({
+  const sgGroup = groupRepo.upsertEpisodeGroup({
     animeId: sg.id,
     entryType: "tv",
     seasonNumber: 1,
@@ -23,7 +27,7 @@ function seedWatchingAnime(repo: LibraryRepository) {
   });
 
   for (let i = 1; i <= 24; i++) {
-    repo.addEpisode({
+    episodeRepo.addEpisode({
       groupId: sgGroup.id,
       episodeNumber: i,
       filePath: `/media/Steins;Gate/S01E${String(i).padStart(2, "0")}.mkv`,
@@ -35,13 +39,17 @@ function seedWatchingAnime(repo: LibraryRepository) {
   return { sg, sgGroup };
 }
 
-function seedCompletedAnime(repo: LibraryRepository) {
-  const aot = repo.upsertAnime({
+function seedCompletedAnime(
+  animeRepo: AnimeRepository,
+  episodeRepo: EpisodeRepository,
+  groupRepo: GroupRepository,
+) {
+  const aot = animeRepo.upsertAnime({
     title: "Attack on Titan",
   });
-  repo.createAnimeSourceMapping({ animeId: aot.id, source: "tvdb", externalId: "tvdb-200" });
+  animeRepo.createAnimeSourceMapping({ animeId: aot.id, source: "tvdb", externalId: "tvdb-200" });
 
-  const aotGroup = repo.upsertEpisodeGroup({
+  const aotGroup = groupRepo.upsertEpisodeGroup({
     animeId: aot.id,
     entryType: "tv",
     seasonNumber: 1,
@@ -49,7 +57,7 @@ function seedCompletedAnime(repo: LibraryRepository) {
   });
 
   for (let i = 1; i <= 25; i++) {
-    repo.addEpisode({
+    episodeRepo.addEpisode({
       groupId: aotGroup.id,
       episodeNumber: i,
       filePath: `/media/Attack on Titan/S01E${String(i).padStart(2, "0")}.mkv`,
@@ -61,13 +69,17 @@ function seedCompletedAnime(repo: LibraryRepository) {
   return { aot, aotGroup };
 }
 
-function seedPlanToWatchAnime(repo: LibraryRepository) {
-  const drr = repo.upsertAnime({
+function seedPlanToWatchAnime(
+  animeRepo: AnimeRepository,
+  episodeRepo: EpisodeRepository,
+  groupRepo: GroupRepository,
+) {
+  const drr = animeRepo.upsertAnime({
     title: "Darling in the Franxx",
   });
-  repo.createAnimeSourceMapping({ animeId: drr.id, source: "tvdb", externalId: "tvdb-300" });
+  animeRepo.createAnimeSourceMapping({ animeId: drr.id, source: "tvdb", externalId: "tvdb-300" });
 
-  const drrGroup = repo.upsertEpisodeGroup({
+  const drrGroup = groupRepo.upsertEpisodeGroup({
     animeId: drr.id,
     entryType: "tv",
     seasonNumber: 1,
@@ -75,7 +87,7 @@ function seedPlanToWatchAnime(repo: LibraryRepository) {
   });
 
   for (let i = 1; i <= 24; i++) {
-    repo.addEpisode({
+    episodeRepo.addEpisode({
       groupId: drrGroup.id,
       episodeNumber: i,
       filePath: `/media/Darling in the Franxx/S01E${String(i).padStart(2, "0")}.mkv`,
@@ -90,12 +102,14 @@ function seedPlanToWatchAnime(repo: LibraryRepository) {
 describe("getDashboardData handler", () => {
   test("returns currently watching anime with progress", async () => {
     await withTempDir("dashboard-watching", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      seedWatchingAnime(repo);
+      seedWatchingAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
         animeAggregate: new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -115,12 +129,14 @@ describe("getDashboardData handler", () => {
 
   test("returns empty currently watching when none have watching status", async () => {
     await withTempDir("dashboard-no-watching", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      seedCompletedAnime(repo);
+      seedCompletedAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
         animeAggregate: new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -136,14 +152,16 @@ describe("getDashboardData handler", () => {
 
   test("returns library stats with correct counts", async () => {
     await withTempDir("dashboard-stats", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      seedWatchingAnime(repo);
-      seedCompletedAnime(repo);
-      seedPlanToWatchAnime(repo);
+      seedWatchingAnime(animeRepo, episodeRepo, groupRepo);
+      seedCompletedAnime(animeRepo, episodeRepo, groupRepo);
+      seedPlanToWatchAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
         animeAggregate: new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -163,13 +181,15 @@ describe("getDashboardData handler", () => {
 
   test("returns continue watching for anime with watched episodes and unwatched files", async () => {
     await withTempDir("dashboard-continue", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      seedWatchingAnime(repo);
-      seedCompletedAnime(repo);
+      seedWatchingAnime(animeRepo, episodeRepo, groupRepo);
+      seedCompletedAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
         animeAggregate: new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -188,12 +208,14 @@ describe("getDashboardData handler", () => {
 
   test("returns empty continue watching when no partially watched anime", async () => {
     await withTempDir("dashboard-no-continue", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      seedCompletedAnime(repo);
+      seedCompletedAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
         animeAggregate: new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -209,11 +231,13 @@ describe("getDashboardData handler", () => {
 
   test("returns empty dashboard when library is empty", async () => {
     await withTempDir("dashboard-empty", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
       const handlers = createDashboardHandlers({
         animeAggregate: new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -232,12 +256,14 @@ describe("getDashboardData handler", () => {
 
   test("getLibraryStats returns correct counts", async () => {
     await withTempDir("dashboard-stats-direct", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      seedWatchingAnime(repo);
+      seedWatchingAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
         animeAggregate: new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { AnimeAggregate, CredentialStore, TrackerError } from "@kogoro/core";
 import {
   createEventRepository,
-  createLibraryRepository,
+  createLibraryRepositories,
   createMockIdentityResolver,
   createMockKeytar,
   withKogoroEnv,
@@ -207,10 +207,12 @@ describe("disconnectTracker", () => {
   let closeEvtService: () => void;
 
   beforeEach(() => {
-    const { repo, close } = createLibraryRepository();
+    const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
     const { repo: er, close: closeEvt } = createEventRepository();
     aggregate = new AnimeAggregate({
-      library: repo,
+      anime: animeRepo,
+      episodes: episodeRepo,
+      groups: groupRepo,
       replayUnpushedEvents: () => {},
       identityResolver: createMockIdentityResolver(),
       resolveTitleToAnidb: async () => null,
@@ -266,28 +268,28 @@ describe("disconnectTracker", () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("anilist", "token");
 
-    const anime = aggregate.library.upsertAnime({
+    const anime = aggregate.animeRepo.upsertAnime({
       title: "Jujutsu Kaisen",
     });
-    aggregate.library.createAnimeSourceMapping({
+    aggregate.animeRepo.createAnimeSourceMapping({
       animeId: anime.id,
       source: "tvdb",
       externalId: "tvdb-12345",
     });
 
-    const group = aggregate.library.upsertEpisodeGroup({
+    const group = aggregate.groupRepo.upsertEpisodeGroup({
       animeId: anime.id,
       entryType: "tv",
       seasonNumber: 1,
       watchStatus: "watching",
     });
 
-    aggregate.library.upsertGroupTrackerMapping({
+    aggregate.groupRepo.upsertGroupTrackerMapping({
       groupId: group.id,
       source: "anilist",
       externalId: "anilist-67890",
     });
-    aggregate.library.upsertGroupTrackerMapping({
+    aggregate.groupRepo.upsertGroupTrackerMapping({
       groupId: group.id,
       source: "kitsu",
       externalId: "kitsu-11111",
@@ -297,7 +299,7 @@ describe("disconnectTracker", () => {
     expect(result.success).toBe(true);
     expect(await store.getCredential("anilist")).toBeUndefined();
 
-    const remainingMappings = aggregate.library.getTrackerMappingsByGroupId(group.id);
+    const remainingMappings = aggregate.groupRepo.getTrackerMappingsByGroupId(group.id);
     expect(remainingMappings).toHaveLength(1);
     expect(remainingMappings[0]?.source).toBe("kitsu");
   });
@@ -306,23 +308,23 @@ describe("disconnectTracker", () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("anilist", "token");
 
-    const anime = aggregate.library.upsertAnime({
+    const anime = aggregate.animeRepo.upsertAnime({
       title: "Jujutsu Kaisen",
     });
-    aggregate.library.createAnimeSourceMapping({
+    aggregate.animeRepo.createAnimeSourceMapping({
       animeId: anime.id,
       source: "tvdb",
       externalId: "tvdb-12345",
     });
 
-    const group = aggregate.library.upsertEpisodeGroup({
+    const group = aggregate.groupRepo.upsertEpisodeGroup({
       animeId: anime.id,
       entryType: "tv",
       seasonNumber: 1,
       watchStatus: "watching",
     });
 
-    aggregate.library.upsertGroupTrackerMapping({
+    aggregate.groupRepo.upsertGroupTrackerMapping({
       groupId: group.id,
       source: "anilist",
       externalId: "anilist-67890",
@@ -330,11 +332,11 @@ describe("disconnectTracker", () => {
 
     await disconnectTracker(store, aggregate, evtRepo, { name: "anilist" });
 
-    const animeAfter = aggregate.library.getAnime(anime.id);
+    const animeAfter = aggregate.animeRepo.getAnime(anime.id);
     expect(animeAfter).not.toBeNull();
     expect(animeAfter?.title).toBe("Jujutsu Kaisen");
 
-    const groupsAfter = aggregate.library.getEpisodeGroupsByAnimeId(anime.id);
+    const groupsAfter = aggregate.groupRepo.getEpisodeGroupsByAnimeId(anime.id);
     expect(groupsAfter).toHaveLength(1);
   });
 
@@ -342,16 +344,16 @@ describe("disconnectTracker", () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("anilist", "token");
 
-    const anime = aggregate.library.upsertAnime({
+    const anime = aggregate.animeRepo.upsertAnime({
       title: "Jujutsu Kaisen",
     });
-    aggregate.library.createAnimeSourceMapping({
+    aggregate.animeRepo.createAnimeSourceMapping({
       animeId: anime.id,
       source: "tvdb",
       externalId: "tvdb-12345",
     });
 
-    const group = aggregate.library.upsertEpisodeGroup({
+    const group = aggregate.groupRepo.upsertEpisodeGroup({
       animeId: anime.id,
       entryType: "tv",
       seasonNumber: 1,

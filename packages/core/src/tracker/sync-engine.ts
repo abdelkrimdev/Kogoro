@@ -1,6 +1,5 @@
 import type { Event, EventRepository } from "../events/event-repository";
 import type { AnimeAggregate } from "../library/anime-aggregate";
-import type { WatchTracker } from "../library/watch-tracker";
 import type { TrackerPlugin, TrackerSource, TrackerWatchStatus } from "../types";
 import { mapLocalStatusToTracker, mapTrackerStatus } from "./credential-utils";
 
@@ -46,32 +45,27 @@ export interface SyncAllResult {
 
 export class SyncEngine {
   private aggregate: AnimeAggregate;
-  private watchTracker: WatchTracker;
   private eventRepo: EventRepository;
   private trackerPairs: Array<{ source: TrackerSource; tracker: TrackerPlugin }>;
 
   constructor(
     aggregate: AnimeAggregate,
-    watchTracker: WatchTracker,
     eventRepo: EventRepository,
     trackerPairs: Array<{ source: TrackerSource; tracker: TrackerPlugin }>,
   );
   constructor(
     aggregate: AnimeAggregate,
-    watchTracker: WatchTracker,
     eventRepo: EventRepository,
     tracker: TrackerPlugin,
     source: TrackerSource,
   );
   constructor(
     aggregate: AnimeAggregate,
-    watchTracker: WatchTracker,
     eventRepo: EventRepository,
     trackerOrPairs: TrackerPlugin | Array<{ source: TrackerSource; tracker: TrackerPlugin }>,
     source?: TrackerSource,
   ) {
     this.aggregate = aggregate;
-    this.watchTracker = watchTracker;
     this.eventRepo = eventRepo;
 
     if (Array.isArray(trackerOrPairs)) {
@@ -97,7 +91,7 @@ export class SyncEngine {
 
   private async pullFrom(source: TrackerSource, tracker: TrackerPlugin): Promise<PullResult> {
     const trackerList = await tracker.getUserList();
-    const allMappings = this.aggregate.library.getAllTrackerMappings();
+    const allMappings = this.aggregate.groupRepo.getAllTrackerMappings();
 
     const mappingsByExternalId = new Map<string, { groupId: number }>();
     for (const mapping of allMappings) {
@@ -140,12 +134,12 @@ export class SyncEngine {
         continue;
       }
 
-      const group = this.aggregate.library.getEpisodeGroup(mapping.groupId);
+      const group = this.aggregate.groupRepo.getEpisodeGroup(mapping.groupId);
       if (!group) continue;
 
       const newStatus = mapTrackerStatus(entry.watchStatus);
       if (group.watchStatus !== newStatus) {
-        this.watchTracker.setGroupWatchStatus(group.id, newStatus);
+        this.aggregate.groupRepo.updateEpisodeGroupStatus(group.id, newStatus);
         applied++;
       }
 
@@ -158,14 +152,14 @@ export class SyncEngine {
   }
 
   private mergeAlternativeTitles(animeId: number, newTitles: string[]): void {
-    const anime = this.aggregate.library.getAnime(animeId);
+    const anime = this.aggregate.animeRepo.getAnime(animeId);
     if (!anime) return;
 
     const existing = anime.alternativeTitles ?? [];
     const merged = [...new Set([...existing, ...newTitles])];
     if (merged.length <= existing.length) return;
 
-    this.aggregate.library.updateAnime(animeId, {
+    this.aggregate.animeRepo.updateAnime(animeId, {
       alternativeTitles: merged,
     });
   }
@@ -186,7 +180,7 @@ export class SyncEngine {
     tracker: TrackerPlugin,
     groupId?: number,
   ): Promise<PushResult> {
-    const allMappings = this.aggregate.library.getAllTrackerMappings();
+    const allMappings = this.aggregate.groupRepo.getAllTrackerMappings();
     const mappingsByGroupId = new Map<number, Array<{ source: string; externalId: string }>>();
 
     for (const mapping of allMappings) {
@@ -219,7 +213,7 @@ export class SyncEngine {
       const hasWatchedToggle = unpushedEvents.some((e) => e.eventType === "watched_toggle");
       let watchedEpisodes: number | undefined;
       if (hasWatchedToggle) {
-        const episodes = this.aggregate.library.getEpisodesByGroupId(gid);
+        const episodes = this.aggregate.episodeRepo.getEpisodesByGroupId(gid);
         watchedEpisodes = episodes.filter((ep) => ep.watched).length;
       }
 
@@ -264,14 +258,14 @@ export class SyncEngine {
     conflict: CrossTrackerConflict,
     resolution: "keepTrackerA" | "keepTrackerB",
   ): Promise<{ success: boolean }> {
-    const group = this.aggregate.library.getEpisodeGroup(conflict.groupId);
+    const group = this.aggregate.groupRepo.getEpisodeGroup(conflict.groupId);
     if (!group) {
       return { success: false };
     }
 
     const winningStatus = resolution === "keepTrackerA" ? conflict.statusA : conflict.statusB;
     const newStatus = mapTrackerStatus(winningStatus);
-    this.watchTracker.setGroupWatchStatus(group.id, newStatus);
+    this.aggregate.groupRepo.updateEpisodeGroupStatus(group.id, newStatus);
 
     return { success: true };
   }
@@ -280,7 +274,7 @@ export class SyncEngine {
     conflict: SyncConflict,
     resolution: "keepLocal" | "acceptRemote",
   ): Promise<{ success: boolean }> {
-    const group = this.aggregate.library.getEpisodeGroup(conflict.groupId);
+    const group = this.aggregate.groupRepo.getEpisodeGroup(conflict.groupId);
     if (!group) {
       return { success: false };
     }
@@ -290,7 +284,7 @@ export class SyncEngine {
     }
 
     const newStatus = mapTrackerStatus(conflict.remoteChange.watchStatus);
-    this.watchTracker.setGroupWatchStatus(group.id, newStatus);
+    this.aggregate.groupRepo.updateEpisodeGroupStatus(group.id, newStatus);
 
     const localEvents = this.eventRepo.getAllForEntity("group", conflict.groupId);
     const localEventIds = localEvents.map((e) => e.id);
@@ -313,7 +307,7 @@ export class SyncEngine {
 
     const remoteStatusByTrackerAndGroup = new Map<string, Map<number, TrackerWatchStatus>>();
 
-    const allMappings = this.aggregate.library.getAllTrackerMappings();
+    const allMappings = this.aggregate.groupRepo.getAllTrackerMappings();
     const mappingsBySource = new Map<string, typeof allMappings>();
     for (const mapping of allMappings) {
       const existing = mappingsBySource.get(mapping.source) ?? [];

@@ -159,7 +159,7 @@ export async function disconnectTracker(
   const def = findTrackerDef(params.name);
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
-  animeAggregate.library.removeTrackerMappingsBySource(def.name);
+  animeAggregate.groupRepo.removeTrackerMappingsBySource(def.name);
   eventRepo.dropForSource(def.name);
   await credentialStore.deleteCredential(def.credentialKey);
   return { success: true };

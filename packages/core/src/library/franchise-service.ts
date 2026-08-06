@@ -1,8 +1,10 @@
 import type { FranchiseIndex } from "../fribb/franchise-index";
-import type { Franchise, LibraryAnime, LibraryRepository } from "./library-repository";
+import type { AnimeRepository, LibraryAnime } from "./anime-repository";
+import type { Franchise, FranchiseRepository } from "./franchise-repository";
 
 export interface FranchiseServiceDeps {
-  library: LibraryRepository;
+  anime: AnimeRepository;
+  franchises: FranchiseRepository;
   franchiseIndex: FranchiseIndex;
 }
 
@@ -17,12 +19,12 @@ export class FranchiseService {
 
     if (collection) {
       const franchise = await this.findOrCreateFranchiseByTitle(collection.franchiseTitle);
-      this.deps.library.assignAnimeToFranchise(anime.id, franchise.id);
+      this.deps.franchises.assignAnimeToFranchise(anime.id, franchise.id);
       return;
     }
 
     const franchise = await this.findOrCreateFranchiseByTitle(anime.title);
-    this.deps.library.assignAnimeToFranchise(anime.id, franchise.id);
+    this.deps.franchises.assignAnimeToFranchise(anime.id, franchise.id);
   }
 
   async repairAll(): Promise<void> {
@@ -35,7 +37,7 @@ export class FranchiseService {
       }
     }
 
-    const allAnime = this.deps.library.listAnime();
+    const allAnime = this.deps.anime.listAnime();
     const franchiseIdsToReassign = new Set<number>();
 
     for (const anime of allAnime) {
@@ -46,29 +48,29 @@ export class FranchiseService {
 
       if (!anime.franchiseId) {
         const targetFranchise = await this.findOrCreateFranchiseByTitle(franchiseTitle);
-        this.deps.library.assignAnimeToFranchise(anime.id, targetFranchise.id);
+        this.deps.franchises.assignAnimeToFranchise(anime.id, targetFranchise.id);
         continue;
       }
 
-      const currentFranchise = this.deps.library.getFranchiseById(anime.franchiseId);
+      const currentFranchise = this.deps.franchises.getFranchiseById(anime.franchiseId);
       if (!currentFranchise) continue;
       if (currentFranchise.title === franchiseTitle) continue;
 
       const targetFranchise = await this.findOrCreateFranchiseByTitle(franchiseTitle);
-      this.deps.library.assignAnimeToFranchise(anime.id, targetFranchise.id);
+      this.deps.franchises.assignAnimeToFranchise(anime.id, targetFranchise.id);
       franchiseIdsToReassign.add(anime.franchiseId);
     }
 
     for (const franchiseId of franchiseIdsToReassign) {
-      if (this.deps.library.countAnimeByFranchiseId(franchiseId) === 0) {
-        this.deps.library.deleteFranchise(franchiseId);
+      if (this.deps.franchises.countAnimeByFranchiseId(franchiseId) === 0) {
+        this.deps.franchises.deleteFranchise(franchiseId);
       }
     }
   }
 
   private async findOrCreateFranchiseByTitle(title: string): Promise<Franchise> {
-    const existing = this.deps.library.findFranchiseByTitle(title);
+    const existing = this.deps.franchises.findFranchiseByTitle(title);
     if (existing) return existing;
-    return this.deps.library.createFranchise({ title });
+    return this.deps.franchises.createFranchise({ title });
   }
 }

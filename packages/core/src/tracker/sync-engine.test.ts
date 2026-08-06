@@ -3,43 +3,48 @@ import { EventRepository } from "../events/event-repository";
 import { createEventDb } from "../events/test-utils";
 import {
   createEventRepository,
-  createLibraryRepository,
+  createLibraryRepositories,
   createMockIdentityResolver,
   createMockTracker,
 } from "../fixtures";
 import { AnimeAggregate } from "../library/anime-aggregate";
-import { WatchTracker } from "../library/watch-tracker";
 import type { SyncConflict } from "./sync-engine";
 import { SyncEngine } from "./sync-engine";
 
 describe("SyncEngine", () => {
   describe("pull", () => {
     test("applies remote changes when no local events exist", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -61,54 +66,59 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
         expect(result.conflicts).toHaveLength(0);
 
-        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("completed");
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("merges alternativeTitles from tracker into library", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
           alternativeTitles: ["Shingeki no Kyojin"],
         });
 
-        aggregate.library.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "anilist",
           externalId: "tracker-1",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -131,53 +141,58 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
 
-        const updatedAnime = libraryRepo.findAnime("tracker-1", "anilist");
+        const updatedAnime = animeRepo.findAnime("tracker-1", "anilist");
         expect(updatedAnime?.alternativeTitles).toEqual(["Shingeki no Kyojin", "進撃の巨人"]);
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("deduplicates alternativeTitles when merging", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
           alternativeTitles: ["Shingeki no Kyojin", "進撃の巨人"],
         });
 
-        aggregate.library.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "anilist",
           externalId: "tracker-1",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -200,12 +215,12 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
 
-        const updatedAnime = libraryRepo.findAnime("tracker-1", "anilist");
+        const updatedAnime = animeRepo.findAnime("tracker-1", "anilist");
         expect(updatedAnime?.alternativeTitles).toEqual([
           "Shingeki no Kyojin",
           "進撃の巨人",
@@ -214,36 +229,41 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("flags conflict when local events exist for entity", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -273,7 +293,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(0);
@@ -283,58 +303,63 @@ describe("SyncEngine", () => {
         expect(result.conflicts[0]?.localChange).toBeTruthy();
         expect(result.conflicts[0]?.remoteChange).toBeTruthy();
 
-        const unchangedGroup = aggregate.library.getEpisodeGroup(group.id);
+        const unchangedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(unchangedGroup?.watchStatus).toBe("watching");
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("pulls only tracked entries for this tracker", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime1 = aggregate.library.upsertAnime({
+        const anime1 = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group1 = aggregate.library.upsertEpisodeGroup({
+        const group1 = groupRepo.upsertEpisodeGroup({
           animeId: anime1.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group1.id,
           source: "anilist",
           externalId: "tl-1",
         });
 
-        const anime2 = aggregate.library.upsertAnime({
+        const anime2 = animeRepo.upsertAnime({
           title: "Death Note",
         });
 
-        const group2 = aggregate.library.upsertEpisodeGroup({
+        const group2 = groupRepo.upsertEpisodeGroup({
           animeId: anime2.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group2.id,
           source: "mal",
           externalId: "tl-2",
@@ -356,49 +381,54 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
 
-        const updatedGroup1 = aggregate.library.getEpisodeGroup(group1.id);
+        const updatedGroup1 = groupRepo.getEpisodeGroup(group1.id);
         expect(updatedGroup1?.watchStatus).toBe("completed");
 
-        const unchangedGroup2 = aggregate.library.getEpisodeGroup(group2.id);
+        const unchangedGroup2 = groupRepo.getEpisodeGroup(group2.id);
         expect(unchangedGroup2?.watchStatus).toBe("plan_to_watch");
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("does not flag conflict for already-pushed events", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -430,64 +460,69 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
         expect(result.conflicts).toHaveLength(0);
 
-        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("completed");
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("handles multiple entries from tracker", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime1 = aggregate.library.upsertAnime({
+        const anime1 = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group1 = aggregate.library.upsertEpisodeGroup({
+        const group1 = groupRepo.upsertEpisodeGroup({
           animeId: anime1.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group1.id,
           source: "anilist",
           externalId: "tl-1",
         });
 
-        const anime2 = aggregate.library.upsertAnime({
+        const anime2 = animeRepo.upsertAnime({
           title: "Death Note",
         });
 
-        const group2 = aggregate.library.upsertEpisodeGroup({
+        const group2 = groupRepo.upsertEpisodeGroup({
           animeId: anime2.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group2.id,
           source: "anilist",
           externalId: "tl-2",
@@ -518,52 +553,57 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(2);
         expect(result.conflicts).toHaveLength(0);
 
-        const updatedGroup1 = aggregate.library.getEpisodeGroup(group1.id);
+        const updatedGroup1 = groupRepo.getEpisodeGroup(group1.id);
         expect(updatedGroup1?.watchStatus).toBe("completed");
 
-        const updatedGroup2 = aggregate.library.getEpisodeGroup(group2.id);
+        const updatedGroup2 = groupRepo.getEpisodeGroup(group2.id);
         expect(updatedGroup2?.watchStatus).toBe("completed");
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
   });
 
   describe("push", () => {
     test("sends unpushed events to tracker and marks them as pushed", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -590,7 +630,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(1);
@@ -606,36 +646,41 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("does not push events already pushed to this tracker", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -659,7 +704,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(0);
@@ -667,42 +712,47 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("pushes to all connected trackers for multi-tracker support", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-anilist-1",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "tl-mal-1",
@@ -724,7 +774,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(1);
@@ -739,54 +789,59 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("pushes watched_toggle event with correct episodesWatched", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
         });
 
-        libraryRepo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/ep1.mkv",
           watched: true,
         });
-        libraryRepo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/ep2.mkv",
           watched: true,
         });
-        libraryRepo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 3,
           filePath: "/ep3.mkv",
@@ -812,7 +867,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(1);
@@ -821,48 +876,53 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("merges status_change and watched_toggle into single update", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
         });
 
-        libraryRepo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/ep1.mkv",
           watched: true,
         });
-        libraryRepo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/ep2.mkv",
@@ -895,7 +955,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(2);
@@ -904,38 +964,43 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
   });
 
   describe("resolveConflict", () => {
     test("keeps local version when resolving with keepLocal", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -950,7 +1015,7 @@ describe("SyncEngine", () => {
         });
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
 
         const conflict: SyncConflict = {
           groupId: group.id,
@@ -970,7 +1035,7 @@ describe("SyncEngine", () => {
 
         expect(result.success).toBe(true);
 
-        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("watching");
 
         const unpushedEvents = eventRepo.getUnpushed("anilist");
@@ -979,36 +1044,41 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("applies remote version when resolving with acceptRemote", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -1023,7 +1093,7 @@ describe("SyncEngine", () => {
         });
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
 
         const conflict: SyncConflict = {
           groupId: group.id,
@@ -1043,7 +1113,7 @@ describe("SyncEngine", () => {
 
         expect(result.success).toBe(true);
 
-        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("completed");
 
         const unpushedEvents = eventRepo.getUnpushed("anilist");
@@ -1051,44 +1121,49 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
   });
 
   describe("syncAll", () => {
     test("pulls from multiple trackers and pushes pending events", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-anilist-1",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "tl-mal-1",
@@ -1126,7 +1201,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, [
+        const syncEngine = new SyncEngine(aggregate, eventRepo, [
           { source: "anilist", tracker: anilistTracker },
           { source: "mal", tracker: malTracker },
         ]);
@@ -1138,47 +1213,52 @@ describe("SyncEngine", () => {
         expect(result.syncedTrackers).toContain("mal");
         expect(result.errors).toHaveLength(0);
 
-        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("watching");
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("detects cross-tracker conflicts when watch statuses differ", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-anilist-1",
         });
 
-        aggregate.library.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "tl-mal-1",
@@ -1216,7 +1296,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, [
+        const syncEngine = new SyncEngine(aggregate, eventRepo, [
           { source: "anilist", tracker: anilistTracker },
           { source: "mal", tracker: malTracker },
         ]);
@@ -1232,23 +1312,28 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("reports errors when tracker getUserList fails", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const workingTracker = createMockTracker({
           async getUserList() {
@@ -1262,7 +1347,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, [
+        const syncEngine = new SyncEngine(aggregate, eventRepo, [
           { source: "anilist", tracker: workingTracker },
           { source: "mal", tracker: failingTracker },
         ]);
@@ -1277,31 +1362,36 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
   });
 
   describe("resolveCrossTrackerConflict", () => {
     test("applies status from tracker A when resolving with keepTrackerA", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
@@ -1309,7 +1399,7 @@ describe("SyncEngine", () => {
         });
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
 
         const conflict = {
           groupId: group.id,
@@ -1323,34 +1413,39 @@ describe("SyncEngine", () => {
 
         expect(result.success).toBe(true);
 
-        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("completed");
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("applies status from tracker B when resolving with keepTrackerB", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
-        const anime = aggregate.library.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = aggregate.library.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
@@ -1358,7 +1453,7 @@ describe("SyncEngine", () => {
         });
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
 
         const conflict = {
           groupId: group.id,
@@ -1372,31 +1467,36 @@ describe("SyncEngine", () => {
 
         expect(result.success).toBe(true);
 
-        const updatedGroup = aggregate.library.getEpisodeGroup(group.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("watching");
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
 
     test("returns false when group does not exist", async () => {
-      const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
       const { repo: eventRepo, close: closeEvent } = createEventRepository();
-      const { db: evtDb, sqlite: evtSqlite } = createEventDb();
+      const { db: evtDb } = createEventDb();
+      const evtRepo = new EventRepository(evtDb);
+      const {
+        animeRepo,
+        episodeRepo,
+        groupRepo,
+        close: closeLibrary,
+      } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const evtRepo = new EventRepository(evtDb);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
-        const watchTracker = new WatchTracker({ library: libraryRepo, events: evtRepo });
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, watchTracker, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
 
         const conflict = {
           groupId: 99999,
@@ -1412,7 +1512,6 @@ describe("SyncEngine", () => {
       } finally {
         closeLibrary();
         closeEvent();
-        evtSqlite.close();
       }
     });
   });

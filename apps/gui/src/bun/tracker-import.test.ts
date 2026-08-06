@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { AnimeAggregate, ConfigManager, CredentialStore } from "@kogoro/core";
 import {
   createEventRepository,
-  createLibraryRepository,
+  createLibraryRepositories,
   createMockIdentityResolver,
   createMockKeytar,
   withMockFetch,
@@ -42,11 +42,13 @@ describe("TrackerImportHandlers", () => {
       const factory = createTestFactory({
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
-      const { repo, close } = createLibraryRepository();
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -71,11 +73,13 @@ describe("TrackerImportHandlers", () => {
 
     it("returns error for unknown tracker", async () => {
       const factory = createTestFactory();
-      const { repo, close } = createLibraryRepository();
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -99,11 +103,13 @@ describe("TrackerImportHandlers", () => {
       const factory = createTestFactory({
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
-      const { repo, close } = createLibraryRepository();
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -207,11 +213,13 @@ describe("TrackerImportHandlers", () => {
       const factory = createTestFactory({
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
-      const { repo, close } = createLibraryRepository();
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -236,11 +244,13 @@ describe("TrackerImportHandlers", () => {
 
     it("returns error for unknown tracker", async () => {
       const factory = createTestFactory();
-      const { repo, close } = createLibraryRepository();
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -264,11 +274,13 @@ describe("TrackerImportHandlers", () => {
       const factory = createTestFactory({
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
-      const { repo, close } = createLibraryRepository();
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -316,7 +328,7 @@ describe("TrackerImportHandlers", () => {
           expect(result.error).toBeUndefined();
           expect(result.result?.imported).toBe(1);
 
-          const anime = aggregate.library.listAnime();
+          const anime = aggregate.animeRepo.listAnime();
           expect(anime).toHaveLength(1);
           expect(anime[0]?.title).toBe("Death Note");
         });

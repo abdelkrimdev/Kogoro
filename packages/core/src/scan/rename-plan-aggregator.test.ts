@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEventDb } from "../events/test-utils";
 import {
-  createLibraryRepository,
+  createLibraryRepositories,
   createMockIdentityResolver,
   makeMatchResult,
   makeParsedResult,
@@ -311,15 +311,17 @@ describe("buildReviewPlan", () => {
 
   test("marks mergeMode when anime exists in library", async () => {
     await withTempDir("merge", async (_dir) => {
-      const { repo: libraryRepo, close } = createLibraryRepository();
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { sqlite: evtSqlite } = createEventDb();
       const aggregate = new AnimeAggregate({
-        library: libraryRepo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
-      libraryRepo.upsertAnime({
+      animeRepo.upsertAnime({
         title: "Jujutsu Kaisen",
       });
 
@@ -341,10 +343,12 @@ describe("buildReviewPlan", () => {
 
   test("sets mergeMode to false when anime not in library", async () => {
     await withTempDir("no-merge", async (dir) => {
-      const { repo: libraryRepo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { sqlite: evtSqlite } = createEventDb();
       const aggregate = new AnimeAggregate({
-        library: libraryRepo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
@@ -684,15 +688,17 @@ describe("aggregateReviewPlan", () => {
 
   test("sets mergeMode to true when library has matching anime", async () => {
     await withTempDir("merge", async (dir) => {
-      const { repo: libraryRepo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { sqlite: evtSqlite } = createEventDb();
       const aggregate = new AnimeAggregate({
-        library: libraryRepo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
-      libraryRepo.upsertAnime({
+      animeRepo.upsertAnime({
         title: "Jujutsu Kaisen",
       });
 
@@ -725,10 +731,12 @@ describe("aggregateReviewPlan", () => {
 
   test("sets mergeMode to false when anime not in library", async () => {
     await withTempDir("no-merge", async (dir) => {
-      const { repo: libraryRepo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { sqlite: evtSqlite } = createEventDb();
       const aggregate = new AnimeAggregate({
-        library: libraryRepo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,

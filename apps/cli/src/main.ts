@@ -51,7 +51,8 @@ export async function run(argv: string[]): Promise<void> {
     const fribbClient = createFribbConnection(fribbDbPath);
     const libraryRepo = createLibraryConnection(libraryDbPath);
     const franchiseService = new FranchiseService({
-      library: libraryRepo,
+      anime: libraryRepo.animeRepo,
+      franchises: libraryRepo.franchiseRepo,
       franchiseIndex: fribbClient,
     });
     await franchiseService.repairAll();

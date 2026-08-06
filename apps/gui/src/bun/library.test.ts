@@ -2,39 +2,44 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { LibraryRepository, WatchTracker } from "@kogoro/core";
+import type { AnimeRepository, EpisodeRepository, GroupRepository } from "@kogoro/core";
 import { AnimeAggregate } from "@kogoro/core";
 import {
   createEventRepository,
-  createLibraryRepository,
+  createLibraryRepositories,
   createMockIdentityResolver,
   withTempDir,
 } from "@kogoro/core/testing";
 import { createLibraryHandlers } from "./library";
 
-function seedLibrary(repo: LibraryRepository, coverDir?: string) {
-  const jjk = repo.upsertAnime({
+function seedLibrary(
+  animeRepo: AnimeRepository,
+  episodeRepo: EpisodeRepository,
+  groupRepo: GroupRepository,
+  coverDir?: string,
+) {
+  const jjk = animeRepo.upsertAnime({
     title: "Jujutsu Kaisen",
     alternativeTitles: ["呪術廻戦", "Jujutsu Kaisen"],
     coverArtPath: coverDir ? join(coverDir, "jjk.jpg") : undefined,
   });
-  repo.createAnimeSourceMapping({ animeId: jjk.id, source: "tvdb", externalId: "tvdb-12345" });
+  animeRepo.createAnimeSourceMapping({ animeId: jjk.id, source: "tvdb", externalId: "tvdb-12345" });
 
-  const jjkGroup = repo.upsertEpisodeGroup({
+  const jjkGroup = groupRepo.upsertEpisodeGroup({
     animeId: jjk.id,
     entryType: "tv",
     seasonNumber: 1,
     watchStatus: "plan_to_watch",
   });
 
-  repo.addEpisode({
+  episodeRepo.addEpisode({
     groupId: jjkGroup.id,
     episodeNumber: 1,
     filePath: "/media/Jujutsu Kaisen/S01E01.mkv",
     title: "Ryomen Sukuna",
     watched: false,
   });
-  repo.addEpisode({
+  episodeRepo.addEpisode({
     groupId: jjkGroup.id,
     episodeNumber: 2,
     filePath: "/media/Jujutsu Kaisen/S01E02.mkv",
@@ -42,20 +47,20 @@ function seedLibrary(repo: LibraryRepository, coverDir?: string) {
     watched: false,
   });
 
-  const aot = repo.upsertAnime({
+  const aot = animeRepo.upsertAnime({
     title: "Attack on Titan",
     coverArtPath: coverDir ? join(coverDir, "aot.jpg") : undefined,
   });
-  repo.createAnimeSourceMapping({ animeId: aot.id, source: "tvdb", externalId: "tvdb-67890" });
+  animeRepo.createAnimeSourceMapping({ animeId: aot.id, source: "tvdb", externalId: "tvdb-67890" });
 
-  const aotGroup = repo.upsertEpisodeGroup({
+  const aotGroup = groupRepo.upsertEpisodeGroup({
     animeId: aot.id,
     entryType: "tv",
     seasonNumber: 1,
     watchStatus: "plan_to_watch",
   });
 
-  repo.addEpisode({
+  episodeRepo.addEpisode({
     groupId: aotGroup.id,
     episodeNumber: 1,
     filePath: "/media/Attack on Titan/S01E01.mkv",
@@ -71,18 +76,21 @@ describe("getLibrary handler", () => {
       mkdirSync(coverDir, { recursive: true });
       writeFileSync(join(coverDir, "aot.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
       writeFileSync(join(coverDir, "jjk.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
-      const { repo, close } = createLibraryRepository(dir);
-      seedLibrary(repo, coverDir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
+      seedLibrary(animeRepo, episodeRepo, groupRepo, coverDir);
       const { close: closeEvt } = createEventRepository(dir);
       const aggregate = new AnimeAggregate({
-        library: repo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
-        watchTracker: {} as WatchTracker,
+        episodeRepo,
+        groupRepo,
       });
       const result = await handlers.getLibrary();
 
@@ -99,17 +107,20 @@ describe("getLibrary handler", () => {
 
   test("returns empty array when library is empty", async () => {
     await withTempDir("library-handler-empty", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
       const aggregate = new AnimeAggregate({
-        library: repo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
-        watchTracker: {} as WatchTracker,
+        episodeRepo,
+        groupRepo,
       });
       const result = await handlers.getLibrary();
       expect(result).toHaveLength(0);
@@ -125,18 +136,21 @@ describe("getAnimeDetail handler", () => {
       const coverDir = join(dir, "covers");
       mkdirSync(coverDir, { recursive: true });
       writeFileSync(join(coverDir, "jjk.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
-      const { repo, close } = createLibraryRepository(dir);
-      seedLibrary(repo, coverDir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
+      seedLibrary(animeRepo, episodeRepo, groupRepo, coverDir);
       const { close: closeEvt } = createEventRepository(dir);
       const aggregate = new AnimeAggregate({
-        library: repo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
-        watchTracker: {} as WatchTracker,
+        episodeRepo,
+        groupRepo,
       });
       const library = await handlers.getLibrary();
       const jjk = library.find((a) => a.titleEn === "Jujutsu Kaisen");
@@ -161,18 +175,21 @@ describe("getAnimeDetail handler", () => {
 
   test("returns null for unknown id", async () => {
     await withTempDir("library-handler-detail-miss", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
-      seedLibrary(repo);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
+      seedLibrary(animeRepo, episodeRepo, groupRepo);
       const { close: closeEvt } = createEventRepository(dir);
       const aggregate = new AnimeAggregate({
-        library: repo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
-        watchTracker: {} as WatchTracker,
+        episodeRepo,
+        groupRepo,
       });
       const result = await handlers.getAnimeDetail({ id: "99999" });
       expect(result).toBeNull();
@@ -185,18 +202,21 @@ describe("getAnimeDetail handler", () => {
 describe("getLibraryStats handler", () => {
   test("returns anime and episode counts from seeded library", async () => {
     await withTempDir("library-handler-stats", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
-      seedLibrary(repo);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
+      seedLibrary(animeRepo, episodeRepo, groupRepo);
       const { close: closeEvt } = createEventRepository(dir);
       const aggregate = new AnimeAggregate({
-        library: repo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
-        watchTracker: {} as WatchTracker,
+        episodeRepo,
+        groupRepo,
       });
       const result = await handlers.getLibraryStats();
 
@@ -209,17 +229,20 @@ describe("getLibraryStats handler", () => {
 
   test("returns zero counts when library is empty", async () => {
     await withTempDir("library-handler-stats-empty", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
       const aggregate = new AnimeAggregate({
-        library: repo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
-        watchTracker: {} as WatchTracker,
+        episodeRepo,
+        groupRepo,
       });
       const result = await handlers.getLibraryStats();
 
@@ -234,17 +257,20 @@ describe("getLibraryStats handler", () => {
 describe("mergeMatches", () => {
   test("merges match entries into library", async () => {
     await withTempDir("library-merge", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
       const aggregate = new AnimeAggregate({
-        library: repo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
-        watchTracker: {} as WatchTracker,
+        episodeRepo,
+        groupRepo,
       });
 
       await aggregate.mergeFromMatches([
@@ -284,32 +310,32 @@ describe("rebuild", () => {
       writeFileSync(ep3Path, "");
 
       await withTempDir("library-rebuild", async (dir) => {
-        const { repo, close } = createLibraryRepository(dir);
+        const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
         const { close: closeEvt } = createEventRepository(dir);
-        const jjk = repo.upsertAnime({
+        const jjk = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: jjk.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
 
-        const jjkGroup = repo.upsertEpisodeGroup({
+        const jjkGroup = groupRepo.upsertEpisodeGroup({
           animeId: jjk.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: jjkGroup.id,
           episodeNumber: 1,
           filePath: ep1Path,
           title: "Ryomen Sukuna",
           watched: false,
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: jjkGroup.id,
           episodeNumber: 2,
           filePath: ep2Path,
@@ -317,23 +343,23 @@ describe("rebuild", () => {
           watched: false,
         });
 
-        const aot = repo.upsertAnime({
+        const aot = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: aot.id,
           source: "tvdb",
           externalId: "tvdb-67890",
         });
 
-        const aotGroup = repo.upsertEpisodeGroup({
+        const aotGroup = groupRepo.upsertEpisodeGroup({
           animeId: aot.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: aotGroup.id,
           episodeNumber: 1,
           filePath: ep3Path,
@@ -342,14 +368,17 @@ describe("rebuild", () => {
         });
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
         const handlers = createLibraryHandlers({
           animeAggregate: aggregate,
-          watchTracker: {} as WatchTracker,
+          episodeRepo,
+          groupRepo,
         });
 
         const result = await handlers.rebuild();
@@ -367,17 +396,20 @@ describe("rebuild", () => {
 
   test("returns success when library is empty", async () => {
     await withTempDir("library-rebuild-empty", async (dir) => {
-      const { repo, close } = createLibraryRepository(dir);
+      const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
       const aggregate = new AnimeAggregate({
-        library: repo,
+        anime: animeRepo,
+        episodes: episodeRepo,
+        groups: groupRepo,
         replayUnpushedEvents: () => {},
         identityResolver: createMockIdentityResolver(),
         resolveTitleToAnidb: async () => null,
       });
       const handlers = createLibraryHandlers({
         animeAggregate: aggregate,
-        watchTracker: {} as WatchTracker,
+        episodeRepo,
+        groupRepo,
       });
       const result = await handlers.rebuild();
       expect(result.success).toBe(true);

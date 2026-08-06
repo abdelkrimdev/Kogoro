@@ -60,7 +60,7 @@ export function createDashboardHandlers(options: { animeAggregate: AnimeAggregat
   return {
     async getDashboardData(): Promise<DashboardData> {
       const displayData = svc.getAnimeForDisplay();
-      const stats = svc.library.getStats();
+      const stats = svc.animeRepo.getStats();
 
       let onDisk = 0;
       let partiallyOnDisk = 0;
@@ -75,7 +75,7 @@ export function createDashboardHandlers(options: { animeAggregate: AnimeAggregat
         let totalEpisodes = 0;
         let onDiskEpisodes = 0;
         for (const group of groups) {
-          const episodes = svc.library.getEpisodesByGroupId(group.id);
+          const episodes = svc.episodeRepo.getEpisodesByGroupId(group.id);
           totalEpisodes += episodes.length;
           onDiskEpisodes += episodes.filter((ep) => ep.filePath !== "").length;
         }
@@ -136,7 +136,7 @@ export function createDashboardHandlers(options: { animeAggregate: AnimeAggregat
     },
 
     getLibraryStats(): LibraryStats {
-      return svc.library.getStats();
+      return svc.animeRepo.getStats();
     },
   };
 }

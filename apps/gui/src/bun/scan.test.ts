@@ -18,7 +18,7 @@ import {
 import {
   createAmbiguousMatcher,
   createEventRepository,
-  createLibraryRepository,
+  createLibraryRepositories,
   createMatchCacheService,
   createMockDb,
   createMockIdentityResolver,
@@ -253,21 +253,23 @@ describe("ScanOrchestrator", () => {
         const matches = orch.getMatchResults();
         expect(matches.length).toBeGreaterThan(0);
 
-        const { repo: libraryRepo, close } = createLibraryRepository(dir);
+        const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
         const { close: closeEvt } = createEventRepository(dir);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
         await aggregate.rebuildFromMatches(matches);
 
-        const animeList = libraryRepo.listAnime();
+        const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(1);
         expect(animeList[0]?.title).toBe("My Anime");
 
-        const episodes = libraryRepo.getEpisodesByAnimeId(animeList[0]?.id ?? 0);
+        const episodes = episodeRepo.getEpisodesByAnimeId(animeList[0]?.id ?? 0);
         expect(episodes).toHaveLength(1);
         expect(episodes[0]?.episodeNumber).toBe(1);
 
@@ -404,7 +406,6 @@ describe("ScanOrchestrator", () => {
         const { matchRepo, manifestRepo, cacheService, close } = createMatchCacheService(dir);
         const manifestService = new ManifestService(manifestRepo);
 
-        // Seed a stale entry that should be purged on scan
         manifestRepo.set("/deleted/old.mkv", 100, 1000, "staleHash");
         matchRepo.set("staleHash", {
           animeId: "99",
@@ -443,9 +444,11 @@ describe("ScanOrchestrator", () => {
 
         writeTempFile(dir, "[Group] My Anime - 01.mkv", "fake video content");
 
-        const { repo: libraryRepo } = createLibraryRepository(dir);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepositories(dir);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -478,10 +481,8 @@ describe("ScanOrchestrator", () => {
         });
 
         await handlers.scanStart({ path: dir });
-        // Wait briefly for the async scan to complete
         await new Promise((r) => setTimeout(r, 100));
 
-        // Stale entry should be purged via CacheService
         expect(manifestRepo.get("/deleted/old.mkv")).toBeNull();
         expect(matchRepo.has("staleHash")).toBe(false);
 
@@ -524,9 +525,11 @@ describe("ScanOrchestrator", () => {
         const filePath = join(dir, "[Group] My Anim - 01.mkv");
         writeTempFile(dir, "[Group] My Anim - 01.mkv", "fake video content");
 
-        const { repo: libraryRepo } = createLibraryRepository(dir);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepositories(dir);
         const aggregate = new AnimeAggregate({
-          library: libraryRepo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,

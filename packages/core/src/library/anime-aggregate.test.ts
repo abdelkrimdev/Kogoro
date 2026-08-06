@@ -7,7 +7,7 @@ import { createEventDb } from "../events/test-utils";
 import { createMockIdentityResolver, createMockTracker } from "../fixtures";
 import type { MatchEntry } from "../types";
 import { AnimeAggregate } from "./anime-aggregate";
-import { LibraryRepository } from "./library-repository";
+import { createLibraryRepos } from "./schema";
 import { createLibraryDb } from "./test-utils";
 
 describe("AnimeAggregate", () => {
@@ -16,14 +16,16 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
-        repo.upsertAnime({
+        animeRepo.upsertAnime({
           title: "Old Anime",
         });
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -67,16 +69,16 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildFromMatches(matches);
 
-        const animeList = repo.listAnime();
+        const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(2);
 
-        const jjk = repo.findAnime("tvdb-12345", "tvdb");
+        const jjk = animeRepo.findAnime("tvdb-12345", "tvdb");
         expect(jjk?.title).toBe("Jujutsu Kaisen");
-        expect(repo.getEpisodesByAnimeId(jjk?.id as number)).toHaveLength(2);
+        expect(episodeRepo.getEpisodesByAnimeId(jjk?.id as number)).toHaveLength(2);
 
-        const aot = repo.findAnime("tvdb-67890", "tvdb");
+        const aot = animeRepo.findAnime("tvdb-67890", "tvdb");
         expect(aot?.title).toBe("Attack on Titan");
-        expect(repo.getEpisodesByAnimeId(aot?.id as number)).toHaveLength(1);
+        expect(episodeRepo.getEpisodesByAnimeId(aot?.id as number)).toHaveLength(1);
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -87,10 +89,12 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -123,8 +127,8 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildFromMatches(matches);
 
-        const jjk = repo.findAnime("tvdb-12345", "tvdb");
-        const groups = repo.getEpisodeGroupsByAnimeId(jjk?.id as number);
+        const jjk = animeRepo.findAnime("tvdb-12345", "tvdb");
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(jjk?.id as number);
         expect(groups).toHaveLength(2);
         expect(groups[0]?.seasonNumber).toBe(1);
         expect(groups[1]?.seasonNumber).toBe(2);
@@ -138,40 +142,42 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
 
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           title: "Ryomen Sukuna",
           watched: true,
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
@@ -206,11 +212,11 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildFromMatches(matches);
 
-        const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
-        const statuses = repo.getEpisodeWatchStatusByAnimeId(rebuilt?.id as number);
+        const rebuilt = animeRepo.findAnime("tvdb-12345", "tvdb");
+        const statuses = episodeRepo.getEpisodeWatchStatusByAnimeId(rebuilt?.id as number);
         expect(statuses).toHaveLength(2);
         const ep1Status = statuses.find((s) => {
-          const ep = repo.getEpisode(s.episodeId);
+          const ep = episodeRepo.getEpisode(s.episodeId);
           return ep?.episodeNumber === 1;
         });
         expect(ep1Status?.watched).toBe(true);
@@ -224,10 +230,12 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -280,10 +288,12 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -316,9 +326,9 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildFromMatches(matches);
 
-        expect(repo.findAnime("tvdb-12345", "tvdb")).not.toBeNull();
-        expect(repo.findAnime("anidb-67890", "anidb")).not.toBeNull();
-        expect(repo.findAnime("anidb-67890", "tvdb")).toBeNull();
+        expect(animeRepo.findAnime("tvdb-12345", "tvdb")).not.toBeNull();
+        expect(animeRepo.findAnime("anidb-67890", "anidb")).not.toBeNull();
+        expect(animeRepo.findAnime("anidb-67890", "tvdb")).toBeNull();
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -329,26 +339,28 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
 
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
@@ -357,13 +369,13 @@ describe("AnimeAggregate", () => {
           rating: 9.5,
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           watched: true,
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
@@ -397,8 +409,8 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildFromMatches(matches);
 
-        const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
-        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
+        const rebuilt = animeRepo.findAnime("tvdb-12345", "tvdb");
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.watchStatus).toBe("completed");
         expect(groups[0]?.synopsis).toBe("Season 1 synopsis");
@@ -413,50 +425,52 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
 
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        repo.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "12345",
         });
-        repo.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "67890",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           watched: false,
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
@@ -490,14 +504,14 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildFromMatches(matches);
 
-        const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
-        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
+        const rebuilt = animeRepo.findAnime("tvdb-12345", "tvdb");
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
         expect(groups).toHaveLength(1);
 
-        const malMapping = repo.getTrackerMapping(groups[0]?.id as number, "mal");
+        const malMapping = groupRepo.getTrackerMapping(groups[0]?.id as number, "mal");
         expect(malMapping?.externalId).toBe("12345");
 
-        const anilistMapping = repo.getTrackerMapping(groups[0]?.id as number, "anilist");
+        const anilistMapping = groupRepo.getTrackerMapping(groups[0]?.id as number, "anilist");
         expect(anilistMapping?.externalId).toBe("67890");
       } finally {
         sqlite.close();
@@ -509,10 +523,12 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -545,18 +561,18 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildFromMatches(matches);
 
-        const animeList = repo.listAnime();
+        const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(1);
 
-        const tvdbMapping = repo.findAnimeSourceMapping("tvdb", "tvdb-12345");
+        const tvdbMapping = animeRepo.findAnimeSourceMapping("tvdb", "tvdb-12345");
         expect(tvdbMapping).not.toBeNull();
         expect(tvdbMapping?.animeId).toBe(animeList[0]?.id);
 
-        const anidbMapping = repo.findAnimeSourceMapping("anidb", "anidb-67890");
+        const anidbMapping = animeRepo.findAnimeSourceMapping("anidb", "anidb-67890");
         expect(anidbMapping).not.toBeNull();
         expect(anidbMapping?.animeId).toBe(animeList[0]?.id);
 
-        const episodes = repo.getEpisodesByAnimeId(animeList[0]?.id as number);
+        const episodes = episodeRepo.getEpisodesByAnimeId(animeList[0]?.id as number);
         expect(episodes).toHaveLength(2);
       } finally {
         sqlite.close();
@@ -568,27 +584,27 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(anime.id, "al-jjk");
+        animeRepo.updateAnimeAnidbId(anime.id, "al-jjk");
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           watched: true,
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
@@ -596,7 +612,9 @@ describe("AnimeAggregate", () => {
         });
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -629,18 +647,18 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildFromMatches(matches);
 
-        const rebuilt = repo.listAnime();
+        const rebuilt = animeRepo.listAnime();
         expect(rebuilt).toHaveLength(1);
         expect(rebuilt[0]?.anidbId).toBe("al-jjk");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt[0]?.id as number);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(rebuilt[0]?.id as number);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.watchStatus).toBe("watching");
 
-        const statuses = repo.getEpisodeWatchStatusByAnimeId(rebuilt[0]?.id as number);
+        const statuses = episodeRepo.getEpisodeWatchStatusByAnimeId(rebuilt[0]?.id as number);
         expect(statuses).toHaveLength(2);
         const ep1 = statuses.find((s) => {
-          const ep = repo.getEpisode(s.episodeId);
+          const ep = episodeRepo.getEpisode(s.episodeId);
           return ep?.episodeNumber === 1;
         });
         expect(ep1?.watched).toBe(true);
@@ -654,7 +672,7 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         let capturedSnapshot:
           | {
@@ -664,7 +682,9 @@ describe("AnimeAggregate", () => {
           | undefined;
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -703,28 +723,30 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(anime.id, "al-jjk");
+        animeRepo.updateAnimeAnidbId(anime.id, "al-jjk");
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
@@ -769,19 +791,19 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(matches);
 
-        const animeList = repo.listAnime();
+        const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(2);
 
-        const jjk = repo.findAnime("tvdb-12345", "tvdb");
-        const statuses = repo.getEpisodeWatchStatusByAnimeId(jjk?.id as number);
+        const jjk = animeRepo.findAnime("tvdb-12345", "tvdb");
+        const statuses = episodeRepo.getEpisodeWatchStatusByAnimeId(jjk?.id as number);
         expect(statuses).toHaveLength(2);
         const ep1Status = statuses.find((s) => {
-          const ep = repo.getEpisode(s.episodeId);
+          const ep = episodeRepo.getEpisode(s.episodeId);
           return ep?.episodeNumber === 1;
         });
         expect(ep1Status?.watched).toBe(true);
         const ep2Status = statuses.find((s) => {
-          const ep = repo.getEpisode(s.episodeId);
+          const ep = episodeRepo.getEpisode(s.episodeId);
           return ep?.episodeNumber === 2;
         });
         expect(ep2Status?.watched).toBe(false);
@@ -795,10 +817,12 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -831,10 +855,10 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(matches);
 
-        const all = repo.listAnime();
+        const all = animeRepo.listAnime();
         expect(all).toHaveLength(1);
         expect(all[0]?.title).toBe("Jujutsu Kaisen");
-        expect(repo.getEpisodesByAnimeId(all[0]?.id as number)).toHaveLength(2);
+        expect(episodeRepo.getEpisodesByAnimeId(all[0]?.id as number)).toHaveLength(2);
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -845,19 +869,21 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-jjk");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-jjk");
 
         const firstMatches: MatchEntry[] = [
           {
@@ -913,9 +939,9 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(secondMatches);
 
-        expect(repo.listAnime()).toHaveLength(1);
-        const jjk = repo.findAnime("tvdb-12345", "tvdb");
-        expect(repo.getEpisodesByAnimeId(jjk?.id as number)).toHaveLength(4);
+        expect(animeRepo.listAnime()).toHaveLength(1);
+        const jjk = animeRepo.findAnime("tvdb-12345", "tvdb");
+        expect(episodeRepo.getEpisodesByAnimeId(jjk?.id as number)).toHaveLength(4);
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -926,19 +952,21 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-jjk");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-jjk");
 
         const matches: MatchEntry[] = [
           {
@@ -978,19 +1006,21 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existing = repo.upsertAnime({
+        const existing = animeRepo.upsertAnime({
           title: "Oshi no Ko",
         });
-        repo.updateAnimeAnidbId(existing.id, "al-oshi");
+        animeRepo.updateAnimeAnidbId(existing.id, "al-oshi");
 
         const matches: MatchEntry[] = [
           {
@@ -1030,10 +1060,10 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(matches);
 
-        const all = repo.listAnime();
+        const all = animeRepo.listAnime();
         expect(all).toHaveLength(1);
         expect(all[0]?.title).toBe("Oshi no Ko");
-        const episodes = repo.getEpisodesByAnimeId(all[0]?.id as number);
+        const episodes = episodeRepo.getEpisodesByAnimeId(all[0]?.id as number);
         expect(episodes).toHaveLength(3);
       } finally {
         sqlite.close();
@@ -1045,19 +1075,21 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existing = repo.upsertAnime({
+        const existing = animeRepo.upsertAnime({
           title: "Oshi no Ko",
         });
-        repo.updateAnimeAnidbId(existing.id, "al-oshi");
+        animeRepo.updateAnimeAnidbId(existing.id, "al-oshi");
 
         const matches: MatchEntry[] = [
           {
@@ -1086,10 +1118,10 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(matches);
 
-        const all = repo.listAnime();
+        const all = animeRepo.listAnime();
         expect(all).toHaveLength(1);
         expect(all[0]?.title).toBe("Oshi no Ko");
-        const episodes = repo.getEpisodesByAnimeId(all[0]?.id as number);
+        const episodes = episodeRepo.getEpisodesByAnimeId(all[0]?.id as number);
         expect(episodes).toHaveLength(2);
       } finally {
         sqlite.close();
@@ -1101,19 +1133,21 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Oshi no Ko",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-oshi");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-oshi");
 
         const anidbMatches: MatchEntry[] = [
           {
@@ -1142,7 +1176,7 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(anidbMatches);
 
-        expect(repo.listAnime()).toHaveLength(1);
+        expect(animeRepo.listAnime()).toHaveLength(1);
 
         const tvdbMatches: MatchEntry[] = [
           {
@@ -1171,11 +1205,11 @@ describe("AnimeAggregate", () => {
 
         await aggregate.mergeFromMatches(tvdbMatches);
 
-        const all = repo.listAnime();
+        const all = animeRepo.listAnime();
         expect(all).toHaveLength(1);
         expect(all[0]?.title).toBe("Oshi no Ko");
         expect(all[0]?.anidbId).toBe("al-oshi");
-        expect(repo.getEpisodesByAnimeId(all[0]?.id as number)).toHaveLength(4);
+        expect(episodeRepo.getEpisodesByAnimeId(all[0]?.id as number)).toHaveLength(4);
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -1188,33 +1222,35 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
 
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
@@ -1248,33 +1284,33 @@ describe("AnimeAggregate", () => {
       const { sqlite: evtSqlite } = createEventDb();
       const dir = mkdtempSync(join(tmpdir(), "anime-agg-rebuild-"));
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Old Title",
         });
 
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "completed",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: join(dir, "S01E01.mkv"),
           title: "Ep 1",
           watched: true,
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 2,
           filePath: join(dir, "S01E02.mkv"),
@@ -1294,7 +1330,9 @@ describe("AnimeAggregate", () => {
           | undefined;
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: (snapshot) => {
             replayCalled = true;
             capturedSnapshot = snapshot;
@@ -1305,16 +1343,16 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuild();
 
-        const rebuilt = repo.findAnime("tvdb-12345", "tvdb");
+        const rebuilt = animeRepo.findAnime("tvdb-12345", "tvdb");
         expect(rebuilt).not.toBeNull();
-        const rebuiltGroup = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
+        const rebuiltGroup = groupRepo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
         expect(rebuiltGroup).toHaveLength(1);
         expect(rebuiltGroup[0]?.watchStatus).toBe("completed");
 
-        const statuses = repo.getEpisodeWatchStatusByAnimeId(rebuilt?.id as number);
+        const statuses = episodeRepo.getEpisodeWatchStatusByAnimeId(rebuilt?.id as number);
         expect(statuses).toHaveLength(2);
         const ep1 = statuses.find((s) => {
-          const ep = repo.getEpisode(s.episodeId);
+          const ep = episodeRepo.getEpisode(s.episodeId);
           return ep?.episodeNumber === 1;
         });
         expect(ep1?.watched).toBe(true);
@@ -1335,23 +1373,23 @@ describe("AnimeAggregate", () => {
       const { sqlite: evtSqlite } = createEventDb();
       const dir = mkdtempSync(join(tmpdir(), "anime-agg-rebuild-srcdb-"));
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
-        const anime1 = repo.upsertAnime({
+        const anime1 = animeRepo.upsertAnime({
           title: "TVDB Anime",
         });
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: anime1.id,
           source: "tvdb",
           externalId: "tvdb-111",
         });
-        const group1 = repo.upsertEpisodeGroup({
+        const group1 = groupRepo.upsertEpisodeGroup({
           animeId: anime1.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group1.id,
           episodeNumber: 1,
           filePath: join(dir, "tvdb-ep1.mkv"),
@@ -1359,21 +1397,21 @@ describe("AnimeAggregate", () => {
           watched: false,
         });
 
-        const anime2 = repo.upsertAnime({
+        const anime2 = animeRepo.upsertAnime({
           title: "AniDB Anime",
         });
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: anime2.id,
           source: "anidb",
           externalId: "anidb-222",
         });
-        const group2 = repo.upsertEpisodeGroup({
+        const group2 = groupRepo.upsertEpisodeGroup({
           animeId: anime2.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group2.id,
           episodeNumber: 1,
           filePath: join(dir, "anidb-ep1.mkv"),
@@ -1385,7 +1423,9 @@ describe("AnimeAggregate", () => {
         writeFileSync(join(dir, "anidb-ep1.mkv"), "content");
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -1393,8 +1433,8 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuild("tvdb");
 
-        expect(repo.findAnime("tvdb-111", "tvdb")).not.toBeNull();
-        expect(repo.findAnime("anidb-222", "anidb")).toBeNull();
+        expect(animeRepo.findAnime("tvdb-111", "tvdb")).not.toBeNull();
+        expect(animeRepo.findAnime("anidb-222", "anidb")).toBeNull();
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -1408,10 +1448,12 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -1436,15 +1478,15 @@ describe("AnimeAggregate", () => {
         expect(result.imported).toBe(1);
         expect(result.skipped).toBe(0);
 
-        const animeList = repo.listAnime();
+        const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(1);
         expect(animeList[0]?.title).toBe("Attack on Titan");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(animeList[0]?.id ?? 0);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(animeList[0]?.id ?? 0);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.watchStatus).toBe("watching");
 
-        const mappings = repo.getTrackerMappingsByGroupId(groups[0]?.id ?? 0);
+        const mappings = groupRepo.getTrackerMappingsByGroupId(groups[0]?.id ?? 0);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.source).toBe("anilist");
         expect(mappings[0]?.externalId).toBe("tl-1");
@@ -1458,21 +1500,23 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["tl-1", "aot-anidb"]])),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
-        repo.updateAnimeAnidbId(anime.id, "aot-anidb");
+        animeRepo.updateAnimeAnidbId(anime.id, "aot-anidb");
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
@@ -1498,10 +1542,10 @@ describe("AnimeAggregate", () => {
         expect(result.imported).toBe(1);
         expect(result.skipped).toBe(0);
 
-        const updatedGroup = repo.getEpisodeGroup(group.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("completed");
 
-        const mappings = repo.getTrackerMappingsByGroupId(group.id);
+        const mappings = groupRepo.getTrackerMappingsByGroupId(group.id);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.source).toBe("anilist");
         expect(mappings[0]?.externalId).toBe("tl-1");
@@ -1515,27 +1559,29 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        repo.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "anilist",
           externalId: "tl-1",
@@ -1569,20 +1615,22 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        repo.upsertEpisodeGroup({
+        groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
@@ -1609,7 +1657,7 @@ describe("AnimeAggregate", () => {
 
         expect(result.imported).toBe(1);
 
-        const groups = repo.getEpisodeGroupsByAnimeId(anime.id);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(anime.id);
         expect(groups[0]?.watchStatus).toBe("watching");
       } finally {
         sqlite.close();
@@ -1621,21 +1669,23 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["tl-1", "aot-anidb"]])),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
-        repo.updateAnimeAnidbId(anime.id, "aot-anidb");
+        animeRepo.updateAnimeAnidbId(anime.id, "aot-anidb");
 
-        repo.upsertEpisodeGroup({
+        groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
@@ -1662,7 +1712,7 @@ describe("AnimeAggregate", () => {
 
         expect(result.imported).toBe(1);
 
-        const groups = repo.getEpisodeGroupsByAnimeId(anime.id);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(anime.id);
         expect(groups[0]?.watchStatus).toBe("completed");
       } finally {
         sqlite.close();
@@ -1674,20 +1724,22 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
@@ -1714,10 +1766,10 @@ describe("AnimeAggregate", () => {
 
         expect(result.imported).toBe(1);
 
-        const updatedGroup = repo.getEpisodeGroup(group.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(group.id);
         expect(updatedGroup?.watchStatus).toBe("completed");
 
-        const mappings = repo.getTrackerMappingsByGroupId(group.id);
+        const mappings = groupRepo.getTrackerMappingsByGroupId(group.id);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.externalId).toBe("tl-1");
       } finally {
@@ -1730,10 +1782,12 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -1776,13 +1830,13 @@ describe("AnimeAggregate", () => {
         expect(result.imported).toBe(3);
         expect(result.skipped).toBe(0);
 
-        const animeList = repo.listAnime();
+        const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(3);
 
         for (const anime of animeList) {
-          const groups = repo.getEpisodeGroupsByAnimeId(anime.id);
+          const groups = groupRepo.getEpisodeGroupsByAnimeId(anime.id);
           expect(groups).toHaveLength(1);
-          const mappings = repo.getTrackerMappingsByGroupId(groups[0]?.id ?? 0);
+          const mappings = groupRepo.getTrackerMappingsByGroupId(groups[0]?.id ?? 0);
           expect(mappings).toHaveLength(1);
         }
       } finally {
@@ -1795,10 +1849,12 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(
             new Map([
@@ -1809,24 +1865,24 @@ describe("AnimeAggregate", () => {
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime1 = repo.upsertAnime({
+        const anime1 = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
-        repo.updateAnimeAnidbId(anime1.id, "aot-anidb");
+        animeRepo.updateAnimeAnidbId(anime1.id, "aot-anidb");
 
-        const group1 = repo.upsertEpisodeGroup({
+        const group1 = groupRepo.upsertEpisodeGroup({
           animeId: anime1.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
 
-        const anime2 = repo.upsertAnime({
+        const anime2 = animeRepo.upsertAnime({
           title: "Death Note",
         });
-        repo.updateAnimeAnidbId(anime2.id, "dn-anidb");
+        animeRepo.updateAnimeAnidbId(anime2.id, "dn-anidb");
 
-        const group2 = repo.upsertEpisodeGroup({
+        const group2 = groupRepo.upsertEpisodeGroup({
           animeId: anime2.id,
           entryType: "tv",
           seasonNumber: 1,
@@ -1859,10 +1915,10 @@ describe("AnimeAggregate", () => {
         const result = await aggregate.importFromTracker(tracker, "anilist");
         expect(result.imported).toBe(2);
 
-        const updatedGroup1 = repo.getEpisodeGroup(group1.id);
+        const updatedGroup1 = groupRepo.getEpisodeGroup(group1.id);
         expect(updatedGroup1?.watchStatus).toBe("completed");
 
-        const updatedGroup2 = repo.getEpisodeGroup(group2.id);
+        const updatedGroup2 = groupRepo.getEpisodeGroup(group2.id);
         expect(updatedGroup2?.watchStatus).toBe("completed");
       } finally {
         sqlite.close();
@@ -1876,34 +1932,36 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
 
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           title: "Ryomen Sukuna",
           watched: true,
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 2,
           filePath: "/media/S01E02.mkv",
@@ -1930,45 +1988,47 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime1 = repo.upsertAnime({
+        const anime1 = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
 
-        const group1 = repo.upsertEpisodeGroup({
+        const group1 = groupRepo.upsertEpisodeGroup({
           animeId: anime1.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group1.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           watched: false,
         });
 
-        const anime2 = repo.upsertAnime({
+        const anime2 = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group2 = repo.upsertEpisodeGroup({
+        const group2 = groupRepo.upsertEpisodeGroup({
           animeId: anime2.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "completed",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group2.id,
           episodeNumber: 1,
           filePath: "/media/AoT/S01E01.mkv",
@@ -1995,28 +2055,30 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const jjk = repo.upsertAnime({
+        const jjk = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: jjk.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
 
-        const aot = repo.upsertAnime({
+        const aot = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
-        repo.createAnimeSourceMapping({
+        animeRepo.createAnimeSourceMapping({
           animeId: aot.id,
           source: "anilist",
           externalId: "anilist-69",
@@ -2036,45 +2098,47 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime1 = repo.upsertAnime({
+        const anime1 = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
 
-        const group1 = repo.upsertEpisodeGroup({
+        const group1 = groupRepo.upsertEpisodeGroup({
           animeId: anime1.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group1.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           watched: false,
         });
 
-        const anime2 = repo.upsertAnime({
+        const anime2 = animeRepo.upsertAnime({
           title: "Attack on Titan",
         });
 
-        const group2 = repo.upsertEpisodeGroup({
+        const group2 = groupRepo.upsertEpisodeGroup({
           animeId: anime2.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "completed",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group2.id,
           episodeNumber: 1,
           filePath: "/media/AoT/S01E01.mkv",
@@ -2096,16 +2160,18 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        repo.upsertAnime({
+        animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
 
@@ -2122,47 +2188,49 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
 
-        const group1 = repo.upsertEpisodeGroup({
+        const group1 = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "completed",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group1.id,
           episodeNumber: 1,
           filePath: "/media/S01E01.mkv",
           watched: true,
         });
 
-        const group2 = repo.upsertEpisodeGroup({
+        const group2 = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 2,
           watchStatus: "watching",
         });
 
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group2.id,
           episodeNumber: 1,
           filePath: "/media/S02E01.mkv",
           watched: false,
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group2.id,
           episodeNumber: 2,
           filePath: "/media/S02E02.mkv",
@@ -2187,10 +2255,12 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -2211,18 +2281,20 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["al-spy", "al-spy"]])),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-456");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-456");
 
         const result = await aggregate.resolveAndMerge({
           entries: [
@@ -2240,15 +2312,15 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0] as number);
+        const anime = animeRepo.getAnime(result.animeIds[0] as number);
         expect(anime?.anidbId).toBe("al-456");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.entryType).toBe("tv");
         expect(groups[0]?.seasonNumber).toBe(1);
 
-        const episodes = repo.getEpisodesByGroupId(groups[0]?.id as number);
+        const episodes = episodeRepo.getEpisodesByGroupId(groups[0]?.id as number);
         expect(episodes).toHaveLength(1);
         expect(episodes[0]?.filePath).toBe("/media/S01E01.mkv");
       } finally {
@@ -2261,9 +2333,11 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -2283,7 +2357,7 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0] as number);
+        const anime = animeRepo.getAnime(result.animeIds[0] as number);
         expect(anime?.anidbId).toMatch(/^temp:/);
       } finally {
         sqlite.close();
@@ -2295,9 +2369,11 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["al-new", "al-new"]])),
           resolveTitleToAnidb: async () => null,
@@ -2322,14 +2398,14 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0] as number);
+        const anime = animeRepo.getAnime(result.animeIds[0] as number);
         expect(anime?.title).toBe("Jujutsu Kaisen");
         expect(anime?.anidbId).toBe("al-new");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(1);
 
-        const episodes = repo.getEpisodesByAnimeId(result.animeIds[0] as number);
+        const episodes = episodeRepo.getEpisodesByAnimeId(result.animeIds[0] as number);
         expect(episodes).toHaveLength(2);
       } finally {
         sqlite.close();
@@ -2341,18 +2417,20 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["al-shared", "al-shared"]])),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-shared");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-shared");
 
         const result = await aggregate.resolveAndMerge({
           entries: [
@@ -2372,7 +2450,7 @@ describe("AnimeAggregate", () => {
         expect(result.animeIds).toHaveLength(1);
         expect(result.animeIds[0]).toBe(existingAnime.id);
 
-        const episodes = repo.getEpisodesByAnimeId(existingAnime.id);
+        const episodes = episodeRepo.getEpisodesByAnimeId(existingAnime.id);
         expect(episodes).toHaveLength(1);
         expect(episodes[0]?.filePath).toBe("/media/S01E01.mkv");
       } finally {
@@ -2385,9 +2463,11 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["al-groups", "al-groups"]])),
           resolveTitleToAnidb: async () => null,
@@ -2417,7 +2497,7 @@ describe("AnimeAggregate", () => {
           source: "tvdb",
         });
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(2);
         const seasons = groups.map((g) => g.seasonNumber).sort();
         expect(seasons).toEqual([1, 2]);
@@ -2431,26 +2511,28 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["al-tracker", "al-tracker"]])),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-tracker");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-tracker");
 
-        const existingGroup = repo.upsertEpisodeGroup({
+        const existingGroup = groupRepo.upsertEpisodeGroup({
           animeId: existingAnime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
-        repo.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: existingGroup.id,
           source: "mal",
           externalId: "mal-entry-1",
@@ -2471,10 +2553,10 @@ describe("AnimeAggregate", () => {
           source: "tvdb",
         });
 
-        const groups = repo.getEpisodeGroupsByAnimeId(existingAnime.id);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(existingAnime.id);
         expect(groups).toHaveLength(1);
 
-        const mappings = repo.getTrackerMappingsByGroupId(existingGroup.id);
+        const mappings = groupRepo.getTrackerMappingsByGroupId(existingGroup.id);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.source).toBe("mal");
         expect(mappings[0]?.externalId).toBe("mal-entry-1");
@@ -2488,20 +2570,22 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["al-status", "al-status"]])),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-status");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-status");
 
-        const existingGroup = repo.upsertEpisodeGroup({
+        const existingGroup = groupRepo.upsertEpisodeGroup({
           animeId: existingAnime.id,
           entryType: "tv",
           seasonNumber: 1,
@@ -2523,7 +2607,7 @@ describe("AnimeAggregate", () => {
           source: "tvdb",
         });
 
-        const updatedGroup = repo.getEpisodeGroup(existingGroup.id);
+        const updatedGroup = groupRepo.getEpisodeGroup(existingGroup.id);
         expect(updatedGroup?.watchStatus).toBe("completed");
       } finally {
         sqlite.close();
@@ -2535,20 +2619,22 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["al-cleanup", "al-cleanup"]])),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-cleanup");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-cleanup");
 
-        const emptyGroup = repo.upsertEpisodeGroup({
+        const emptyGroup = groupRepo.upsertEpisodeGroup({
           animeId: existingAnime.id,
           entryType: "ova",
           seasonNumber: 1,
@@ -2570,10 +2656,10 @@ describe("AnimeAggregate", () => {
           source: "tvdb",
         });
 
-        const deletedGroup = repo.getEpisodeGroup(emptyGroup.id);
+        const deletedGroup = groupRepo.getEpisodeGroup(emptyGroup.id);
         expect(deletedGroup).toBeNull();
 
-        const remainingGroups = repo.getEpisodeGroupsByAnimeId(existingAnime.id);
+        const remainingGroups = groupRepo.getEpisodeGroupsByAnimeId(existingAnime.id);
         expect(remainingGroups).toHaveLength(1);
         expect(remainingGroups[0]?.entryType).toBe("tv");
       } finally {
@@ -2586,26 +2672,28 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["al-preserve", "al-preserve"]])),
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-preserve");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-preserve");
 
-        const trackedGroup = repo.upsertEpisodeGroup({
+        const trackedGroup = groupRepo.upsertEpisodeGroup({
           animeId: existingAnime.id,
           entryType: "ova",
           seasonNumber: 1,
           watchStatus: "plan_to_watch",
         });
-        repo.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: trackedGroup.id,
           source: "mal",
           externalId: "mal-ova-1",
@@ -2626,10 +2714,10 @@ describe("AnimeAggregate", () => {
           source: "tvdb",
         });
 
-        const preservedGroup = repo.getEpisodeGroup(trackedGroup.id);
+        const preservedGroup = groupRepo.getEpisodeGroup(trackedGroup.id);
         expect(preservedGroup).not.toBeNull();
 
-        const mappings = repo.getTrackerMappingsByGroupId(trackedGroup.id);
+        const mappings = groupRepo.getTrackerMappingsByGroupId(trackedGroup.id);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.externalId).toBe("mal-ova-1");
       } finally {
@@ -2642,9 +2730,11 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(
             new Map([["al-nondefault", "al-nondefault"]]),
@@ -2652,12 +2742,12 @@ describe("AnimeAggregate", () => {
           resolveTitleToAnidb: async () => null,
         });
 
-        const existingAnime = repo.upsertAnime({
+        const existingAnime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(existingAnime.id, "al-nondefault");
+        animeRepo.updateAnimeAnidbId(existingAnime.id, "al-nondefault");
 
-        const statusGroup = repo.upsertEpisodeGroup({
+        const statusGroup = groupRepo.upsertEpisodeGroup({
           animeId: existingAnime.id,
           entryType: "ova",
           seasonNumber: 1,
@@ -2679,7 +2769,7 @@ describe("AnimeAggregate", () => {
           source: "tvdb",
         });
 
-        const preservedGroup = repo.getEpisodeGroup(statusGroup.id);
+        const preservedGroup = groupRepo.getEpisodeGroup(statusGroup.id);
         expect(preservedGroup).not.toBeNull();
         expect(preservedGroup?.watchStatus).toBe("watching");
       } finally {
@@ -2692,9 +2782,11 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["tracker-123", "al-import"]])),
           resolveTitleToAnidb: async () => null,
@@ -2715,14 +2807,14 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0] as number);
+        const anime = animeRepo.getAnime(result.animeIds[0] as number);
         expect(anime?.anidbId).toBe("al-import");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.watchStatus).toBe("completed");
 
-        const mappings = repo.getTrackerMappingsByGroupId(groups[0]?.id as number);
+        const mappings = groupRepo.getTrackerMappingsByGroupId(groups[0]?.id as number);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.source).toBe("anilist");
         expect(mappings[0]?.externalId).toBe("tracker-123");
@@ -2736,9 +2828,11 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(
             new Map([
@@ -2773,17 +2867,17 @@ describe("AnimeAggregate", () => {
         });
 
         expect(result.animeIds).toHaveLength(1);
-        const anime = repo.getAnime(result.animeIds[0] as number);
+        const anime = animeRepo.getAnime(result.animeIds[0] as number);
         expect(anime?.anidbId).toBe("al-shared-entry");
 
-        const groups = repo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(1);
 
-        const episodes = repo.getEpisodesByGroupId(groups[0]?.id as number);
+        const episodes = episodeRepo.getEpisodesByGroupId(groups[0]?.id as number);
         expect(episodes).toHaveLength(1);
         expect(episodes[0]?.filePath).toBe("/media/S01E01.mkv");
 
-        const mappings = repo.getTrackerMappingsByGroupId(groups[0]?.id as number);
+        const mappings = groupRepo.getTrackerMappingsByGroupId(groups[0]?.id as number);
         expect(mappings).toHaveLength(1);
         expect(mappings[0]?.externalId).toBe("tracker-456");
       } finally {
@@ -2798,21 +2892,23 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const pendingAnime = repo.upsertAnime({
+        const pendingAnime = animeRepo.upsertAnime({
           title: "Unknown Anime",
         });
-        const resolvedAnime = repo.upsertAnime({
+        const resolvedAnime = animeRepo.upsertAnime({
           title: "Known Anime",
         });
-        repo.updateAnimeAnidbId(resolvedAnime.id, "al-123");
+        animeRepo.updateAnimeAnidbId(resolvedAnime.id, "al-123");
 
         const result = await aggregate.retryPendingIdentification();
 
@@ -2829,15 +2925,17 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        const pendingAnime = repo.upsertAnime({
+        const pendingAnime = animeRepo.upsertAnime({
           title: "Still Unknown",
         });
 
@@ -2847,7 +2945,7 @@ describe("AnimeAggregate", () => {
         expect(result.stillPending).toHaveLength(1);
         expect(result.stillPending[0]?.id).toBe(pendingAnime.id);
 
-        const anime = repo.getAnime(pendingAnime.id);
+        const anime = animeRepo.getAnime(pendingAnime.id);
         expect(anime?.anidbId).toBeUndefined();
       } finally {
         sqlite.close();
@@ -2859,15 +2957,17 @@ describe("AnimeAggregate", () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
         });
 
-        repo.upsertAnime({
+        animeRepo.upsertAnime({
           title: "No Provider",
         });
 
@@ -2888,41 +2988,41 @@ describe("AnimeAggregate", () => {
       const { sqlite: evtSqlite } = createEventDb();
       const dir = mkdtempSync(join(tmpdir(), "anime-agg-rebuild-trackers-"));
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(anime.id, "al-jjk");
-        repo.createAnimeSourceMapping({
+        animeRepo.updateAnimeAnidbId(anime.id, "al-jjk");
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: join(dir, "S01E01.mkv"),
           watched: true,
         });
 
-        const trackerAnime = repo.upsertAnime({
+        const trackerAnime = animeRepo.upsertAnime({
           title: "Spy x Family",
         });
-        repo.updateAnimeAnidbId(trackerAnime.id, "al-spy");
-        const trackerGroup = repo.upsertEpisodeGroup({
+        animeRepo.updateAnimeAnidbId(trackerAnime.id, "al-spy");
+        const trackerGroup = groupRepo.upsertEpisodeGroup({
           animeId: trackerAnime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "completed",
         });
-        repo.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: trackerGroup.id,
           source: "anilist",
           externalId: "al-spy",
@@ -2945,7 +3045,9 @@ describe("AnimeAggregate", () => {
         });
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(new Map([["al-spy", "al-spy"]])),
           resolveTitleToAnidb: async () => null,
@@ -2953,10 +3055,10 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);
 
-        const allAnime = repo.listAnime();
+        const allAnime = animeRepo.listAnime();
         expect(allAnime.length).toBeGreaterThanOrEqual(1);
 
-        const spy = repo.findAnimeByAnidbId("al-spy");
+        const spy = animeRepo.findAnimeByAnidbId("al-spy");
         expect(spy).not.toBeNull();
       } finally {
         sqlite.close();
@@ -2970,29 +3072,29 @@ describe("AnimeAggregate", () => {
       const { sqlite: evtSqlite } = createEventDb();
       const dir = mkdtempSync(join(tmpdir(), "anime-agg-rebuild-tm-"));
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(anime.id, "al-jjk");
-        repo.createAnimeSourceMapping({
+        animeRepo.updateAnimeAnidbId(anime.id, "al-jjk");
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "watching",
         });
-        repo.upsertGroupTrackerMapping({
+        groupRepo.upsertGroupTrackerMapping({
           groupId: group.id,
           source: "mal",
           externalId: "mal-999",
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: join(dir, "S01E01.mkv"),
@@ -3016,7 +3118,9 @@ describe("AnimeAggregate", () => {
         });
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -3024,13 +3128,13 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);
 
-        const rebuilt = repo.findAnimeByAnidbId("al-jjk");
+        const rebuilt = animeRepo.findAnimeByAnidbId("al-jjk");
         expect(rebuilt).not.toBeNull();
 
-        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
         expect(groups).toHaveLength(1);
 
-        const malMapping = repo.getTrackerMapping(groups[0]?.id as number, "mal");
+        const malMapping = groupRepo.getTrackerMapping(groups[0]?.id as number, "mal");
         expect(malMapping).not.toBeNull();
         expect(malMapping?.externalId).toBe("mal-999");
       } finally {
@@ -3045,24 +3149,24 @@ describe("AnimeAggregate", () => {
       const { sqlite: evtSqlite } = createEventDb();
       const dir = mkdtempSync(join(tmpdir(), "anime-agg-rebuild-ws-"));
       try {
-        const repo = new LibraryRepository(db);
+        const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
 
-        const anime = repo.upsertAnime({
+        const anime = animeRepo.upsertAnime({
           title: "Jujutsu Kaisen",
         });
-        repo.updateAnimeAnidbId(anime.id, "al-jjk");
-        repo.createAnimeSourceMapping({
+        animeRepo.updateAnimeAnidbId(anime.id, "al-jjk");
+        animeRepo.createAnimeSourceMapping({
           animeId: anime.id,
           source: "tvdb",
           externalId: "tvdb-12345",
         });
-        const group = repo.upsertEpisodeGroup({
+        const group = groupRepo.upsertEpisodeGroup({
           animeId: anime.id,
           entryType: "tv",
           seasonNumber: 1,
           watchStatus: "completed",
         });
-        repo.addEpisode({
+        episodeRepo.addEpisode({
           groupId: group.id,
           episodeNumber: 1,
           filePath: join(dir, "S01E01.mkv"),
@@ -3086,7 +3190,9 @@ describe("AnimeAggregate", () => {
         });
 
         const aggregate = new AnimeAggregate({
-          library: repo,
+          anime: animeRepo,
+          episodes: episodeRepo,
+          groups: groupRepo,
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
@@ -3094,10 +3200,10 @@ describe("AnimeAggregate", () => {
 
         await aggregate.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);
 
-        const rebuilt = repo.findAnimeByAnidbId("al-jjk");
+        const rebuilt = animeRepo.findAnimeByAnidbId("al-jjk");
         expect(rebuilt).not.toBeNull();
 
-        const groups = repo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
+        const groups = groupRepo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.watchStatus).toBe("completed");
       } finally {

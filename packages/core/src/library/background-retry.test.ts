@@ -2,19 +2,21 @@ import { describe, expect, mock, test } from "bun:test";
 import { createMockIdentityResolver } from "../fixtures";
 import { AnimeAggregate } from "./anime-aggregate";
 import { BackgroundRetryService } from "./background-retry";
-import { LibraryRepository } from "./library-repository";
+import { createLibraryRepos } from "./schema";
 import { createLibraryDb } from "./test-utils";
 
 function createTestAggregate() {
   const { db, sqlite } = createLibraryDb();
-  const repo = new LibraryRepository(db);
+  const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
   const aggregate = new AnimeAggregate({
-    library: repo,
+    anime: animeRepo,
+    episodes: episodeRepo,
+    groups: groupRepo,
     replayUnpushedEvents: () => {},
     identityResolver: createMockIdentityResolver(),
     resolveTitleToAnidb: async () => null,
   });
-  return { repo, aggregate, sqlite };
+  return { animeRepo, aggregate, sqlite };
 }
 
 describe("BackgroundRetryService", () => {
@@ -38,9 +40,9 @@ describe("BackgroundRetryService", () => {
   });
 
   test("runs retry when isActive returns false", async () => {
-    const { repo, aggregate, sqlite } = createTestAggregate();
+    const { animeRepo, aggregate, sqlite } = createTestAggregate();
     try {
-      repo.upsertAnime({ title: "Pending Anime" });
+      animeRepo.upsertAnime({ title: "Pending Anime" });
 
       const onResolved = mock(() => {});
       const service = new BackgroundRetryService({

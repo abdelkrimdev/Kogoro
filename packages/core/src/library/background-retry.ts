@@ -1,5 +1,5 @@
 import type { AnimeAggregate } from "./anime-aggregate";
-import type { LibraryAnime } from "./library-repository";
+import type { LibraryAnime } from "./anime-repository";
 
 export interface BackgroundRetryOptions {
   animeAggregate: AnimeAggregate;

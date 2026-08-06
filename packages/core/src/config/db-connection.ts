@@ -2,10 +2,14 @@ import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { EventRepository } from "../events/event-repository";
 import { createEventsTable, events as eventsSchema } from "../events/schema";
-import { LibraryRepository } from "../library/library-repository";
+import type { AnimeRepository } from "../library/anime-repository";
+import type { EpisodeRepository } from "../library/episode-repository";
+import type { FranchiseRepository } from "../library/franchise-repository";
+import type { GroupRepository } from "../library/group-repository";
 import {
   anime,
   animeSourceMappings,
+  createLibraryRepos,
   episodeGroups,
   episodes,
   franchises,
@@ -31,7 +35,14 @@ export function createMatchCacheConnection(dbPath: string): MatchCacheConnection
   };
 }
 
-export function createLibraryConnection(dbPath: string): LibraryRepository {
+export interface LibraryConnection {
+  animeRepo: AnimeRepository;
+  episodeRepo: EpisodeRepository;
+  groupRepo: GroupRepository;
+  franchiseRepo: FranchiseRepository;
+}
+
+export function createLibraryConnection(dbPath: string): LibraryConnection {
   const sqlite = new Database(dbPath);
   sqlite.run("PRAGMA foreign_keys = ON");
   const db = drizzle(sqlite, {
@@ -45,7 +56,7 @@ export function createLibraryConnection(dbPath: string): LibraryRepository {
     },
   });
   safeMigrate(db);
-  return new LibraryRepository(db);
+  return createLibraryRepos(db);
 }
 
 export function createEventsConnection(dbPath: string): EventRepository {

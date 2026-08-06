@@ -19,7 +19,6 @@ import {
   MAL_REDIRECT_URI,
   ManifestService,
   resolveDbPaths,
-  WatchTracker,
 } from "@kogoro/core";
 import { createFribbConnection, ensureDataset } from "@kogoro/fribb";
 import { PluginFactory } from "@kogoro/plugins";
@@ -79,7 +78,11 @@ let franchiseService: FranchiseService | undefined;
 try {
   await ensureDataset(dirname(fribbDbPath));
   fribb = createFribbConnection(fribbDbPath);
-  franchiseService = new FranchiseService({ library: libraryRepo, franchiseIndex: fribb });
+  franchiseService = new FranchiseService({
+    anime: libraryRepo.animeRepo,
+    franchises: libraryRepo.franchiseRepo,
+    franchiseIndex: fribb,
+  });
   await franchiseService.repairAll();
 } catch (err) {
   console.warn(
@@ -91,7 +94,9 @@ try {
 const cacheService = new CacheService(matchRepo, manifestRepo);
 const manifestService = new ManifestService(manifestRepo);
 const animeAggregate = new AnimeAggregate({
-  library: libraryRepo,
+  anime: libraryRepo.animeRepo,
+  episodes: libraryRepo.episodeRepo,
+  groups: libraryRepo.groupRepo,
   replayUnpushedEvents: () => {},
   identityResolver: fribb ?? {
     async resolveToAnidb() {
@@ -105,16 +110,14 @@ const animeAggregate = new AnimeAggregate({
     },
   },
   resolveTitleToAnidb: async (title: string) => {
-    const anime = libraryRepo.findAnimeByTitle(title);
+    const anime = libraryRepo.animeRepo.findAnimeByTitle(title);
     return anime?.anidbId ?? null;
   },
   franchiseService,
 });
-const watchTracker = new WatchTracker({ library: libraryRepo, events: eventsRepo });
 
 const syncHandlers = createSyncHandlers({
   animeAggregate,
-  watchTracker,
   eventsRepo,
   pluginFactory,
   credentialStore,
@@ -122,7 +125,8 @@ const syncHandlers = createSyncHandlers({
 
 const libraryHandlers = createLibraryHandlers({
   animeAggregate,
-  watchTracker,
+  episodeRepo: libraryRepo.episodeRepo,
+  groupRepo: libraryRepo.groupRepo,
   getSourceDb: () => configManager.primaryDb,
 });
 
@@ -137,7 +141,7 @@ const enrichmentHandlers = createEnrichmentHandlers({
   pluginFactory,
   configManager,
   animeAggregate,
-  watchTracker,
+  groupRepo: libraryRepo.groupRepo,
   cacheService,
   credentialStore,
   send: {

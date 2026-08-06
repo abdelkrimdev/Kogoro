@@ -16,8 +16,11 @@ import type { FranchiseCollection, FranchiseIndex } from "./fribb/franchise-inde
 import type { FribbSource } from "./fribb/identity-resolver";
 import { HttpClient } from "./io/http-client";
 import { AnimeAggregate } from "./library/anime-aggregate";
-import type { AnimeSourceMapping, Franchise } from "./library/library-repository";
-import { LibraryRepository } from "./library/library-repository";
+import type { AnimeRepository, AnimeSourceMapping } from "./library/anime-repository";
+import type { EpisodeRepository } from "./library/episode-repository";
+import type { Franchise, FranchiseRepository } from "./library/franchise-repository";
+import type { GroupRepository, GroupTrackerMapping } from "./library/group-repository";
+import { createLibraryRepos } from "./library/schema";
 import { createLibraryDb as createLibraryDbInstance } from "./library/test-utils";
 import { CacheService } from "./match/cache-service";
 import { ManifestRepository } from "./match/manifest-repository";
@@ -209,13 +212,19 @@ export function createArtworkDb(artworks: ArtworkResult[] = []): DatabasePlugin 
   };
 }
 
-export function createLibraryRepository(dir?: string): {
-  repo: LibraryRepository;
+export function createLibraryRepositories(
+  dir?: string,
+  events?: EventRepository,
+): {
+  animeRepo: AnimeRepository;
+  episodeRepo: EpisodeRepository;
+  groupRepo: GroupRepository;
+  franchiseRepo: FranchiseRepository;
   close: () => void;
 } {
   const { db, sqlite } = createLibraryDbInstance(dir);
-  const repo = new LibraryRepository(db);
-  return { repo, close: () => sqlite.close() };
+  const repos = createLibraryRepos(db, events);
+  return { ...repos, close: () => sqlite.close() };
 }
 
 export function createMatchRepository(dir?: string): { repo: MatchRepository; close: () => void } {
@@ -234,26 +243,40 @@ export function createEventRepository(dir?: string): {
 }
 
 export function createTrackerImportTestContext(): {
-  repo: LibraryRepository;
   aggregate: AnimeAggregate;
   close: () => void;
 } {
-  const { repo, close: closeLib } = createLibraryRepository();
-  const { close: closeEvt } = createEventRepository();
+  const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
   const aggregate = new AnimeAggregate({
-    library: repo,
+    anime: animeRepo,
+    episodes: episodeRepo,
+    groups: groupRepo,
     replayUnpushedEvents: () => {},
     identityResolver: createMockIdentityResolver(),
     resolveTitleToAnidb: async () => null,
   });
-  return {
-    repo,
-    aggregate,
-    close: () => {
-      closeLib();
-      closeEvt();
-    },
-  };
+  return { aggregate, close };
+}
+
+export function createTestAggregate(dir?: string): {
+  aggregate: AnimeAggregate;
+  animeRepo: AnimeRepository;
+  episodeRepo: EpisodeRepository;
+  groupRepo: GroupRepository;
+  franchiseRepo: FranchiseRepository;
+  close: () => void;
+} {
+  const { animeRepo, episodeRepo, groupRepo, franchiseRepo, close } =
+    createLibraryRepositories(dir);
+  const aggregate = new AnimeAggregate({
+    anime: animeRepo,
+    episodes: episodeRepo,
+    groups: groupRepo,
+    replayUnpushedEvents: () => {},
+    identityResolver: createMockIdentityResolver(),
+    resolveTitleToAnidb: async () => null,
+  });
+  return { aggregate, animeRepo, episodeRepo, groupRepo, franchiseRepo, close };
 }
 
 export function createMatchCacheService(dir?: string): {
@@ -773,7 +796,7 @@ export function createGroupTrackerMapping(
   groupId: number,
   source: "mal" | "anilist" | "kitsu",
   externalId: string,
-): import("./library/library-repository").GroupTrackerMapping {
+): GroupTrackerMapping {
   return { groupId, source, externalId };
 }
 

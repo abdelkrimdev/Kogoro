@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { AnimeAggregate, ConfigManager, CredentialStore, type WatchTracker } from "@kogoro/core";
+import { AnimeAggregate, ConfigManager, CredentialStore } from "@kogoro/core";
 import {
   createEventRepository,
-  createLibraryRepository,
+  createLibraryRepositories,
   createMockIdentityResolver,
   createMockKeytar,
   createMockTracker,
@@ -17,10 +17,12 @@ function createTestSetup() {
     keytar: createMockKeytar(),
   });
   const pluginFactory = new PluginFactory(config, credentialStore);
-  const { repo: libraryRepo, close: closeLibrary } = createLibraryRepository();
+  const { animeRepo, episodeRepo, groupRepo, close: closeLibrary } = createLibraryRepositories();
   const { repo: eventsRepo, close: closeEvents } = createEventRepository();
   const aggregate = new AnimeAggregate({
-    library: libraryRepo,
+    anime: animeRepo,
+    episodes: episodeRepo,
+    groups: groupRepo,
     replayUnpushedEvents: () => {},
     identityResolver: createMockIdentityResolver(),
     resolveTitleToAnidb: async () => null,
@@ -57,7 +59,6 @@ describe("SyncHandlers", () => {
       try {
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: setup.pluginFactory,
           credentialStore: setup.credentialStore,
@@ -83,7 +84,6 @@ describe("SyncHandlers", () => {
       try {
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: setup.pluginFactory,
           credentialStore: setup.credentialStore,
@@ -113,7 +113,6 @@ describe("SyncHandlers", () => {
 
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: throwingPluginFactory,
           credentialStore: setup.credentialStore,
@@ -137,7 +136,6 @@ describe("SyncHandlers", () => {
       try {
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: setup.pluginFactory,
           credentialStore: setup.credentialStore,
@@ -161,7 +159,6 @@ describe("SyncHandlers", () => {
       try {
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: setup.pluginFactory,
           credentialStore: setup.credentialStore,
@@ -180,23 +177,23 @@ describe("SyncHandlers", () => {
       const setup = createTestSetup();
       await setup.credentialStore.setCredential("anilist", "test-token");
 
-      const anime = setup.aggregate.library.upsertAnime({
+      const anime = setup.aggregate.animeRepo.upsertAnime({
         title: "Frieren",
       });
-      setup.aggregate.library.createAnimeSourceMapping({
+      setup.aggregate.animeRepo.createAnimeSourceMapping({
         animeId: anime.id,
         source: "tvdb",
         externalId: "tvdb-1",
       });
 
-      const group = setup.aggregate.library.upsertEpisodeGroup({
+      const group = setup.aggregate.groupRepo.upsertEpisodeGroup({
         animeId: anime.id,
         entryType: "tv",
         seasonNumber: 1,
         watchStatus: "watching",
       });
 
-      setup.aggregate.library.upsertGroupTrackerMapping({
+      setup.aggregate.groupRepo.upsertGroupTrackerMapping({
         groupId: group.id,
         source: "anilist",
         externalId: "al-1",
@@ -225,7 +222,6 @@ describe("SyncHandlers", () => {
       try {
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: mockPluginFactory,
           credentialStore: setup.credentialStore,
@@ -245,16 +241,16 @@ describe("SyncHandlers", () => {
       const setup = createTestSetup();
       await setup.credentialStore.setCredential("anilist", "test-token");
 
-      const anime = setup.aggregate.library.upsertAnime({
+      const anime = setup.aggregate.animeRepo.upsertAnime({
         title: "Mushishi",
       });
-      setup.aggregate.library.createAnimeSourceMapping({
+      setup.aggregate.animeRepo.createAnimeSourceMapping({
         animeId: anime.id,
         source: "tvdb",
         externalId: "tvdb-2",
       });
 
-      const group = setup.aggregate.library.upsertEpisodeGroup({
+      const group = setup.aggregate.groupRepo.upsertEpisodeGroup({
         animeId: anime.id,
         entryType: "tv",
         seasonNumber: 1,
@@ -276,7 +272,6 @@ describe("SyncHandlers", () => {
       try {
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: mockPluginFactory,
           credentialStore: setup.credentialStore,
@@ -298,7 +293,6 @@ describe("SyncHandlers", () => {
       try {
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: setup.pluginFactory,
           credentialStore: setup.credentialStore,
@@ -322,7 +316,6 @@ describe("SyncHandlers", () => {
       try {
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: setup.pluginFactory,
           credentialStore: setup.credentialStore,
@@ -355,23 +348,23 @@ describe("SyncHandlers", () => {
       const setup = createTestSetup();
       await setup.credentialStore.setCredential("anilist", "test-token");
 
-      const anime = setup.aggregate.library.upsertAnime({
+      const anime = setup.aggregate.animeRepo.upsertAnime({
         title: "Attack on Titan",
       });
-      setup.aggregate.library.createAnimeSourceMapping({
+      setup.aggregate.animeRepo.createAnimeSourceMapping({
         animeId: anime.id,
         source: "anilist",
         externalId: "tracker-tl-1",
       });
 
-      const group = setup.aggregate.library.upsertEpisodeGroup({
+      const group = setup.aggregate.groupRepo.upsertEpisodeGroup({
         animeId: anime.id,
         entryType: "tv",
         seasonNumber: 1,
         watchStatus: "watching",
       });
 
-      setup.aggregate.library.upsertGroupTrackerMapping({
+      setup.aggregate.groupRepo.upsertGroupTrackerMapping({
         groupId: group.id,
         source: "anilist",
         externalId: "tl-1",
@@ -409,7 +402,6 @@ describe("SyncHandlers", () => {
       try {
         const handlers = createSyncHandlers({
           animeAggregate: setup.aggregate,
-          watchTracker: {} as WatchTracker,
           eventsRepo: setup.eventsRepo,
           pluginFactory: mockPluginFactory,
           credentialStore: setup.credentialStore,
