@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import {
-  type AnimeAggregate,
+  type AnimeQuery,
+  type AnimeRepository,
   ArtworkFetcher,
   type CacheService,
   type ConfigManager,
@@ -15,7 +16,8 @@ import type { PluginFactory } from "@kogoro/plugins";
 interface EnrichmentOptions {
   configManager: ConfigManager;
   send: EnrichmentSend;
-  animeAggregate: AnimeAggregate;
+  animeQuery: AnimeQuery;
+  animeRepo: AnimeRepository;
   groupRepo: GroupRepository;
   cacheService: CacheService;
   pluginFactory?: PluginFactory;
@@ -49,7 +51,8 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     configManager,
     send,
     database: overrideDb,
-    animeAggregate: svc,
+    animeQuery,
+    animeRepo,
     groupRepo,
     cacheService,
     credentialStore,
@@ -66,12 +69,12 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
     | {
         animeId: number;
         animeDir: string;
-        anime: NonNullable<ReturnType<AnimeAggregate["animeRepo"]["getAnime"]>>;
+        anime: NonNullable<ReturnType<AnimeRepository["getAnime"]>>;
       }
     | { error: string } {
-    const anime = svc.animeRepo.getAnime(Number(id));
+    const anime = animeRepo.getAnime(Number(id));
     if (!anime) return { error: "Anime not found in library" };
-    const animeDir = svc.getAnimeDir(anime.id);
+    const animeDir = animeQuery.getAnimeDir(anime.id);
     if (!animeDir) return { error: "No episode files found for this anime" };
     return { animeId: anime.id, animeDir, anime };
   }
@@ -123,7 +126,7 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
 
     if (summary.downloaded > 0) {
       const coverPath = join(resolved.animeDir, "cover.jpg");
-      svc.updateCoverArtPath(resolved.anime.id, coverPath);
+      animeRepo.updateAnime(resolved.anime.id, { coverArtPath: coverPath });
     }
 
     send.enrichmentComplete?.({ animeId: params.id, command: "artwork", success: true });
@@ -190,14 +193,14 @@ export function createEnrichmentHandlers(options: EnrichmentOptions) {
       return { success: true, summary: { total: 0, enriched: 0, skipped: 0, errors: 0 } };
     }
 
-    const groups = svc.groupRepo.getEpisodeGroupsByAnimeId(resolved.animeId);
+    const groups = groupRepo.getEpisodeGroupsByAnimeId(resolved.animeId);
     let total = 0;
     let enriched = 0;
     let skipped = 0;
     let errors = 0;
 
     for (const group of groups) {
-      const mappings = svc.groupRepo.getTrackerMappingsByGroupId(group.id);
+      const mappings = groupRepo.getTrackerMappingsByGroupId(group.id);
       if (mappings.length === 0) {
         skipped++;
         continue;

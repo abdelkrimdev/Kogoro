@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { AnimeRepository, EpisodeRepository, GroupRepository } from "@kogoro/core";
-import { AnimeAggregate } from "@kogoro/core";
+import { AnimeQuery } from "@kogoro/core";
 import {
   createEventRepository,
   createLibraryRepositories,
-  createMockIdentityResolver,
   withTempDir,
 } from "@kogoro/core/testing";
 import { createDashboardHandlers } from "./dashboard";
@@ -99,6 +98,14 @@ function seedPlanToWatchAnime(
   return { drr, drrGroup };
 }
 
+function createAnimeQuery(
+  animeRepo: AnimeRepository,
+  episodeRepo: EpisodeRepository,
+  groupRepo: GroupRepository,
+) {
+  return new AnimeQuery({ anime: animeRepo, episodes: episodeRepo, groups: groupRepo });
+}
+
 describe("getDashboardData handler", () => {
   test("returns currently watching anime with progress", async () => {
     await withTempDir("dashboard-watching", async (dir) => {
@@ -106,14 +113,7 @@ describe("getDashboardData handler", () => {
       const { close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
-        animeAggregate: new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        }),
+        animeQuery: createAnimeQuery(animeRepo, episodeRepo, groupRepo),
       });
       const data = await handlers.getDashboardData();
 
@@ -133,14 +133,7 @@ describe("getDashboardData handler", () => {
       const { close: closeEvt } = createEventRepository(dir);
       seedCompletedAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
-        animeAggregate: new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        }),
+        animeQuery: createAnimeQuery(animeRepo, episodeRepo, groupRepo),
       });
       const data = await handlers.getDashboardData();
 
@@ -158,14 +151,7 @@ describe("getDashboardData handler", () => {
       seedCompletedAnime(animeRepo, episodeRepo, groupRepo);
       seedPlanToWatchAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
-        animeAggregate: new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        }),
+        animeQuery: createAnimeQuery(animeRepo, episodeRepo, groupRepo),
       });
       const data = await handlers.getDashboardData();
 
@@ -186,14 +172,7 @@ describe("getDashboardData handler", () => {
       seedWatchingAnime(animeRepo, episodeRepo, groupRepo);
       seedCompletedAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
-        animeAggregate: new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        }),
+        animeQuery: createAnimeQuery(animeRepo, episodeRepo, groupRepo),
       });
       const data = await handlers.getDashboardData();
 
@@ -212,14 +191,7 @@ describe("getDashboardData handler", () => {
       const { close: closeEvt } = createEventRepository(dir);
       seedCompletedAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
-        animeAggregate: new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        }),
+        animeQuery: createAnimeQuery(animeRepo, episodeRepo, groupRepo),
       });
       const data = await handlers.getDashboardData();
 
@@ -234,14 +206,7 @@ describe("getDashboardData handler", () => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
       const handlers = createDashboardHandlers({
-        animeAggregate: new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        }),
+        animeQuery: createAnimeQuery(animeRepo, episodeRepo, groupRepo),
       });
       const data = await handlers.getDashboardData();
 
@@ -260,14 +225,7 @@ describe("getDashboardData handler", () => {
       const { close: closeEvt } = createEventRepository(dir);
       seedWatchingAnime(animeRepo, episodeRepo, groupRepo);
       const handlers = createDashboardHandlers({
-        animeAggregate: new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        }),
+        animeQuery: createAnimeQuery(animeRepo, episodeRepo, groupRepo),
       });
       const stats = handlers.getLibraryStats();
 

@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
-import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type { EventRepository } from "../events/event-repository";
 import type { EntryType } from "../types";
+import type { LibraryDb } from "./schema";
 import { episodeGroups, episodes, groupTrackerMappings } from "./schema";
 
 export interface EpisodeGroup {
@@ -21,13 +21,6 @@ export interface GroupTrackerMapping {
   source: "mal" | "anilist" | "kitsu";
   externalId: string;
 }
-
-type LibrarySchema = {
-  episodeGroups: typeof episodeGroups;
-  episodes: typeof episodes;
-  groupTrackerMappings: typeof groupTrackerMappings;
-};
-type LibraryDb = BaseSQLiteDatabase<"sync", void, LibrarySchema>;
 
 export interface GroupRepositoryDeps {
   db: LibraryDb;
@@ -191,12 +184,12 @@ export class GroupRepository {
     metadata: { synopsis?: string; rating?: number; coverArtPath?: string },
   ): EpisodeGroup | null {
     const oldGroup = this.getEpisodeGroup(groupId);
-    const set: Record<string, unknown> = {};
-    if (metadata.synopsis !== undefined) set["synopsis"] = metadata.synopsis;
-    if (metadata.rating !== undefined) set["rating"] = metadata.rating;
-    if (metadata.coverArtPath !== undefined) set["coverArtPath"] = metadata.coverArtPath;
-    if (Object.keys(set).length === 0) return this.getEpisodeGroup(groupId);
-    this.db.update(episodeGroups).set(set).where(eq(episodeGroups.id, groupId)).run();
+    const updates: { synopsis?: string; rating?: number; coverArtPath?: string } = {};
+    if (metadata.synopsis !== undefined) updates.synopsis = metadata.synopsis;
+    if (metadata.rating !== undefined) updates.rating = metadata.rating;
+    if (metadata.coverArtPath !== undefined) updates.coverArtPath = metadata.coverArtPath;
+    if (Object.keys(updates).length === 0) return this.getEpisodeGroup(groupId);
+    this.db.update(episodeGroups).set(updates).where(eq(episodeGroups.id, groupId)).run();
     const result = this.getEpisodeGroup(groupId);
     if (result && oldGroup && this.events) {
       if (metadata.synopsis !== undefined && metadata.synopsis !== oldGroup.synopsis) {

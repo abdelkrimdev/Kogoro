@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createMatchCacheService, createMockDb, withTestConfig } from "../fixtures";
+import { OverrideStore } from "../match/override-store";
+import { Renamer } from "../rename/renamer";
 import { createScanComponents } from "./create-scan-components";
 
 describe("createScanComponents", () => {
@@ -39,7 +41,6 @@ describe("createScanComponents", () => {
 
   test("accepts renamer override", async () => {
     await withTestConfig("pipeline-renamer", async (_dir, config) => {
-      const { Renamer } = await import("../rename/renamer");
       const customRenamer = new Renamer({
         filenameTemplate: "custom.{ext}",
         directoryTemplate: "out",
@@ -54,7 +55,6 @@ describe("createScanComponents", () => {
 
   test("accepts overrideStore override", async () => {
     await withTestConfig("pipeline-store", async (dir, config) => {
-      const { OverrideStore } = await import("../match/override-store");
       const customStore = new OverrideStore(dir);
 
       const { cacheService } = createMatchCacheService();

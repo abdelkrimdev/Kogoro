@@ -1,5 +1,5 @@
 import type {
-  AnimeAggregate,
+  AnimeImporter,
   ImportPreview,
   ImportResult,
   ImportSelection,
@@ -8,12 +8,12 @@ import type {
 import type { PluginFactory } from "@kogoro/plugins";
 
 interface TrackerImportHandlerOptions {
-  animeAggregate: AnimeAggregate;
+  animeImporter: AnimeImporter;
   pluginFactory: PluginFactory;
 }
 
 export function createTrackerImportHandlers(options: TrackerImportHandlerOptions) {
-  const { animeAggregate, pluginFactory } = options;
+  const { animeImporter, pluginFactory } = options;
 
   let importing = false;
 
@@ -33,10 +33,7 @@ export function createTrackerImportHandlers(options: TrackerImportHandlerOptions
       }
 
       try {
-        const preview = await animeAggregate.getImportPreview(
-          tracker,
-          trackerName as TrackerSource,
-        );
+        const preview = await animeImporter.getImportPreview(tracker, trackerName as TrackerSource);
         return { preview };
       } catch (err) {
         return {
@@ -59,7 +56,7 @@ export function createTrackerImportHandlers(options: TrackerImportHandlerOptions
 
       importing = true;
       try {
-        const result = await animeAggregate.importFromTracker(
+        const result = await animeImporter.importFromTracker(
           tracker,
           trackerName as TrackerSource,
           selections,

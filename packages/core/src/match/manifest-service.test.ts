@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { statSync } from "node:fs";
+import { renameSync, statSync } from "node:fs";
 import { withTempDir, writeTempFile } from "../fixtures";
 import { ManifestRepository } from "./manifest-repository";
 import { ManifestService } from "./manifest-service";
@@ -128,7 +128,6 @@ describe("ManifestService", () => {
           service.setFromFs(oldPath, "abc123");
 
           const newPath = `${dir}/new-name.mkv`;
-          const { renameSync } = await import("node:fs");
           renameSync(oldPath, newPath);
 
           service.moveRename(oldPath, newPath, "abc123");

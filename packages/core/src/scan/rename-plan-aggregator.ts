@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AnimeAggregate } from "../library/anime-aggregate";
+import type { AnimeQuery } from "../library/anime-query";
 import type {
   AnimeResult,
   FileRow,
@@ -130,7 +130,7 @@ export function detectSwaps(
 
 export function buildReviewPlan(
   results: ScanResult[],
-  animeAggregate?: AnimeAggregate,
+  animeQuery?: AnimeQuery,
   sourceDb?: string,
 ): ScanReviewPlan {
   const byTitle = groupByAnime(results);
@@ -194,8 +194,8 @@ export function buildReviewPlan(
       });
 
     const mergeMode =
-      animeAggregate != null &&
-      (animeAggregate.animeExistsByTitle(title) || animeAggregate.animeExists(cid, sourceDb));
+      animeQuery != null &&
+      (animeQuery.animeExistsByTitle(title) || animeQuery.animeExists(cid, sourceDb));
 
     groups.push({
       animeId: cid,
@@ -278,7 +278,7 @@ function toFileRow(result: ScanResult, fileId: string): FileRow {
 export async function aggregateReviewPlan(
   results: ScanResult[],
   sessionId: string,
-  animeAggregate?: AnimeAggregate,
+  animeQuery?: AnimeQuery,
   sourceDb?: string,
   computeTopCandidates?: (sourcePath: string) => Promise<TopCandidate[]>,
 ): Promise<ReviewPlan> {
@@ -322,10 +322,10 @@ export async function aggregateReviewPlan(
   for (const [, { group, animeIds }] of groupsByTitle) {
     group.animeId = lowestNumericId(animeIds);
 
-    if (animeAggregate && group.animeId) {
+    if (animeQuery && group.animeId) {
       group.mergeMode =
-        animeAggregate.animeExistsByTitle(group.animeTitle) ||
-        animeAggregate.animeExists(group.animeId, sourceDb);
+        animeQuery.animeExistsByTitle(group.animeTitle) ||
+        animeQuery.animeExists(group.animeId, sourceDb);
     }
 
     group.files.sort((a, b) => {

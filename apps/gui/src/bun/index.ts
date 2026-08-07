@@ -1,7 +1,9 @@
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  AnimeAggregate,
+  AnimeImporter,
+  AnimeQuery,
+  AnimeRebuilder,
   BackgroundRetryService,
   buildCredentialFromToken,
   CacheService,
@@ -93,54 +95,77 @@ try {
 
 const cacheService = new CacheService(matchRepo, manifestRepo);
 const manifestService = new ManifestService(manifestRepo);
-const animeAggregate = new AnimeAggregate({
+
+const identityResolver: IdentityResolver = fribb ?? {
+  async resolveToAnidb() {
+    return null;
+  },
+  async resolveBatchToAnidb(entries) {
+    return entries.map((e) => ({ source: e.source, sourceId: e.sourceId, anidbId: null }));
+  },
+  async getMetadata() {
+    return { datasetVersion: "", datasetDate: "", supportedSources: [] as never[] };
+  },
+};
+
+const animeQuery = new AnimeQuery({
+  anime: libraryRepo.animeRepo,
+  episodes: libraryRepo.episodeRepo,
+  groups: libraryRepo.groupRepo,
+});
+
+const animeRebuilder = new AnimeRebuilder({
   anime: libraryRepo.animeRepo,
   episodes: libraryRepo.episodeRepo,
   groups: libraryRepo.groupRepo,
   replayUnpushedEvents: () => {},
-  identityResolver: fribb ?? {
-    async resolveToAnidb() {
-      return null;
-    },
-    async resolveBatchToAnidb(entries) {
-      return entries.map((e) => ({ source: e.source, sourceId: e.sourceId, anidbId: null }));
-    },
-    async getMetadata() {
-      return { datasetVersion: "", datasetDate: "", supportedSources: [] as never[] };
-    },
-  },
+  identityResolver,
+  franchiseService,
+});
+
+const animeImporter = new AnimeImporter({
+  anime: libraryRepo.animeRepo,
+  episodes: libraryRepo.episodeRepo,
+  groups: libraryRepo.groupRepo,
+  identityResolver,
   resolveTitleToAnidb: async (title: string) => {
     const anime = libraryRepo.animeRepo.findAnimeByTitle(title);
     return anime?.anidbId ?? null;
   },
   franchiseService,
+  resolveAndMerge: (input) => animeRebuilder.resolveAndMerge(input),
 });
 
 const syncHandlers = createSyncHandlers({
-  animeAggregate,
+  animeRepo: libraryRepo.animeRepo,
+  episodeRepo: libraryRepo.episodeRepo,
+  groupRepo: libraryRepo.groupRepo,
   eventsRepo,
   pluginFactory,
   credentialStore,
 });
 
 const libraryHandlers = createLibraryHandlers({
-  animeAggregate,
+  animeQuery,
+  animeRebuilder,
+  animeRepo: libraryRepo.animeRepo,
   episodeRepo: libraryRepo.episodeRepo,
   groupRepo: libraryRepo.groupRepo,
   getSourceDb: () => configManager.primaryDb,
 });
 
-const dashboardHandlers = createDashboardHandlers({ animeAggregate });
+const dashboardHandlers = createDashboardHandlers({ animeQuery });
 
 const trackerImportHandlers = createTrackerImportHandlers({
-  animeAggregate,
+  animeImporter,
   pluginFactory,
 });
 
 const enrichmentHandlers = createEnrichmentHandlers({
   pluginFactory,
   configManager,
-  animeAggregate,
+  animeQuery,
+  animeRepo: libraryRepo.animeRepo,
   groupRepo: libraryRepo.groupRepo,
   cacheService,
   credentialStore,
@@ -154,9 +179,9 @@ const scanHandlers = createScanHandlers({
   pluginFactory,
   configManager,
   cacheService,
-  animeAggregate,
+  animeQuery,
   manifestService,
-  mergeMatches: async (matches) => animeAggregate.mergeFromMatches(matches),
+  mergeMatches: async (matches) => animeRebuilder.mergeFromMatches(matches),
   send: {
     scanProgress: (data) => rpc.send.scanProgress(data),
     scanPhaseComplete: (data) => rpc.send.scanPhaseComplete(data),
@@ -168,7 +193,7 @@ const scanHandlers = createScanHandlers({
 });
 
 const backgroundRetry = new BackgroundRetryService({
-  animeAggregate,
+  animeImporter,
   isActive: () => scanHandlers.activeScanCount > 0 || trackerImportHandlers.isImporting,
 });
 backgroundRetry.start();
@@ -307,7 +332,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       waitForTrackerCallback: async (params) => waitForTrackerCallback(params.state),
       cancelTrackerAuth: async () => cancelTrackerAuth(),
       disconnectTracker: async (params) =>
-        disconnectTracker(credentialStore, animeAggregate, eventsRepo, params),
+        disconnectTracker(credentialStore, libraryRepo.groupRepo, eventsRepo, params),
       getImportPreview: async (params) => trackerImportHandlers.getImportPreview(params),
       confirmImport: async (params) => trackerImportHandlers.confirmImport(params),
       syncAll: async () => syncHandlers.syncAll(),

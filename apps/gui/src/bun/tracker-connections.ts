@@ -1,4 +1,4 @@
-import type { AnimeAggregate, CredentialStore, EventRepository } from "@kogoro/core";
+import type { CredentialStore, EventRepository, GroupRepository } from "@kogoro/core";
 import {
   ANILIST_CLIENT_ID,
   ANILIST_REDIRECT_URI,
@@ -152,14 +152,14 @@ export async function connectTracker(
 
 export async function disconnectTracker(
   credentialStore: CredentialStore,
-  animeAggregate: AnimeAggregate,
+  groupRepo: GroupRepository,
   eventRepo: EventRepository,
   params: { name: string },
 ): Promise<{ success: boolean; error?: string }> {
   const def = findTrackerDef(params.name);
   if (!def) return { success: false, error: `Unknown tracker: ${params.name}` };
 
-  animeAggregate.groupRepo.removeTrackerMappingsBySource(def.name);
+  groupRepo.removeTrackerMappingsBySource(def.name);
   eventRepo.dropForSource(def.name);
   await credentialStore.deleteCredential(def.credentialKey);
   return { success: true };

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AnimeRepository, EpisodeRepository, GroupRepository } from "@kogoro/core";
-import { AnimeAggregate } from "@kogoro/core";
+import { AnimeQuery, AnimeRebuilder } from "@kogoro/core";
 import {
   createEventRepository,
   createLibraryRepositories,
@@ -69,6 +69,22 @@ function seedLibrary(
   });
 }
 
+function createModules(
+  animeRepo: AnimeRepository,
+  episodeRepo: EpisodeRepository,
+  groupRepo: GroupRepository,
+) {
+  const query = new AnimeQuery({ anime: animeRepo, episodes: episodeRepo, groups: groupRepo });
+  const rebuilder = new AnimeRebuilder({
+    anime: animeRepo,
+    episodes: episodeRepo,
+    groups: groupRepo,
+    replayUnpushedEvents: () => {},
+    identityResolver: createMockIdentityResolver(),
+  });
+  return { query, rebuilder };
+}
+
 describe("getLibrary handler", () => {
   test("returns formatted anime list from library database", async () => {
     await withTempDir("library-handler", async (dir) => {
@@ -79,16 +95,11 @@ describe("getLibrary handler", () => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       seedLibrary(animeRepo, episodeRepo, groupRepo, coverDir);
       const { close: closeEvt } = createEventRepository(dir);
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const { query, rebuilder } = createModules(animeRepo, episodeRepo, groupRepo);
       const handlers = createLibraryHandlers({
-        animeAggregate: aggregate,
+        animeQuery: query,
+        animeRebuilder: rebuilder,
+        animeRepo,
         episodeRepo,
         groupRepo,
       });
@@ -109,16 +120,11 @@ describe("getLibrary handler", () => {
     await withTempDir("library-handler-empty", async (dir) => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const { query, rebuilder } = createModules(animeRepo, episodeRepo, groupRepo);
       const handlers = createLibraryHandlers({
-        animeAggregate: aggregate,
+        animeQuery: query,
+        animeRebuilder: rebuilder,
+        animeRepo,
         episodeRepo,
         groupRepo,
       });
@@ -139,16 +145,11 @@ describe("getAnimeDetail handler", () => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       seedLibrary(animeRepo, episodeRepo, groupRepo, coverDir);
       const { close: closeEvt } = createEventRepository(dir);
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const { query, rebuilder } = createModules(animeRepo, episodeRepo, groupRepo);
       const handlers = createLibraryHandlers({
-        animeAggregate: aggregate,
+        animeQuery: query,
+        animeRebuilder: rebuilder,
+        animeRepo,
         episodeRepo,
         groupRepo,
       });
@@ -178,16 +179,11 @@ describe("getAnimeDetail handler", () => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       seedLibrary(animeRepo, episodeRepo, groupRepo);
       const { close: closeEvt } = createEventRepository(dir);
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const { query, rebuilder } = createModules(animeRepo, episodeRepo, groupRepo);
       const handlers = createLibraryHandlers({
-        animeAggregate: aggregate,
+        animeQuery: query,
+        animeRebuilder: rebuilder,
+        animeRepo,
         episodeRepo,
         groupRepo,
       });
@@ -205,16 +201,11 @@ describe("getLibraryStats handler", () => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       seedLibrary(animeRepo, episodeRepo, groupRepo);
       const { close: closeEvt } = createEventRepository(dir);
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const { query, rebuilder } = createModules(animeRepo, episodeRepo, groupRepo);
       const handlers = createLibraryHandlers({
-        animeAggregate: aggregate,
+        animeQuery: query,
+        animeRebuilder: rebuilder,
+        animeRepo,
         episodeRepo,
         groupRepo,
       });
@@ -231,16 +222,11 @@ describe("getLibraryStats handler", () => {
     await withTempDir("library-handler-stats-empty", async (dir) => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const { query, rebuilder } = createModules(animeRepo, episodeRepo, groupRepo);
       const handlers = createLibraryHandlers({
-        animeAggregate: aggregate,
+        animeQuery: query,
+        animeRebuilder: rebuilder,
+        animeRepo,
         episodeRepo,
         groupRepo,
       });
@@ -259,21 +245,16 @@ describe("mergeMatches", () => {
     await withTempDir("library-merge", async (dir) => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const { query, rebuilder } = createModules(animeRepo, episodeRepo, groupRepo);
       const handlers = createLibraryHandlers({
-        animeAggregate: aggregate,
+        animeQuery: query,
+        animeRebuilder: rebuilder,
+        animeRepo,
         episodeRepo,
         groupRepo,
       });
 
-      await aggregate.mergeFromMatches([
+      await rebuilder.mergeFromMatches([
         {
           animeId: "tvdb-12345",
           animeTitle: "My Anime",
@@ -367,16 +348,11 @@ describe("rebuild", () => {
           watched: false,
         });
 
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const { query, rebuilder } = createModules(animeRepo, episodeRepo, groupRepo);
         const handlers = createLibraryHandlers({
-          animeAggregate: aggregate,
+          animeQuery: query,
+          animeRebuilder: rebuilder,
+          animeRepo,
           episodeRepo,
           groupRepo,
         });
@@ -398,16 +374,11 @@ describe("rebuild", () => {
     await withTempDir("library-rebuild-empty", async (dir) => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { close: closeEvt } = createEventRepository(dir);
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const { query, rebuilder } = createModules(animeRepo, episodeRepo, groupRepo);
       const handlers = createLibraryHandlers({
-        animeAggregate: aggregate,
+        animeQuery: query,
+        animeRebuilder: rebuilder,
+        animeRepo,
         episodeRepo,
         groupRepo,
       });

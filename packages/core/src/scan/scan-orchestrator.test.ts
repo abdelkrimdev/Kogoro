@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
   createMatchCacheService,
   createMockMatcher,
@@ -1448,8 +1450,6 @@ describe("ScanOrchestrator", () => {
   describe("incremental scan", () => {
     test("skips unchanged files and returns status cached with match and plan", async () => {
       await withTempDir("orch-incremental", async (dir) => {
-        const { writeFileSync } = await import("node:fs");
-        const { join } = await import("node:path");
         const { cacheService, manifestService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
@@ -1458,7 +1458,6 @@ describe("ScanOrchestrator", () => {
         writeFileSync(file2, "content2");
 
         // Get real stat and hash for file1
-        const { statSync } = await import("node:fs");
         const stat1 = statSync(file1);
         const hash1 = await hashFile(file1);
 
@@ -1522,15 +1521,12 @@ describe("ScanOrchestrator", () => {
 
     test("falls through to full scan when hash lookup misses", async () => {
       await withTempDir("orch-cache-miss", async (dir) => {
-        const { writeFileSync } = await import("node:fs");
-        const { join } = await import("node:path");
         const { manifestService, close } = createMatchCacheService();
         const scanFileCalls: string[] = [];
 
         const file1 = join(dir, "ep1.mkv");
         writeFileSync(file1, "content1");
 
-        const { statSync } = await import("node:fs");
         const stat1 = statSync(file1);
 
         // Pre-populate manifest but NOT matches table
@@ -1566,8 +1562,6 @@ describe("ScanOrchestrator", () => {
 
     test("force option scans all files even if unchanged", async () => {
       await withTempDir("orch-force", async (dir) => {
-        const { writeFileSync, statSync } = await import("node:fs");
-        const { join } = await import("node:path");
         const { manifestService, close } = createMatchCacheService();
         const scanFileCalls: string[] = [];
 
@@ -1603,8 +1597,6 @@ describe("ScanOrchestrator", () => {
 
     test("emits scanProgress for skipped files", async () => {
       await withTempDir("orch-incr-progress", async (dir) => {
-        const { writeFileSync, statSync } = await import("node:fs");
-        const { join } = await import("node:path");
         const { cacheService, manifestService, close } = createMatchCacheService();
         const events: ScanEvent[] = [];
 
@@ -1676,8 +1668,6 @@ describe("ScanOrchestrator", () => {
 
     test("purges stale manifest entries during scan", async () => {
       await withTempDir("orch-stale-cleanup", async (dir) => {
-        const { writeFileSync } = await import("node:fs");
-        const { join } = await import("node:path");
         const { cacheService, manifestService, close } = createMatchCacheService();
 
         // Create a real file
@@ -1714,8 +1704,6 @@ describe("ScanOrchestrator", () => {
 
     test("delegates stale purge to CacheService when provided", async () => {
       await withTempDir("orch-cache-service", async (dir) => {
-        const { writeFileSync } = await import("node:fs");
-        const { join } = await import("node:path");
         const { cacheService, manifestService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
@@ -1771,8 +1759,6 @@ describe("ScanOrchestrator", () => {
 
     test("stores manifest entry after scanning a new file", async () => {
       await withTempDir("orch-store-state", async (dir) => {
-        const { writeFileSync, statSync } = await import("node:fs");
-        const { join } = await import("node:path");
         const { manifestService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
@@ -1820,8 +1806,6 @@ describe("ScanOrchestrator", () => {
 
     test("stores manifest entry when file deleted mid-scan", async () => {
       await withTempDir("orch-setfromfs-race", async (dir) => {
-        const { writeFileSync, unlinkSync, statSync } = await import("node:fs");
-        const { join } = await import("node:path");
         const { manifestService, close } = createMatchCacheService();
 
         const file1 = join(dir, "ep1.mkv");
@@ -1869,8 +1853,6 @@ describe("ScanOrchestrator", () => {
 
     test("updates manifest entry after successful rename", async () => {
       await withTempDir("orch-execute-state", async (dir) => {
-        const { writeFileSync, statSync, existsSync } = await import("node:fs");
-        const { join, dirname } = await import("node:path");
         const { manifestService, close } = createMatchCacheService();
 
         const srcFile = join(dir, "downloads", "ep1.mkv");
@@ -1878,7 +1860,6 @@ describe("ScanOrchestrator", () => {
         const destFile = join(destDir, "S01E01.mkv");
 
         // Create source file
-        const { mkdirSync } = await import("node:fs");
         mkdirSync(dirname(srcFile), { recursive: true });
         writeFileSync(srcFile, "content1");
 
@@ -1917,7 +1898,6 @@ describe("ScanOrchestrator", () => {
             rename: async (plan, baseDir) => {
               const target = join(baseDir, plan.targetPath);
               mkdirSync(dirname(target), { recursive: true });
-              const { renameSync } = await import("node:fs");
               renameSync(plan.sourcePath, target);
               return { success: true };
             },
@@ -1946,9 +1926,6 @@ describe("ScanOrchestrator", () => {
 
     test("excludes already-organized files from the review plan", async () => {
       await withTempDir("orch-already-organized", async (dir) => {
-        const { writeFileSync, mkdirSync } = await import("node:fs");
-        const { join } = await import("node:path");
-
         // Create an organized file at its target location
         const organizedDir = join(dir, "Attack on Titan", "Season 1");
         mkdirSync(organizedDir, { recursive: true });

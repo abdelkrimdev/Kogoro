@@ -16,14 +16,19 @@ import { createFribbConnection, ensureDataset } from "@kogoro/fribb";
 import { PluginFactory } from "@kogoro/plugins";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import { createArtworkHandlers } from "./artwork/handlers";
 import { registerArtwork } from "./artwork/register";
 import { registerCache } from "./cache/register";
 import { registerConfig } from "./config/register";
+import { createDatabaseHandlers } from "./database/handlers";
 import { registerDb } from "./database/register";
+import { createMetadataHandlers } from "./metadata/handlers";
 import { registerMetadata } from "./metadata/register";
 import { registerOverride } from "./override/register";
 import { registerPlugins } from "./plugins/register";
+import { createScanHandlers } from "./scan/handlers";
 import { registerScan } from "./scan/register";
+import { createSubtitleHandlers } from "./subtitle/handlers";
 import { registerSubtitle } from "./subtitle/register";
 
 function readVersion(): string {
@@ -63,7 +68,6 @@ export async function run(argv: string[]): Promise<void> {
   }
 
   async function createDatabaseCommandsWithCredentials(debug?: boolean) {
-    const { createDatabaseHandlers } = await import("./database/handlers");
     const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
@@ -71,7 +75,6 @@ export async function run(argv: string[]): Promise<void> {
   }
 
   async function createScanWithCredentials(debug?: boolean) {
-    const { createScanHandlers } = await import("./scan/handlers");
     const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
@@ -86,7 +89,6 @@ export async function run(argv: string[]): Promise<void> {
   }
 
   async function createMetadataWithCredentials(debug?: boolean) {
-    const { createMetadataHandlers } = await import("./metadata/handlers");
     const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
@@ -94,7 +96,6 @@ export async function run(argv: string[]): Promise<void> {
   }
 
   async function createArtworkWithCredentials(debug?: boolean) {
-    const { createArtworkHandlers } = await import("./artwork/handlers");
     const factory = new PluginFactory(config, credentialStore, debug);
     const database = await factory.primaryDatabase();
     if (!database) return undefined;
@@ -102,7 +103,6 @@ export async function run(argv: string[]): Promise<void> {
   }
 
   async function createSubtitleWithCredentials(debug?: boolean) {
-    const { createSubtitleHandlers } = await import("./subtitle/handlers");
     const factory = new PluginFactory(config, credentialStore, debug);
     const subtitlePlugin = await factory.subtitle();
     if (!subtitlePlugin) return undefined;

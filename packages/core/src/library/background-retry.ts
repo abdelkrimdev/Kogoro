@@ -1,8 +1,8 @@
-import type { AnimeAggregate } from "./anime-aggregate";
+import type { AnimeImporter } from "./anime-importer";
 import type { LibraryAnime } from "./anime-repository";
 
 export interface BackgroundRetryOptions {
-  animeAggregate: AnimeAggregate;
+  animeImporter: AnimeImporter;
   isActive: () => boolean;
   intervalMs?: number;
   onResolved?: (resolved: Array<{ id: number; mergedInto?: number }>) => void;
@@ -13,13 +13,13 @@ export class BackgroundRetryService {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private readonly intervalMs: number;
-  private readonly animeAggregate: AnimeAggregate;
+  private readonly animeImporter: AnimeImporter;
   private readonly isActive: () => boolean;
   private readonly onResolved?: (resolved: Array<{ id: number; mergedInto?: number }>) => void;
   private readonly onError?: (error: Error) => void;
 
   constructor(options: BackgroundRetryOptions) {
-    this.animeAggregate = options.animeAggregate;
+    this.animeImporter = options.animeImporter;
     this.isActive = options.isActive;
     this.intervalMs = options.intervalMs ?? 5 * 60 * 1000; // 5 minutes default
     this.onResolved = options.onResolved;
@@ -56,7 +56,7 @@ export class BackgroundRetryService {
 
     this.running = true;
     try {
-      const result = await this.animeAggregate.retryPendingIdentification();
+      const result = await this.animeImporter.retryPendingIdentification();
       if (result.resolved.length > 0 && this.onResolved) {
         this.onResolved(result.resolved);
       }

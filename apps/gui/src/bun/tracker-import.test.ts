@@ -1,5 +1,5 @@
-import { describe, expect, it } from "bun:test";
-import { AnimeAggregate, ConfigManager, CredentialStore } from "@kogoro/core";
+import { describe, expect, test } from "bun:test";
+import { AnimeImporter, ConfigManager, CredentialStore } from "@kogoro/core";
 import {
   createEventRepository,
   createLibraryRepositories,
@@ -38,25 +38,25 @@ function mockAnilistFetch(
 
 describe("TrackerImportHandlers", () => {
   describe("getImportPreview", () => {
-    it("returns preview for anilist tracker", async () => {
+    test("returns preview for anilist tracker", async () => {
       const factory = createTestFactory({
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
-        const aggregate = new AnimeAggregate({
+        const importer = new AnimeImporter({
           anime: animeRepo,
           episodes: episodeRepo,
           groups: groupRepo,
-          replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
+          resolveAndMerge: async () => ({ animeIds: [] }),
         });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
           const handlers = createTrackerImportHandlers({
-            animeAggregate: aggregate,
+            animeImporter: importer,
             pluginFactory: factory,
           });
           const result = await handlers.getImportPreview({ trackerName: "anilist" });
@@ -71,21 +71,21 @@ describe("TrackerImportHandlers", () => {
       }
     });
 
-    it("returns error for unknown tracker", async () => {
+    test("returns error for unknown tracker", async () => {
       const factory = createTestFactory();
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
-        const aggregate = new AnimeAggregate({
+        const importer = new AnimeImporter({
           anime: animeRepo,
           episodes: episodeRepo,
           groups: groupRepo,
-          replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
+          resolveAndMerge: async () => ({ animeIds: [] }),
         });
         const handlers = createTrackerImportHandlers({
-          animeAggregate: aggregate,
+          animeImporter: importer,
           pluginFactory: factory,
         });
 
@@ -99,20 +99,20 @@ describe("TrackerImportHandlers", () => {
       }
     });
 
-    it("returns unmatched entries as flat list", async () => {
+    test("returns unmatched entries as flat list", async () => {
       const factory = createTestFactory({
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
-        const aggregate = new AnimeAggregate({
+        const importer = new AnimeImporter({
           anime: animeRepo,
           episodes: episodeRepo,
           groups: groupRepo,
-          replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
+          resolveAndMerge: async () => ({ animeIds: [] }),
         });
 
         const listData = {
@@ -187,7 +187,7 @@ describe("TrackerImportHandlers", () => {
 
         await withMockFetch(mockAnilistFetch(listData) as unknown as typeof fetch, async () => {
           const handlers = createTrackerImportHandlers({
-            animeAggregate: aggregate,
+            animeImporter: importer,
             pluginFactory: factory,
           });
           const result = await handlers.getImportPreview({ trackerName: "anilist" });
@@ -209,25 +209,25 @@ describe("TrackerImportHandlers", () => {
   });
 
   describe("confirmImport", () => {
-    it("returns result for anilist tracker", async () => {
+    test("returns result for anilist tracker", async () => {
       const factory = createTestFactory({
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
-        const aggregate = new AnimeAggregate({
+        const importer = new AnimeImporter({
           anime: animeRepo,
           episodes: episodeRepo,
           groups: groupRepo,
-          replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
+          resolveAndMerge: async () => ({ animeIds: [] }),
         });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
           const handlers = createTrackerImportHandlers({
-            animeAggregate: aggregate,
+            animeImporter: importer,
             pluginFactory: factory,
           });
           const result = await handlers.confirmImport({ trackerName: "anilist" });
@@ -242,21 +242,21 @@ describe("TrackerImportHandlers", () => {
       }
     });
 
-    it("returns error for unknown tracker", async () => {
+    test("returns error for unknown tracker", async () => {
       const factory = createTestFactory();
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
-        const aggregate = new AnimeAggregate({
+        const importer = new AnimeImporter({
           anime: animeRepo,
           episodes: episodeRepo,
           groups: groupRepo,
-          replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
+          resolveAndMerge: async () => ({ animeIds: [] }),
         });
         const handlers = createTrackerImportHandlers({
-          animeAggregate: aggregate,
+          animeImporter: importer,
           pluginFactory: factory,
         });
 
@@ -270,20 +270,20 @@ describe("TrackerImportHandlers", () => {
       }
     });
 
-    it("reuses cached tracker list from preview to confirm", async () => {
+    test("reuses cached tracker list from preview to confirm", async () => {
       const factory = createTestFactory({
         "kogoro:anilist": JSON.stringify({ access_token: "test-token" }),
       });
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { close: closeEvt } = createEventRepository();
       try {
-        const aggregate = new AnimeAggregate({
+        const importer = new AnimeImporter({
           anime: animeRepo,
           episodes: episodeRepo,
           groups: groupRepo,
-          replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
+          resolveAndMerge: async () => ({ animeIds: [] }),
         });
 
         const listData = {
@@ -316,7 +316,7 @@ describe("TrackerImportHandlers", () => {
 
         await withMockFetch(mockAnilistFetch(listData) as unknown as typeof fetch, async () => {
           const handlers = createTrackerImportHandlers({
-            animeAggregate: aggregate,
+            animeImporter: importer,
             pluginFactory: factory,
           });
 
@@ -327,10 +327,6 @@ describe("TrackerImportHandlers", () => {
           const result = await handlers.confirmImport({ trackerName: "anilist" });
           expect(result.error).toBeUndefined();
           expect(result.result?.imported).toBe(1);
-
-          const anime = aggregate.animeRepo.listAnime();
-          expect(anime).toHaveLength(1);
-          expect(anime[0]?.title).toBe("Death Note");
         });
       } finally {
         closeEvt();

@@ -80,7 +80,7 @@ describe("HashCache", () => {
       await withTempDir("hashcache-sourcedb", async (_dir) => {
         const filePath = writeTempFile(_dir, "[Group] My Anime - 01.mkv", "content");
         const { cacheService } = createMatchCacheService();
-        const hash = await import("../io/file-hash").then((m) => m.hashFile(filePath));
+        const hash = await hashFile(filePath);
         cacheService.set(hash, makeCachedMatch({ sourceDb: "tvdb" }));
 
         const hashCacheTvdb = new HashCache({ cacheService, sourceDb: "tvdb" });

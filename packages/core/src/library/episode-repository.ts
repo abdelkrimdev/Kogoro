@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
-import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type { EventRepository } from "../events/event-repository";
+import type { LibraryDb } from "./schema";
 import { anime, episodeGroups, episodes } from "./schema";
 
 export interface LibraryEpisode {
@@ -12,13 +12,6 @@ export interface LibraryEpisode {
   watched: boolean;
   notes?: string;
 }
-
-type LibrarySchema = {
-  anime: typeof anime;
-  episodeGroups: typeof episodeGroups;
-  episodes: typeof episodes;
-};
-type LibraryDb = BaseSQLiteDatabase<"sync", void, LibrarySchema>;
 
 export interface EpisodeRepositoryDeps {
   db: LibraryDb;
@@ -114,9 +107,7 @@ export class EpisodeRepository {
 
   deleteEpisodesByIds(ids: number[]): void {
     if (ids.length === 0) return;
-    for (const id of ids) {
-      this.db.delete(episodes).where(eq(episodes.id, id)).run();
-    }
+    this.db.delete(episodes).where(sql`${episodes.id} IN ${ids}`).run();
   }
 
   setEpisodeWatched(episodeId: number, watched: boolean): LibraryEpisode | null {

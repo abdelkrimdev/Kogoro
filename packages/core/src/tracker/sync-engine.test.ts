@@ -1,13 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { EventRepository } from "../events/event-repository";
 import { createEventDb } from "../events/test-utils";
-import {
-  createEventRepository,
-  createLibraryRepositories,
-  createMockIdentityResolver,
-  createMockTracker,
-} from "../fixtures";
-import { AnimeAggregate } from "../library/anime-aggregate";
+import { createEventRepository, createLibraryRepositories, createMockTracker } from "../fixtures";
 import type { SyncConflict } from "./sync-engine";
 import { SyncEngine } from "./sync-engine";
 
@@ -24,14 +18,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -66,7 +53,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
@@ -91,14 +78,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -141,7 +121,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
@@ -165,14 +145,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -215,7 +188,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
@@ -243,14 +216,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -293,7 +259,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(0);
@@ -322,14 +288,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime1 = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -381,7 +340,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
@@ -408,14 +367,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -460,7 +412,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(1);
@@ -485,14 +437,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime1 = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -553,7 +498,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.pull();
 
         expect(result.applied).toBe(2);
@@ -583,14 +528,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -630,7 +568,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(1);
@@ -660,14 +598,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -704,7 +635,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(0);
@@ -726,14 +657,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -774,7 +698,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(1);
@@ -803,14 +727,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -867,7 +784,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(1);
@@ -890,14 +807,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -955,7 +865,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
         const result = await syncEngine.push();
 
         expect(result.pushed).toBe(2);
@@ -980,14 +890,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -1015,7 +918,7 @@ describe("SyncEngine", () => {
         });
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
 
         const conflict: SyncConflict = {
           groupId: group.id,
@@ -1058,14 +961,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -1093,7 +989,7 @@ describe("SyncEngine", () => {
         });
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
 
         const conflict: SyncConflict = {
           groupId: group.id,
@@ -1137,14 +1033,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -1201,7 +1090,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, [
+        const syncEngine = new SyncEngine(repos, eventRepo, [
           { source: "anilist", tracker: anilistTracker },
           { source: "mal", tracker: malTracker },
         ]);
@@ -1232,14 +1121,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -1296,7 +1178,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, [
+        const syncEngine = new SyncEngine(repos, eventRepo, [
           { source: "anilist", tracker: anilistTracker },
           { source: "mal", tracker: malTracker },
         ]);
@@ -1326,14 +1208,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const workingTracker = createMockTracker({
           async getUserList() {
@@ -1347,7 +1222,7 @@ describe("SyncEngine", () => {
           },
         });
 
-        const syncEngine = new SyncEngine(aggregate, eventRepo, [
+        const syncEngine = new SyncEngine(repos, eventRepo, [
           { source: "anilist", tracker: workingTracker },
           { source: "mal", tracker: failingTracker },
         ]);
@@ -1378,14 +1253,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -1399,7 +1267,7 @@ describe("SyncEngine", () => {
         });
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
 
         const conflict = {
           groupId: group.id,
@@ -1432,14 +1300,7 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const anime = animeRepo.upsertAnime({
           title: "Attack on Titan",
@@ -1453,7 +1314,7 @@ describe("SyncEngine", () => {
         });
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
 
         const conflict = {
           groupId: group.id,
@@ -1486,17 +1347,10 @@ describe("SyncEngine", () => {
         close: closeLibrary,
       } = createLibraryRepositories(undefined, evtRepo);
       try {
-        const aggregate = new AnimeAggregate({
-          anime: animeRepo,
-          episodes: episodeRepo,
-          groups: groupRepo,
-          replayUnpushedEvents: () => {},
-          identityResolver: createMockIdentityResolver(),
-          resolveTitleToAnidb: async () => null,
-        });
+        const repos = { anime: animeRepo, episodes: episodeRepo, groups: groupRepo };
 
         const tracker = createMockTracker();
-        const syncEngine = new SyncEngine(aggregate, eventRepo, tracker, "anilist");
+        const syncEngine = new SyncEngine(repos, eventRepo, tracker, "anilist");
 
         const conflict = {
           groupId: 99999,

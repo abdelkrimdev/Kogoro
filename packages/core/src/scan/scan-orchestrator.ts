@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { lstatSync } from "node:fs";
 import { dirname, extname, join, relative } from "node:path";
+import { hashFile } from "../io/file-hash";
 import type { TaskContext } from "../io/progress";
-import type { AnimeAggregate } from "../library/anime-aggregate";
+import type { AnimeQuery } from "../library/anime-query";
 import type { CacheService } from "../match/cache-service";
 import type { ManifestService } from "../match/manifest-service";
 import type { MatcherLike, MatchResult } from "../match/matcher";
@@ -103,7 +104,7 @@ export interface ScanOrchestratorOptions {
   pipeline: OrchestratorPipeline;
   matcher?: MatcherLike;
   renamer?: Renamer;
-  animeAggregate?: AnimeAggregate;
+  animeQuery?: AnimeQuery;
   sourceDb?: string;
   cacheService?: CacheService;
   manifestService?: ManifestService;
@@ -208,7 +209,7 @@ export class ScanOrchestrator {
     this.plan = await aggregateReviewPlan(
       unorganizedResults,
       this.sessionId,
-      this.options.animeAggregate,
+      this.options.animeQuery,
       this.options.sourceDb,
       this.topCandidates.bind(this),
     );
@@ -408,7 +409,6 @@ export class ScanOrchestrator {
           failureReason: "Selected candidate not found",
         };
       } else {
-        const { hashFile } = await import("../io/file-hash");
         const hash = await hashFile(sourcePath);
         const extension = extname(sourcePath).replace(".", "") || "mkv";
         const plan = this.options.renamer.plan(sourcePath, chosen, extension);

@@ -1,7 +1,9 @@
 import type {
-  AnimeAggregate,
+  AnimeRepository,
   CredentialStore,
+  EpisodeRepository,
   EventRepository,
+  GroupRepository,
   TrackerPlugin,
   TrackerSource,
   TrackerWatchStatus,
@@ -10,7 +12,9 @@ import { type SyncConflict, SyncEngine } from "@kogoro/core";
 import type { PluginFactory } from "@kogoro/plugins";
 
 interface SyncHandlerOptions {
-  animeAggregate: AnimeAggregate;
+  animeRepo: AnimeRepository;
+  episodeRepo: EpisodeRepository;
+  groupRepo: GroupRepository;
   eventsRepo: EventRepository;
   pluginFactory: PluginFactory;
   credentialStore: CredentialStore;
@@ -38,13 +42,24 @@ export interface SyncAllResult {
   errors: Array<{ tracker: string; error: string }>;
 }
 
+function createSyncEngine(
+  options: SyncHandlerOptions,
+  pairs: Array<{ source: TrackerSource; tracker: TrackerPlugin }>,
+): SyncEngine {
+  return new SyncEngine(
+    { anime: options.animeRepo, episodes: options.episodeRepo, groups: options.groupRepo },
+    options.eventsRepo,
+    pairs,
+  );
+}
+
 async function runPushForGroup(
   options: SyncHandlerOptions,
   groupId: number,
 ): Promise<{ pushed: number; errors: Array<{ tracker: string; error: string }> }> {
   const errors: Array<{ tracker: string; error: string }> = [];
   const pairs = await buildTrackerPairs(options, errors);
-  const allMappings = options.animeAggregate.groupRepo.getAllTrackerMappings();
+  const allMappings = options.groupRepo.getAllTrackerMappings();
 
   let pushed = 0;
   for (const { source, tracker } of pairs) {
@@ -52,9 +67,7 @@ async function runPushForGroup(
     if (!hasMapping) continue;
 
     try {
-      const engine = new SyncEngine(options.animeAggregate, options.eventsRepo, [
-        { source, tracker },
-      ]);
+      const engine = createSyncEngine(options, [{ source, tracker }]);
       const result = await engine.push(groupId);
       pushed += result.pushed;
     } catch (err) {
@@ -104,11 +117,12 @@ async function buildTrackerPairs(
 
 function enrichConflicts(
   conflicts: SyncConflict[],
-  animeAggregate: AnimeAggregate,
+  groupRepo: GroupRepository,
+  animeRepo: AnimeRepository,
 ): SyncConflictInfo[] {
   return conflicts.map((c) => {
-    const group = animeAggregate.groupRepo.getEpisodeGroup(c.groupId);
-    const anime = group ? animeAggregate.animeRepo.getAnime(group.animeId) : null;
+    const group = groupRepo.getEpisodeGroup(c.groupId);
+    const anime = group ? animeRepo.getAnime(group.animeId) : null;
     return {
       ...c,
       animeTitle: anime?.title ?? `Group #${c.groupId}`,
@@ -123,7 +137,7 @@ async function runSync(
   const errors: Array<{ tracker: string; error: string }> = [];
   const pairs = await buildTrackerPairs(options, errors);
 
-  const engine = new SyncEngine(options.animeAggregate, options.eventsRepo, pairs);
+  const engine = createSyncEngine(options, pairs);
 
   const result = await engine.syncAll();
 
@@ -134,7 +148,7 @@ async function runSync(
 
   return {
     applied: result.applied + result.pushed,
-    conflicts: enrichConflicts(conflicts, options.animeAggregate),
+    conflicts: enrichConflicts(conflicts, options.groupRepo, options.animeRepo),
     syncedTrackers: result.syncedTrackers,
     errors: [...errors, ...result.errors],
   };
@@ -148,7 +162,7 @@ export function createSyncHandlers(options: SyncHandlerOptions) {
 
     async syncAnime(params: { animeId: string }): Promise<SyncAllResult> {
       const animeId = Number(params.animeId);
-      const groups = options.animeAggregate.groupRepo.getEpisodeGroupsByAnimeId(animeId);
+      const groups = options.groupRepo.getEpisodeGroupsByAnimeId(animeId);
       const groupIds = new Set(groups.map((g) => g.id));
       return runSync(options, (groupId) => groupIds.has(groupId));
     },
@@ -176,9 +190,7 @@ export function createSyncHandlers(options: SyncHandlerOptions) {
       const plugin = await options.pluginFactory.tracker(trackerDef.name);
       if (!plugin) return { success: false };
 
-      const engine = new SyncEngine(options.animeAggregate, options.eventsRepo, [
-        { source: trackerDef.source, tracker: plugin },
-      ]);
+      const engine = createSyncEngine(options, [{ source: trackerDef.source, tracker: plugin }]);
 
       return engine.resolveConflict(params.conflict, params.resolution);
     },

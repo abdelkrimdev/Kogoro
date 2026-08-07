@@ -1,4 +1,4 @@
-import type { AnimeAggregate } from "@kogoro/core";
+import type { AnimeQuery } from "@kogoro/core";
 import { toDataUrl } from "./image-utils";
 
 export interface DashboardCurrentlyWatching {
@@ -54,13 +54,13 @@ function entryTypeLabel(entryType: string, seasonNumber?: number): string {
 
 export type DashboardHandlers = ReturnType<typeof createDashboardHandlers>;
 
-export function createDashboardHandlers(options: { animeAggregate: AnimeAggregate }) {
-  const svc = options.animeAggregate;
+export function createDashboardHandlers(options: { animeQuery: AnimeQuery }) {
+  const svc = options.animeQuery;
 
   return {
     async getDashboardData(): Promise<DashboardData> {
       const displayData = svc.getAnimeForDisplay();
-      const stats = svc.animeRepo.getStats();
+      const stats = svc.getStats();
 
       let onDisk = 0;
       let partiallyOnDisk = 0;
@@ -75,7 +75,7 @@ export function createDashboardHandlers(options: { animeAggregate: AnimeAggregat
         let totalEpisodes = 0;
         let onDiskEpisodes = 0;
         for (const group of groups) {
-          const episodes = svc.episodeRepo.getEpisodesByGroupId(group.id);
+          const episodes = svc.getEpisodesByGroupId(group.id);
           totalEpisodes += episodes.length;
           onDiskEpisodes += episodes.filter((ep) => ep.filePath !== "").length;
         }
@@ -136,7 +136,7 @@ export function createDashboardHandlers(options: { animeAggregate: AnimeAggregat
     },
 
     getLibraryStats(): LibraryStats {
-      return svc.animeRepo.getStats();
+      return svc.getStats();
     },
   };
 }

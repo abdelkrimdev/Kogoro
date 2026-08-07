@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { AnimeAggregate, CredentialStore, TrackerError } from "@kogoro/core";
+import { CredentialStore, type GroupRepository, TrackerError } from "@kogoro/core";
 import {
   createEventRepository,
   createLibraryRepositories,
-  createMockIdentityResolver,
   createMockKeytar,
   withKogoroEnv,
 } from "@kogoro/core/testing";
@@ -201,22 +200,17 @@ describe("connectTracker", () => {
 });
 
 describe("disconnectTracker", () => {
-  let aggregate: AnimeAggregate;
+  let animeRepo: ReturnType<typeof createLibraryRepositories>["animeRepo"];
+  let groupRepo: GroupRepository;
   let evtRepo: ReturnType<typeof createEventRepository>["repo"];
   let closeService: () => void;
   let closeEvtService: () => void;
 
   beforeEach(() => {
-    const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
+    const { animeRepo: ar, groupRepo: gr, close } = createLibraryRepositories();
     const { repo: er, close: closeEvt } = createEventRepository();
-    aggregate = new AnimeAggregate({
-      anime: animeRepo,
-      episodes: episodeRepo,
-      groups: groupRepo,
-      replayUnpushedEvents: () => {},
-      identityResolver: createMockIdentityResolver(),
-      resolveTitleToAnidb: async () => null,
-    });
+    animeRepo = ar;
+    groupRepo = gr;
     evtRepo = er;
     closeService = close;
     closeEvtService = closeEvt;
@@ -230,7 +224,7 @@ describe("disconnectTracker", () => {
   test("deletes anilist credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("anilist", "token");
-    const result = await disconnectTracker(store, aggregate, evtRepo, { name: "anilist" });
+    const result = await disconnectTracker(store, groupRepo, evtRepo, { name: "anilist" });
     expect(result.success).toBe(true);
     expect(await store.getCredential("anilist")).toBeUndefined();
   });
@@ -238,7 +232,7 @@ describe("disconnectTracker", () => {
   test("deletes kitsu credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("kitsu", "user:pass");
-    const result = await disconnectTracker(store, aggregate, evtRepo, { name: "kitsu" });
+    const result = await disconnectTracker(store, groupRepo, evtRepo, { name: "kitsu" });
     expect(result.success).toBe(true);
     expect(await store.getCredential("kitsu")).toBeUndefined();
   });
@@ -246,21 +240,21 @@ describe("disconnectTracker", () => {
   test("deletes mal credential", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("mal", "token");
-    const result = await disconnectTracker(store, aggregate, evtRepo, { name: "mal" });
+    const result = await disconnectTracker(store, groupRepo, evtRepo, { name: "mal" });
     expect(result.success).toBe(true);
     expect(await store.getCredential("mal")).toBeUndefined();
   });
 
   test("returns error for unknown tracker", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
-    const result = await disconnectTracker(store, aggregate, evtRepo, { name: "invalid" });
+    const result = await disconnectTracker(store, groupRepo, evtRepo, { name: "invalid" });
     expect(result.success).toBe(false);
     expect(result.error).toContain("invalid");
   });
 
   test("succeeds when no credential exists", async () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
-    const result = await disconnectTracker(store, aggregate, evtRepo, { name: "anilist" });
+    const result = await disconnectTracker(store, groupRepo, evtRepo, { name: "anilist" });
     expect(result.success).toBe(true);
   });
 
@@ -268,38 +262,38 @@ describe("disconnectTracker", () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("anilist", "token");
 
-    const anime = aggregate.animeRepo.upsertAnime({
+    const anime = animeRepo.upsertAnime({
       title: "Jujutsu Kaisen",
     });
-    aggregate.animeRepo.createAnimeSourceMapping({
+    animeRepo.createAnimeSourceMapping({
       animeId: anime.id,
       source: "tvdb",
       externalId: "tvdb-12345",
     });
 
-    const group = aggregate.groupRepo.upsertEpisodeGroup({
+    const group = groupRepo.upsertEpisodeGroup({
       animeId: anime.id,
       entryType: "tv",
       seasonNumber: 1,
       watchStatus: "watching",
     });
 
-    aggregate.groupRepo.upsertGroupTrackerMapping({
+    groupRepo.upsertGroupTrackerMapping({
       groupId: group.id,
       source: "anilist",
       externalId: "anilist-67890",
     });
-    aggregate.groupRepo.upsertGroupTrackerMapping({
+    groupRepo.upsertGroupTrackerMapping({
       groupId: group.id,
       source: "kitsu",
       externalId: "kitsu-11111",
     });
 
-    const result = await disconnectTracker(store, aggregate, evtRepo, { name: "anilist" });
+    const result = await disconnectTracker(store, groupRepo, evtRepo, { name: "anilist" });
     expect(result.success).toBe(true);
     expect(await store.getCredential("anilist")).toBeUndefined();
 
-    const remainingMappings = aggregate.groupRepo.getTrackerMappingsByGroupId(group.id);
+    const remainingMappings = groupRepo.getTrackerMappingsByGroupId(group.id);
     expect(remainingMappings).toHaveLength(1);
     expect(remainingMappings[0]?.source).toBe("kitsu");
   });
@@ -308,35 +302,35 @@ describe("disconnectTracker", () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("anilist", "token");
 
-    const anime = aggregate.animeRepo.upsertAnime({
+    const anime = animeRepo.upsertAnime({
       title: "Jujutsu Kaisen",
     });
-    aggregate.animeRepo.createAnimeSourceMapping({
+    animeRepo.createAnimeSourceMapping({
       animeId: anime.id,
       source: "tvdb",
       externalId: "tvdb-12345",
     });
 
-    const group = aggregate.groupRepo.upsertEpisodeGroup({
+    const group = groupRepo.upsertEpisodeGroup({
       animeId: anime.id,
       entryType: "tv",
       seasonNumber: 1,
       watchStatus: "watching",
     });
 
-    aggregate.groupRepo.upsertGroupTrackerMapping({
+    groupRepo.upsertGroupTrackerMapping({
       groupId: group.id,
       source: "anilist",
       externalId: "anilist-67890",
     });
 
-    await disconnectTracker(store, aggregate, evtRepo, { name: "anilist" });
+    await disconnectTracker(store, groupRepo, evtRepo, { name: "anilist" });
 
-    const animeAfter = aggregate.animeRepo.getAnime(anime.id);
+    const animeAfter = animeRepo.getAnime(anime.id);
     expect(animeAfter).not.toBeNull();
     expect(animeAfter?.title).toBe("Jujutsu Kaisen");
 
-    const groupsAfter = aggregate.groupRepo.getEpisodeGroupsByAnimeId(anime.id);
+    const groupsAfter = groupRepo.getEpisodeGroupsByAnimeId(anime.id);
     expect(groupsAfter).toHaveLength(1);
   });
 
@@ -344,16 +338,16 @@ describe("disconnectTracker", () => {
     const store = new CredentialStore({ keytar: createMockKeytar() });
     await store.setCredential("anilist", "token");
 
-    const anime = aggregate.animeRepo.upsertAnime({
+    const anime = animeRepo.upsertAnime({
       title: "Jujutsu Kaisen",
     });
-    aggregate.animeRepo.createAnimeSourceMapping({
+    animeRepo.createAnimeSourceMapping({
       animeId: anime.id,
       source: "tvdb",
       externalId: "tvdb-12345",
     });
 
-    const group = aggregate.groupRepo.upsertEpisodeGroup({
+    const group = groupRepo.upsertEpisodeGroup({
       animeId: anime.id,
       entryType: "tv",
       seasonNumber: 1,
@@ -371,7 +365,7 @@ describe("disconnectTracker", () => {
 
     expect(evtRepo.getUnpushed("anilist")).toHaveLength(0);
 
-    await disconnectTracker(store, aggregate, evtRepo, { name: "anilist" });
+    await disconnectTracker(store, groupRepo, evtRepo, { name: "anilist" });
 
     expect(evtRepo.getUnpushed("anilist")).toHaveLength(1);
     expect(evtRepo.getUnpushed("anilist")[0]?.id).toBe(event.id);

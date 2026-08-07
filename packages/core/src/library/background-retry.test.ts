@@ -1,31 +1,31 @@
 import { describe, expect, mock, test } from "bun:test";
 import { createMockIdentityResolver } from "../fixtures";
-import { AnimeAggregate } from "./anime-aggregate";
+import { AnimeImporter } from "./anime-importer";
 import { BackgroundRetryService } from "./background-retry";
 import { createLibraryRepos } from "./schema";
 import { createLibraryDb } from "./test-utils";
 
-function createTestAggregate() {
+function createTestImporter() {
   const { db, sqlite } = createLibraryDb();
   const { animeRepo, episodeRepo, groupRepo } = createLibraryRepos(db);
-  const aggregate = new AnimeAggregate({
+  const importer = new AnimeImporter({
     anime: animeRepo,
     episodes: episodeRepo,
     groups: groupRepo,
-    replayUnpushedEvents: () => {},
     identityResolver: createMockIdentityResolver(),
     resolveTitleToAnidb: async () => null,
+    resolveAndMerge: async () => ({ animeIds: [] }),
   });
-  return { animeRepo, aggregate, sqlite };
+  return { animeRepo, importer, sqlite };
 }
 
 describe("BackgroundRetryService", () => {
   test("does not run when isActive returns true", async () => {
-    const { aggregate, sqlite } = createTestAggregate();
+    const { importer, sqlite } = createTestImporter();
     try {
       const onResolved = mock(() => {});
       const service = new BackgroundRetryService({
-        animeAggregate: aggregate,
+        animeImporter: importer,
         isActive: () => true,
         onResolved,
       });
@@ -40,13 +40,13 @@ describe("BackgroundRetryService", () => {
   });
 
   test("runs retry when isActive returns false", async () => {
-    const { animeRepo, aggregate, sqlite } = createTestAggregate();
+    const { animeRepo, importer, sqlite } = createTestImporter();
     try {
       animeRepo.upsertAnime({ title: "Pending Anime" });
 
       const onResolved = mock(() => {});
       const service = new BackgroundRetryService({
-        animeAggregate: aggregate,
+        animeImporter: importer,
         isActive: () => false,
         onResolved,
       });
@@ -63,10 +63,10 @@ describe("BackgroundRetryService", () => {
   });
 
   test("skips retry when already running", async () => {
-    const { aggregate, sqlite } = createTestAggregate();
+    const { importer, sqlite } = createTestImporter();
     try {
       const service = new BackgroundRetryService({
-        animeAggregate: aggregate,
+        animeImporter: importer,
         isActive: () => false,
       });
 
@@ -80,10 +80,10 @@ describe("BackgroundRetryService", () => {
   });
 
   test("start and stop manage interval", async () => {
-    const { aggregate, sqlite } = createTestAggregate();
+    const { importer, sqlite } = createTestImporter();
     try {
       const service = new BackgroundRetryService({
-        animeAggregate: aggregate,
+        animeImporter: importer,
         isActive: () => false,
         intervalMs: 100,
       });

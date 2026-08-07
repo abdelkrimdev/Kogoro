@@ -13,9 +13,11 @@ export { hashFile } from "./io/file-hash";
 import { EventRepository } from "./events/event-repository";
 import { createEventDb as createEventDbInstance } from "./events/test-utils";
 import type { FranchiseCollection, FranchiseIndex } from "./fribb/franchise-index";
-import type { FribbSource } from "./fribb/identity-resolver";
+import type { FribbSource, IdentityResolver } from "./fribb/identity-resolver";
 import { HttpClient } from "./io/http-client";
-import { AnimeAggregate } from "./library/anime-aggregate";
+import { AnimeImporter } from "./library/anime-importer";
+import { AnimeQuery } from "./library/anime-query";
+import { AnimeRebuilder } from "./library/anime-rebuilder";
 import type { AnimeRepository, AnimeSourceMapping } from "./library/anime-repository";
 import type { EpisodeRepository } from "./library/episode-repository";
 import type { Franchise, FranchiseRepository } from "./library/franchise-repository";
@@ -38,17 +40,20 @@ import type { OverrideStore } from "./match/override-store";
 import { createMatchCacheDb as createMatchCacheDbInstance } from "./match/test-utils";
 import type { ParsedResult, ParsedTags } from "./parse/parser";
 import { HashCache } from "./scan/hash-cache";
+import type { ScanResult } from "./scan/scanner";
 import type {
   AnimeResult,
   ArtworkResult,
   DatabasePlugin,
   EpisodeResult,
+  KnownEntry,
+  ReviewGroup,
   TrackerPlugin,
 } from "./types";
 
 export function createMockIdentityResolver(
   resolveMap?: Map<string, string | null>,
-): import("./fribb/identity-resolver").IdentityResolver {
+): IdentityResolver {
   const map = resolveMap ?? new Map();
   return {
     async resolveToAnidb(_source: FribbSource, sourceId: string): Promise<string | null> {
@@ -243,23 +248,28 @@ export function createEventRepository(dir?: string): {
 }
 
 export function createTrackerImportTestContext(): {
-  aggregate: AnimeAggregate;
+  importer: AnimeImporter;
+  animeRepo: AnimeRepository;
+  episodeRepo: EpisodeRepository;
+  groupRepo: GroupRepository;
   close: () => void;
 } {
   const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
-  const aggregate = new AnimeAggregate({
+  const importer = new AnimeImporter({
     anime: animeRepo,
     episodes: episodeRepo,
     groups: groupRepo,
-    replayUnpushedEvents: () => {},
     identityResolver: createMockIdentityResolver(),
     resolveTitleToAnidb: async () => null,
+    resolveAndMerge: async () => ({ animeIds: [] }),
   });
-  return { aggregate, close };
+  return { importer, animeRepo, episodeRepo, groupRepo, close };
 }
 
 export function createTestAggregate(dir?: string): {
-  aggregate: AnimeAggregate;
+  query: AnimeQuery;
+  rebuilder: AnimeRebuilder;
+  importer: AnimeImporter;
   animeRepo: AnimeRepository;
   episodeRepo: EpisodeRepository;
   groupRepo: GroupRepository;
@@ -268,15 +278,27 @@ export function createTestAggregate(dir?: string): {
 } {
   const { animeRepo, episodeRepo, groupRepo, franchiseRepo, close } =
     createLibraryRepositories(dir);
-  const aggregate = new AnimeAggregate({
+  const query = new AnimeQuery({
+    anime: animeRepo,
+    episodes: episodeRepo,
+    groups: groupRepo,
+  });
+  const rebuilder = new AnimeRebuilder({
     anime: animeRepo,
     episodes: episodeRepo,
     groups: groupRepo,
     replayUnpushedEvents: () => {},
     identityResolver: createMockIdentityResolver(),
-    resolveTitleToAnidb: async () => null,
   });
-  return { aggregate, animeRepo, episodeRepo, groupRepo, franchiseRepo, close };
+  const importer = new AnimeImporter({
+    anime: animeRepo,
+    episodes: episodeRepo,
+    groups: groupRepo,
+    identityResolver: createMockIdentityResolver(),
+    resolveTitleToAnidb: async () => null,
+    resolveAndMerge: (input) => rebuilder.resolveAndMerge(input),
+  });
+  return { query, rebuilder, importer, animeRepo, episodeRepo, groupRepo, franchiseRepo, close };
 }
 
 export function createMatchCacheService(dir?: string): {
@@ -788,7 +810,7 @@ export function makeAnimeSourceMapping(
   };
 }
 
-export function createAnilistEntry(anilistId: string, title: string): import("./types").KnownEntry {
+export function createAnilistEntry(anilistId: string, title: string): KnownEntry {
   return { anilistId, title };
 }
 
@@ -812,9 +834,7 @@ export function createTrackingEnrichmentSend(
   };
 }
 
-export function makeReviewGroup(
-  overrides?: Partial<import("./types").ReviewGroup>,
-): import("./types").ReviewGroup {
+export function makeReviewGroup(overrides?: Partial<ReviewGroup>): ReviewGroup {
   return {
     animeId: "anime-1",
     animeTitle: "Anime",
@@ -825,10 +845,7 @@ export function makeReviewGroup(
   };
 }
 
-export function makeScanResult(
-  file: string,
-  overrides?: Partial<import("./scan/scanner").ScanResult>,
-): import("./scan/scanner").ScanResult {
+export function makeScanResult(file: string, overrides?: Partial<ScanResult>): ScanResult {
   return {
     file,
     hash: `hash-${file}`,

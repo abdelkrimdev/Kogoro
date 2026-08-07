@@ -7,7 +7,7 @@ import type {
   ScanSummary,
 } from "@kogoro/core";
 import {
-  type AnimeAggregate,
+  type AnimeQuery,
   type CacheService,
   type ConfigManager,
   createScanComponents,
@@ -70,7 +70,7 @@ async function createScanOrchestrator(
   sessionId: string,
   pluginFactory: PluginFactory,
   configManager: ConfigManager,
-  animeAggregate: AnimeAggregate,
+  animeQuery: AnimeQuery,
   cacheService: CacheService,
   manifestService: ManifestService,
   store: ScanSessionStore,
@@ -102,7 +102,7 @@ async function createScanOrchestrator(
       },
       matcher: matcher ?? undefined,
       renamer,
-      animeAggregate,
+      animeQuery,
       sourceDb: configManager.primaryDb,
       cacheService,
       manifestService,
@@ -119,7 +119,7 @@ export function createScanHandlers(dependencies: {
   pluginFactory: PluginFactory;
   configManager: ConfigManager;
   cacheService: CacheService;
-  animeAggregate: AnimeAggregate;
+  animeQuery: AnimeQuery;
   manifestService: ManifestService;
   mergeMatches: (matches: MatchEntry[]) => Promise<void>;
   send: {
@@ -153,7 +153,7 @@ export function createScanHandlers(dependencies: {
     pluginFactory,
     configManager,
     cacheService,
-    animeAggregate,
+    animeQuery,
     manifestService,
     mergeMatches,
     send,
@@ -186,7 +186,7 @@ export function createScanHandlers(dependencies: {
             sessionId,
             pluginFactory,
             configManager,
-            animeAggregate,
+            animeQuery,
             cacheService,
             manifestService,
             store,

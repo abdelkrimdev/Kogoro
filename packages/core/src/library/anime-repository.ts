@@ -1,8 +1,8 @@
 import { and, eq, isNull, like, or, sql } from "drizzle-orm";
-import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
-import type { EntryType } from "../types";
+import type { EntryType, MatchEntry } from "../types";
 import { EpisodeRepository } from "./episode-repository";
 import { GroupRepository } from "./group-repository";
+import type { LibraryDb } from "./schema";
 import { anime, animeSourceMappings, episodeGroups, episodes } from "./schema";
 
 export interface LibraryAnime {
@@ -22,14 +22,6 @@ export interface AnimeSourceMapping {
   source: string;
   externalId: string;
 }
-
-type LibrarySchema = {
-  anime: typeof anime;
-  episodeGroups: typeof episodeGroups;
-  episodes: typeof episodes;
-  animeSourceMappings: typeof animeSourceMappings;
-};
-type LibraryDb = BaseSQLiteDatabase<"sync", void, LibrarySchema>;
 
 export interface AnimeRepositoryDeps {
   db: LibraryDb;
@@ -51,9 +43,9 @@ export class AnimeRepository {
   transaction<T>(fn: (repos: TransactionRepos) => T): T {
     return this.db.transaction((txDb) => {
       const repos: TransactionRepos = {
-        anime: new AnimeRepository({ db: txDb as any }),
-        episodes: new EpisodeRepository({ db: txDb as any }),
-        groups: new GroupRepository({ db: txDb as any }),
+        anime: new AnimeRepository({ db: txDb as LibraryDb }),
+        episodes: new EpisodeRepository({ db: txDb as LibraryDb }),
+        groups: new GroupRepository({ db: txDb as LibraryDb }),
       };
       return fn(repos);
     });
@@ -192,9 +184,7 @@ export class AnimeRepository {
 
   deleteAnimeByIds(ids: number[]): void {
     if (ids.length === 0) return;
-    for (const id of ids) {
-      this.db.delete(anime).where(eq(anime.id, id)).run();
-    }
+    this.db.delete(anime).where(sql`${anime.id} IN ${ids}`).run();
   }
 
   upsertAnimeBatch(
@@ -407,4 +397,36 @@ export class AnimeRepository {
       updatedAt: row.updatedAt,
     };
   }
+}
+
+export function resolveAnidbIdByTitle(anime: AnimeRepository, title: string): string | null {
+  const titleLower = title.toLowerCase();
+  const allAnime = anime.listAnime();
+  for (const a of allAnime) {
+    if (a.title.toLowerCase() === titleLower && a.anidbId) {
+      return a.anidbId;
+    }
+    if (a.alternativeTitles) {
+      for (const alt of a.alternativeTitles) {
+        if (alt.toLowerCase() === titleLower && a.anidbId) {
+          return a.anidbId;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+export function exportMatchesFromRepo(anime: AnimeRepository): MatchEntry[] {
+  return anime.exportMatches().map((row) => ({
+    animeId: row.animeId,
+    animeTitle: row.animeTitle,
+    entryType: row.entryType,
+    episodeId: null,
+    episode: row.episode,
+    season: row.season,
+    title: row.episodeTitle,
+    filePath: row.filePath,
+    sourceDb: row.sourceDb,
+  }));
 }

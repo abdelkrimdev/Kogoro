@@ -2,12 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { createEventDb } from "../events/test-utils";
 import {
   createLibraryRepositories,
-  createMockIdentityResolver,
   makeMatchResult,
   makeParsedResult,
   withTempDir,
 } from "../fixtures";
-import { AnimeAggregate } from "../library/anime-aggregate";
+import { AnimeQuery } from "../library/anime-query";
 import type { RenamePlan } from "../rename/renamer";
 import type { AnimeResult, EpisodeResult, ReviewPlan } from "../types";
 import {
@@ -313,14 +312,7 @@ describe("buildReviewPlan", () => {
     await withTempDir("merge", async (_dir) => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories();
       const { sqlite: evtSqlite } = createEventDb();
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const query = new AnimeQuery({ anime: animeRepo, episodes: episodeRepo, groups: groupRepo });
       animeRepo.upsertAnime({
         title: "Jujutsu Kaisen",
       });
@@ -332,7 +324,7 @@ describe("buildReviewPlan", () => {
         }),
       ];
 
-      const plan = buildReviewPlan(results, aggregate);
+      const plan = buildReviewPlan(results, query);
 
       expect(plan.groups).toHaveLength(1);
       expect(plan.groups[0]?.mergeMode).toBe(true);
@@ -345,14 +337,7 @@ describe("buildReviewPlan", () => {
     await withTempDir("no-merge", async (dir) => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { sqlite: evtSqlite } = createEventDb();
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const query = new AnimeQuery({ anime: animeRepo, episodes: episodeRepo, groups: groupRepo });
 
       const results = [
         makeScanResult("/a/ep1.mkv", {
@@ -361,7 +346,7 @@ describe("buildReviewPlan", () => {
         }),
       ];
 
-      const plan = buildReviewPlan(results, aggregate);
+      const plan = buildReviewPlan(results, query);
 
       expect(plan.groups[0]?.mergeMode).toBe(false);
       close();
@@ -690,14 +675,7 @@ describe("aggregateReviewPlan", () => {
     await withTempDir("merge", async (dir) => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { sqlite: evtSqlite } = createEventDb();
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const query = new AnimeQuery({ anime: animeRepo, episodes: episodeRepo, groups: groupRepo });
       animeRepo.upsertAnime({
         title: "Jujutsu Kaisen",
       });
@@ -720,7 +698,7 @@ describe("aggregateReviewPlan", () => {
         }),
       ];
 
-      const plan = await aggregateReviewPlan(results, "session-1", aggregate, "tvdb");
+      const plan = await aggregateReviewPlan(results, "session-1", query, "tvdb");
 
       expect(plan.groups).toHaveLength(1);
       expect(plan.groups[0]?.mergeMode).toBe(true);
@@ -733,14 +711,7 @@ describe("aggregateReviewPlan", () => {
     await withTempDir("no-merge", async (dir) => {
       const { animeRepo, episodeRepo, groupRepo, close } = createLibraryRepositories(dir);
       const { sqlite: evtSqlite } = createEventDb();
-      const aggregate = new AnimeAggregate({
-        anime: animeRepo,
-        episodes: episodeRepo,
-        groups: groupRepo,
-        replayUnpushedEvents: () => {},
-        identityResolver: createMockIdentityResolver(),
-        resolveTitleToAnidb: async () => null,
-      });
+      const query = new AnimeQuery({ anime: animeRepo, episodes: episodeRepo, groups: groupRepo });
 
       const results = [
         makeAggScanResult("/a/ep1.mkv", {
@@ -760,7 +731,7 @@ describe("aggregateReviewPlan", () => {
         }),
       ];
 
-      const plan = await aggregateReviewPlan(results, "session-1", aggregate, "tvdb");
+      const plan = await aggregateReviewPlan(results, "session-1", query, "tvdb");
 
       expect(plan.groups[0]?.mergeMode).toBe(false);
       close();

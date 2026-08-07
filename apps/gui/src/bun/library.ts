@@ -1,4 +1,10 @@
-import type { AnimeAggregate, EpisodeRepository, GroupRepository } from "@kogoro/core";
+import type {
+  AnimeQuery,
+  AnimeRebuilder,
+  AnimeRepository,
+  EpisodeRepository,
+  GroupRepository,
+} from "@kogoro/core";
 import { toDataUrl } from "./image-utils";
 
 interface LibraryAnimeItem {
@@ -54,7 +60,9 @@ type WatchStatusSetResult = { success: boolean };
 type LibraryRebuildResult = { success: boolean; error?: string };
 
 interface LibraryHandlerOptions {
-  animeAggregate: AnimeAggregate;
+  animeQuery: AnimeQuery;
+  animeRebuilder: AnimeRebuilder;
+  animeRepo: AnimeRepository;
   episodeRepo: EpisodeRepository;
   groupRepo: GroupRepository;
   getSourceDb?: () => string;
@@ -67,16 +75,15 @@ function totalEpisodeCount(groups: LibraryAnimeDetail["groups"]): number {
 }
 
 export function createLibraryHandlers(options: LibraryHandlerOptions) {
-  const svc = options.animeAggregate;
-  const { episodeRepo, groupRepo } = options;
+  const { animeQuery, animeRebuilder, animeRepo, episodeRepo, groupRepo } = options;
 
   return {
     async getLibrary(): Promise<LibraryAnimeItem[]> {
-      const displayData = svc.getAnimeForDisplay();
+      const displayData = animeQuery.getAnimeForDisplay();
       return Promise.all(
         displayData.map(async ({ anime: a, groups }) => {
           const episodeCount = groups.reduce(
-            (sum, g) => sum + svc.episodeRepo.getEpisodesByGroupId(g.id).length,
+            (sum, g) => sum + episodeRepo.getEpisodesByGroupId(g.id).length,
             0,
           );
           const filesOnDisk = a.filesOnDisk ?? episodeCount;
@@ -107,13 +114,13 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
     },
 
     async getAnimeDetail(params: { id: string }): Promise<LibraryAnimeDetail | null> {
-      const anime = svc.animeRepo.getAnime(Number(params.id));
+      const anime = animeRepo.getAnime(Number(params.id));
       if (!anime) return null;
 
-      const dbGroups = svc.groupRepo.getEpisodeGroupsByAnimeId(anime.id);
+      const dbGroups = groupRepo.getEpisodeGroupsByAnimeId(anime.id);
       const groups: LibraryAnimeDetail["groups"] = await Promise.all(
         dbGroups.map(async (group) => {
-          const dbEpisodes = svc.episodeRepo.getEpisodesByGroupId(group.id);
+          const dbEpisodes = episodeRepo.getEpisodesByGroupId(group.id);
           const episodes = dbEpisodes.map((ep) => ({
             id: String(ep.id),
             episodeNumber: ep.episodeNumber,
@@ -171,7 +178,7 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
     },
 
     async getLibraryStats(): Promise<LibraryStats> {
-      return svc.animeRepo.getStats();
+      return animeRepo.getStats();
     },
 
     async updateGroupStatus(params: {
@@ -204,7 +211,7 @@ export function createLibraryHandlers(options: LibraryHandlerOptions) {
     async rebuild(): Promise<LibraryRebuildResult> {
       try {
         const sourceDb = options.getSourceDb?.();
-        await svc.rebuild(sourceDb);
+        await animeRebuilder.rebuild(sourceDb);
         return { success: true };
       } catch (err) {
         return {

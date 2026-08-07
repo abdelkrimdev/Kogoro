@@ -46,20 +46,28 @@ export type { DebugEntry } from "./io/http-client";
 export { HttpClient } from "./io/http-client";
 export type { ProgressEvent, TaskContext } from "./io/progress";
 export type {
-  ImportMergeEntry,
+  AnimeImporterDeps,
   ImportPreview,
   ImportPreviewEntry,
   ImportResult,
   ImportSelection,
   MatchStatus,
+} from "./library/anime-importer";
+export { AnimeImporter } from "./library/anime-importer";
+export type { AnimeQueryDeps } from "./library/anime-query";
+export { AnimeQuery } from "./library/anime-query";
+export type {
+  AnimeRebuilderDeps,
+  ImportMergeEntry,
   MergeEntry,
   ResolveAndMergeInput,
   ResolveAndMergeResult,
   ScanMergeEntry,
-} from "./library/anime-aggregate";
-export { AnimeAggregate } from "./library/anime-aggregate";
+  TrackerDataEntry,
+} from "./library/anime-rebuilder";
+export { AnimeRebuilder } from "./library/anime-rebuilder";
 export type { AnimeSourceMapping, LibraryAnime } from "./library/anime-repository";
-export { AnimeRepository } from "./library/anime-repository";
+export { AnimeRepository, resolveAnidbIdByTitle } from "./library/anime-repository";
 export { BackgroundRetryService } from "./library/background-retry";
 export type { LibraryEpisode } from "./library/episode-repository";
 export { EpisodeRepository } from "./library/episode-repository";
