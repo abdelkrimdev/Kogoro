@@ -10,6 +10,15 @@
 
 
 
+
+## 0.3.0
+<sub>2026-08-08</sub>
+
+-  *(minor)* - Override commands promoted to top-level CLI command
+-  *(minor)*
+  Wire Fribb dataset download, identity resolution, and franchise discovery into app startup with graceful degradation when fribb.db is unavailable
+-  *(patch)* - Fix library state not updating after episode deletion
+
 ## 0.2.9
 <sub>2026-06-14</sub>
 
