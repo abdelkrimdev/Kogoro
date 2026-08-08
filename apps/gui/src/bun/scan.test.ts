@@ -263,7 +263,7 @@ describe("ScanOrchestrator", () => {
           replayUnpushedEvents: () => {},
           identityResolver: createMockIdentityResolver(),
         });
-        await rebuilder.rebuildFromMatches(matches);
+        await rebuilder.rebuild({ matches });
 
         const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(1);

@@ -14,7 +14,7 @@ function createTestImporter() {
     groups: groupRepo,
     identityResolver: createMockIdentityResolver(),
     resolveTitleToAnidb: async () => null,
-    resolveAndMerge: async () => ({ animeIds: [] }),
+    merge: async () => ({ animeIds: [] }),
   });
   return { animeRepo, importer, sqlite };
 }

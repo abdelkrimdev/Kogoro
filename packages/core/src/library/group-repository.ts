@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { EventRepository } from "../events/event-repository";
-import type { EntryType } from "../types";
+import type { EntryType, TrackerSource } from "../types";
 import type { LibraryDb } from "./schema";
 import { episodeGroups, episodes, groupTrackerMappings } from "./schema";
 
@@ -18,7 +18,7 @@ export interface EpisodeGroup {
 
 export interface GroupTrackerMapping {
   groupId: number;
-  source: "mal" | "anilist" | "kitsu";
+  source: TrackerSource;
   externalId: string;
 }
 

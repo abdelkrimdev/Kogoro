@@ -67,7 +67,7 @@ export type {
 } from "./library/anime-rebuilder";
 export { AnimeRebuilder } from "./library/anime-rebuilder";
 export type { AnimeSourceMapping, LibraryAnime } from "./library/anime-repository";
-export { AnimeRepository, resolveAnidbIdByTitle } from "./library/anime-repository";
+export { AnimeRepository } from "./library/anime-repository";
 export { BackgroundRetryService } from "./library/background-retry";
 export type { LibraryEpisode } from "./library/episode-repository";
 export { EpisodeRepository } from "./library/episode-repository";

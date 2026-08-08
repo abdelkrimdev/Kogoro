@@ -19,7 +19,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async (input) => {
+          merge: async (input) => {
             const animeIds: number[] = [];
             for (const entry of input.entries) {
               const anime = animeRepo.upsertAnime({ title: entry.title });
@@ -100,7 +100,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(new Map([["tl-1", "aot-anidb"]])),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const anime = animeRepo.upsertAnime({
@@ -159,7 +159,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const anime = animeRepo.upsertAnime({
@@ -213,7 +213,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(new Map([["tl-1", "aot-anidb"]])),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const anime = animeRepo.upsertAnime({
@@ -270,7 +270,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const tracker = createMockTracker({
@@ -335,7 +335,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver,
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const tracker = createMockTracker({
@@ -394,7 +394,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver,
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const tracker = createMockTracker({
@@ -435,7 +435,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const anime = animeRepo.upsertAnime({ title: "Already Linked" });
@@ -489,7 +489,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const pendingAnime = animeRepo.upsertAnime({
@@ -522,7 +522,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const pendingAnime = animeRepo.upsertAnime({
@@ -554,7 +554,7 @@ describe("AnimeImporter", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         animeRepo.upsertAnime({

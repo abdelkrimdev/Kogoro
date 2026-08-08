@@ -133,7 +133,7 @@ const animeImporter = new AnimeImporter({
     return anime?.anidbId ?? null;
   },
   franchiseService,
-  resolveAndMerge: (input) => animeRebuilder.resolveAndMerge(input),
+  merge: (input) => animeRebuilder.merge(input.entries),
 });
 
 const syncHandlers = createSyncHandlers({
@@ -181,7 +181,9 @@ const scanHandlers = createScanHandlers({
   cacheService,
   animeQuery,
   manifestService,
-  mergeMatches: async (matches) => animeRebuilder.mergeFromMatches(matches),
+  mergeMatches: async (matches) => {
+    await animeRebuilder.merge(matches);
+  },
   send: {
     scanProgress: (data) => rpc.send.scanProgress(data),
     scanPhaseComplete: (data) => rpc.send.scanPhaseComplete(data),

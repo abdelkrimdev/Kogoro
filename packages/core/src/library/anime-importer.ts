@@ -1,13 +1,13 @@
 import type { FribbSource, IdentityResolver } from "../fribb/identity-resolver";
 import { mapTrackerStatus } from "../tracker/credential-utils";
 import type { EntryType, TrackerPlugin, TrackerSource, TrackerWatchStatus } from "../types";
+import type { AnidbResolver } from "./anidb-resolver";
 import type {
   ImportMergeEntry,
   ResolveAndMergeInput,
   ResolveAndMergeResult,
 } from "./anime-rebuilder";
 import type { AnimeRepository, LibraryAnime } from "./anime-repository";
-import { resolveAnidbIdByTitle } from "./anime-repository";
 import type { EpisodeRepository } from "./episode-repository";
 import type { FranchiseService } from "./franchise-service";
 import type { EpisodeGroup, GroupRepository } from "./group-repository";
@@ -52,8 +52,9 @@ export interface AnimeImporterDeps {
   groups: GroupRepository;
   identityResolver: IdentityResolver;
   resolveTitleToAnidb: (title: string) => Promise<string | null>;
+  anidbResolver?: AnidbResolver;
   franchiseService?: FranchiseService;
-  resolveAndMerge: (input: ResolveAndMergeInput) => Promise<ResolveAndMergeResult>;
+  merge: (input: ResolveAndMergeInput) => Promise<ResolveAndMergeResult>;
 }
 
 export class AnimeImporter {
@@ -82,7 +83,7 @@ export class AnimeImporter {
       } else if (entry.anidbId?.startsWith("temp:")) {
         resolvedAnidbId = await this.deps.resolveTitleToAnidb(entry.title);
       } else {
-        resolvedAnidbId = resolveAnidbIdByTitle(this.deps.anime, entry.title);
+        resolvedAnidbId = this.deps.anidbResolver?.resolveByTitle(entry.title) ?? null;
       }
 
       if (!resolvedAnidbId) continue;
@@ -148,7 +149,7 @@ export class AnimeImporter {
         watchStatus: entry.watchStatus,
       }));
 
-      await this.deps.resolveAndMerge({ entries: mergeEntries, source });
+      await this.deps.merge({ entries: mergeEntries, source });
     }
 
     return { imported: trackerList.length - skipped, skipped };
@@ -163,6 +164,13 @@ export class AnimeImporter {
     const unmatched: ImportPreviewEntry[] = [];
     const conflicts: ImportPreviewEntry[] = [];
     const seenTrackerIds = new Set<string>();
+    const statusCounts: Record<TrackerWatchStatus, number> = {
+      watching: 0,
+      completed: 0,
+      "plan-to-watch": 0,
+      "on-hold": 0,
+      dropped: 0,
+    };
 
     for (const entry of trackerList) {
       if (seenTrackerIds.has(entry.trackerId)) continue;
@@ -218,16 +226,7 @@ export class AnimeImporter {
       } else {
         unmatched.push(previewEntry);
       }
-    }
 
-    const statusCounts: Record<TrackerWatchStatus, number> = {
-      watching: 0,
-      completed: 0,
-      "plan-to-watch": 0,
-      "on-hold": 0,
-      dropped: 0,
-    };
-    for (const entry of [...matched, ...unmatched, ...conflicts]) {
       statusCounts[entry.watchStatus]++;
     }
 

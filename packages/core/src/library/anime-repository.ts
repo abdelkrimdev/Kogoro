@@ -1,7 +1,7 @@
-import { and, eq, isNull, like, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 import type { EntryType, MatchEntry } from "../types";
-import { EpisodeRepository } from "./episode-repository";
-import { GroupRepository } from "./group-repository";
+import type { EpisodeRepository } from "./episode-repository";
+import type { GroupRepository } from "./group-repository";
 import type { LibraryDb } from "./schema";
 import { anime, animeSourceMappings, episodeGroups, episodes } from "./schema";
 
@@ -25,6 +25,7 @@ export interface AnimeSourceMapping {
 
 export interface AnimeRepositoryDeps {
   db: LibraryDb;
+  createTransactionRepos?: TransactionReposFactory;
 }
 
 export interface TransactionRepos {
@@ -33,20 +34,24 @@ export interface TransactionRepos {
   groups: GroupRepository;
 }
 
+export type TransactionReposFactory = (db: LibraryDb) => TransactionRepos;
+
 export class AnimeRepository {
   private db: LibraryDb;
+  private createTransactionRepos?: TransactionReposFactory;
 
   constructor(deps: AnimeRepositoryDeps) {
     this.db = deps.db;
+    this.createTransactionRepos = deps.createTransactionRepos;
   }
 
   transaction<T>(fn: (repos: TransactionRepos) => T): T {
+    if (!this.createTransactionRepos) {
+      throw new Error("AnimeRepository.transaction() requires createTransactionRepos in deps");
+    }
+    const factory = this.createTransactionRepos;
     return this.db.transaction((txDb) => {
-      const repos: TransactionRepos = {
-        anime: new AnimeRepository({ db: txDb as LibraryDb }),
-        episodes: new EpisodeRepository({ db: txDb as LibraryDb }),
-        groups: new GroupRepository({ db: txDb as LibraryDb }),
-      };
+      const repos = factory(txDb as LibraryDb);
       return fn(repos);
     });
   }
@@ -305,6 +310,24 @@ export class AnimeRepository {
     return this.db.select().from(animeSourceMappings).all();
   }
 
+  listAnidbAnime(): Array<{ title: string; alternativeTitles?: string[]; anidbId: string }> {
+    const rows = this.db
+      .select({
+        title: anime.title,
+        alternativeTitles: anime.alternativeTitles,
+        anidbId: anime.anidbId,
+      })
+      .from(anime)
+      .where(isNotNull(anime.anidbId))
+      .all();
+
+    return rows.map((row) => ({
+      title: row.title,
+      alternativeTitles: row.alternativeTitles ?? undefined,
+      anidbId: row.anidbId!,
+    }));
+  }
+
   getStats(): { animeCount: number; episodeCount: number } {
     const animeRow = this.db
       .select({ count: sql<number>`cast(count(*) as int)` })
@@ -397,24 +420,6 @@ export class AnimeRepository {
       updatedAt: row.updatedAt,
     };
   }
-}
-
-export function resolveAnidbIdByTitle(anime: AnimeRepository, title: string): string | null {
-  const titleLower = title.toLowerCase();
-  const allAnime = anime.listAnime();
-  for (const a of allAnime) {
-    if (a.title.toLowerCase() === titleLower && a.anidbId) {
-      return a.anidbId;
-    }
-    if (a.alternativeTitles) {
-      for (const alt of a.alternativeTitles) {
-        if (alt.toLowerCase() === titleLower && a.anidbId) {
-          return a.anidbId;
-        }
-      }
-    }
-  }
-  return null;
 }
 
 export function exportMatchesFromRepo(anime: AnimeRepository): MatchEntry[] {

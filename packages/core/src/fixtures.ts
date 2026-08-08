@@ -261,7 +261,7 @@ export function createTrackerImportTestContext(): {
     groups: groupRepo,
     identityResolver: createMockIdentityResolver(),
     resolveTitleToAnidb: async () => null,
-    resolveAndMerge: async () => ({ animeIds: [] }),
+    merge: async () => ({ animeIds: [] }),
   });
   return { importer, animeRepo, episodeRepo, groupRepo, close };
 }
@@ -296,7 +296,7 @@ export function createTestAggregate(dir?: string): {
     groups: groupRepo,
     identityResolver: createMockIdentityResolver(),
     resolveTitleToAnidb: async () => null,
-    resolveAndMerge: (input) => rebuilder.resolveAndMerge(input),
+    merge: (input) => rebuilder.merge(input.entries),
   });
   return { query, rebuilder, importer, animeRepo, episodeRepo, groupRepo, franchiseRepo, close };
 }

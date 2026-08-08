@@ -28,7 +28,7 @@ function createRebuilder(db: ReturnType<typeof createLibraryDb>["db"]) {
 }
 
 describe("AnimeRebuilder", () => {
-  describe("rebuildFromMatches", () => {
+  describe("rebuild with matches", () => {
     test("clears existing data and rebuilds from matches", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
@@ -73,7 +73,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.rebuildFromMatches(matches);
+        await rebuilder.rebuild({ matches });
 
         const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(2);
@@ -122,7 +122,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.rebuildFromMatches(matches);
+        await rebuilder.rebuild({ matches });
 
         const jjk = animeRepo.findAnime("tvdb-12345", "tvdb");
         const groups = groupRepo.getEpisodeGroupsByAnimeId(jjk?.id as number);
@@ -195,7 +195,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.rebuildFromMatches(matches);
+        await rebuilder.rebuild({ matches });
 
         const rebuilt = animeRepo.findAnime("tvdb-12345", "tvdb");
         const statuses = episodeRepo.getEpisodeWatchStatusByAnimeId(rebuilt?.id as number);
@@ -242,7 +242,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.rebuildFromMatches(matches);
+        await rebuilder.rebuild({ matches });
 
         expect(animeRepo.findAnime("tvdb-12345", "tvdb")).not.toBeNull();
         expect(animeRepo.findAnime("anidb-67890", "anidb")).not.toBeNull();
@@ -313,7 +313,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.rebuildFromMatches(matches);
+        await rebuilder.rebuild({ matches });
 
         const rebuilt = animeRepo.findAnime("tvdb-12345", "tvdb");
         const groups = groupRepo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
@@ -396,7 +396,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.rebuildFromMatches(matches);
+        await rebuilder.rebuild({ matches });
 
         const rebuilt = animeRepo.findAnime("tvdb-12345", "tvdb");
         const groups = groupRepo.getEpisodeGroupsByAnimeId(rebuilt?.id as number);
@@ -444,7 +444,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.rebuildFromMatches(matches);
+        await rebuilder.rebuild({ matches });
 
         const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(1);
@@ -519,7 +519,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.rebuildFromMatches(matches);
+        await rebuilder.rebuild({ matches });
 
         const rebuilt = animeRepo.listAnime();
         expect(rebuilt).toHaveLength(1);
@@ -569,8 +569,11 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.rebuildFromMatches(matches, (snapshot) => {
-          capturedSnapshot = snapshot;
+        await rebuilder.rebuild({
+          matches,
+          onBeforeWipe: (snapshot) => {
+            capturedSnapshot = snapshot;
+          },
         });
 
         expect(capturedSnapshot).toBeDefined();
@@ -657,7 +660,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.mergeFromMatches(matches);
+        await rebuilder.merge(matches);
 
         const animeList = animeRepo.listAnime();
         expect(animeList).toHaveLength(2);
@@ -713,7 +716,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.mergeFromMatches(matches);
+        await rebuilder.merge(matches);
 
         const all = animeRepo.listAnime();
         expect(all).toHaveLength(1);
@@ -759,7 +762,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.mergeFromMatches(firstMatches);
+        await rebuilder.merge(firstMatches);
 
         const secondMatches: MatchEntry[] = [
           {
@@ -786,7 +789,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.mergeFromMatches(secondMatches);
+        await rebuilder.merge(secondMatches);
 
         expect(animeRepo.listAnime()).toHaveLength(1);
         const jjk = animeRepo.findAnime("tvdb-12345", "tvdb");
@@ -831,8 +834,8 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.mergeFromMatches(matches);
-        await rebuilder.mergeFromMatches(matches);
+        await rebuilder.merge(matches);
+        await rebuilder.merge(matches);
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -884,7 +887,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.mergeFromMatches(matches);
+        await rebuilder.merge(matches);
 
         const all = animeRepo.listAnime();
         expect(all).toHaveLength(1);
@@ -931,7 +934,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.mergeFromMatches(anidbMatches);
+        await rebuilder.merge(anidbMatches);
 
         expect(animeRepo.listAnime()).toHaveLength(1);
 
@@ -960,7 +963,7 @@ describe("AnimeRebuilder", () => {
           },
         ];
 
-        await rebuilder.mergeFromMatches(tvdbMatches);
+        await rebuilder.merge(tvdbMatches);
 
         const all = animeRepo.listAnime();
         expect(all).toHaveLength(1);
@@ -974,7 +977,7 @@ describe("AnimeRebuilder", () => {
     });
   });
 
-  describe("resolveAndMerge", () => {
+  describe("merge", () => {
     test("finds existing anime by anilistId from entry", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
@@ -984,20 +987,17 @@ describe("AnimeRebuilder", () => {
         const existingAnime = animeRepo.upsertAnime({ title: "Jujutsu Kaisen" });
         animeRepo.updateAnimeAnidbId(existingAnime.id, "al-456");
 
-        const result = await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-456",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
+        const result = await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-456",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+          },
+        ]);
 
         expect(result.animeIds).toHaveLength(1);
         const anime = animeRepo.getAnime(result.animeIds[0] as number);
@@ -1023,18 +1023,15 @@ describe("AnimeRebuilder", () => {
       try {
         const { rebuilder, animeRepo } = createRebuilder(db);
 
-        const result = await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
+        const result = await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+          },
+        ]);
 
         expect(result.animeIds).toHaveLength(1);
         const anime = animeRepo.getAnime(result.animeIds[0] as number);
@@ -1051,23 +1048,20 @@ describe("AnimeRebuilder", () => {
       try {
         const { rebuilder, animeRepo, episodeRepo, groupRepo } = createRebuilder(db);
 
-        const result = await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-new",
-              season: 1,
-              episodes: [
-                { episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" },
-                { episode: 2, filePath: "/media/S01E02.mkv", title: "Cursed Womb Must Die" },
-              ],
-            },
-          ],
-          source: "tvdb",
-        });
+        const result = await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-new",
+            season: 1,
+            episodes: [
+              { episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" },
+              { episode: 2, filePath: "/media/S01E02.mkv", title: "Cursed Womb Must Die" },
+            ],
+          },
+        ]);
 
         expect(result.animeIds).toHaveLength(1);
         const anime = animeRepo.getAnime(result.animeIds[0] as number);
@@ -1093,20 +1087,17 @@ describe("AnimeRebuilder", () => {
         const existingAnime = animeRepo.upsertAnime({ title: "Jujutsu Kaisen" });
         animeRepo.updateAnimeAnidbId(existingAnime.id, "al-shared");
 
-        const result = await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-shared",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
+        const result = await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-shared",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+          },
+        ]);
 
         expect(result.animeIds).toHaveLength(1);
         expect(result.animeIds[0]).toBe(existingAnime.id);
@@ -1126,29 +1117,26 @@ describe("AnimeRebuilder", () => {
       try {
         const { rebuilder, groupRepo } = createRebuilder(db);
 
-        const result = await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-groups",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ep 1" }],
-            },
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-groups",
-              season: 2,
-              episodes: [{ episode: 1, filePath: "/media/S02E01.mkv", title: "Ep 1" }],
-            },
-          ],
-          source: "tvdb",
-        });
+        const result = await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-groups",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ep 1" }],
+          },
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-groups",
+            season: 2,
+            episodes: [{ episode: 1, filePath: "/media/S02E01.mkv", title: "Ep 1" }],
+          },
+        ]);
 
         const groups = groupRepo.getEpisodeGroupsByAnimeId(result.animeIds[0] as number);
         expect(groups).toHaveLength(2);
@@ -1181,20 +1169,17 @@ describe("AnimeRebuilder", () => {
           externalId: "mal-entry-1",
         });
 
-        await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-tracker",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
+        await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-tracker",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+          },
+        ]);
 
         const groups = groupRepo.getEpisodeGroupsByAnimeId(existingAnime.id);
         expect(groups).toHaveLength(1);
@@ -1225,20 +1210,17 @@ describe("AnimeRebuilder", () => {
           watchStatus: "completed",
         });
 
-        await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-status",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
+        await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-status",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+          },
+        ]);
 
         const updatedGroup = groupRepo.getEpisodeGroup(existingGroup.id);
         expect(updatedGroup?.watchStatus).toBe("completed");
@@ -1264,20 +1246,17 @@ describe("AnimeRebuilder", () => {
           watchStatus: "plan_to_watch",
         });
 
-        await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-cleanup",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
+        await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-cleanup",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+          },
+        ]);
 
         const deletedGroup = groupRepo.getEpisodeGroup(emptyGroup.id);
         expect(deletedGroup).toBeNull();
@@ -1312,20 +1291,17 @@ describe("AnimeRebuilder", () => {
           externalId: "mal-ova-1",
         });
 
-        await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-preserve",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
+        await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-preserve",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+          },
+        ]);
 
         const preservedGroup = groupRepo.getEpisodeGroup(trackedGroup.id);
         expect(preservedGroup).not.toBeNull();
@@ -1355,20 +1331,17 @@ describe("AnimeRebuilder", () => {
           watchStatus: "watching",
         });
 
-        await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-nondefault",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-          ],
-          source: "tvdb",
-        });
+        await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-nondefault",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+          },
+        ]);
 
         const preservedGroup = groupRepo.getEpisodeGroup(statusGroup.id);
         expect(preservedGroup).not.toBeNull();
@@ -1388,19 +1361,16 @@ describe("AnimeRebuilder", () => {
         const existingAnime = animeRepo.upsertAnime({ title: "Jujutsu Kaisen" });
         animeRepo.updateAnimeAnidbId(existingAnime.id, "al-import");
 
-        const result = await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "import",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              sourceId: "tracker-123",
-              watchStatus: "completed",
-            },
-          ],
-          source: "anilist",
-        });
+        const result = await rebuilder.merge([
+          {
+            kind: "import",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            sourceId: "tracker-123",
+            watchStatus: "completed",
+          },
+        ]);
 
         expect(result.animeIds).toHaveLength(1);
         const anime = animeRepo.getAnime(result.animeIds[0] as number);
@@ -1429,28 +1399,25 @@ describe("AnimeRebuilder", () => {
         const existingAnime = animeRepo.upsertAnime({ title: "Jujutsu Kaisen" });
         animeRepo.updateAnimeAnidbId(existingAnime.id, "al-shared-entry");
 
-        const result = await rebuilder.resolveAndMerge({
-          entries: [
-            {
-              kind: "scan",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              externalId: "al-shared-entry",
-              season: 1,
-              episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
-            },
-            {
-              kind: "import",
-              title: "Jujutsu Kaisen",
-              entryType: "tv",
-              source: "anilist",
-              sourceId: "tracker-456",
-              watchStatus: "watching",
-            },
-          ],
-          source: "tvdb",
-        });
+        const result = await rebuilder.merge([
+          {
+            kind: "scan",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            externalId: "al-shared-entry",
+            season: 1,
+            episodes: [{ episode: 1, filePath: "/media/S01E01.mkv", title: "Ryomen Sukuna" }],
+          },
+          {
+            kind: "import",
+            title: "Jujutsu Kaisen",
+            entryType: "tv",
+            source: "anilist",
+            sourceId: "tracker-456",
+            watchStatus: "watching",
+          },
+        ]);
 
         expect(result.animeIds).toHaveLength(1);
         const anime = animeRepo.getAnime(result.animeIds[0] as number);
@@ -1629,7 +1596,7 @@ describe("AnimeRebuilder", () => {
     });
   });
 
-  describe("rebuildWithTrackers", () => {
+  describe("rebuild with trackers", () => {
     test("throws when importFromTracker dependency is not provided", async () => {
       const { db, sqlite } = createLibraryDb();
       const { sqlite: evtSqlite } = createEventDb();
@@ -1645,8 +1612,8 @@ describe("AnimeRebuilder", () => {
         });
 
         await expect(
-          rebuilder.rebuildWithTrackers([{ plugin: createMockTracker(), source: "anilist" }]),
-        ).rejects.toThrow("importFromTracker dependency required for rebuildWithTrackers");
+          rebuilder.rebuild({ trackers: [{ plugin: createMockTracker(), source: "anilist" }] }),
+        ).rejects.toThrow("importFromTracker dependency required for rebuild with trackers");
       } finally {
         sqlite.close();
         evtSqlite.close();
@@ -1698,10 +1665,12 @@ describe("AnimeRebuilder", () => {
           getUserList: async () => [],
         });
 
-        await rebuilder.rebuildWithTrackers([
-          { plugin: tracker, source: "anilist" },
-          { plugin: tracker, source: "mal" },
-        ]);
+        await rebuilder.rebuild({
+          trackers: [
+            { plugin: tracker, source: "anilist" },
+            { plugin: tracker, source: "mal" },
+          ],
+        });
 
         expect(importCalls).toHaveLength(2);
         expect(importCalls[0]?.source).toBe("anilist");
@@ -1763,7 +1732,7 @@ describe("AnimeRebuilder", () => {
           getUserList: async () => [],
         });
 
-        await rebuilder.rebuildWithTrackers([{ plugin: tracker, source: "anilist" }]);
+        await rebuilder.rebuild({ trackers: [{ plugin: tracker, source: "anilist" }] });
 
         expect(importCalled).toBe(true);
 

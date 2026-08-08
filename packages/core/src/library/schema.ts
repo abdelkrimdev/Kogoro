@@ -109,8 +109,14 @@ export function createLibraryRepos(
   groupRepo: GroupRepository;
   franchiseRepo: FranchiseRepository;
 } {
+  const createTransactionRepos = (txDb: LibraryDb) => ({
+    anime: new AnimeRepository({ db: txDb }),
+    episodes: new EpisodeRepository({ db: txDb, events }),
+    groups: new GroupRepository({ db: txDb, events }),
+  });
+
   return {
-    animeRepo: new AnimeRepository({ db }),
+    animeRepo: new AnimeRepository({ db, createTransactionRepos }),
     episodeRepo: new EpisodeRepository({ db, events }),
     groupRepo: new GroupRepository({ db, events }),
     franchiseRepo: new FranchiseRepository({ db }),

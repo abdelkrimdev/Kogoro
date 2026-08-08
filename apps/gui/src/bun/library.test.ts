@@ -254,7 +254,7 @@ describe("mergeMatches", () => {
         groupRepo,
       });
 
-      await rebuilder.mergeFromMatches([
+      await rebuilder.merge([
         {
           animeId: "tvdb-12345",
           animeTitle: "My Anime",

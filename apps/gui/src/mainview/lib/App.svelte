@@ -3,6 +3,7 @@
   import { Sun, Moon, PanelLeftClose, PanelLeftOpen, TriangleAlert } from '@lucide/svelte';
   import { Navigation } from '@skeletonlabs/skeleton-svelte';
   import { onMount } from 'svelte';
+  import type { SyncConflictInfo } from "../../shared/types";
   import { createRPCThemeState, applyThemeToDocument } from "../state/theme-state";
   import {
     createInitialSnapshot,
@@ -83,7 +84,7 @@
   let currentDetailId = $state<string | null>(null);
   let importPreviewTracker = $state<string | null>(null);
   let importPreviewDisplayName = $state<string>("");
-  let syncConflictsData = $state<import("../../shared/types").SyncConflictInfo[]>([]);
+  let syncConflictsData = $state<SyncConflictInfo[]>([]);
   let isLoading = $state(true);
   let incompleteConfig = $state<{ incomplete: boolean; missingKey?: string } | null>(null);
   let keyringResult = $state<KeyringCheckResult | null>(null);
@@ -134,7 +135,7 @@
     currentView = "settings";
   }
 
-  function onOpenSyncConflicts(conflicts: import("../../shared/types").SyncConflictInfo[]) {
+  function onOpenSyncConflicts(conflicts: SyncConflictInfo[]) {
     syncConflictsData = conflicts;
     currentView = "sync-conflicts";
   }

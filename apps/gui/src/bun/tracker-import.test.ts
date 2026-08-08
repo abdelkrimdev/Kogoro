@@ -51,7 +51,7 @@ describe("TrackerImportHandlers", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
@@ -82,7 +82,7 @@ describe("TrackerImportHandlers", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
         const handlers = createTrackerImportHandlers({
           animeImporter: importer,
@@ -112,7 +112,7 @@ describe("TrackerImportHandlers", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const listData = {
@@ -222,7 +222,7 @@ describe("TrackerImportHandlers", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         await withMockFetch(mockAnilistFetch() as unknown as typeof fetch, async () => {
@@ -253,7 +253,7 @@ describe("TrackerImportHandlers", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
         const handlers = createTrackerImportHandlers({
           animeImporter: importer,
@@ -283,7 +283,7 @@ describe("TrackerImportHandlers", () => {
           groups: groupRepo,
           identityResolver: createMockIdentityResolver(),
           resolveTitleToAnidb: async () => null,
-          resolveAndMerge: async () => ({ animeIds: [] }),
+          merge: async () => ({ animeIds: [] }),
         });
 
         const listData = {
